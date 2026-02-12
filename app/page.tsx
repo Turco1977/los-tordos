@@ -7,6 +7,18 @@ import type { Profile, Task, TaskMessage, OrgMember as OrgMemberType, Milestone,
 const supabase = createClient();
 const TODAY = new Date().toISOString().slice(0,10);
 
+function useMobile(bp=768){
+  const [mob,sMob]=useState(false);
+  useEffect(()=>{
+    const mq=window.matchMedia(`(max-width:${bp}px)`);
+    sMob(mq.matches);
+    const h=(e:any)=>sMob(e.matches);
+    mq.addEventListener("change",h);
+    return()=>mq.removeEventListener("change",h);
+  },[bp]);
+  return mob;
+}
+
 /* Helper: map DB profile to legacy shape used by components */
 const profileToUser = (p: Profile) => ({ id: p.id, n: p.first_name, a: p.last_name, role: p.role, dId: p.dept_id, div: p.division, mail: p.email, tel: p.phone });
 const taskFromDB = (t: Task, msgs: TaskMessage[]) => ({ id: t.id, div: t.division, cId: t.creator_id, cN: t.creator_name, dId: t.dept_id, tipo: t.tipo, desc: t.description, fReq: t.due_date, urg: t.urgency, st: t.status, asTo: t.assigned_to, rG: t.requires_expense, eOk: t.expense_ok, resp: t.resolution, cAt: t.created_at, monto: t.amount, log: msgs.map(m => ({ dt: m.created_at || "", uid: m.user_id, by: m.user_name, act: m.content, t: m.type })) });
@@ -64,10 +76,10 @@ function ChangePw({onX}:{onX:()=>void}){
 }
 
 /* ── LOGIN ── */
-function Login({onLogin}:{onLogin:(user:any)=>void}){
+function Login({onLogin,mob}:{onLogin:(user:any)=>void;mob?:boolean}){
   const [email,sEmail]=useState("");const [pw,sPw]=useState("");const [err,sErr]=useState("");const [loading,sLoading]=useState(false);
-  const bg={minHeight:"100vh",background:"linear-gradient(160deg,"+T.nv+","+T.rd+")",display:"flex" as const,alignItems:"center" as const,justifyContent:"center" as const,padding:20};
-  const logo=<><img src="/logo.jpg" alt="Los Tordos Rugby Club" style={{width:120,height:120,objectFit:"contain",margin:"0 auto 18px",display:"block"}}/><h1 style={{color:"#fff",fontSize:30,margin:"0 0 4px",fontWeight:800,letterSpacing:1}}>Los Tordos Rugby Club</h1><p style={{color:"rgba(255,255,255,.6)",fontSize:14,margin:"0 0 32px",fontWeight:500}}>Sistema de Gestión</p></>;
+  const bg={minHeight:"100vh",background:"linear-gradient(160deg,"+T.nv+","+T.rd+")",display:"flex" as const,alignItems:"center" as const,justifyContent:"center" as const,padding:mob?12:20};
+  const logo=<><img src="/logo.jpg" alt="Los Tordos Rugby Club" style={{width:mob?80:120,height:mob?80:120,objectFit:"contain",margin:"0 auto 18px",display:"block"}}/><h1 style={{color:"#fff",fontSize:mob?22:30,margin:"0 0 4px",fontWeight:800,letterSpacing:1}}>Los Tordos Rugby Club</h1><p style={{color:"rgba(255,255,255,.6)",fontSize:mob?12:14,margin:"0 0 32px",fontWeight:500}}>Sistema de Gestión</p></>;
   const submit=async(e:any)=>{e.preventDefault();sErr("");sLoading(true);
     const{error}=await supabase.auth.signInWithPassword({email,password:pw});
     if(error){sErr(error.message);sLoading(false);return;}
@@ -129,7 +141,7 @@ function Thread({log,userId,onSend}:{log:any[];userId:string;onSend:any}){
 }
 
 /* ── DETAIL MODAL ── */
-function Det({p,user,users,onX,onTk,onAs,onRe,onSE,onEO,onFi,onVa,onMsg,onMonto,onDel,onEditSave}:any){
+function Det({p,user,users,onX,onTk,onAs,onRe,onSE,onEO,onFi,onVa,onMsg,onMonto,onDel,onEditSave,mob}:any){
   const [at,sAt]=useState("");const [mt,sMt]=useState(p.monto||"");const [tab,sTab]=useState("chat");const [rp,sRp]=useState(p.resp||"");
   const [editing,sEditing]=useState(false);const [ef,sEf]=useState({tipo:p.tipo,desc:p.desc,fReq:p.fReq,urg:p.urg,div:p.div||"",rG:p.rG});
   const ag=users.find((u:any)=>u.id===p.asTo),isCo=["coordinador","admin","superadmin"].indexOf(user.role)>=0,isEm=user.role==="embudo",isM=p.asTo===user.id,isCr=p.cId===user.id;
@@ -139,8 +151,8 @@ function Det({p,user,users,onX,onTk,onAs,onRe,onSE,onEO,onFi,onVa,onMsg,onMonto,
   const od=p.st!==ST.OK&&isOD(p.fReq);
   const msgs=(p.log||[]).filter((l:any)=>l.t==="msg").length;
 
-  return(<div style={{position:"fixed" as const,inset:0,background:"rgba(10,22,40,.6)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,padding:12}} onClick={onX}>
-    <div onClick={(e:any)=>e.stopPropagation()} style={{background:"#fff",borderRadius:14,maxWidth:640,width:"100%",height:"85vh",display:"flex",flexDirection:"column" as const,overflow:"hidden"}}>
+  return(<div style={{position:"fixed" as const,inset:0,background:"rgba(10,22,40,.6)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,padding:mob?0:12}} onClick={onX}>
+    <div onClick={(e:any)=>e.stopPropagation()} style={{background:"#fff",borderRadius:mob?0:14,maxWidth:mob?undefined:640,width:"100%",height:mob?"100vh":"85vh",display:"flex",flexDirection:"column" as const,overflow:"hidden"}}>
       <div style={{padding:"16px 20px 12px",borderBottom:"1px solid "+T.g2,flexShrink:0}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"start"}}>
           <div><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:10,color:T.g4}}>#{p.id}</span><Badge s={p.st} sm/>{od&&<span style={{fontSize:10,color:"#DC2626",fontWeight:700}}>⏰ VENCIDA</span>}{p.urg==="Urgente"&&<span style={{fontSize:10,color:T.rd,fontWeight:700}}>🔥 URGENTE</span>}</div><h2 style={{margin:"4px 0 0",fontSize:15,color:T.nv,fontWeight:800}}>{p.tipo}: {p.desc.slice(0,60)}</h2></div>
@@ -159,7 +171,7 @@ function Det({p,user,users,onX,onTk,onAs,onRe,onSE,onEO,onFi,onVa,onMsg,onMonto,
           <div style={{padding:10,background:"#FFFBEB",borderRadius:8,border:"1px solid #FDE68A"}}><span style={{fontSize:11,fontWeight:700,color:"#92400E"}}>👑 Edición Super Admin</span></div>
           <div><label style={{fontSize:11,fontWeight:600,color:T.g5}}>Tipo</label><div style={{display:"flex",flexWrap:"wrap" as const,gap:4,marginTop:3}}>{TIPOS.map(t=><button key={t} onClick={()=>sEf(prev=>({...prev,tipo:t}))} style={{padding:"4px 10px",borderRadius:16,fontSize:10,border:ef.tipo===t?"2px solid "+T.nv:"1px solid "+T.g3,background:ef.tipo===t?T.nv:"#fff",color:ef.tipo===t?"#fff":T.g5,cursor:"pointer"}}>{t}</button>)}</div></div>
           <div><label style={{fontSize:11,fontWeight:600,color:T.g5}}>Descripción</label><textarea value={ef.desc} onChange={e=>sEf(prev=>({...prev,desc:e.target.value}))} rows={3} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,resize:"vertical" as const,boxSizing:"border-box" as const,marginTop:3}}/></div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+          <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8}}>
             <div><label style={{fontSize:11,fontWeight:600,color:T.g5}}>División</label><input value={ef.div} onChange={e=>sEf(prev=>({...prev,div:e.target.value}))} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:3}}/></div>
             <div><label style={{fontSize:11,fontWeight:600,color:T.g5}}>Fecha límite</label><input type="date" value={ef.fReq} onChange={e=>sEf(prev=>({...prev,fReq:e.target.value}))} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:3}}/></div>
           </div>
@@ -167,7 +179,7 @@ function Det({p,user,users,onX,onTk,onAs,onRe,onSE,onEO,onFi,onVa,onMsg,onMonto,
           <div style={{display:"flex",gap:4,justifyContent:"flex-end",marginTop:4}}><Btn v="g" onClick={()=>{sEditing(false);sTab("info");}}>Cancelar</Btn><Btn v="p" onClick={()=>{onEditSave(p.id,ef);sEditing(false);sTab("info");}}>💾 Guardar cambios</Btn></div>
         </div>}
         {tab==="info"&&<div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+          <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:10,marginBottom:12}}>
             {[["DIVISIÓN",p.div||"–"],["SOLICITANTE",p.cN],["TIPO",p.tipo],["URGENCIA",p.urg],["FECHA LÍMITE",p.fReq],["CREADO",p.cAt],["REQUIERE GASTO",p.rG?"Sí 💰":"No"],["MONTO",p.monto?"$"+p.monto.toLocaleString():"–"]].map(([l,v],i)=>
               <div key={i}><div style={{fontSize:9,color:T.g4,fontWeight:700}}>{l}</div><div style={{fontSize:12,color:T.nv}}>{v}</div></div>
             )}
@@ -204,7 +216,7 @@ function Det({p,user,users,onX,onTk,onAs,onRe,onSE,onEO,onFi,onVa,onMsg,onMonto,
 }
 
 /* ── MY DASHBOARD ── */
-function MyDash({user,peds,users,onSel}:any){
+function MyDash({user,peds,users,onSel,mob}:any){
   const [tab,sTab]=useState("active");
   const isEnl=user.role==="enlace"||user.role==="manager";
   const myPeds=peds.filter((p:any)=>{if(isEnl)return p.cId===user.id;return p.asTo===user.id;});
@@ -213,8 +225,8 @@ function MyDash({user,peds,users,onSel}:any){
   const overdue=active.filter((p:any)=>isOD(p.fReq));
   const vis=tab==="active"?active:done;
   return(<div style={{maxWidth:720}}>
-    <div style={{display:"flex",gap:16,alignItems:"center",marginBottom:20}}>
-      <Ring pct={pct} color={pct>=80?T.gn:pct>=40?T.yl:T.rd} size={90} icon={isEnl?"🔗":"👤"}/>
+    <div style={{display:"flex",gap:mob?10:16,alignItems:"center",marginBottom:mob?14:20}}>
+      <Ring pct={pct} color={pct>=80?T.gn:pct>=40?T.yl:T.rd} size={mob?70:90} icon={isEnl?"🔗":"👤"}/>
       <div style={{flex:1}}><h2 style={{margin:0,fontSize:20,color:T.nv,fontWeight:800}}>{isEnl?"Mis Pedidos":"Mis Tareas"}</h2><div style={{fontSize:12,color:T.g5}}>{fn(user)}{user.div?" · "+user.div:""}</div><div style={{display:"flex",gap:12,marginTop:8,fontSize:12}}><span style={{fontWeight:700,color:T.nv}}>{total} total</span><span style={{fontWeight:700,color:T.gn}}>✅ {okC}</span><span style={{fontWeight:700,color:T.yl}}>🟡 {active.length}</span>{overdue.length>0&&<span style={{fontWeight:700,color:"#DC2626"}}>⏰ {overdue.length}</span>}</div></div>
     </div>
     <div style={{display:"flex",gap:4,marginBottom:14}}>
@@ -235,72 +247,88 @@ function MyDash({user,peds,users,onSel}:any){
 }
 
 /* ── SIDEBAR ── */
-function SB({areas,deptos,pedidos,aA,aD,onAC,onDC,col,onCol,isPersonal}:any){
+function SB({areas,deptos,pedidos,aA,aD,onAC,onDC,col,onCol,isPersonal,mob,sbOpen,onClose}:any){
+  const sbContent=(<div style={{flex:1,overflowY:"auto" as const,padding:"8px 6px"}}>
+    {!isPersonal&&areas.map((ar:any)=>{const ds=deptos.filter((d:any)=>d.aId===ar.id),ids=ds.map((d:any)=>d.id),ap=pedidos.filter((p:any)=>ids.indexOf(p.dId)>=0),pe=ap.filter((p:any)=>p.st===ST.P).length,cu=ap.filter((p:any)=>[ST.C,ST.E,ST.V].indexOf(p.st)>=0).length,ok=ap.filter((p:any)=>p.st===ST.OK).length;
+      return(<div key={ar.id} style={{marginBottom:4}}><div onClick={()=>{onAC(ar.id);if(mob)onClose();}} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 8px",borderRadius:7,cursor:"pointer",background:aA===ar.id?"rgba(255,255,255,.1)":"transparent",borderLeft:"3px solid "+ar.color}}><span style={{fontSize:11,fontWeight:600}}>{ar.icon} {ar.name}</span><div style={{display:"flex",gap:4,fontSize:9}}>{pe>0&&<span style={{color:T.rd}}>🔴{pe}</span>}{cu>0&&<span style={{color:T.yl}}>🟡{cu}</span>}{ok>0&&<span style={{color:T.gn}}>🟢{ok}</span>}</div></div>
+        {aA===ar.id&&<div style={{marginTop:2}}>{ds.map((d:any)=>{const dc=pedidos.filter((p:any)=>p.dId===d.id).length;return(<div key={d.id} onClick={()=>{onDC(d.id);if(mob)onClose();}} style={{marginLeft:14,padding:"4px 8px",borderRadius:5,cursor:"pointer",background:aD===d.id?"rgba(255,255,255,.14)":"transparent",fontSize:10,color:aD===d.id?"#fff":"rgba(255,255,255,.45)",fontWeight:aD===d.id?600:400,display:"flex",justifyContent:"space-between"}}><span>📂 {d.name}</span>{dc>0&&<span style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"0 5px",fontSize:9}}>{dc}</span>}</div>);})}</div>}
+      </div>);
+    })}
+    <div style={{marginTop:10,padding:8,background:"rgba(255,255,255,.04)",borderRadius:7}}>
+      <div style={{fontSize:9,fontWeight:700,color:T.g4,textTransform:"uppercase" as const,marginBottom:4}}>Global</div>
+      {Object.keys(SC).map(k=><div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:10,padding:"1px 0"}}><span style={{color:"rgba(255,255,255,.45)"}}>{SC[k].i} {SC[k].l}</span><span style={{fontWeight:700,color:SC[k].c}}>{pedidos.filter((p:any)=>p.st===k).length}</span></div>)}
+    </div>
+  </div>);
+  if(mob){
+    if(!sbOpen) return null;
+    return(<><div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:99}}/><div style={{position:"fixed",top:0,left:0,bottom:0,width:260,background:T.nv,color:"#fff",display:"flex",flexDirection:"column" as const,zIndex:100,boxShadow:"4px 0 20px rgba(0,0,0,.3)"}}>
+      <div style={{padding:"14px 12px",borderBottom:"1px solid rgba(255,255,255,.08)",display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:16}}>🏉</span><span style={{fontSize:13,fontWeight:800}}>LOS TORDOS</span></div><div style={{fontSize:9,color:T.g4,letterSpacing:1,textTransform:"uppercase" as const,marginTop:2}}>Panel de Control</div></div><button onClick={onClose} style={{background:"none",border:"none",color:"#fff",fontSize:18,cursor:"pointer"}}>✕</button></div>
+      {sbContent}
+    </div></>);
+  }
   if(col) return(<div style={{width:48,minWidth:48,background:T.nv,display:"flex",flexDirection:"column" as const,alignItems:"center",paddingTop:10}}><button onClick={onCol} style={{background:"none",border:"none",color:"#fff",fontSize:18,cursor:"pointer",marginBottom:14}}>☰</button><span style={{fontSize:14}}>🏉</span></div>);
   return(
     <div style={{width:250,minWidth:250,background:T.nv,color:"#fff",display:"flex",flexDirection:"column" as const}}>
       <div style={{padding:"14px 12px",borderBottom:"1px solid rgba(255,255,255,.08)",display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:16}}>🏉</span><span style={{fontSize:13,fontWeight:800}}>LOS TORDOS</span></div><div style={{fontSize:9,color:T.g4,letterSpacing:1,textTransform:"uppercase" as const,marginTop:2}}>Panel de Control</div></div><button onClick={onCol} style={{background:"none",border:"none",color:T.g4,fontSize:14,cursor:"pointer"}}>◀</button></div>
-      <div style={{flex:1,overflowY:"auto" as const,padding:"8px 6px"}}>
-        {!isPersonal&&areas.map((ar:any)=>{const ds=deptos.filter((d:any)=>d.aId===ar.id),ids=ds.map((d:any)=>d.id),ap=pedidos.filter((p:any)=>ids.indexOf(p.dId)>=0),pe=ap.filter((p:any)=>p.st===ST.P).length,cu=ap.filter((p:any)=>[ST.C,ST.E,ST.V].indexOf(p.st)>=0).length,ok=ap.filter((p:any)=>p.st===ST.OK).length;
-          return(<div key={ar.id} style={{marginBottom:4}}><div onClick={()=>onAC(ar.id)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 8px",borderRadius:7,cursor:"pointer",background:aA===ar.id?"rgba(255,255,255,.1)":"transparent",borderLeft:"3px solid "+ar.color}}><span style={{fontSize:11,fontWeight:600}}>{ar.icon} {ar.name}</span><div style={{display:"flex",gap:4,fontSize:9}}>{pe>0&&<span style={{color:T.rd}}>🔴{pe}</span>}{cu>0&&<span style={{color:T.yl}}>🟡{cu}</span>}{ok>0&&<span style={{color:T.gn}}>🟢{ok}</span>}</div></div>
-            {aA===ar.id&&<div style={{marginTop:2}}>{ds.map((d:any)=>{const dc=pedidos.filter((p:any)=>p.dId===d.id).length;return(<div key={d.id} onClick={()=>onDC(d.id)} style={{marginLeft:14,padding:"4px 8px",borderRadius:5,cursor:"pointer",background:aD===d.id?"rgba(255,255,255,.14)":"transparent",fontSize:10,color:aD===d.id?"#fff":"rgba(255,255,255,.45)",fontWeight:aD===d.id?600:400,display:"flex",justifyContent:"space-between"}}><span>📂 {d.name}</span>{dc>0&&<span style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"0 5px",fontSize:9}}>{dc}</span>}</div>);})}</div>}
-          </div>);
-        })}
-        <div style={{marginTop:10,padding:8,background:"rgba(255,255,255,.04)",borderRadius:7}}>
-          <div style={{fontSize:9,fontWeight:700,color:T.g4,textTransform:"uppercase" as const,marginBottom:4}}>Global</div>
-          {Object.keys(SC).map(k=><div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:10,padding:"1px 0"}}><span style={{color:"rgba(255,255,255,.45)"}}>{SC[k].i} {SC[k].l}</span><span style={{fontWeight:700,color:SC[k].c}}>{pedidos.filter((p:any)=>p.st===k).length}</span></div>)}
-        </div>
-      </div>
+      {sbContent}
     </div>
   );
 }
 
 /* ── KPIs ── */
-function KPIs({peds}:{peds:any[]}){
+function KPIs({peds,mob}:{peds:any[];mob?:boolean}){
   const tot=peds.length,ok=peds.filter(p=>p.st===ST.OK).length,pe=peds.filter(p=>p.st===ST.P).length;
   const active=peds.filter(p=>p.st!==ST.OK),overdue=active.filter(p=>isOD(p.fReq)).length;
   const kpis=[{l:"Completadas",v:ok+"/"+tot,c:T.gn,i:"✅"},{l:"Pendientes",v:pe,c:T.rd,i:"🔴"},{l:"Vencidas",v:overdue,c:"#DC2626",i:"⏰"},{l:"Con Gasto",v:peds.filter(p=>p.monto).length,c:T.pr,i:"💰"}];
-  return(<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:10,marginBottom:18}}>{kpis.map((k,i)=>(<Card key={i} style={{padding:"10px 12px",borderTop:"3px solid "+k.c}}><div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:16}}>{k.i}</span><span style={{fontSize:17,fontWeight:800,color:k.c}}>{k.v}</span></div><div style={{fontSize:10,color:T.g4,marginTop:3}}>{k.l}</div></Card>))}</div>);
+  return(<div style={{display:"grid",gridTemplateColumns:mob?"repeat(auto-fit,minmax(80px,1fr))":"repeat(auto-fit,minmax(120px,1fr))",gap:mob?6:10,marginBottom:mob?12:18}}>{kpis.map((k,i)=>(<Card key={i} style={{padding:mob?"8px 8px":"10px 12px",borderTop:"3px solid "+k.c}}><div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:mob?14:16}}>{k.i}</span><span style={{fontSize:mob?14:17,fontWeight:800,color:k.c}}>{k.v}</span></div><div style={{fontSize:mob?9:10,color:T.g4,marginTop:3}}>{k.l}</div></Card>))}</div>);
 }
 
 /* ── CIRCLES ── */
-function Circles({areas,deptos,pedidos,onAC}:any){
-  return(<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:14}}>
+function Circles({areas,deptos,pedidos,onAC,mob}:any){
+  return(<div style={{display:"grid",gridTemplateColumns:mob?"repeat(auto-fit,minmax(140px,1fr))":"repeat(auto-fit,minmax(180px,1fr))",gap:mob?8:14}}>
     {areas.map((ar:any)=>{const ids=deptos.filter((d:any)=>d.aId===ar.id).map((d:any)=>d.id),ap=pedidos.filter((p:any)=>ids.indexOf(p.dId)>=0),tot=ap.length,ok=ap.filter((p:any)=>p.st===ST.OK).length,pe=ap.filter((p:any)=>p.st===ST.P).length,cu=ap.filter((p:any)=>[ST.C,ST.E,ST.V].indexOf(p.st)>=0).length,pct=tot?Math.round(ok/tot*100):0;
       return(<div key={ar.id} onClick={()=>onAC(ar.id)} style={{background:"#fff",borderRadius:16,padding:"20px 16px",textAlign:"center" as const,cursor:"pointer",border:"1px solid "+T.g2}}><Ring pct={pct} color={ar.color} size={100} icon={ar.icon}/><div style={{fontSize:14,fontWeight:700,color:T.nv,marginTop:6}}>{ar.name}</div><div style={{display:"flex",justifyContent:"center",gap:8,fontSize:11,marginTop:5}}><span style={{color:T.rd}}>🔴{pe}</span><span style={{color:T.yl}}>🟡{cu}</span><span style={{color:T.gn}}>🟢{ok}</span></div></div>);})}
   </div>);
 }
 
 /* ── TASK LIST ── */
-function TList({title,icon,color,peds,users,onSel,search}:any){
+function TList({title,icon,color,peds,users,onSel,search,mob}:any){
   const [f,sF]=useState("all");
   let v=f==="all"?peds:peds.filter((p:any)=>p.st===f);
   if(search){const s=search.toLowerCase();v=v.filter((p:any)=>(p.desc+p.cN+p.tipo+p.div+(p.id+"")).toLowerCase().includes(s));}
   return(<div>
-    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}><div style={{width:30,height:30,borderRadius:8,background:color+"15",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15}}>{icon}</div><div><h2 style={{margin:0,fontSize:16,color:T.nv,fontWeight:800}}>{title}</h2><p style={{margin:0,fontSize:11,color:T.g4}}>{v.length} tareas</p></div></div>
+    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}><div style={{width:30,height:30,borderRadius:8,background:color+"15",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15}}>{icon}</div><div><h2 style={{margin:0,fontSize:mob?14:16,color:T.nv,fontWeight:800}}>{title}</h2><p style={{margin:0,fontSize:11,color:T.g4}}>{v.length} tareas</p></div></div>
     <div style={{display:"flex",gap:4,marginBottom:10,flexWrap:"wrap" as const}}><Btn v={f==="all"?"p":"g"} s="s" onClick={()=>sF("all")}>Todos</Btn>{Object.keys(SC).map(k=><Btn key={k} v={f===k?"p":"g"} s="s" onClick={()=>sF(f===k?"all":k)}>{SC[k].i} {peds.filter((p:any)=>p.st===k).length}</Btn>)}</div>
-    <Card style={{padding:0,overflow:"hidden"}}><table style={{width:"100%",borderCollapse:"collapse" as const,fontSize:12}}><thead><tr style={{background:T.g1}}>{["#","Tipo","Solicitante","Fecha","Estado","Asignado"].map((h,i)=><th key={i} style={{padding:"7px 8px",textAlign:"left" as const,fontSize:10,color:T.g4,fontWeight:700}}>{h}</th>)}</tr></thead><tbody>
+    {mob?<div style={{display:"flex",flexDirection:"column" as const,gap:8}}>
+      {v.length===0&&<Card style={{textAlign:"center" as const,padding:24,color:T.g4}}>Sin tareas</Card>}
+      {v.map((p:any)=>{const ag=users.find((u:any)=>u.id===p.asTo),od=p.st!==ST.OK&&isOD(p.fReq);return(<Card key={p.id} onClick={()=>onSel(p)} style={{padding:"10px 14px",cursor:"pointer",borderLeft:"4px solid "+SC[p.st].c,background:od?"#FEF2F2":"#fff"}}>
+        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}><span style={{fontSize:10,fontWeight:600,color:T.nv}}>#{p.id}</span><Badge s={p.st} sm/>{od&&<span style={{fontSize:9,color:"#DC2626"}}>⏰</span>}{p.urg==="Urgente"&&<span style={{fontSize:9,color:T.rd}}>🔥</span>}</div>
+        <div style={{fontSize:12,fontWeight:700,color:T.nv,marginBottom:3}}>{p.desc}</div>
+        <div style={{fontSize:10,color:T.g5}}>{p.tipo} · 📅 {p.fReq}{ag?" · ⚙️ "+fn(ag):""}</div>
+      </Card>);})}
+    </div>
+    :<Card style={{padding:0,overflow:"hidden"}}><table style={{width:"100%",borderCollapse:"collapse" as const,fontSize:12}}><thead><tr style={{background:T.g1}}>{["#","Tipo","Solicitante","Fecha","Estado","Asignado"].map((h,i)=><th key={i} style={{padding:"7px 8px",textAlign:"left" as const,fontSize:10,color:T.g4,fontWeight:700}}>{h}</th>)}</tr></thead><tbody>
       {v.length===0&&<tr><td colSpan={6} style={{padding:28,textAlign:"center" as const,color:T.g4}}>Sin tareas</td></tr>}
       {v.map((p:any)=>{const ag=users.find((u:any)=>u.id===p.asTo),od=p.st!==ST.OK&&isOD(p.fReq);return(<tr key={p.id} onClick={()=>onSel(p)} style={{borderBottom:"1px solid "+T.g1,cursor:"pointer",background:od?"#FEF2F2":"transparent"}}><td style={{padding:"7px 8px",fontWeight:600,color:T.nv}}>{p.id}</td><td style={{padding:"7px 8px"}}>{p.tipo}</td><td style={{padding:"7px 8px",fontSize:11}}>{p.cN}</td><td style={{padding:"7px 8px",fontSize:11}}>{p.fReq}{od&&<span style={{marginLeft:4,fontSize:9,color:"#DC2626"}}>⏰</span>}</td><td style={{padding:"7px 8px"}}><Badge s={p.st} sm/></td><td style={{padding:"7px 8px",fontSize:11,color:T.g4}}>{ag?fn(ag):"–"}</td></tr>);})}
-    </tbody></table></Card>
+    </tbody></table></Card>}
   </div>);
 }
 
 /* ── ORGANIGRAMA ── */
-function OrgNode({icon,title,sub,color,children,cnt,ex,onTog}:any){return(<div style={{marginBottom:6}}><div onClick={onTog} style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",background:"#fff",borderRadius:10,border:"1px solid "+T.g2,cursor:"pointer",borderLeft:"4px solid "+color}}><span style={{fontSize:18}}>{icon}</span><div style={{flex:1}}><div style={{fontSize:13,fontWeight:700,color:T.nv}}>{title}</div>{sub&&<div style={{fontSize:10,color:T.g4}}>{sub}</div>}</div>{cnt!==undefined&&<span style={{background:T.g1,borderRadius:12,padding:"1px 8px",fontSize:10,fontWeight:600,color:T.g5}}>{cnt}</span>}<span style={{fontSize:12,color:T.g4,transform:ex?"rotate(90deg)":"none",transition:"transform .2s"}}>▶</span></div>{ex&&<div style={{marginLeft:24,marginTop:4,borderLeft:"2px solid "+color+"22",paddingLeft:14}}>{children}</div>}</div>);}
+function OrgNode({icon,title,sub,color,children,cnt,ex,onTog,mob}:any){return(<div style={{marginBottom:6}}><div onClick={onTog} style={{display:"flex",alignItems:"center",gap:8,padding:mob?"8px 10px":"10px 14px",background:"#fff",borderRadius:10,border:"1px solid "+T.g2,cursor:"pointer",borderLeft:"4px solid "+color}}><span style={{fontSize:18}}>{icon}</span><div style={{flex:1}}><div style={{fontSize:13,fontWeight:700,color:T.nv}}>{title}</div>{sub&&<div style={{fontSize:10,color:T.g4}}>{sub}</div>}</div>{cnt!==undefined&&<span style={{background:T.g1,borderRadius:12,padding:"1px 8px",fontSize:10,fontWeight:600,color:T.g5}}>{cnt}</span>}<span style={{fontSize:12,color:T.g4,transform:ex?"rotate(90deg)":"none",transition:"transform .2s"}}>▶</span></div>{ex&&<div style={{marginLeft:mob?12:24,marginTop:4,borderLeft:"2px solid "+color+"22",paddingLeft:mob?8:14}}>{children}</div>}</div>);}
 
 function OrgMember({m,isSA,onEdit,onDel,onAssign}:any){const ok=m.n&&m.a;return(<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",background:ok?"#FAFAFA":T.g1,borderRadius:7,border:"1px solid "+T.g2,marginBottom:3}}><div><div style={{fontSize:9,fontWeight:700,color:T.rd,textTransform:"uppercase" as const}}>{m.cargo}</div>{ok?<div style={{fontSize:12,fontWeight:700,color:T.nv}}>{m.n} {m.a}</div>:<div style={{fontSize:11,color:T.g3,fontStyle:"italic"}}>Sin asignar</div>}</div><div style={{display:"flex",gap:3}}>{ok&&onAssign&&<span title="Asignar tarea"><Btn v="g" s="s" onClick={()=>onAssign(m)}>📋</Btn></span>}{isSA&&<Btn v="g" s="s" onClick={()=>onEdit(m)}>✏️</Btn>}{isSA&&<Btn v="g" s="s" onClick={()=>onDel&&onDel(m.id)} style={{color:T.rd}}>🗑️</Btn>}</div></div>);}
 
-function Org({areas,deptos,users,om,onEditSave,onDelOm,onDelUser,onEditUser,isSA,onAssignTask}:any){
+function Org({areas,deptos,users,om,onEditSave,onDelOm,onDelUser,onEditUser,isSA,onAssignTask,mob}:any){
   const [ex,sEx]=useState<any>({});const [ed,sEd]=useState<any>(null);const [ef,sEf]=useState({n:"",a:"",mail:"",tel:""});
   const tog=(k:string)=>sEx((p:any)=>({...p,[k]:!p[k]}));
   const findUser=(m:any)=>users.find((u:any)=>u.n===m.n&&u.a===m.a);
-  return(<div style={{maxWidth:680}}><h2 style={{margin:"0 0 4px",fontSize:19,color:T.nv,fontWeight:800}}>Organigrama</h2><p style={{color:T.g4,fontSize:12,margin:"0 0 18px"}}>Estructura institucional Los Tordos Rugby Club</p>
-    {ed&&<Card style={{marginBottom:12,maxWidth:400,background:"#FFFBEB",border:"1px solid #FDE68A"}}><div style={{fontSize:11,fontWeight:600,color:T.g5,marginBottom:6}}>Editando: {ed.cargo}</div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4,marginBottom:4}}><input value={ef.n} onChange={e=>sEf(p=>({...p,n:e.target.value}))} placeholder="Nombre" style={{padding:"6px 8px",borderRadius:6,border:"1px solid "+T.g3,fontSize:12}}/><input value={ef.a} onChange={e=>sEf(p=>({...p,a:e.target.value}))} placeholder="Apellido" style={{padding:"6px 8px",borderRadius:6,border:"1px solid "+T.g3,fontSize:12}}/></div><div style={{display:"flex",gap:4}}><Btn s="s" onClick={()=>{onEditSave(ed.id,ef);sEd(null);}}>Guardar</Btn><Btn v="g" s="s" onClick={()=>sEd(null)}>✕</Btn></div></Card>}
-    <OrgNode icon="🏛️" title="Comisión Directiva" color={T.nv} ex={!!ex.cd} onTog={()=>tog("cd")} cnt={om.filter((m:any)=>m.t==="cd"&&m.n).length+"/8"}>{om.filter((m:any)=>m.t==="cd").map((m:any)=><OrgMember key={m.id} m={m} isSA={isSA} onEdit={(mm:any)=>{sEd(mm);sEf({n:mm.n,a:mm.a,mail:mm.mail,tel:mm.tel});}} onDel={(id:string)=>onDelOm(id)} onAssign={(mm:any)=>{const u=findUser(mm);if(u)onAssignTask(u);}}/>)}</OrgNode>
-    <OrgNode icon="⚡" title="Secretaría Ejecutiva" sub="Depende de CD" color={T.rd} ex={!!ex.se} onTog={()=>tog("se")} cnt={om.filter((m:any)=>m.t==="se"&&m.n).length+"/5"}>{om.filter((m:any)=>m.t==="se").map((m:any)=><OrgMember key={m.id} m={m} isSA={isSA} onEdit={(mm:any)=>{sEd(mm);sEf({n:mm.n,a:mm.a,mail:mm.mail,tel:mm.tel});}} onDel={(id:string)=>onDelOm(id)} onAssign={(mm:any)=>{const u=findUser(mm);if(u)onAssignTask(u);}}/>)}</OrgNode>
-    <div style={{marginLeft:24,borderLeft:"2px solid "+T.rd+"22",paddingLeft:14}}>
-      {areas.filter((ar:any)=>ar.id!==100&&ar.id!==101).map((ar:any)=>{const ds=deptos.filter((d:any)=>d.aId===ar.id);const dsWithPeople=ds.filter((d:any)=>users.some((u:any)=>u.dId===d.id));return(<OrgNode key={ar.id} icon={ar.icon} title={ar.name} sub={dsWithPeople.length+" deptos"} color={ar.color} ex={!!ex["ar"+ar.id]} onTog={()=>tog("ar"+ar.id)} cnt={dsWithPeople.length}>{dsWithPeople.map((d:any)=>{const pp=users.filter((u:any)=>u.dId===d.id);const resp=pp.find((u:any)=>u.role==="coordinador")||pp.find((u:any)=>u.role==="admin")||pp[0];const others=pp.filter((u:any)=>u.id!==(resp?resp.id:""));return(<OrgNode key={d.id} icon="📂" title={d.name} color={ar.color} ex={!!ex["d"+d.id]} onTog={()=>tog("d"+d.id)} cnt={pp.length}>
+  return(<div style={{maxWidth:mob?undefined:680}}><h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:T.nv,fontWeight:800}}>Organigrama</h2><p style={{color:T.g4,fontSize:12,margin:"0 0 18px"}}>Estructura institucional Los Tordos Rugby Club</p>
+    {ed&&<Card style={{marginBottom:12,maxWidth:mob?undefined:400,background:"#FFFBEB",border:"1px solid #FDE68A"}}><div style={{fontSize:11,fontWeight:600,color:T.g5,marginBottom:6}}>Editando: {ed.cargo}</div><div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:4,marginBottom:4}}><input value={ef.n} onChange={e=>sEf(p=>({...p,n:e.target.value}))} placeholder="Nombre" style={{padding:"6px 8px",borderRadius:6,border:"1px solid "+T.g3,fontSize:12}}/><input value={ef.a} onChange={e=>sEf(p=>({...p,a:e.target.value}))} placeholder="Apellido" style={{padding:"6px 8px",borderRadius:6,border:"1px solid "+T.g3,fontSize:12}}/></div><div style={{display:"flex",gap:4}}><Btn s="s" onClick={()=>{onEditSave(ed.id,ef);sEd(null);}}>Guardar</Btn><Btn v="g" s="s" onClick={()=>sEd(null)}>✕</Btn></div></Card>}
+    <OrgNode mob={mob} icon="🏛️" title="Comisión Directiva" color={T.nv} ex={!!ex.cd} onTog={()=>tog("cd")} cnt={om.filter((m:any)=>m.t==="cd"&&m.n).length+"/8"}>{om.filter((m:any)=>m.t==="cd").map((m:any)=><OrgMember key={m.id} m={m} isSA={isSA} onEdit={(mm:any)=>{sEd(mm);sEf({n:mm.n,a:mm.a,mail:mm.mail,tel:mm.tel});}} onDel={(id:string)=>onDelOm(id)} onAssign={(mm:any)=>{const u=findUser(mm);if(u)onAssignTask(u);}}/>)}</OrgNode>
+    <OrgNode mob={mob} icon="⚡" title="Secretaría Ejecutiva" sub="Depende de CD" color={T.rd} ex={!!ex.se} onTog={()=>tog("se")} cnt={om.filter((m:any)=>m.t==="se"&&m.n).length+"/5"}>{om.filter((m:any)=>m.t==="se").map((m:any)=><OrgMember key={m.id} m={m} isSA={isSA} onEdit={(mm:any)=>{sEd(mm);sEf({n:mm.n,a:mm.a,mail:mm.mail,tel:mm.tel});}} onDel={(id:string)=>onDelOm(id)} onAssign={(mm:any)=>{const u=findUser(mm);if(u)onAssignTask(u);}}/>)}</OrgNode>
+    <div style={{marginLeft:mob?12:24,borderLeft:"2px solid "+T.rd+"22",paddingLeft:mob?8:14}}>
+      {areas.filter((ar:any)=>ar.id!==100&&ar.id!==101).map((ar:any)=>{const ds=deptos.filter((d:any)=>d.aId===ar.id);const dsWithPeople=ds.filter((d:any)=>users.some((u:any)=>u.dId===d.id));return(<OrgNode mob={mob} key={ar.id} icon={ar.icon} title={ar.name} sub={dsWithPeople.length+" deptos"} color={ar.color} ex={!!ex["ar"+ar.id]} onTog={()=>tog("ar"+ar.id)} cnt={dsWithPeople.length}>{dsWithPeople.map((d:any)=>{const pp=users.filter((u:any)=>u.dId===d.id);const resp=pp.find((u:any)=>u.role==="coordinador")||pp.find((u:any)=>u.role==="admin")||pp[0];const others=pp.filter((u:any)=>u.id!==(resp?resp.id:""));return(<OrgNode mob={mob} key={d.id} icon="📂" title={d.name} color={ar.color} ex={!!ex["d"+d.id]} onTog={()=>tog("d"+d.id)} cnt={pp.length}>
             {resp&&<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:6,padding:"6px 10px",background:"#FEE2E2",borderRadius:7,border:"1px solid #FECACA",marginBottom:4}}><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:10}}>⭐</span><div><div style={{fontSize:9,fontWeight:700,color:T.rd,textTransform:"uppercase" as const}}>Responsable</div><div style={{fontSize:12,fontWeight:700,color:T.nv}}>{fn(resp)}</div></div></div>{isSA&&<div style={{display:"flex",gap:3}}><Btn v="g" s="s" onClick={()=>onEditUser(resp)}>✏️</Btn><Btn v="g" s="s" onClick={()=>onDelUser(resp.id)} style={{color:T.rd}}>🗑️</Btn></div>}</div>}
             {others.map((u:any)=>(<div key={u.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:6,padding:"6px 10px",background:"#FAFAFA",borderRadius:7,border:"1px solid "+T.g2,marginBottom:3}}><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:10}}>👤</span><div><div style={{fontSize:9,fontWeight:700,color:T.rd,textTransform:"uppercase" as const}}>{u.div||ROLES[u.role]?.l||""}</div><div style={{fontSize:12,fontWeight:700,color:T.nv}}>{fn(u)}</div></div></div>{isSA&&<div style={{display:"flex",gap:3}}><Btn v="g" s="s" onClick={()=>onEditUser(u)}>✏️</Btn><Btn v="g" s="s" onClick={()=>onDelUser(u.id)} style={{color:T.rd}}>🗑️</Btn></div>}</div>))}
             {others.length===0&&!resp&&<div style={{fontSize:10,color:T.g4,fontStyle:"italic",padding:4}}>Sin integrantes</div>}
@@ -310,7 +338,7 @@ function Org({areas,deptos,users,om,onEditSave,onDelOm,onDelUser,onEditUser,isSA
 }
 
 /* ── NUEVO PEDIDO ── */
-function NP({user,users,deptos,areas,onSub,onX,preAssign}:any){
+function NP({user,users,deptos,areas,onSub,onX,preAssign,mob}:any){
   const isE=["enlace","manager","usuario","embudo"].indexOf(user.role)>=0;
   const isHigh=["superadmin","admin","coordinador"].indexOf(user.role)>=0;
   const [f,sF]=useState({aId:"",dId:isE?String(user.dId):"",div:isE?user.div:"",asTo:"",tipo:"",desc:"",fReq:"",urg:"Normal",rG:false});
@@ -320,14 +348,14 @@ function NP({user,users,deptos,areas,onSub,onX,preAssign}:any){
   const [atts,sAtts]=useState<{type:string;label:string;val:string}[]>([]);const [showAtt,sShowAtt]=useState(false);const [attType,sAttType]=useState("");const [attVal,sAttVal]=useState("");
   const attTypes=[{k:"link",l:"🔗 Link",ph:"https://..."},{k:"video",l:"🎬 Video",ph:"URL del video..."},{k:"foto",l:"📷 Foto",ph:"URL de la imagen..."},{k:"ubi",l:"📍 Ubicación",ph:"Dirección o link de Maps..."},{k:"doc",l:"📄 Documento",ph:"URL del documento..."}];
   const addAtt=()=>{if(attVal.trim()){const at=attTypes.find(a=>a.k===attType);sAtts(p=>[...p,{type:attType,label:at?at.l:"📎",val:attVal.trim()}]);sAttVal("");sAttType("");sShowAtt(false);}};
-  return(<Card style={{maxWidth:560}}>
-    <h2 style={{margin:"0 0 14px",fontSize:17,color:T.nv,fontWeight:800}}>🏉 Nueva Tarea</h2>
+  return(<Card style={{maxWidth:mob?undefined:560}}>
+    <h2 style={{margin:"0 0 14px",fontSize:mob?15:17,color:T.nv,fontWeight:800}}>🏉 Nueva Tarea</h2>
     {preAssign&&<div style={{padding:"8px 12px",background:"#EDE9FE",borderRadius:8,fontSize:12,marginBottom:12,display:"flex",alignItems:"center",gap:6}}>📋 <span style={{fontWeight:600,color:"#5B21B6"}}>Asignando a: {fn(preAssign)}</span>{preAssign.div&&<span style={{fontSize:10,color:T.g4}}>· {preAssign.div}</span>}</div>}
     {isE&&!preAssign&&<div style={{padding:"8px 12px",background:T.g1,borderRadius:8,fontSize:12,marginBottom:12}}>{fn(user)}{user.div?" · "+user.div:""}</div>}
-    {isHigh&&<><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}><div><label style={{fontSize:12,fontWeight:600,color:T.g5}}>Área</label><select value={f.aId} onChange={(e:any)=>{sF((p:any)=>({...p,aId:e.target.value,dId:""}));}} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,marginTop:3}}><option value="">Todas</option>{areas.map((a:any)=><option key={a.id} value={a.id}>{a.icon} {a.name}</option>)}</select></div><div><label style={{fontSize:12,fontWeight:600,color:T.g5}}>Departamento</label><select value={f.dId} onChange={(e:any)=>up("dId",e.target.value)} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,marginTop:3}}><option value="">General</option>{(selArea?deptos.filter((d:any)=>d.aId===selArea.id):deptos).map((d:any)=><option key={d.id} value={d.id}>{d.name}</option>)}</select></div></div><div style={{marginBottom:10}}><label style={{fontSize:12,fontWeight:600,color:T.g5}}>División</label><select value={f.div} onChange={(e:any)=>up("div",e.target.value)} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,marginTop:3}}><option value="">General</option>{DIV.map(d=><option key={d} value={d}>{d}</option>)}</select></div></>}
+    {isHigh&&<><div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8,marginBottom:10}}><div><label style={{fontSize:12,fontWeight:600,color:T.g5}}>Área</label><select value={f.aId} onChange={(e:any)=>{sF((p:any)=>({...p,aId:e.target.value,dId:""}));}} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,marginTop:3}}><option value="">Todas</option>{areas.map((a:any)=><option key={a.id} value={a.id}>{a.icon} {a.name}</option>)}</select></div><div><label style={{fontSize:12,fontWeight:600,color:T.g5}}>Departamento</label><select value={f.dId} onChange={(e:any)=>up("dId",e.target.value)} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,marginTop:3}}><option value="">General</option>{(selArea?deptos.filter((d:any)=>d.aId===selArea.id):deptos).map((d:any)=><option key={d.id} value={d.id}>{d.name}</option>)}</select></div></div><div style={{marginBottom:10}}><label style={{fontSize:12,fontWeight:600,color:T.g5}}>División</label><select value={f.div} onChange={(e:any)=>up("div",e.target.value)} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,marginTop:3}}><option value="">General</option>{DIV.map(d=><option key={d} value={d}>{d}</option>)}</select></div></>}
     <div style={{marginBottom:10}}><label style={{fontSize:12,fontWeight:600,color:T.g5}}>Tipo *</label><div style={{display:"flex",flexWrap:"wrap" as const,gap:4,marginTop:4}}>{TIPOS.map(t=><button key={t} onClick={()=>up("tipo",t)} style={{padding:"4px 12px",borderRadius:18,fontSize:11,border:f.tipo===t?"2px solid "+T.nv:"1px solid "+T.g3,background:f.tipo===t?T.nv:"#fff",color:f.tipo===t?"#fff":T.g5,cursor:"pointer"}}>{t}</button>)}</div></div>
     <div style={{marginBottom:10}}><label style={{fontSize:12,fontWeight:600,color:T.g5}}>Descripción *</label><textarea value={f.desc} onChange={(e:any)=>up("desc",e.target.value)} rows={3} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,resize:"vertical" as const,boxSizing:"border-box" as const,marginTop:3}}/></div>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}><div><label style={{fontSize:12,fontWeight:600,color:T.g5}}>Fecha límite *</label><input type="date" value={f.fReq} onChange={(e:any)=>up("fReq",e.target.value)} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:13,boxSizing:"border-box" as const,marginTop:3}}/></div><div><label style={{fontSize:12,fontWeight:600,color:T.g5}}>Urgencia</label><div style={{display:"flex",gap:4,marginTop:3}}>{["Normal","Urgente"].map(u=><button key={u} onClick={()=>up("urg",u)} style={{flex:1,padding:6,borderRadius:8,fontSize:11,fontWeight:600,border:f.urg===u?"2px solid "+T.nv:"1px solid "+T.g3,background:f.urg===u?T.nv+"15":"#fff",color:f.urg===u?T.nv:T.g4,cursor:"pointer"}}>{u}</button>)}</div></div></div>
+    <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8,marginBottom:10}}><div><label style={{fontSize:12,fontWeight:600,color:T.g5}}>Fecha límite *</label><input type="date" value={f.fReq} onChange={(e:any)=>up("fReq",e.target.value)} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:13,boxSizing:"border-box" as const,marginTop:3}}/></div><div><label style={{fontSize:12,fontWeight:600,color:T.g5}}>Urgencia</label><div style={{display:"flex",gap:4,marginTop:3}}>{["Normal","Urgente"].map(u=><button key={u} onClick={()=>up("urg",u)} style={{flex:1,padding:6,borderRadius:8,fontSize:11,fontWeight:600,border:f.urg===u?"2px solid "+T.nv:"1px solid "+T.g3,background:f.urg===u?T.nv+"15":"#fff",color:f.urg===u?T.nv:T.g4,cursor:"pointer"}}>{u}</button>)}</div></div></div>
     <div style={{marginBottom:12}}><label style={{display:"flex",alignItems:"center",gap:6,fontSize:12,cursor:"pointer"}}><input type="checkbox" checked={f.rG} onChange={(e:any)=>up("rG",e.target.checked)}/><span style={{fontWeight:600,color:T.g5}}>Requiere gasto 💰</span></label></div>
     <div style={{marginBottom:12}}>
       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><label style={{fontSize:12,fontWeight:600,color:T.g5}}>Adjuntos</label><button onClick={()=>{sShowAtt(!showAtt);sAttType("");sAttVal("");}} style={{width:28,height:28,borderRadius:14,background:showAtt?T.bl+"15":"#fff",border:"1px solid "+(showAtt?T.bl:T.g3),cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",color:showAtt?T.bl:T.g4,fontWeight:700}}>+</button></div>
@@ -353,7 +381,7 @@ function NP({user,users,deptos,areas,onSub,onX,preAssign}:any){
 function Proyecto({hitos,setHitos,isAd}:any){return(<div style={{maxWidth:700}}><h2 style={{margin:"0 0 4px",fontSize:19,color:T.nv,fontWeight:800}}>📋 Plan Maestro 2035</h2><p style={{color:T.g4,fontSize:12,margin:"0 0 18px"}}>Hitos de infraestructura</p>{hitos.map((h:any)=>(<Card key={h.id} style={{marginBottom:10,borderLeft:"4px solid "+h.color,display:"flex",gap:16,alignItems:"center"}}><Ring pct={h.pct} color={h.color} size={70}/><div style={{flex:1}}><div style={{fontSize:10,fontWeight:700,color:h.color,textTransform:"uppercase" as const}}>{h.fase} · {h.periodo}</div><div style={{fontSize:14,fontWeight:700,color:T.nv,margin:"3px 0"}}>{h.name}</div><div style={{height:4,background:T.g2,borderRadius:4,overflow:"hidden"}}><div style={{height:"100%",width:h.pct+"%",background:h.color,borderRadius:4}}/></div></div>{isAd&&<div style={{display:"flex",gap:3}}><Btn v="g" s="s" onClick={()=>setHitos((p:any)=>p.map((x:any)=>x.id===h.id?{...x,pct:Math.max(0,x.pct-5)}:x))}>−</Btn><Btn v="g" s="s" onClick={()=>setHitos((p:any)=>p.map((x:any)=>x.id===h.id?{...x,pct:Math.min(100,x.pct+5)}:x))}>+</Btn></div>}</Card>))}</div>);}
 
 /* ── PERFILES ── */
-function Profs({users,deptos,areas,onDel,onAdd,onEditUser,isAd,onAssignTask}:any){
+function Profs({users,deptos,areas,onDel,onAdd,onEditUser,isAd,onAssignTask,mob}:any){
   const [adding,sAdding]=useState(false);const [editing,sEditing]=useState<any>(null);
   const [nf,sNf]=useState({n:"",a:"",role:"usuario",dId:"",div:"",mail:"",tel:""});
   const [ef,sEf]=useState({n:"",a:"",role:"",dId:"",div:"",mail:"",tel:""});
@@ -365,15 +393,15 @@ function Profs({users,deptos,areas,onDel,onAdd,onEditUser,isAd,onAssignTask}:any
     </div>
     {adding&&<Card style={{marginBottom:14,background:"#F0FDF4",border:"1px solid #BBF7D0"}}>
       <div style={{fontSize:12,fontWeight:700,color:"#166534",marginBottom:10}}>➕ Nuevo perfil</div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+      <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8,marginBottom:8}}>
         <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Nombre *</label><input value={nf.n} onChange={e=>sNf(p=>({...p,n:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
         <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Apellido *</label><input value={nf.a} onChange={e=>sNf(p=>({...p,a:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+      <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8,marginBottom:8}}>
         <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Rol *</label><select value={nf.role} onChange={e=>sNf(p=>({...p,role:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,marginTop:2}}>{RK.map(k=><option key={k} value={k}>{ROLES[k].i} {ROLES[k].l}</option>)}</select></div>
         <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Departamento</label><select value={nf.dId} onChange={e=>sNf(p=>({...p,dId:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,marginTop:2}}><option value="">Seleccionar...</option>{deptos.map((d:any)=>{const ar=areas.find((a:any)=>a.id===d.aId);return <option key={d.id} value={d.id}>{ar?ar.icon+" ":""}{d.name}</option>;})}</select></div>
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:8}}>
+      <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr 1fr",gap:8,marginBottom:8}}>
         <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>División</label><input value={nf.div} onChange={e=>sNf(p=>({...p,div:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
         <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Email</label><input value={nf.mail} onChange={e=>sNf(p=>({...p,mail:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
         <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Teléfono</label><input value={nf.tel} onChange={e=>sNf(p=>({...p,tel:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
@@ -382,15 +410,15 @@ function Profs({users,deptos,areas,onDel,onAdd,onEditUser,isAd,onAssignTask}:any
     </Card>}
     {editing&&<Card style={{marginBottom:14,background:"#FFFBEB",border:"1px solid #FDE68A"}}>
       <div style={{fontSize:12,fontWeight:700,color:"#92400E",marginBottom:10}}>✏️ Editando: {ef.n} {ef.a}</div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+      <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8,marginBottom:8}}>
         <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Nombre</label><input value={ef.n} onChange={e=>sEf(p=>({...p,n:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
         <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Apellido</label><input value={ef.a} onChange={e=>sEf(p=>({...p,a:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+      <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8,marginBottom:8}}>
         <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Rol</label><select value={ef.role} onChange={e=>sEf(p=>({...p,role:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,marginTop:2}}>{RK.map(k=><option key={k} value={k}>{ROLES[k].i} {ROLES[k].l}</option>)}</select></div>
         <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Departamento</label><select value={ef.dId} onChange={e=>sEf(p=>({...p,dId:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,marginTop:2}}><option value="">Seleccionar...</option>{deptos.map((d:any)=>{const ar=areas.find((a:any)=>a.id===d.aId);return <option key={d.id} value={d.id}>{ar?ar.icon+" ":""}{d.name}</option>;})}</select></div>
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:8}}>
+      <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr 1fr",gap:8,marginBottom:8}}>
         <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>División</label><input value={ef.div} onChange={e=>sEf(p=>({...p,div:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
         <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Email</label><input value={ef.mail} onChange={e=>sEf(p=>({...p,mail:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
         <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Teléfono</label><input value={ef.tel} onChange={e=>sEf(p=>({...p,tel:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
@@ -402,7 +430,7 @@ function Profs({users,deptos,areas,onDel,onAdd,onEditUser,isAd,onAssignTask}:any
 }
 
 /* ── DEPARTAMENTOS ── */
-function Depts({areas,deptos,pedidos,users,onSel}:any){
+function Depts({areas,deptos,pedidos,users,onSel,mob}:any){
   const [selA,sSelA]=useState<number|null>(null);
   const [selD,sSelD]=useState<number|null>(null);
   const fDeptos=selA?deptos.filter((d:any)=>d.aId===selA):deptos;
@@ -412,7 +440,7 @@ function Depts({areas,deptos,pedidos,users,onSel}:any){
   if(selD&&selDepto){
     return(<div style={{maxWidth:720}}>
       <Btn v="g" s="s" onClick={()=>sSelD(null)} style={{marginBottom:12}}>← Volver a Departamentos</Btn>
-      <TList title={selDepto.name} icon="📂" color={selArea?selArea.color:T.nv} peds={dPeds} users={users} onSel={onSel} search=""/>
+      <TList title={selDepto.name} icon="📂" color={selArea?selArea.color:T.nv} peds={dPeds} users={users} onSel={onSel} search="" mob={mob}/>
     </div>);
   }
   return(<div style={{maxWidth:720}}>
@@ -439,7 +467,7 @@ function Depts({areas,deptos,pedidos,users,onSel}:any){
 }
 
 /* ── REUNIONES ── */
-function Reuniones({agendas,minutas,om,users,areas,onAddAg,onUpdAg,onAddMin,onUpdMin,onCreateTasks,user}:any){
+function Reuniones({agendas,minutas,om,users,areas,onAddAg,onUpdAg,onAddMin,onUpdMin,onCreateTasks,user,mob}:any){
   const [tab,sTab]=useState("cd");const [mode,sMode]=useState("home");const [selId,sSelId]=useState<number|null>(null);
   const [agDate,sAgDate]=useState(TODAY);const [agNotes,sAgNotes]=useState<string[]>([]);const [areaName,sAreaName]=useState("");
   const [miDate,sMiDate]=useState(TODAY);const [miHI,sMiHI]=useState("18:00");const [miHC,sMiHC]=useState("20:00");const [miLugar,sMiLugar]=useState("Club Los Tordos");
@@ -460,8 +488,8 @@ function Reuniones({agendas,minutas,om,users,areas,onAddAg,onUpdAg,onAddMin,onUp
       <div style={{fontSize:14,fontWeight:700,color:T.nv}}>{tmpl.icon} {tmpl.title}</div>
       <div style={{fontSize:11,color:T.g4}}>Periodicidad: {tmpl.per} · Duración: {tmpl.dur}</div>
     </Card>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:18}}>
-      <Card style={{padding:"18px 16px",cursor:"pointer",textAlign:"center" as const,border:"2px solid "+T.g2}} onClick={startNewAg}>
+    <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:10,marginBottom:18}}>
+      <Card style={{padding:mob?"14px 12px":"18px 16px",cursor:"pointer",textAlign:"center" as const,border:"2px solid "+T.g2}} onClick={startNewAg}>
         <span style={{fontSize:28}}>📋</span><div style={{fontSize:13,fontWeight:700,color:T.nv,marginTop:6}}>Nueva Orden del Día</div><div style={{fontSize:10,color:T.g4}}>Crear agenda para próxima reunión</div>
       </Card>
       <Card style={{padding:"18px 16px",cursor:"pointer",textAlign:"center" as const,border:"2px solid "+T.g2}} onClick={()=>startNewMin()}>
@@ -540,11 +568,11 @@ function Reuniones({agendas,minutas,om,users,areas,onAddAg,onUpdAg,onAddMin,onUp
       <Card>
         <h2 style={{margin:"0 0 14px",fontSize:17,color:T.nv,fontWeight:800}}>📝 Nueva Minuta – {tmpl.title}</h2>
         {miAgId&&<div style={{padding:8,background:"#EDE9FE",borderRadius:8,fontSize:11,color:"#5B21B6",marginBottom:12}}>📋 Vinculada a Orden del Día #{miAgId}</div>}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
+        <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8,marginBottom:10}}>
           <div><label style={{fontSize:11,fontWeight:600,color:T.g5}}>Fecha</label><input type="date" value={miDate} onChange={e=>sMiDate(e.target.value)} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
           <div><label style={{fontSize:11,fontWeight:600,color:T.g5}}>Lugar</label><input value={miLugar} onChange={e=>sMiLugar(e.target.value)} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
+        <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8,marginBottom:10}}>
           <div><label style={{fontSize:11,fontWeight:600,color:T.g5}}>Hora inicio</label><input type="time" value={miHI} onChange={e=>sMiHI(e.target.value)} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
           <div><label style={{fontSize:11,fontWeight:600,color:T.g5}}>Hora cierre</label><input type="time" value={miHC} onChange={e=>sMiHC(e.target.value)} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
         </div>
@@ -559,7 +587,7 @@ function Reuniones({agendas,minutas,om,users,areas,onAddAg,onUpdAg,onAddMin,onUp
         <div style={{marginTop:12,padding:12,background:"#FEF3C7",borderRadius:10,border:"1px solid #FDE68A"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}><div style={{fontSize:12,fontWeight:700,color:"#92400E"}}>📋 Tareas asignadas</div><Btn v="w" s="s" onClick={()=>sMiTareas(p=>[...p,{desc:"",respId:"",fecha:""}])}>+ Agregar tarea</Btn></div>
           {miTareas.length===0&&<div style={{fontSize:11,color:T.g4,textAlign:"center" as const,padding:8}}>Sin tareas. Se crearán automáticamente al finalizar la minuta.</div>}
-          {miTareas.map((t:any,i:number)=><div key={i} style={{display:"grid",gridTemplateColumns:"1fr auto auto auto",gap:6,marginBottom:6,alignItems:"end"}}>
+          {miTareas.map((t:any,i:number)=><div key={i} style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr auto auto auto",gap:6,marginBottom:6,alignItems:"end"}}>
             <div><label style={{fontSize:9,color:T.g5}}>Tarea</label><input value={t.desc} onChange={e=>{const n=[...miTareas];n[i]={...n[i],desc:e.target.value};sMiTareas(n);}} placeholder="Descripción..." style={{width:"100%",padding:6,borderRadius:6,border:"1px solid "+T.g3,fontSize:11,boxSizing:"border-box" as const}}/></div>
             <div><label style={{fontSize:9,color:T.g5}}>Responsable</label><select value={t.respId} onChange={e=>{const n=[...miTareas];n[i]={...n[i],respId:e.target.value};sMiTareas(n);}} style={{padding:6,borderRadius:6,border:"1px solid "+T.g3,fontSize:11}}><option value="">Seleccionar...</option>{stf.map((u:any)=><option key={u.id} value={u.id}>{fn(u)}</option>)}</select></div>
             <div><label style={{fontSize:9,color:T.g5}}>Fecha</label><input type="date" value={t.fecha} onChange={e=>{const n=[...miTareas];n[i]={...n[i],fecha:e.target.value};sMiTareas(n);}} style={{padding:6,borderRadius:6,border:"1px solid "+T.g3,fontSize:11}}/></div>
@@ -588,7 +616,7 @@ function Reuniones({agendas,minutas,om,users,areas,onAddAg,onUpdAg,onAddMin,onUp
           <div style={{display:"flex",justifyContent:"center",gap:12,marginTop:4,fontSize:11,color:T.g5}}><span>📅 {mi.date}</span>{mi.horaInicio&&<span>🕐 {mi.horaInicio} – {mi.horaCierre}</span>}{mi.lugar&&<span>📍 {mi.lugar}</span>}</div>
           <div style={{marginTop:6}}><span style={{fontSize:10,padding:"2px 10px",borderRadius:12,background:mi.status==="final"?"#D1FAE5":"#FEF3C7",color:mi.status==="final"?"#065F46":"#92400E",fontWeight:600}}>{mi.status==="final"?"✅ Finalizada":"📝 Borrador"}</span></div>
         </div>
-        {(mi.presentes?.length>0||mi.ausentes?.length>0)&&<div style={{marginBottom:12,display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+        {(mi.presentes?.length>0||mi.ausentes?.length>0)&&<div style={{marginBottom:12,display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8}}>
           <div><div style={{fontSize:10,fontWeight:700,color:T.gn,marginBottom:2}}>✅ PRESENTES</div>{(mi.presentes||[]).map((p:string,i:number)=><div key={i} style={{fontSize:11,color:T.nv}}>• {p}</div>)}</div>
           <div><div style={{fontSize:10,fontWeight:700,color:T.rd,marginBottom:2}}>❌ AUSENTES</div>{(mi.ausentes||[]).length>0?(mi.ausentes||[]).map((a:string,i:number)=><div key={i} style={{fontSize:11,color:T.g4}}>• {a}</div>):<div style={{fontSize:11,color:T.g4}}>–</div>}</div>
         </div>}
@@ -617,6 +645,7 @@ export default function App(){
   const [users,sUs]=useState<any[]>([]);const [om,sOm]=useState<any[]>([]);const [peds,sPd]=useState<any[]>([]);const [hitos,sHi]=useState<any[]>([]);const [agendas,sAgs]=useState<any[]>([]);const [minutas,sMins]=useState<any[]>([]);
   const [user,sU]=useState<any>(null);const [authChecked,sAuthChecked]=useState(false);
   const [vw,sVw]=useState("dash");const [sel,sSl]=useState<any>(null);const [aA,sAA]=useState<number|null>(null);const [aD,sAD]=useState<number|null>(null);const [sbCol,sSbCol]=useState(false);const [search,sSr]=useState("");const [shNot,sShNot]=useState(false);const [preAT,sPreAT]=useState<any>(null);const [showPw,sShowPw]=useState(false);
+  const mob=useMobile();const [sbOpen,sSbOpen]=useState(false);
 
   /* ── Fetch all data from Supabase ── */
   const fetchAll = useCallback(async()=>{
@@ -665,7 +694,7 @@ export default function App(){
   const isPersonal=user&&(user.role==="enlace"||user.role==="manager"||user.role==="usuario");
 
   if(!authChecked) return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:T.g1}}><div style={{fontSize:14,color:T.g4}}>Cargando...</div></div>;
-  if(!user) return <Login onLogin={(u:any)=>sU(u)}/>;
+  if(!user) return <Login onLogin={(u:any)=>sU(u)} mob={mob}/>;
 
   const nts=notifs(user,peds);
   const hAC=(id:number)=>{sAA(aA===id?null:id);sAD(null);sVw("dash");};
@@ -691,23 +720,26 @@ export default function App(){
 
   return(
     <div style={{display:"flex",minHeight:"100vh",background:T.g1,fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"}}>
-      <SB areas={areas} deptos={deptos} pedidos={peds} aA={aA} aD={aD} onAC={hAC} onDC={hDC} col={sbCol} onCol={()=>sSbCol(!sbCol)} isPersonal={isPersonal}/>
+      <SB areas={areas} deptos={deptos} pedidos={peds} aA={aA} aD={aD} onAC={hAC} onDC={hDC} col={sbCol} onCol={()=>sSbCol(!sbCol)} isPersonal={isPersonal} mob={mob} sbOpen={sbOpen} onClose={()=>sSbOpen(false)}/>
       <div style={{flex:1,display:"flex",flexDirection:"column" as const,minWidth:0}}>
-        <div style={{background:"#fff",borderBottom:"1px solid "+T.g2,padding:"0 14px",display:"flex",justifyContent:"space-between",alignItems:"center",height:48}}>
-          <div style={{display:"flex",gap:1,overflowX:"auto" as const,alignItems:"center"}}>{nav.filter(n=>n.sh).map(n=><button key={n.k} onClick={()=>{sVw(n.k);if(n.k==="dash"||n.k==="my"){sAA(null);sAD(null);}}} style={{padding:"6px 11px",border:"none",borderRadius:7,background:vw===n.k?T.nv:"transparent",color:vw===n.k?"#fff":T.g5,fontSize:11,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap" as const}}>{n.l}</button>)}</div>
-          <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
-            <div style={{position:"relative" as const}}><input value={search} onChange={e=>sSr(e.target.value)} placeholder="🔍 Buscar..." style={{padding:"5px 10px",borderRadius:8,border:"1px solid "+T.g3,fontSize:11,width:130}}/></div>
+        <div style={{background:"#fff",borderBottom:"1px solid "+T.g2,padding:mob?"0 8px":"0 14px",display:"flex",justifyContent:"space-between",alignItems:"center",height:48}}>
+          <div style={{display:"flex",gap:1,overflowX:"auto" as const,alignItems:"center"}}>
+            {mob&&<button onClick={()=>sSbOpen(true)} style={{background:"none",border:"none",fontSize:18,cursor:"pointer",color:T.nv,padding:"4px 6px",flexShrink:0}}>☰</button>}
+            {nav.filter(n=>n.sh).map(n=><button key={n.k} onClick={()=>{sVw(n.k);if(n.k==="dash"||n.k==="my"){sAA(null);sAD(null);}}} style={{padding:mob?"5px 8px":"6px 11px",border:"none",borderRadius:7,background:vw===n.k?T.nv:"transparent",color:vw===n.k?"#fff":T.g5,fontSize:mob?10:11,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap" as const}}>{n.l}</button>)}
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:mob?4:8,flexShrink:0}}>
+            {!mob&&<div style={{position:"relative" as const}}><input value={search} onChange={e=>sSr(e.target.value)} placeholder="🔍 Buscar..." style={{padding:"5px 10px",borderRadius:8,border:"1px solid "+T.g3,fontSize:11,width:130}}/></div>}
             <div style={{position:"relative" as const}}><button onClick={()=>sShNot(!shNot)} style={{background:"none",border:"none",fontSize:16,cursor:"pointer",position:"relative" as const}}>🔔{nts.length>0&&<span style={{position:"absolute" as const,top:-4,right:-4,width:14,height:14,borderRadius:7,background:T.rd,color:"#fff",fontSize:8,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>{nts.length}</span>}</button>{shNot&&<div style={{position:"absolute" as const,right:0,top:32,background:"#fff",borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,.12)",border:"1px solid "+T.g2,width:260,zIndex:100,padding:8}}><div style={{fontSize:11,fontWeight:700,color:T.nv,marginBottom:6}}>Notificaciones</div>{nts.length===0&&<div style={{fontSize:11,color:T.g4,padding:8}}>Todo al día ✅</div>}{nts.map((n,i)=><div key={i} style={{padding:"6px 8px",borderRadius:6,background:n.c+"10",marginBottom:3,fontSize:11,color:n.c,fontWeight:600}}>{n.t}</div>)}</div>}</div>
-            <div style={{textAlign:"right" as const}}><div style={{fontSize:11,fontWeight:700,color:T.nv}}>{fn(user)}</div><div style={{fontSize:9,color:T.g4}}>{ROLES[user.role]?.i} {ROLES[user.role]?.l}{user.div?" · "+user.div:""}</div></div>
+            {!mob&&<div style={{textAlign:"right" as const}}><div style={{fontSize:11,fontWeight:700,color:T.nv}}>{fn(user)}</div><div style={{fontSize:9,color:T.g4}}>{ROLES[user.role]?.i} {ROLES[user.role]?.l}{user.div?" · "+user.div:""}</div></div>}
             <button onClick={()=>sShowPw(true)} title="Cambiar contraseña" style={{width:28,height:28,borderRadius:7,border:"1px solid "+T.g2,background:"#fff",cursor:"pointer",fontSize:12}}>🔒</button>
             <button onClick={out} style={{width:28,height:28,borderRadius:7,border:"1px solid "+T.g2,background:"#fff",cursor:"pointer",fontSize:12}}>↩</button>
           </div>
         </div>
-        <div style={{flex:1,padding:"20px 16px",overflowY:"auto" as const,marginTop:4}}>
-          {vw==="my"&&isPersonal&&<MyDash user={user} peds={peds} users={users} onSel={(p:any)=>sSl(p)}/>}
-          {vw==="org"&&<Org areas={areas} deptos={deptos} users={users} om={om} onEditSave={async(id:string,d:any)=>{sOm(p=>p.map(m=>m.id===id?{...m,...d}:m));await supabase.from("org_members").update({first_name:d.n,last_name:d.a,email:d.mail||"",phone:d.tel||""}).eq("id",id);}} onDelOm={async(id:string)=>{sOm(p=>p.filter(m=>m.id!==id));await supabase.from("org_members").delete().eq("id",id);}} onDelUser={async(id:string)=>{sUs(p=>p.filter(u=>u.id!==id));await supabase.from("profiles").delete().eq("id",id);}} onEditUser={(u:any)=>{sVw("profs");}} isSA={isSA} onAssignTask={(u:any)=>{sPreAT(u);sVw("new");}}/>}
-          {vw==="dept"&&<Depts areas={areas} deptos={deptos} pedidos={peds} users={users} onSel={(p:any)=>sSl(p)}/>}
-          {vw==="reun"&&isSA&&<Reuniones agendas={agendas} minutas={minutas} om={om} users={users} areas={areas} user={user}
+        <div style={{flex:1,padding:mob?"12px 8px":"20px 16px",overflowY:"auto" as const,marginTop:4}}>
+          {vw==="my"&&isPersonal&&<MyDash user={user} peds={peds} users={users} onSel={(p:any)=>sSl(p)} mob={mob}/>}
+          {vw==="org"&&<Org areas={areas} deptos={deptos} users={users} om={om} onEditSave={async(id:string,d:any)=>{sOm(p=>p.map(m=>m.id===id?{...m,...d}:m));await supabase.from("org_members").update({first_name:d.n,last_name:d.a,email:d.mail||"",phone:d.tel||""}).eq("id",id);}} onDelOm={async(id:string)=>{sOm(p=>p.filter(m=>m.id!==id));await supabase.from("org_members").delete().eq("id",id);}} onDelUser={async(id:string)=>{sUs(p=>p.filter(u=>u.id!==id));await supabase.from("profiles").delete().eq("id",id);}} onEditUser={(u:any)=>{sVw("profs");}} isSA={isSA} onAssignTask={(u:any)=>{sPreAT(u);sVw("new");}} mob={mob}/>}
+          {vw==="dept"&&<Depts areas={areas} deptos={deptos} pedidos={peds} users={users} onSel={(p:any)=>sSl(p)} mob={mob}/>}
+          {vw==="reun"&&isSA&&<Reuniones agendas={agendas} minutas={minutas} om={om} users={users} areas={areas} user={user} mob={mob}
             onAddAg={async(a:any)=>{const{data}=await supabase.from("agendas").insert({type:a.type,area_name:a.areaName||null,date:a.date,sections:a.sections,status:a.status,created_at:a.createdAt||TODAY}).select().single();if(data)sAgs(p=>[{...a,id:data.id},...p]);else sAgs(p=>[a,...p]);}}
             onUpdAg={async(id:number,d:any)=>{sAgs(p=>p.map(a=>a.id===id?{...a,...d}:a));await supabase.from("agendas").update(d).eq("id",id);}}
             onAddMin={async(m:any)=>{const{data}=await supabase.from("minutas").insert({type:m.type,area_name:m.areaName||null,agenda_id:m.agendaId||null,date:m.date,hora_inicio:m.horaInicio,hora_cierre:m.horaCierre,lugar:m.lugar,presentes:m.presentes,ausentes:m.ausentes,sections:m.sections,tareas:m.tareas,status:m.status,created_at:m.createdAt||TODAY}).select().single();if(data)sMins(p=>[{...m,id:data.id},...p]);else sMins(p=>[m,...p]);}}
@@ -724,8 +756,8 @@ export default function App(){
             sUs(p=>p.map(u=>u.id===id?{...u,...d}:u));
             await supabase.from("profiles").update({first_name:d.n,last_name:d.a,role:d.role,dept_id:d.dId,division:d.div,email:d.mail||"",phone:d.tel||""}).eq("id",id);
             if(d.mail&&oldUser&&d.mail!==oldUser.mail){const{data:{session}}=await supabase.auth.getSession();const tok=session?.access_token;if(tok)await fetch("/api/admin/create-user",{method:"PUT",headers:{"Content-Type":"application/json","Authorization":"Bearer "+tok},body:JSON.stringify({userId:id,email:d.mail})});}
-          }} isAd={isAd} onAssignTask={(u:any)=>{sPreAT(u);sVw("new");}}/>}
-          {vw==="new"&&<NP user={user} users={users} deptos={deptos} areas={areas} preAssign={preAT} onSub={async(p:any)=>{
+          }} isAd={isAd} onAssignTask={(u:any)=>{sPreAT(u);sVw("new");}} mob={mob}/>}
+          {vw==="new"&&<NP user={user} users={users} deptos={deptos} areas={areas} preAssign={preAT} mob={mob} onSub={async(p:any)=>{
             const row:any=taskToDB(p);
             const{data}=await supabase.from("tasks").insert(row).select().single();
             const tid=data?.id||p.id;
@@ -736,12 +768,12 @@ export default function App(){
             sPreAT(null);sVw(isPersonal?"my":"dash");sAA(null);sAD(null);
           }} onX={()=>{sPreAT(null);sVw(isPersonal?"my":"dash");}}/>}
           {vw==="proy"&&<Proyecto hitos={hitos} setHitos={(updater:any)=>{sHi((prev:any)=>{const next=typeof updater==="function"?updater(prev):updater;next.forEach((h:any)=>{supabase.from("milestones").update({pct:h.pct}).eq("id",h.id);});return next;});}} isAd={isAd}/>}
-          {vw==="dash"&&!isPersonal&&!aA&&!aD&&<><h2 style={{margin:"0 0 4px",fontSize:19,color:T.nv,fontWeight:800}}>Dashboard</h2><p style={{color:T.g4,fontSize:12,margin:"0 0 16px"}}>KPIs institucionales · Manual Operativo 2035</p><KPIs peds={peds}/><Circles areas={areas} deptos={deptos} pedidos={peds} onAC={hAC}/></>}
-          {vw==="dash"&&!isPersonal&&(aA||aD)&&<div><Btn v="g" s="s" onClick={()=>{if(aD)sAD(null);else sAA(null);}} style={{marginBottom:12}}>← {aD?"Volver al área":"Dashboard"}</Btn><TList title={vT} icon={vI} color={vC} peds={vP} users={users} onSel={(p:any)=>sSl(p)} search={search}/></div>}
+          {vw==="dash"&&!isPersonal&&!aA&&!aD&&<><h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:T.nv,fontWeight:800}}>Dashboard</h2><p style={{color:T.g4,fontSize:12,margin:"0 0 16px"}}>KPIs institucionales · Manual Operativo 2035</p><KPIs peds={peds} mob={mob}/><Circles areas={areas} deptos={deptos} pedidos={peds} onAC={hAC} mob={mob}/></>}
+          {vw==="dash"&&!isPersonal&&(aA||aD)&&<div><Btn v="g" s="s" onClick={()=>{if(aD)sAD(null);else sAA(null);}} style={{marginBottom:12}}>← {aD?"Volver al área":"Dashboard"}</Btn><TList title={vT} icon={vI} color={vC} peds={vP} users={users} onSel={(p:any)=>sSl(p)} search={search} mob={mob}/></div>}
         </div>
       </div>
       {showPw&&<ChangePw onX={()=>sShowPw(false)}/>}
-      {sel&&<Det p={peds.find(x=>x.id===sel.id)||sel} user={user} users={users} onX={()=>sSl(null)}
+      {sel&&<Det p={peds.find(x=>x.id===sel.id)||sel} user={user} users={users} onX={()=>sSl(null)} mob={mob}
         onTk={async(id:number)=>{sPd(p=>p.map(x=>x.id===id?{...x,asTo:user.id,st:ST.C}:x));await supabase.from("tasks").update({assigned_to:user.id,status:ST.C}).eq("id",id);addLog(id,user.id,fn(user),"Tomó la tarea","sys");}}
         onAs={async(id:number,uid:string)=>{const ag=users.find(u=>u.id===uid);const newSt=peds.find(x=>x.id===id)?.st===ST.P?ST.C:peds.find(x=>x.id===id)?.st;sPd(p=>p.map(x=>x.id===id?{...x,asTo:uid,st:x.st===ST.P?ST.C:x.st}:x));await supabase.from("tasks").update({assigned_to:uid,status:newSt}).eq("id",id);addLog(id,user.id,fn(user),"Asignó a "+(ag?fn(ag):""),"sys");}}
         onRe={async(id:number,r:string)=>{sPd(p=>p.map(x=>x.id===id?{...x,resp:r}:x));await supabase.from("tasks").update({resolution:r}).eq("id",id);}}
