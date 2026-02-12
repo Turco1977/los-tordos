@@ -355,6 +355,43 @@ function Proyecto({hitos,setHitos,isAd}:any){return(<div style={{maxWidth:700}}>
 /* ── PERFILES ── */
 function Profs({users,deptos,areas,onDel}:any){return(<div><h2 style={{margin:"0 0 14px",fontSize:19,color:T.nv,fontWeight:800}}>👥 Perfiles</h2>{RK.map(k=>{const l=users.filter((u:any)=>u.role===k);if(!l.length)return null;return(<div key={k} style={{marginBottom:14}}><div style={{fontSize:13,fontWeight:700,color:T.nv,marginBottom:6}}>{ROLES[k].i} {ROLES[k].l} ({l.length})</div>{l.map((u:any)=>{const d=deptos.find((x:any)=>x.id===u.dId),a=d?areas.find((x:any)=>x.id===d.aId):null;return(<Card key={u.id} style={{padding:"9px 12px",marginBottom:4,display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:13,fontWeight:600,color:T.nv}}>{fn(u)}</div><div style={{fontSize:10,color:T.g4}}>{a?a.name:""} → {d?d.name:""}{u.div?" · "+u.div:""}</div></div>{["superadmin","admin"].indexOf(u.role)<0&&<Btn v="g" s="s" onClick={()=>onDel(u.id)} style={{color:T.rd,fontSize:9}}>Eliminar</Btn>}</Card>);})}</div>);})}</div>);}
 
+/* ── DEPARTAMENTOS ── */
+function Depts({areas,deptos,pedidos,users,onSel}:any){
+  const [selA,sSelA]=useState<number|null>(null);
+  const [selD,sSelD]=useState<number|null>(null);
+  const fDeptos=selA?deptos.filter((d:any)=>d.aId===selA):deptos;
+  const selDepto=selD?deptos.find((d:any)=>d.id===selD):null;
+  const selArea=selDepto?areas.find((a:any)=>a.id===selDepto.aId):null;
+  const dPeds=selD?pedidos.filter((p:any)=>p.dId===selD):[];
+  if(selD&&selDepto){
+    return(<div style={{maxWidth:720}}>
+      <Btn v="g" s="s" onClick={()=>sSelD(null)} style={{marginBottom:12}}>← Volver a Departamentos</Btn>
+      <TList title={selDepto.name} icon="📂" color={selArea?selArea.color:T.nv} peds={dPeds} users={users} onSel={onSel} search=""/>
+    </div>);
+  }
+  return(<div style={{maxWidth:720}}>
+    <h2 style={{margin:"0 0 4px",fontSize:19,color:T.nv,fontWeight:800}}>📂 Departamentos</h2>
+    <p style={{color:T.g4,fontSize:12,margin:"0 0 14px"}}>Tareas por departamento</p>
+    <div style={{display:"flex",gap:4,marginBottom:14,flexWrap:"wrap" as const}}>
+      <Btn v={selA===null?"p":"g"} s="s" onClick={()=>sSelA(null)}>Todas las áreas</Btn>
+      {areas.filter((a:any)=>a.id!==100&&a.id!==101).map((a:any)=><Btn key={a.id} v={selA===a.id?"p":"g"} s="s" onClick={()=>sSelA(selA===a.id?null:a.id)}>{a.icon} {a.name}</Btn>)}
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:10}}>
+      {fDeptos.map((d:any)=>{const ar=areas.find((a:any)=>a.id===d.aId);const dp=pedidos.filter((p:any)=>p.dId===d.id);const pe=dp.filter((p:any)=>p.st===ST.P).length,cu=dp.filter((p:any)=>[ST.C,ST.E,ST.V].indexOf(p.st)>=0).length,ok=dp.filter((p:any)=>p.st===ST.OK).length;
+        return(<Card key={d.id} onClick={()=>sSelD(d.id)} style={{padding:"14px 16px",cursor:"pointer",borderLeft:"4px solid "+(ar?ar.color:T.nv)}}>
+          <div style={{fontSize:13,fontWeight:700,color:T.nv}}>{d.name}</div>
+          <div style={{fontSize:10,color:T.g4,marginTop:2}}>{ar?ar.icon+" "+ar.name:""}</div>
+          <div style={{display:"flex",gap:8,marginTop:8,fontSize:11}}>
+            {pe>0&&<span style={{color:T.rd}}>🔴 {pe}</span>}
+            {cu>0&&<span style={{color:T.yl}}>🟡 {cu}</span>}
+            {ok>0&&<span style={{color:T.gn}}>🟢 {ok}</span>}
+            {dp.length===0&&<span style={{color:T.g4}}>Sin tareas</span>}
+          </div>
+        </Card>);})}
+    </div>
+  </div>);
+}
+
 /* ── NOTIFS ── */
 function notifs(user:any,peds:any[]){const n:any[]=[];if(["coordinador","admin","superadmin"].indexOf(user.role)>=0){const pp=peds.filter(p=>p.st===ST.P);if(pp.length)n.push({t:"🔴 "+pp.length+" pendientes",c:T.rd});}if(user.role==="embudo"){const ee=peds.filter(p=>p.st===ST.E);if(ee.length)n.push({t:"💰 "+ee.length+" esperando aprobación",c:T.pr});}const myV=peds.filter(p=>p.st===ST.V&&p.cId===user.id);if(myV.length)n.push({t:"🔵 "+myV.length+" esperando validación",c:T.bl});const od=peds.filter(p=>p.st!==ST.OK&&isOD(p.fReq));if(od.length)n.push({t:"⏰ "+od.length+" vencidas",c:"#DC2626"});return n;}
 
@@ -380,7 +417,7 @@ export default function App(){
 
   let nav:any[]=[];
   if(isPersonal){nav=[{k:"my",l:user.role==="usuario"?"Mis Tareas":"Mis Pedidos",sh:true},{k:"new",l:"+ Pedido",sh:true},{k:"org",l:"Organigrama",sh:true},{k:"proy",l:"Plan 2035",sh:true}];}
-  else{nav=[{k:"dash",l:"Dashboard",sh:true},{k:"org",l:"Organigrama",sh:true},{k:"proy",l:"Plan 2035",sh:true},{k:"profs",l:"Perfiles",sh:isAd},{k:"new",l:"+ Pedido",sh:true}];}
+  else{nav=[{k:"dash",l:"Dashboard",sh:true},{k:"org",l:"Organigrama",sh:true},{k:"dept",l:"Departamentos",sh:true},{k:"proy",l:"Plan 2035",sh:true},{k:"profs",l:"Perfiles",sh:isAd},{k:"new",l:"+ Pedido",sh:true}];}
 
   const addLog=(id:number,uid:string,by:string,act:string,t?:string)=>sPd(p=>p.map(x=>x.id===id?{...x,log:[...(x.log||[]),{dt:TODAY+" "+new Date().toTimeString().slice(0,5),uid,by,act,t:t||"sys"}]}:x));
 
@@ -402,6 +439,7 @@ export default function App(){
         <div style={{flex:1,padding:"20px 16px",overflowY:"auto" as const,marginTop:4}}>
           {vw==="my"&&isPersonal&&<MyDash user={user} peds={peds} users={users} onSel={(p:any)=>sSl(p)}/>}
           {vw==="org"&&<Org areas={areas} deptos={deptos} users={users} om={om} onEditSave={(id:string,d:any)=>sOm(p=>p.map(m=>m.id===id?{...m,...d}:m))} isSA={isSA}/>}
+          {vw==="dept"&&<Depts areas={areas} deptos={deptos} pedidos={peds} users={users} onSel={(p:any)=>sSl(p)}/>}
           {vw==="profs"&&isAd&&<Profs users={users} deptos={deptos} areas={areas} onDel={(id:string)=>sUs(p=>p.filter(u=>u.id!==id))}/>}
           {vw==="new"&&<NP user={user} users={users} deptos={deptos} areas={areas} onSub={(p:any)=>{sPd(ps=>[p,...ps]);sVw(isPersonal?"my":"dash");sAA(null);sAD(null);}} onX={()=>sVw(isPersonal?"my":"dash")}/>}
           {vw==="proy"&&<Proyecto hitos={hitos} setHitos={sHi} isAd={isAd}/>}
