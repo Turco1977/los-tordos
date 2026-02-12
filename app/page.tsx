@@ -40,29 +40,28 @@ const initU=[
   {id:"u2",n:"Félix",a:"Guiñazú",role:"usuario",dId:11,div:"",mail:"fg@lostordos.com.ar",tel:"261-555-0031"},
   {id:"u3",n:"Marcos",a:"Balzarelli",role:"usuario",dId:64,div:"",mail:"mb@lostordos.com.ar",tel:"261-555-0032"},
   {id:"g1",n:"Bautista",a:"Pontis",role:"coordinador",dId:1,div:"",mail:"bpontis@lt.ar",tel:""},
-  {id:"g2",n:"Miguel",a:"Senosian",role:"usuario",dId:9,div:"",mail:"msenosian@lt.ar",tel:""},
+  {id:"g2",n:"Miguel",a:"Senosian",role:"coordinador",dId:9,div:"",mail:"msenosian@lt.ar",tel:""},
   {id:"g3",n:"Daniel",a:"Olguín",role:"usuario",dId:40,div:"",mail:"dolguin@lt.ar",tel:""},
   {id:"g4",n:"Daniel",a:"Pont Lezica",role:"usuario",dId:41,div:"",mail:"dpontlezica@lt.ar",tel:""},
   {id:"u11",n:"Leandro",a:"Sturniolo",role:"coordinador",dId:3,div:"",mail:"lsturniolo@lt.ar",tel:""},
-  {id:"g5",n:"Miguel",a:"Senosian",role:"usuario",dId:42,div:"Tordos TV",mail:"msenosian2@lt.ar",tel:""},
-  {id:"g6",n:"Alejandrina",a:"Vázquez",role:"usuario",dId:43,div:"",mail:"avazquez@lt.ar",tel:""},
-  {id:"g7",n:"Gastón",a:"Aye",role:"usuario",dId:44,div:"",mail:"gaye@lt.ar",tel:""},
-  {id:"g8",n:"Marcelo",a:"Carubin",role:"usuario",dId:45,div:"",mail:"mcarubin@lt.ar",tel:""},
-  {id:"g9",n:"Diego",a:"Sosa",role:"usuario",dId:46,div:"",mail:"dsosa@lt.ar",tel:""},
-  {id:"g10",n:"Marcos",a:"Sosa",role:"usuario",dId:47,div:"",mail:"msosa@lt.ar",tel:""},
-  {id:"g11",n:"Juan Pablo",a:"García",role:"usuario",dId:48,div:"",mail:"jpgarcia@lt.ar",tel:""},
-  {id:"g12",n:"Valentín",a:"Saá",role:"usuario",dId:49,div:"",mail:"vsaa@lt.ar",tel:""},
-  {id:"g13",n:"Marcos",a:"Genoud",role:"usuario",dId:60,div:"",mail:"mgenoud@lt.ar",tel:""},
+  {id:"g5",n:"Miguel",a:"Senosian",role:"usuario",dId:3,div:"Tordos TV",mail:"msenosian2@lt.ar",tel:""},
+  {id:"g6",n:"Alejandrina",a:"Vázquez",role:"usuario",dId:3,div:"Diseño",mail:"avazquez@lt.ar",tel:""},
+  {id:"g7",n:"Gastón",a:"Aye",role:"usuario",dId:3,div:"Redes",mail:"gaye@lt.ar",tel:""},
+  {id:"g8",n:"Marcelo",a:"Carubin",role:"usuario",dId:3,div:"Fotografía",mail:"mcarubin@lt.ar",tel:""},
+  {id:"g9",n:"Diego",a:"Sosa",role:"usuario",dId:3,div:"Filmación",mail:"dsosa@lt.ar",tel:""},
+  {id:"g10",n:"Marcos",a:"Sosa",role:"usuario",dId:3,div:"Edición",mail:"msosa@lt.ar",tel:""},
+  {id:"g11",n:"Juan Pablo",a:"García",role:"usuario",dId:3,div:"Prensa",mail:"jpgarcia@lt.ar",tel:""},
+  {id:"g12",n:"Valentín",a:"Saá",role:"usuario",dId:3,div:"Creatividad",mail:"vsaa@lt.ar",tel:""},
+  {id:"g13",n:"Marcos",a:"Genoud",role:"usuario",dId:3,div:"Asesoría Comunicación",mail:"mgenoud@lt.ar",tel:""},
+  {id:"g24",n:"Lucía",a:"Gil",role:"coordinador",dId:6,div:"",mail:"lgil@lt.ar",tel:""},
   {id:"u15",n:"Jesús",a:"Herrera",role:"coordinador",dId:4,div:"",mail:"jherrera@lt.ar",tel:""},
-  {id:"u10",n:"Victoria",a:"Brandi",role:"usuario",dId:4,div:"Relac. Sponsors",mail:"vbrandi@lt.ar",tel:""},
+  {id:"u10",n:"Victoria",a:"Brandi",role:"usuario",dId:4,div:"Relacionamiento",mail:"vbrandi@lt.ar",tel:""},
   {id:"u19",n:"Juan Martín",a:"Gómez Centurión",role:"usuario",dId:4,div:"Comercial",mail:"jmgc@lt.ar",tel:""},
   {id:"g14",n:"Victoria",a:"Brandi",role:"coordinador",dId:2,div:"Coord. Eventos",mail:"vbrandi2@lt.ar",tel:""},
-  {id:"u17",n:"Ignacio",a:"Ricci",role:"usuario",dId:2,div:"Almuerzo Camadas",mail:"iricci@lt.ar",tel:""},
-  {id:"u18",n:"Lucía",a:"González",role:"usuario",dId:2,div:"Sunset Tordos",mail:"lgonzalez@lt.ar",tel:""},
-  {id:"g15",n:"Jesús",a:"Herrera",role:"usuario",dId:2,div:"Sponsors 65 años",mail:"jherrera2@lt.ar",tel:""},
-  {id:"u22",n:"Juan Manuel",a:"Bancalari",role:"usuario",dId:5,div:"",mail:"jmbancalari@lt.ar",tel:""},
-  {id:"u13",n:"César",a:"Dalla Torre",role:"usuario",dId:5,div:"",mail:"cdallatorre@lt.ar",tel:""},
-  {id:"u14",n:"Joaquín",a:"Bancalari",role:"usuario",dId:5,div:"",mail:"jbancalari@lt.ar",tel:""},
+  {id:"u17",n:"Ignacio",a:"Ricci",role:"usuario",dId:2,div:"Cena de Camadas",mail:"iricci@lt.ar",tel:""},
+  {id:"u18",n:"Lucía",a:"González",role:"usuario",dId:2,div:"Sunset",mail:"lgonzalez@lt.ar",tel:""},
+  {id:"g15",n:"Jesús",a:"Herrera",role:"usuario",dId:2,div:"Fiesta 65 años",mail:"jherrera2@lt.ar",tel:""},
+  {id:"u22",n:"Juan Manuel",a:"Bancalari",role:"coordinador",dId:5,div:"",mail:"jmbancalari@lt.ar",tel:""},
   {id:"g16",n:"Gustavo",a:"Cialone",role:"coordinador",dId:61,div:"",mail:"gcialone@lt.ar",tel:""},
   {id:"g17",n:"Santiago",a:"Pérez Araujo",role:"usuario",dId:62,div:"",mail:"sperezaraujo@lt.ar",tel:""},
   {id:"g18",n:"Ignacio",a:"Barbeira",role:"usuario",dId:63,div:"",mail:"ibarbeira2@lt.ar",tel:""},
@@ -73,7 +72,6 @@ const initU=[
   {id:"g22",n:"Ignacio",a:"Ricci",role:"usuario",dId:23,div:"",mail:"iricci2@lt.ar",tel:""},
   {id:"u20",n:"Fabián",a:"Guzzo",role:"usuario",dId:22,div:"",mail:"fguzzo@lt.ar",tel:""},
   {id:"g23",n:"Álvaro",a:"Villanueva",role:"coordinador",dId:32,div:"",mail:"avillanueva@lt.ar",tel:""},
-  {id:"u21",n:"Germán",a:"Luppoli",role:"usuario",dId:2,div:"Torneos",mail:"gluppoli@lt.ar",tel:""},
   {id:"e1",n:"Agustín",a:"Castillo",role:"enlace",dId:11,div:"Plantel Superior",mail:"ac@lt.ar",tel:"261-0001"},
   {id:"e2",n:"Martín",a:"Isola",role:"enlace",dId:11,div:"M19",mail:"misola2@lt.ar",tel:"261-0002"},
   {id:"e3",n:"Juan Pablo",a:"García",role:"enlace",dId:11,div:"M17",mail:"jpg@lt.ar",tel:"261-0003"},
@@ -323,7 +321,11 @@ function Org({areas,deptos,users,om,onEditSave,isSA}:any){
     <div style={{marginLeft:24,borderLeft:"2px solid "+T.nv+"22",paddingLeft:14}}>
       <OrgNode icon="⚡" title="Secretaría Ejecutiva" sub="Depende de CD" color={T.rd} ex={!!ex.se} onTog={()=>tog("se")} cnt={om.filter((m:any)=>m.t==="se"&&m.n).length+"/5"}>{om.filter((m:any)=>m.t==="se").map((m:any)=><OrgMember key={m.id} m={m} isSA={isSA} onEdit={(mm:any)=>{sEd(mm);sEf({n:mm.n,a:mm.a,mail:mm.mail,tel:mm.tel});}}/>)}</OrgNode>
       <div style={{marginLeft:24,borderLeft:"2px solid "+T.rd+"22",paddingLeft:14}}>
-        {areas.filter((ar:any)=>ar.id!==100&&ar.id!==101).map((ar:any)=>{const ds=deptos.filter((d:any)=>d.aId===ar.id);return(<OrgNode key={ar.id} icon={ar.icon} title={ar.name} sub={ds.length+" deptos"} color={ar.color} ex={!!ex["ar"+ar.id]} onTog={()=>tog("ar"+ar.id)} cnt={ds.length}>{ds.map((d:any)=>{const pp=users.filter((u:any)=>u.dId===d.id);const resp=pp.find((u:any)=>u.role==="coordinador")||pp.find((u:any)=>u.role==="admin")||pp[0];return(<div key={d.id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:"#fff",borderRadius:8,border:"1px solid "+T.g2,marginBottom:4,borderLeft:"3px solid "+ar.color}}><span style={{fontSize:14}}>📂</span><div style={{flex:1}}><div style={{fontSize:12,fontWeight:700,color:T.nv}}>{d.name}</div>{resp?<div style={{fontSize:10,color:T.g5,marginTop:1}}>👤 {fn(resp)}{pp.length>1?" · "+pp.length+" personas":""}</div>:<div style={{fontSize:10,color:T.g3,fontStyle:"italic"}}>Sin responsable</div>}</div></div>);})}</OrgNode>);})}
+        {areas.filter((ar:any)=>ar.id!==100&&ar.id!==101).map((ar:any)=>{const ds=deptos.filter((d:any)=>d.aId===ar.id);const dsWithPeople=ds.filter((d:any)=>users.some((u:any)=>u.dId===d.id));return(<OrgNode key={ar.id} icon={ar.icon} title={ar.name} sub={dsWithPeople.length+" deptos"} color={ar.color} ex={!!ex["ar"+ar.id]} onTog={()=>tog("ar"+ar.id)} cnt={dsWithPeople.length}>{dsWithPeople.map((d:any)=>{const pp=users.filter((u:any)=>u.dId===d.id);const resp=pp.find((u:any)=>u.role==="coordinador")||pp.find((u:any)=>u.role==="admin")||pp[0];const others=pp.filter((u:any)=>u.id!==(resp?resp.id:""));return(<OrgNode key={d.id} icon="📂" title={d.name} color={ar.color} ex={!!ex["d"+d.id]} onTog={()=>tog("d"+d.id)} cnt={pp.length}>
+              {resp&&<div style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",background:"#F0F9FF",borderRadius:7,border:"1px solid #BAE6FD",marginBottom:4}}><span style={{fontSize:10}}>⭐</span><div><div style={{fontSize:9,fontWeight:700,color:T.bl,textTransform:"uppercase" as const}}>Responsable</div><div style={{fontSize:12,fontWeight:700,color:T.nv}}>{fn(resp)}</div></div></div>}
+              {others.map((u:any)=>(<div key={u.id} style={{display:"flex",alignItems:"center",gap:6,padding:"5px 10px",background:"#fff",borderRadius:6,border:"1px solid "+T.g2,marginBottom:3}}><span style={{fontSize:10}}>👤</span><div>{u.div&&<div style={{fontSize:9,fontWeight:600,color:T.g4}}>{u.div}</div>}<div style={{fontSize:11,fontWeight:600,color:T.nv}}>{fn(u)}</div></div></div>))}
+              {others.length===0&&!resp&&<div style={{fontSize:10,color:T.g4,fontStyle:"italic",padding:4}}>Sin integrantes</div>}
+            </OrgNode>);})}</OrgNode>);})}
       </div>
     </div>
   </div>);
