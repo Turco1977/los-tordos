@@ -1,142 +1,19 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { T, AREAS, DEPTOS, ROLES, RK, DIV, TIPOS, ST, SC, AGT, MINSECS, fn, isOD, daysDiff } from "@/lib/constants";
+import type { Profile, Task, TaskMessage, OrgMember as OrgMemberType, Milestone, Agenda, Minuta } from "@/lib/supabase/types";
 
-const T={nv:"#0A1628",rd:"#C8102E",g1:"#F7F8FA",g2:"#E8ECF1",g3:"#CBD2DC",g4:"#8B95A5",g5:"#5A6577",gn:"#10B981",yl:"#F59E0B",bl:"#3B82F6",pr:"#8B5CF6"};
-let _u=200,_p=100,_a=20,_d=200;
+const supabase = createClient();
+const TODAY = new Date().toISOString().slice(0,10);
 
-const AREAS=[{id:100,name:"Comisión Directiva",color:"#1E293B",icon:"🏛️"},{id:101,name:"Secretaría Ejecutiva",color:"#991B1B",icon:"⚡"},{id:1,name:"Gobernanza",color:T.bl,icon:"🛡️"},{id:2,name:"Deportiva",color:T.rd,icon:"🏉"},{id:3,name:"Social",color:T.gn,icon:"🤝"},{id:4,name:"Infraestructura",color:T.yl,icon:"🔧"}];
+/* Helper: map DB profile to legacy shape used by components */
+const profileToUser = (p: Profile) => ({ id: p.id, n: p.first_name, a: p.last_name, role: p.role, dId: p.dept_id, div: p.division, mail: p.email, tel: p.phone });
+const taskFromDB = (t: Task, msgs: TaskMessage[]) => ({ id: t.id, div: t.division, cId: t.creator_id, cN: t.creator_name, dId: t.dept_id, tipo: t.tipo, desc: t.description, fReq: t.due_date, urg: t.urgency, st: t.status, asTo: t.assigned_to, rG: t.requires_expense, eOk: t.expense_ok, resp: t.resolution, cAt: t.created_at, monto: t.amount, log: msgs.map(m => ({ dt: m.created_at || "", uid: m.user_id, by: m.user_name, act: m.content, t: m.type })) });
+const taskToDB = (p: any): Partial<Task> => ({ division: p.div || "", creator_id: p.cId, creator_name: p.cN, dept_id: p.dId, tipo: p.tipo, description: p.desc, due_date: p.fReq, urgency: p.urg, status: p.st, assigned_to: p.asTo, requires_expense: p.rG, expense_ok: p.eOk, resolution: p.resp, created_at: p.cAt, amount: p.monto });
 
-const DEPTOS=[
-  {id:50,name:"Mesa Directiva",aId:100},{id:51,name:"Consejo Consultivo",aId:100},
-  {id:55,name:"Presidencia SE",aId:101},{id:56,name:"Coordinación General SE",aId:101},
-  {id:1,name:"Coordinación General",aId:1},{id:2,name:"Eventos",aId:1},{id:3,name:"Comunicación",aId:1},{id:4,name:"Sponsoreo",aId:1},{id:5,name:"Gastronomía y Recepción",aId:1},{id:6,name:"Administración",aId:1},{id:7,name:"Compras",aId:1},
-  {id:8,name:"Intendencia",aId:1},{id:9,name:"Sistemas",aId:1},{id:40,name:"Atención al Socio",aId:1},{id:41,name:"Estandarización de Procesos",aId:1},
-  {id:42,name:"Tordos TV",aId:1},{id:43,name:"Diseño",aId:1},{id:44,name:"Redes",aId:1},{id:45,name:"Fotografía",aId:1},{id:46,name:"Filmación",aId:1},{id:47,name:"Edición",aId:1},{id:48,name:"Prensa",aId:1},{id:49,name:"Creatividad",aId:1},{id:60,name:"Asesoría Comunicación",aId:1},
-  {id:61,name:"Tesorería",aId:1},{id:62,name:"Finanzas",aId:1},{id:63,name:"Financiamiento",aId:1},{id:65,name:"Tordos Shop",aId:1},
-  {id:10,name:"Academia Tordos",aId:2},{id:11,name:"Soporte Adm. del Deporte",aId:2},{id:12,name:"Mejora Continua",aId:2},
-  {id:20,name:"Solidario",aId:3},{id:21,name:"Conecta",aId:3},{id:22,name:"Captación",aId:3},{id:23,name:"Club del Ex",aId:3},
-  {id:30,name:"Anexo",aId:4},{id:31,name:"Estacionamiento Cancha 2",aId:4},{id:32,name:"Plan Estratégico",aId:4},{id:33,name:"Luces Cancha 2, 3 y 4",aId:4},{id:34,name:"Cantina: Ampliación y Tribunas",aId:4},{id:35,name:"Vestuarios y Depósito",aId:4},
-  {id:70,name:"Dormy's",aId:4},{id:71,name:"Espacio Madre Selva",aId:4},{id:72,name:"Ingreso Urquiza",aId:4},{id:73,name:"Luces Anexo",aId:4},{id:74,name:"Molinetes",aId:4},{id:75,name:"Club del Ex (Infra)",aId:4},
-];
+/* constants removed - imported from @/lib/constants */
 
-const ROLES: Record<string,{l:string;i:string;lv:number}>={superadmin:{l:"Super Admin",i:"👑",lv:5},admin:{l:"Administrador",i:"🛡️",lv:4},coordinador:{l:"Coordinador",i:"⚙️",lv:3},embudo:{l:"Compras/Tesorería",i:"💰",lv:3},usuario:{l:"Usuario",i:"👤",lv:2},enlace:{l:"Enlace",i:"🔗",lv:1},manager:{l:"Manager",i:"📋",lv:1}};
-const RK=Object.keys(ROLES);
-const DIV=["Plantel Superior","M19","M17","M16","M15","M14","M13","M12","M11","M10","M9","M8","Escuelita"];
-const TIPOS=["Logística","Administrativo","Infraestructura","Material deportivo","Comunicación","Otro"];
-const ST={P:"pend",C:"curso",E:"emb",V:"valid",OK:"ok"};
-const SC: Record<string,{l:string;c:string;bg:string;i:string}>={[ST.P]:{l:"Pendiente",c:T.rd,bg:"#FEE2E2",i:"🔴"},[ST.C]:{l:"En Curso",c:T.yl,bg:"#FEF3C7",i:"🟡"},[ST.E]:{l:"Compras",c:T.pr,bg:"#EDE9FE",i:"💰"},[ST.V]:{l:"Validación",c:T.bl,bg:"#DBEAFE",i:"🔵"},[ST.OK]:{l:"Completada",c:T.gn,bg:"#D1FAE5",i:"🟢"}};
-const TODAY="2026-02-12";
-const fn=(u:any)=>u.n+" "+u.a;
-const isOD=(d:string)=>d<TODAY&&d!=="";
-const daysDiff=(a:string,b:string)=>Math.round((new Date(b).getTime()-new Date(a).getTime())/864e5);
-
-const initU=[
-  {id:"sa1",n:"Martín",a:"Isola",role:"superadmin",dId:1,div:"",mail:"misola@lostordos.com.ar",tel:"261-555-0000"},
-  {id:"a1",n:"Admin",a:"SE",role:"admin",dId:55,div:"",mail:"admin@lostordos.com.ar",tel:"261-555-0001"},
-  {id:"c1",n:"Federico",a:"Perinetti",role:"coordinador",dId:11,div:"Coordinador",mail:"fperinetti@lostordos.com.ar",tel:"261-555-0010"},
-  {id:"c2",n:"Federico",a:"Mexandeau",role:"coordinador",dId:11,div:"Coordinador",mail:"fmexandeau@lostordos.com.ar",tel:"261-555-0011"},
-  {id:"emb1",n:"Franco",a:"Lazzari",role:"embudo",dId:7,div:"",mail:"flazzari@lostordos.com.ar",tel:"261-555-0020"},
-  {id:"u1",n:"Gonzalo",a:"Santo Tomás",role:"usuario",dId:11,div:"Responsable de Managers",mail:"gst@lostordos.com.ar",tel:"261-555-0030"},
-  {id:"u2",n:"Félix",a:"Guiñazú",role:"usuario",dId:11,div:"Coordinador Adm. Deportiva",mail:"fg@lostordos.com.ar",tel:"261-555-0031"},
-  {id:"u3",n:"Marcos",a:"Balzarelli",role:"usuario",dId:11,div:"Responsable Viajes y Logística",mail:"mb@lostordos.com.ar",tel:"261-555-0032"},
-  {id:"g1",n:"Bautista",a:"Pontis",role:"coordinador",dId:1,div:"",mail:"bpontis@lt.ar",tel:""},
-  {id:"g2",n:"Miguel",a:"Senosian",role:"coordinador",dId:9,div:"",mail:"msenosian@lt.ar",tel:""},
-  {id:"g3",n:"Daniel",a:"Olguín",role:"usuario",dId:40,div:"",mail:"dolguin@lt.ar",tel:""},
-  {id:"g4",n:"Daniel",a:"Pont Lezica",role:"usuario",dId:41,div:"",mail:"dpontlezica@lt.ar",tel:""},
-  {id:"u11",n:"Leandro",a:"Sturniolo",role:"coordinador",dId:3,div:"",mail:"lsturniolo@lt.ar",tel:""},
-  {id:"g5",n:"Miguel",a:"Senosian",role:"usuario",dId:3,div:"Tordos TV",mail:"msenosian2@lt.ar",tel:""},
-  {id:"g6",n:"Alejandrina",a:"Vázquez",role:"usuario",dId:3,div:"Diseño",mail:"avazquez@lt.ar",tel:""},
-  {id:"g7",n:"Gastón",a:"Aye",role:"usuario",dId:3,div:"Redes",mail:"gaye@lt.ar",tel:""},
-  {id:"g8",n:"Marcelo",a:"Carubin",role:"usuario",dId:3,div:"Fotografía",mail:"mcarubin@lt.ar",tel:""},
-  {id:"g9",n:"Diego",a:"Sosa",role:"usuario",dId:3,div:"Filmación",mail:"dsosa@lt.ar",tel:""},
-  {id:"g10",n:"Marcos",a:"Sosa",role:"usuario",dId:3,div:"Edición",mail:"msosa@lt.ar",tel:""},
-  {id:"g11",n:"Juan Pablo",a:"García",role:"usuario",dId:3,div:"Prensa",mail:"jpgarcia@lt.ar",tel:""},
-  {id:"g12",n:"Valentín",a:"Saá",role:"usuario",dId:3,div:"Creatividad",mail:"vsaa@lt.ar",tel:""},
-  {id:"g13",n:"Marcos",a:"Genoud",role:"usuario",dId:3,div:"Asesoría Comunicación",mail:"mgenoud@lt.ar",tel:""},
-  {id:"g24",n:"Lucía",a:"Gil",role:"coordinador",dId:6,div:"",mail:"lgil@lt.ar",tel:""},
-  {id:"u15",n:"Jesús",a:"Herrera",role:"coordinador",dId:4,div:"",mail:"jherrera@lt.ar",tel:""},
-  {id:"u10",n:"Victoria",a:"Brandi",role:"usuario",dId:4,div:"Relacionamiento",mail:"vbrandi@lt.ar",tel:""},
-  {id:"u19",n:"Juan Martín",a:"Gómez Centurión",role:"usuario",dId:4,div:"Comercial",mail:"jmgc@lt.ar",tel:""},
-  {id:"g14",n:"Victoria",a:"Brandi",role:"coordinador",dId:2,div:"Coord. Eventos",mail:"vbrandi2@lt.ar",tel:""},
-  {id:"u17",n:"Ignacio",a:"Ricci",role:"usuario",dId:2,div:"Cena de Camadas",mail:"iricci@lt.ar",tel:""},
-  {id:"u18",n:"Lucía",a:"González",role:"usuario",dId:2,div:"Sunset",mail:"lgonzalez@lt.ar",tel:""},
-  {id:"g15",n:"Jesús",a:"Herrera",role:"usuario",dId:2,div:"Fiesta 65 años",mail:"jherrera2@lt.ar",tel:""},
-  {id:"u22",n:"Juan Manuel",a:"Bancalari",role:"coordinador",dId:5,div:"",mail:"jmbancalari@lt.ar",tel:""},
-  {id:"g16",n:"Gustavo",a:"Cialone",role:"coordinador",dId:61,div:"",mail:"gcialone@lt.ar",tel:""},
-  {id:"g17",n:"Santiago",a:"Pérez Araujo",role:"usuario",dId:62,div:"",mail:"sperezaraujo@lt.ar",tel:""},
-  {id:"g18",n:"Ignacio",a:"Barbeira",role:"usuario",dId:63,div:"",mail:"ibarbeira2@lt.ar",tel:""},
-  {id:"u16",n:"Victoria",a:"Brandi",role:"coordinador",dId:65,div:"Tordos Shop",mail:"vbrandi3@lt.ar",tel:""},
-  {id:"g19",n:"Laura",a:"Piola",role:"usuario",dId:65,div:"Encargada",mail:"lpiola@lt.ar",tel:""},
-  {id:"g20",n:"Victoria",a:"Brandi",role:"coordinador",dId:21,div:"Conecta",mail:"vbrandi4@lt.ar",tel:""},
-  {id:"g21",n:"Clara",a:"Urrutia",role:"usuario",dId:20,div:"",mail:"currutia@lt.ar",tel:""},
-  {id:"g22",n:"Ignacio",a:"Ricci",role:"usuario",dId:23,div:"",mail:"iricci2@lt.ar",tel:""},
-  {id:"u20",n:"Fabián",a:"Guzzo",role:"usuario",dId:22,div:"",mail:"fguzzo@lt.ar",tel:""},
-  {id:"g23",n:"Álvaro",a:"Villanueva",role:"coordinador",dId:32,div:"",mail:"avillanueva@lt.ar",tel:""},
-  {id:"e1",n:"Agustín",a:"Castillo",role:"enlace",dId:11,div:"Enlace Plantel Superior",mail:"ac@lt.ar",tel:"261-0001"},
-  {id:"e2",n:"Martín",a:"Isola",role:"enlace",dId:11,div:"Enlace M19",mail:"misola2@lt.ar",tel:"261-0002"},
-  {id:"e3",n:"Juan Pablo",a:"García",role:"enlace",dId:11,div:"Enlace M17",mail:"jpg@lt.ar",tel:"261-0003"},
-  {id:"e4",n:"Rodolfo",a:"Guerra",role:"enlace",dId:11,div:"Enlace M16",mail:"rguerra@lt.ar",tel:"261-0004"},
-  {id:"e5",n:"Sebastián",a:"Salas",role:"enlace",dId:11,div:"Enlace M15",mail:"ssalas@lt.ar",tel:"261-0005"},
-  {id:"e6",n:"Pablo",a:"Galeano",role:"enlace",dId:11,div:"Enlace M14",mail:"pg@lt.ar",tel:"261-0006"},
-  {id:"e7",n:"Lautaro",a:"Díaz",role:"enlace",dId:11,div:"Enlace M13",mail:"ldiaz@lt.ar",tel:"261-0007"},
-  {id:"e8",n:"Fabián",a:"Guzzo",role:"enlace",dId:11,div:"Enlace M12",mail:"fguzzo2@lt.ar",tel:"261-0008"},
-  {id:"e9",n:"Maximiliano",a:"Ortega",role:"enlace",dId:11,div:"Enlace M11",mail:"mortega@lt.ar",tel:"261-0009"},
-  {id:"e10",n:"Martín",a:"Sánchez",role:"enlace",dId:11,div:"Enlace M10",mail:"msanchez@lt.ar",tel:"261-0010"},
-  {id:"e11",n:"Ignacio",a:"Barbeira",role:"enlace",dId:11,div:"Enlace M9",mail:"ibarbeira@lt.ar",tel:"261-0011"},
-  {id:"e12",n:"Pelado",a:"Badano",role:"enlace",dId:11,div:"Enlace M8",mail:"pbadano@lt.ar",tel:"261-0012"},
-  {id:"e13",n:"Joel",a:"Agüero",role:"enlace",dId:11,div:"Enlace Escuelita",mail:"ja@lt.ar",tel:"261-0013"},
-  {id:"s1",n:"César",a:"Dalla Torre",role:"usuario",dId:11,div:"Responsable Giras",mail:"cdallatorre@lt.ar",tel:""},
-  {id:"s2",n:"Juan Pablo",a:"García",role:"usuario",dId:11,div:"Resp. Torneo Alejo Duberti",mail:"jpgarcia2@lt.ar",tel:""},
-  {id:"s3",n:"Fabián",a:"Guzzo",role:"usuario",dId:11,div:"Resp. Torneo Julio Cano",mail:"fguzzo3@lt.ar",tel:""},
-  {id:"s4",n:"Germán",a:"Luppoli",role:"usuario",dId:11,div:"Resp. Torneo Beto Jofre",mail:"gluppoli@lt.ar",tel:""},
-  {id:"s5",n:"Joaquín",a:"Bancalari",role:"usuario",dId:11,div:"Resp. Hospitalidad y Recepción",mail:"jbancalari@lt.ar",tel:""},
-  {id:"s6",n:"Federico",a:"Mexandeau",role:"usuario",dId:11,div:"Enlace con la URC",mail:"fmexandeau2@lt.ar",tel:""},
-];
-
-const initAT=[
-  {id:"at1",n:"Franco",a:"Lucchini",role:"coordinador",dId:10,div:"Director Deportivo",mail:"",tel:""},
-  {id:"at2",n:"Fernando",a:"Higgs",role:"usuario",dId:10,div:"🏉 Director de Rugby",mail:"",tel:""},
-  {id:"at3",n:"Carlos",a:"Efimenco",role:"usuario",dId:10,div:"Coordinador Infantiles",mail:"",tel:""},
-  {id:"at4",n:"",a:"",role:"usuario",dId:10,div:"🏑 Director de Hockey",mail:"",tel:""},
-  {id:"at5",n:"Matías",a:"Elías",role:"usuario",dId:10,div:"💪 Preparación Física",mail:"",tel:""},
-  {id:"at6",n:"Martín",a:"Azcurra",role:"usuario",dId:10,div:"Kinesiología Rugby",mail:"",tel:""},
-  {id:"at7",n:"Carolina",a:"Armani",role:"usuario",dId:10,div:"Kinesiología Hockey",mail:"",tel:""},
-  {id:"at8",n:"Matías",a:"Zanni",role:"usuario",dId:10,div:"Nutrición",mail:"",tel:""},
-  {id:"at9",n:"Verónica",a:"Gómez",role:"usuario",dId:10,div:"Psicología",mail:"",tel:""},
-];
-
-const initOM=[
-  {id:"cd1",t:"cd",cargo:"Presidente",n:"Juan Cruz",a:"Cardoso",mail:"",tel:""},
-  {id:"cd2",t:"cd",cargo:"Vicepresidente",n:"Julián",a:"Saá",mail:"",tel:""},
-  {id:"cd3",t:"cd",cargo:"Secretario",n:"Martín",a:"Isola",mail:"",tel:""},
-  {id:"cd4",t:"cd",cargo:"Tesorero",n:"Gustavo",a:"Cialone",mail:"",tel:""},
-  {id:"cd5",t:"cd",cargo:"1er Vocal Titular",n:"Carlos",a:"García",mail:"",tel:""},
-  {id:"cd6",t:"cd",cargo:"2do Vocal Titular",n:"Franco",a:"Perinetti",mail:"",tel:""},
-  {id:"cd7",t:"cd",cargo:"1er Vocal Suplente",n:"Laura",a:"Chaky",mail:"",tel:""},
-  {id:"cd8",t:"cd",cargo:"2do Vocal Suplente",n:"Francisco",a:"Herrera",mail:"",tel:""},
-  {id:"se1",t:"se",cargo:"Presidente",n:"Juan Cruz",a:"Cardoso",mail:"",tel:""},
-  {id:"se2",t:"se",cargo:"Vicepresidente",n:"Julián",a:"Saá",mail:"",tel:""},
-  {id:"se3",t:"se",cargo:"Secretario",n:"Martín",a:"Isola",mail:"",tel:""},
-  {id:"se4",t:"se",cargo:"Tesorero",n:"Gustavo",a:"Cialone",mail:"",tel:""},
-  {id:"se5",t:"se",cargo:"2do Vocal Titular",n:"Franco",a:"Perinetti",mail:"",tel:""},
-];
-
-const initP=[
-  {id:1,div:"Plantel Superior",cId:"e1",cN:"Agustín Castillo",dId:11,tipo:"Logística",desc:"Transporte 35 jugadores a San Luis.",fReq:"2026-03-15",urg:"Normal",st:ST.C,asTo:"u3",rG:true,eOk:null as boolean|null,resp:"Cotizando.",cAt:"2026-02-10",monto:null as number|null,log:[{dt:"2026-02-10 09:00",uid:"e1",by:"Agustín Castillo",act:"Creó la tarea",t:"sys"},{dt:"2026-02-10 14:30",uid:"u3",by:"Marcos Balzarelli",act:"Tomó la tarea",t:"sys"},{dt:"2026-02-11 10:00",uid:"u3",by:"Marcos Balzarelli",act:"Estoy cotizando con 3 empresas de transporte.",t:"msg"}]},
-  {id:2,div:"M17",cId:"e3",cN:"Juan Pablo García",dId:11,tipo:"Material deportivo",desc:"10 pelotas Gilbert n°5.",fReq:"2026-02-28",urg:"Urgente",st:ST.P,asTo:null as string|null,rG:true,eOk:null as boolean|null,resp:"",cAt:"2026-02-11",monto:null as number|null,log:[{dt:"2026-02-11 08:00",uid:"e3",by:"Juan Pablo García",act:"Creó la tarea",t:"sys"},{dt:"2026-02-11 08:01",uid:"e3",by:"Juan Pablo García",act:"Las necesitamos para el torneo del 28/02. Son urgentes.",t:"msg"}]},
-  {id:3,div:"M14",cId:"e6",cN:"Pablo Galeano",dId:11,tipo:"Administrativo",desc:"Fichas médicas 8 jugadores.",fReq:"2026-02-20",urg:"Normal",st:ST.V,asTo:"u1",rG:false,eOk:null as boolean|null,resp:"Fichas cargadas.",cAt:"2026-02-05",monto:null as number|null,log:[{dt:"2026-02-05 11:00",uid:"e6",by:"Pablo Galeano",act:"Creó la tarea",t:"sys"},{dt:"2026-02-06 09:00",uid:"u1",by:"Gonzalo Santo Tomás",act:"Tomó la tarea",t:"sys"},{dt:"2026-02-12 08:01",uid:"u1",by:"Gonzalo Santo Tomás",act:"Envió a validación",t:"sys"}]},
-  {id:4,div:"Escuelita",cId:"e13",cN:"Joel Agüero",dId:11,tipo:"Infraestructura",desc:"Arcos sector 3 rotos.",fReq:"2026-02-14",urg:"Urgente",st:ST.OK,asTo:"u2",rG:true,eOk:true,resp:"Arcos reparados.",cAt:"2026-02-03",monto:15000,log:[{dt:"2026-02-03 10:00",uid:"e13",by:"Joel Agüero",act:"Creó la tarea",t:"sys"},{dt:"2026-02-09 10:01",uid:"e13",by:"Joel Agüero",act:"Validó OK ✅",t:"sys"}]},
-  {id:5,div:"",cId:"a1",cN:"Admin SE",dId:3,tipo:"Comunicación",desc:"Diseño flyer institucional.",fReq:"2026-03-01",urg:"Normal",st:ST.P,asTo:null as string|null,rG:false,eOk:null as boolean|null,resp:"",cAt:"2026-02-12",monto:null as number|null,log:[{dt:"2026-02-12 09:00",uid:"a1",by:"Admin SE",act:"Creó la tarea",t:"sys"}]},
-  {id:6,div:"",cId:"a1",cN:"Admin SE",dId:30,tipo:"Infraestructura",desc:"Reparar cerco perimetral.",fReq:"2026-03-10",urg:"Normal",st:ST.C,asTo:null as string|null,rG:true,eOk:null as boolean|null,resp:"",cAt:"2026-02-11",monto:null as number|null,log:[{dt:"2026-02-11 14:00",uid:"a1",by:"Admin SE",act:"Creó la tarea",t:"sys"}]},
-];
-
-const HITOS=[
-  {id:1,fase:"Fase 0",name:"Diagnóstico y mantenimiento",periodo:"2025",pct:85,color:T.gn},
-  {id:2,fase:"Fase 1",name:"Anexo + Acceso Urquiza + Estacionamiento + Pádel",periodo:"2025-2026",pct:30,color:T.bl},
-  {id:3,fase:"Fase 2",name:"Cantina ampliada + Club del Ex + Zona comercial",periodo:"2026-2027",pct:5,color:T.yl},
-  {id:4,fase:"Fase 3",name:"Vestuarios PS Rugby/Hockey + Dormy's",periodo:"2028-2030",pct:0,color:T.pr},
-  {id:5,fase:"Fase 4",name:"Pajarera + Paisajismo + Señalética",periodo:"2030-2032",pct:0,color:T.rd},
-];
 
 /* ── UI PRIMITIVES ── */
 function Badge({s,sm}:{s:string;sm?:boolean}){const c=SC[s];return <span style={{background:c.bg,color:c.c,padding:sm?"1px 6px":"2px 9px",borderRadius:20,fontSize:sm?9:11,fontWeight:600,whiteSpace:"nowrap"}}>{c.i} {c.l}</span>;}
@@ -154,13 +31,28 @@ function Ring({pct,color,size,icon}:{pct:number;color:string;size:number;icon?:s
 }
 
 /* ── LOGIN ── */
-function Login({users,deptos,onSel}:{users:any[];deptos:any[];onSel:any}){
-  const [rf,sRf]=useState<string|null>(null);
-  const fl=rf?users.filter((u:any)=>u.role===rf):[];
+function Login({onLogin}:{onLogin:(user:any)=>void}){
+  const [email,sEmail]=useState("");const [pw,sPw]=useState("");const [err,sErr]=useState("");const [loading,sLoading]=useState(false);
   const bg={minHeight:"100vh",background:"linear-gradient(160deg,"+T.nv+","+T.rd+")",display:"flex" as const,alignItems:"center" as const,justifyContent:"center" as const,padding:20};
   const logo=<><img src="/logo.jpg" alt="Los Tordos Rugby Club" style={{width:120,height:120,objectFit:"contain",margin:"0 auto 18px",display:"block"}}/><h1 style={{color:"#fff",fontSize:30,margin:"0 0 4px",fontWeight:800,letterSpacing:1}}>Los Tordos Rugby Club</h1><p style={{color:"rgba(255,255,255,.6)",fontSize:14,margin:"0 0 32px",fontWeight:500}}>Sistema de Gestión</p></>;
-  if(!rf) return(<div style={bg}><div style={{maxWidth:480,width:"100%",textAlign:"center" as const}}>{logo}<Card><h2 style={{margin:"0 0 14px",fontSize:16,color:T.nv}}>Ingresá al sistema</h2>{RK.map(k=>{const r=ROLES[k],cnt=users.filter((u:any)=>u.role===k).length;if(!cnt)return null;return(<div key={k} onClick={()=>sRf(k)} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",border:"1px solid "+T.g2,borderRadius:10,marginBottom:6,cursor:"pointer",background:"#fff"}}><span style={{fontSize:20}}>{r.i}</span><div style={{flex:1,textAlign:"left" as const}}><div style={{fontWeight:700,color:T.nv,fontSize:13}}>{r.l}</div></div><span style={{background:T.g1,borderRadius:20,padding:"2px 9px",fontSize:11,fontWeight:600,color:T.g5}}>{cnt}</span></div>);})}</Card></div></div>);
-  return(<div style={bg}><div style={{maxWidth:480,width:"100%",textAlign:"center" as const}}>{logo}<Card><div style={{display:"flex",justifyContent:"space-between",marginBottom:12}}><h2 style={{margin:0,fontSize:15,color:T.nv}}>{ROLES[rf].i} {ROLES[rf].l}</h2><Btn v="g" s="s" onClick={()=>sRf(null)}>← Volver</Btn></div>{fl.map((u:any)=>{const d=deptos.find((x:any)=>x.id===u.dId);return(<div key={u.id} onClick={()=>onSel(u)} style={{display:"flex",justifyContent:"space-between",padding:"10px 12px",border:"1px solid "+T.g2,borderRadius:8,marginBottom:4,cursor:"pointer",background:"#fff"}}><div style={{textAlign:"left" as const}}><div style={{fontWeight:600,color:T.nv,fontSize:13}}>{fn(u)}</div><div style={{color:T.g4,fontSize:11}}>{d?d.name:""}{u.div?" · "+u.div:""}</div></div><span style={{color:T.g4}}>›</span></div>);})}</Card></div></div>);
+  const submit=async(e:any)=>{e.preventDefault();sErr("");sLoading(true);
+    const{error}=await supabase.auth.signInWithPassword({email,password:pw});
+    if(error){sErr(error.message);sLoading(false);return;}
+    const{data:{user:au}}=await supabase.auth.getUser();
+    if(!au){sErr("Error de autenticación");sLoading(false);return;}
+    const{data:profile}=await supabase.from("profiles").select("*").eq("id",au.id).single();
+    if(!profile){sErr("Perfil no encontrado");sLoading(false);return;}
+    onLogin(profileToUser(profile));
+  };
+  return(<div style={bg}><div style={{maxWidth:420,width:"100%",textAlign:"center" as const}}>{logo}<Card>
+    <h2 style={{margin:"0 0 14px",fontSize:16,color:T.nv}}>Ingresá al sistema</h2>
+    <form onSubmit={submit} style={{display:"flex",flexDirection:"column" as const,gap:10}}>
+      <input type="email" value={email} onChange={e=>sEmail(e.target.value)} placeholder="Email" required style={{padding:"10px 14px",borderRadius:8,border:"1px solid "+T.g3,fontSize:13,outline:"none"}}/>
+      <input type="password" value={pw} onChange={e=>sPw(e.target.value)} placeholder="Contraseña" required style={{padding:"10px 14px",borderRadius:8,border:"1px solid "+T.g3,fontSize:13,outline:"none"}}/>
+      {err&&<div style={{color:T.rd,fontSize:12,textAlign:"left" as const}}>{err}</div>}
+      <Btn v="r" disabled={loading}>{loading?"Ingresando...":"Ingresar"}</Btn>
+    </form>
+  </Card></div></div>);
 }
 
 /* ── THREAD ── */
@@ -421,7 +313,7 @@ function NP({user,users,deptos,areas,onSub,onX,preAssign}:any){
       </div>}
       {atts.length>0&&<div style={{display:"flex",flexWrap:"wrap" as const,gap:4}}>{atts.map((a,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:4,padding:"4px 10px",background:"#E8F4FD",borderRadius:16,fontSize:10,border:"1px solid #B3D9F2"}}><span>{a.label}</span><span style={{color:T.bl,maxWidth:140,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{a.val}</span><button onClick={()=>sAtts(p=>p.filter((_,j)=>j!==i))} style={{background:"none",border:"none",cursor:"pointer",fontSize:10,color:T.g4,padding:0}}>✕</button></div>)}</div>}
     </div>
-    <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn v="g" onClick={onX}>Cancelar</Btn><Btn v="r" disabled={!ok} onClick={()=>{const dId=Number(f.dId)||user.dId;const pa=preAssign;const ts=TODAY+" "+new Date().toTimeString().slice(0,5);onSub({id:_p++,div:f.div||user.div||"",cId:user.id,cN:fn(user),dId,tipo:f.tipo,desc:f.desc,fReq:f.fReq,urg:f.urg,st:pa?ST.C:ST.P,asTo:pa?pa.id:null,rG:f.rG,eOk:null,resp:"",cAt:TODAY,monto:null,log:[{dt:ts,uid:user.id,by:fn(user),act:"Creó la tarea",t:"sys"},...(pa?[{dt:ts,uid:user.id,by:fn(user),act:"Asignó a "+fn(pa),t:"sys"}]:[]),...atts.map(a=>({dt:ts,uid:user.id,by:fn(user),act:a.label+": "+a.val,t:"msg"}))]});}}>📨 Enviar</Btn></div>
+    <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn v="g" onClick={onX}>Cancelar</Btn><Btn v="r" disabled={!ok} onClick={()=>{const dId=Number(f.dId)||user.dId;const pa=preAssign;const ts=TODAY+" "+new Date().toTimeString().slice(0,5);onSub({id:0,div:f.div||user.div||"",cId:user.id,cN:fn(user),dId,tipo:f.tipo,desc:f.desc,fReq:f.fReq,urg:f.urg,st:pa?ST.C:ST.P,asTo:pa?pa.id:null,rG:f.rG,eOk:null,resp:"",cAt:TODAY,monto:null,log:[{dt:ts,uid:user.id,by:fn(user),act:"Creó la tarea",t:"sys"},...(pa?[{dt:ts,uid:user.id,by:fn(user),act:"Asignó a "+fn(pa),t:"sys"}]:[]),...atts.map(a=>({dt:ts,uid:user.id,by:fn(user),act:a.label+": "+a.val,t:"msg"}))]});}}>📨 Enviar</Btn></div>
   </Card>);
 }
 
@@ -515,35 +407,6 @@ function Depts({areas,deptos,pedidos,users,onSel}:any){
 }
 
 /* ── REUNIONES ── */
-let _ag=1,_mi=1;
-const AGT:Record<string,{title:string;icon:string;color:string;per:string;dur:string;secs:{t:string;sub:string[]}[]}> = {
-  cd:{title:"Comisión Directiva",icon:"🏛️",color:"#1E293B",per:"Mensual",dur:"2 horas",secs:[
-    {t:"Apertura",sub:["Verificación de quórum","Aprobación del orden del día"]},
-    {t:"Informe de Secretaría Ejecutiva",sub:["Avances generales","Resoluciones tomadas"]},
-    {t:"Informe de Tesorería",sub:["Estado financiero","Presupuesto vs ejecución"]},
-    {t:"Informe de Áreas Estratégicas",sub:["Institucional","Deportivo","Social","Infraestructura"]},
-    {t:"Proyectos Especiales",sub:["Estado, hitos y decisiones requeridas"]},
-    {t:"Mociones y temas a resolver",sub:["Votaciones si corresponde"]},
-    {t:"Cierre",sub:["Síntesis de resoluciones","Próxima fecha"]}]},
-  se:{title:"Secretaría Ejecutiva",icon:"⚡",color:"#991B1B",per:"Quincenal",dur:"1h30",secs:[
-    {t:"Repaso breve de pendientes",sub:[]},
-    {t:"Informe de Áreas",sub:[]},
-    {t:"Resoluciones rápidas operativas",sub:[]},
-    {t:"Agenda próxima quincena",sub:[]},
-    {t:"Definición de temas a elevar a CD",sub:[]}]},
-  area:{title:"Subcomisiones / Áreas",icon:"📂",color:T.bl,per:"Quincenal",dur:"1 hora",secs:[
-    {t:"Qué hicimos",sub:[]},
-    {t:"Qué estamos haciendo",sub:[]},
-    {t:"Stoppers",sub:[]},
-    {t:"Próximos hitos",sub:[]},
-    {t:"Necesidades a elevar a SE",sub:[]}]}
-};
-const MINSECS:Record<string,string[]>={
-  cd:["Temas tratados","Resoluciones tomadas","Temas pendientes próxima reunión"],
-  se:["Avances","Decisiones operativas","Escalamientos a CD","Próximos pasos"],
-  area:["Qué hice","Qué hago","Stoppers","Necesita aprobación de SE/CD"]
-};
-
 function Reuniones({agendas,minutas,om,users,areas,onAddAg,onUpdAg,onAddMin,onUpdMin,onCreateTasks,user}:any){
   const [tab,sTab]=useState("cd");const [mode,sMode]=useState("home");const [selId,sSelId]=useState<number|null>(null);
   const [agDate,sAgDate]=useState(TODAY);const [agNotes,sAgNotes]=useState<string[]>([]);const [areaName,sAreaName]=useState("");
@@ -603,8 +466,8 @@ function Reuniones({agendas,minutas,om,users,areas,onAddAg,onUpdAg,onAddMin,onUp
         </div>)}
         <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:12}}>
           <Btn v="g" onClick={()=>sMode("home")}>Cancelar</Btn>
-          <Btn v="p" onClick={()=>{onAddAg({id:_ag++,type:tab,areaName:areaName||undefined,date:agDate,sections:tmpl.secs.map((s:any,i:number)=>({t:s.t,sub:s.sub,notes:notes[i]||""})),status:"borrador",createdAt:TODAY});sMode("home");}}>💾 Guardar borrador</Btn>
-          <Btn v="r" onClick={()=>{onAddAg({id:_ag++,type:tab,areaName:areaName||undefined,date:agDate,sections:tmpl.secs.map((s:any,i:number)=>({t:s.t,sub:s.sub,notes:notes[i]||""})),status:"enviada",createdAt:TODAY});sMode("home");}}>📨 Guardar y enviar</Btn>
+          <Btn v="p" onClick={()=>{onAddAg({id:0,type:tab,areaName:areaName||undefined,date:agDate,sections:tmpl.secs.map((s:any,i:number)=>({t:s.t,sub:s.sub,notes:notes[i]||""})),status:"borrador",createdAt:TODAY});sMode("home");}}>💾 Guardar borrador</Btn>
+          <Btn v="r" onClick={()=>{onAddAg({id:0,type:tab,areaName:areaName||undefined,date:agDate,sections:tmpl.secs.map((s:any,i:number)=>({t:s.t,sub:s.sub,notes:notes[i]||""})),status:"enviada",createdAt:TODAY});sMode("home");}}>📨 Guardar y enviar</Btn>
         </div>
       </Card>
     </div>);
@@ -673,8 +536,8 @@ function Reuniones({agendas,minutas,om,users,areas,onAddAg,onUpdAg,onAddMin,onUp
         </div>
         <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:14}}>
           <Btn v="g" onClick={()=>sMode("home")}>Cancelar</Btn>
-          <Btn v="p" onClick={()=>{const aus=members.filter((m:any)=>miPres.indexOf(m.n+" "+m.a)<0).map((m:any)=>m.n+" "+m.a);onAddMin({id:_mi++,type:tab,areaName:areaName||undefined,agendaId:miAgId,date:miDate,horaInicio:miHI,horaCierre:miHC,lugar:miLugar,presentes:[...miPres],ausentes:aus,sections:MINSECS[tab].map((t2:string,i2:number)=>({title:t2,content:secVals[i2]||""})),tareas:miTareas.filter((t2:any)=>t2.desc),status:"borrador",createdAt:TODAY});sMode("home");}}>💾 Guardar borrador</Btn>
-          <Btn v="r" onClick={()=>{const aus=members.filter((m:any)=>miPres.indexOf(m.n+" "+m.a)<0).map((m:any)=>m.n+" "+m.a);const vt=miTareas.filter((t2:any)=>t2.desc&&t2.respId);onAddMin({id:_mi++,type:tab,areaName:areaName||undefined,agendaId:miAgId,date:miDate,horaInicio:miHI,horaCierre:miHC,lugar:miLugar,presentes:[...miPres],ausentes:aus,sections:MINSECS[tab].map((t2:string,i2:number)=>({title:t2,content:secVals[i2]||""})),tareas:miTareas.filter((t2:any)=>t2.desc),status:"final",createdAt:TODAY});if(vt.length>0)onCreateTasks(vt);sMode("home");}}>✅ Finalizar y crear tareas</Btn>
+          <Btn v="p" onClick={()=>{const aus=members.filter((m:any)=>miPres.indexOf(m.n+" "+m.a)<0).map((m:any)=>m.n+" "+m.a);onAddMin({id:0,type:tab,areaName:areaName||undefined,agendaId:miAgId,date:miDate,horaInicio:miHI,horaCierre:miHC,lugar:miLugar,presentes:[...miPres],ausentes:aus,sections:MINSECS[tab].map((t2:string,i2:number)=>({title:t2,content:secVals[i2]||""})),tareas:miTareas.filter((t2:any)=>t2.desc),status:"borrador",createdAt:TODAY});sMode("home");}}>💾 Guardar borrador</Btn>
+          <Btn v="r" onClick={()=>{const aus=members.filter((m:any)=>miPres.indexOf(m.n+" "+m.a)<0).map((m:any)=>m.n+" "+m.a);const vt=miTareas.filter((t2:any)=>t2.desc&&t2.respId);onAddMin({id:0,type:tab,areaName:areaName||undefined,agendaId:miAgId,date:miDate,horaInicio:miHI,horaCierre:miHC,lugar:miLugar,presentes:[...miPres],ausentes:aus,sections:MINSECS[tab].map((t2:string,i2:number)=>({title:t2,content:secVals[i2]||""})),tareas:miTareas.filter((t2:any)=>t2.desc),status:"final",createdAt:TODAY});if(vt.length>0)onCreateTasks(vt);sMode("home");}}>✅ Finalizar y crear tareas</Btn>
         </div>
       </Card>
     </div>);
@@ -718,15 +581,59 @@ function notifs(user:any,peds:any[]){const n:any[]=[];if(["coordinador","admin",
 
 /* ── MAIN APP ── */
 export default function App(){
-  const [areas]=useState(AREAS);const [deptos]=useState(DEPTOS);const [users,sUs]=useState([...initU,...initAT]);const [om,sOm]=useState(initOM);const [peds,sPd]=useState(initP);const [hitos,sHi]=useState(HITOS);const [agendas,sAgs]=useState<any[]>([]);const [minutas,sMins]=useState<any[]>([]);
-  const [user,sU]=useState<any>(null);const [vw,sVw]=useState("dash");const [sel,sSl]=useState<any>(null);const [aA,sAA]=useState<number|null>(null);const [aD,sAD]=useState<number|null>(null);const [sbCol,sSbCol]=useState(false);const [search,sSr]=useState("");const [shNot,sShNot]=useState(false);const [preAT,sPreAT]=useState<any>(null);
+  const [areas]=useState(AREAS);const [deptos]=useState(DEPTOS);
+  const [users,sUs]=useState<any[]>([]);const [om,sOm]=useState<any[]>([]);const [peds,sPd]=useState<any[]>([]);const [hitos,sHi]=useState<any[]>([]);const [agendas,sAgs]=useState<any[]>([]);const [minutas,sMins]=useState<any[]>([]);
+  const [user,sU]=useState<any>(null);const [authChecked,sAuthChecked]=useState(false);
+  const [vw,sVw]=useState("dash");const [sel,sSl]=useState<any>(null);const [aA,sAA]=useState<number|null>(null);const [aD,sAD]=useState<number|null>(null);const [sbCol,sSbCol]=useState(false);const [search,sSr]=useState("");const [shNot,sShNot]=useState(false);const [preAT,sPreAT]=useState<any>(null);
 
-  const out=()=>{sU(null);sVw("dash");sSl(null);sAA(null);sAD(null);sSr("");};
+  /* ── Fetch all data from Supabase ── */
+  const fetchAll = useCallback(async()=>{
+    const [pRes,mRes,omRes,msRes,agRes,miRes]=await Promise.all([
+      supabase.from("profiles").select("*"),
+      supabase.from("tasks").select("*").order("id",{ascending:false}),
+      supabase.from("org_members").select("*"),
+      supabase.from("milestones").select("*").order("id"),
+      supabase.from("agendas").select("*").order("id",{ascending:false}),
+      supabase.from("minutas").select("*").order("id",{ascending:false}),
+    ]);
+    if(pRes.data) sUs(pRes.data.map((p:any)=>profileToUser(p)));
+    if(omRes.data) sOm(omRes.data.map((m:any)=>({id:m.id,t:m.type,cargo:m.cargo,n:m.first_name,a:m.last_name,mail:m.email,tel:m.phone})));
+    if(msRes.data) sHi(msRes.data.map((h:any)=>({id:h.id,fase:h.phase,name:h.name,periodo:h.period,pct:h.pct,color:h.color})));
+    if(agRes.data) sAgs(agRes.data.map((a:any)=>({id:a.id,type:a.type,areaName:a.area_name,date:a.date,sections:a.sections,status:a.status,createdAt:a.created_at})));
+    if(miRes.data) sMins(miRes.data.map((m:any)=>({id:m.id,type:m.type,areaName:m.area_name,agendaId:m.agenda_id,date:m.date,horaInicio:m.hora_inicio,horaCierre:m.hora_cierre,lugar:m.lugar,presentes:m.presentes,ausentes:m.ausentes,sections:m.sections,tareas:m.tareas,status:m.status,createdAt:m.created_at})));
+    // Tasks + messages
+    if(mRes.data){
+      const tmRes=await supabase.from("task_messages").select("*").order("created_at");
+      const msgs:any[]=tmRes.data||[];
+      sPd(mRes.data.map((t:any)=>{
+        const tMsgs=msgs.filter((m:any)=>m.task_id===t.id).map((m:any)=>({dt:m.created_at||"",uid:m.user_id,by:m.user_name,act:m.content,t:m.type}));
+        return{id:t.id,div:t.division,cId:t.creator_id,cN:t.creator_name,dId:t.dept_id,tipo:t.tipo,desc:t.description,fReq:t.due_date,urg:t.urgency,st:t.status,asTo:t.assigned_to,rG:t.requires_expense,eOk:t.expense_ok,resp:t.resolution,cAt:t.created_at,monto:t.amount,log:tMsgs};
+      }));
+    }
+  },[]);
+
+  /* ── Check existing session on mount ── */
+  useEffect(()=>{
+    (async()=>{
+      const{data:{session}}=await supabase.auth.getSession();
+      if(session?.user){
+        const{data:profile}=await supabase.from("profiles").select("*").eq("id",session.user.id).single();
+        if(profile) sU(profileToUser(profile));
+      }
+      sAuthChecked(true);
+    })();
+  },[]);
+
+  /* ── Fetch data when user logs in ── */
+  useEffect(()=>{if(user) fetchAll();},[user,fetchAll]);
+
+  const out=async()=>{await supabase.auth.signOut();sU(null);sVw("dash");sSl(null);sAA(null);sAD(null);sSr("");sPd([]);sUs([]);sOm([]);sHi([]);sAgs([]);sMins([]);};
   const isAd=user&&(user.role==="admin"||user.role==="superadmin");
   const isSA=user&&user.role==="superadmin";
   const isPersonal=user&&(user.role==="enlace"||user.role==="manager"||user.role==="usuario");
 
-  if(!user) return <Login users={users} deptos={deptos} onSel={sU}/>;
+  if(!authChecked) return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:T.g1}}><div style={{fontSize:14,color:T.g4}}>Cargando...</div></div>;
+  if(!user) return <Login onLogin={(u:any)=>sU(u)}/>;
 
   const nts=notifs(user,peds);
   const hAC=(id:number)=>{sAA(aA===id?null:id);sAD(null);sVw("dash");};
@@ -740,7 +647,13 @@ export default function App(){
   if(isPersonal){nav=[{k:"my",l:"Mis Tareas",sh:true},{k:"new",l:"+ Tarea",sh:true},{k:"org",l:"Organigrama",sh:true},{k:"profs",l:"Perfiles",sh:true},{k:"proy",l:"Plan 2035",sh:true}];}
   else{nav=[{k:"dash",l:"Dashboard",sh:true},{k:"org",l:"Organigrama",sh:true},{k:"dept",l:"Departamentos",sh:true},...(isSA?[{k:"reun",l:"📅 Reuniones",sh:true}]:[]),{k:"proy",l:"Plan 2035",sh:true},{k:"profs",l:"Perfiles",sh:true},{k:"new",l:"+ Tarea",sh:true}];}
 
-  const addLog=(id:number,uid:string,by:string,act:string,t?:string)=>sPd(p=>p.map(x=>x.id===id?{...x,log:[...(x.log||[]),{dt:TODAY+" "+new Date().toTimeString().slice(0,5),uid,by,act,t:t||"sys"}]}:x));
+  /* ── addLog: optimistic local + persist to Supabase ── */
+  const addLog=async(id:number,uid:string,by:string,act:string,t?:string)=>{
+    const ts=TODAY+" "+new Date().toTimeString().slice(0,5);
+    const tp=t||"sys";
+    sPd(p=>p.map(x=>x.id===id?{...x,log:[...(x.log||[]),{dt:ts,uid,by,act,t:tp}]}:x));
+    await supabase.from("task_messages").insert({task_id:id,user_id:uid,user_name:by,content:act,type:tp});
+  };
 
   if(isPersonal&&vw==="dash") { setTimeout(()=>sVw("my"),0); return null; }
 
@@ -759,34 +672,48 @@ export default function App(){
         </div>
         <div style={{flex:1,padding:"20px 16px",overflowY:"auto" as const,marginTop:4}}>
           {vw==="my"&&isPersonal&&<MyDash user={user} peds={peds} users={users} onSel={(p:any)=>sSl(p)}/>}
-          {vw==="org"&&<Org areas={areas} deptos={deptos} users={users} om={om} onEditSave={(id:string,d:any)=>sOm(p=>p.map(m=>m.id===id?{...m,...d}:m))} onDelOm={(id:string)=>sOm(p=>p.filter(m=>m.id!==id))} onDelUser={(id:string)=>sUs(p=>p.filter(u=>u.id!==id))} onEditUser={(u:any)=>{sVw("profs");}} isSA={isSA}/>}
+          {vw==="org"&&<Org areas={areas} deptos={deptos} users={users} om={om} onEditSave={async(id:string,d:any)=>{sOm(p=>p.map(m=>m.id===id?{...m,...d}:m));await supabase.from("org_members").update({first_name:d.n,last_name:d.a,email:d.mail||"",phone:d.tel||""}).eq("id",id);}} onDelOm={async(id:string)=>{sOm(p=>p.filter(m=>m.id!==id));await supabase.from("org_members").delete().eq("id",id);}} onDelUser={async(id:string)=>{sUs(p=>p.filter(u=>u.id!==id));await supabase.from("profiles").delete().eq("id",id);}} onEditUser={(u:any)=>{sVw("profs");}} isSA={isSA}/>}
           {vw==="dept"&&<Depts areas={areas} deptos={deptos} pedidos={peds} users={users} onSel={(p:any)=>sSl(p)}/>}
           {vw==="reun"&&isSA&&<Reuniones agendas={agendas} minutas={minutas} om={om} users={users} areas={areas} user={user}
-            onAddAg={(a:any)=>sAgs(p=>[a,...p])}
-            onUpdAg={(id:number,d:any)=>sAgs(p=>p.map(a=>a.id===id?{...a,...d}:a))}
-            onAddMin={(m:any)=>sMins(p=>[m,...p])}
-            onUpdMin={(id:number,d:any)=>sMins(p=>p.map(m=>m.id===id?{...m,...d}:m))}
-            onCreateTasks={(tareas:any[])=>{const ts=TODAY+" "+new Date().toTimeString().slice(0,5);const newTasks=tareas.map((t:any)=>{const resp=users.find((u:any)=>u.id===t.respId);return{id:_p++,div:"",cId:user.id,cN:fn(user),dId:resp?.dId||1,tipo:"Administrativo",desc:t.desc,fReq:t.fecha||"",urg:"Normal",st:ST.C,asTo:t.respId,rG:false,eOk:null,resp:"",cAt:TODAY,monto:null,log:[{dt:ts,uid:user.id,by:fn(user),act:"Creó tarea desde minuta",t:"sys"},{dt:ts,uid:user.id,by:fn(user),act:"Asignó a "+(resp?fn(resp):""),t:"sys"}]};});sPd(p=>[...newTasks,...p]);}}
+            onAddAg={async(a:any)=>{const{data}=await supabase.from("agendas").insert({type:a.type,area_name:a.areaName||null,date:a.date,sections:a.sections,status:a.status,created_at:a.createdAt||TODAY}).select().single();if(data)sAgs(p=>[{...a,id:data.id},...p]);else sAgs(p=>[a,...p]);}}
+            onUpdAg={async(id:number,d:any)=>{sAgs(p=>p.map(a=>a.id===id?{...a,...d}:a));await supabase.from("agendas").update(d).eq("id",id);}}
+            onAddMin={async(m:any)=>{const{data}=await supabase.from("minutas").insert({type:m.type,area_name:m.areaName||null,agenda_id:m.agendaId||null,date:m.date,hora_inicio:m.horaInicio,hora_cierre:m.horaCierre,lugar:m.lugar,presentes:m.presentes,ausentes:m.ausentes,sections:m.sections,tareas:m.tareas,status:m.status,created_at:m.createdAt||TODAY}).select().single();if(data)sMins(p=>[{...m,id:data.id},...p]);else sMins(p=>[m,...p]);}}
+            onUpdMin={async(id:number,d:any)=>{sMins(p=>p.map(m=>m.id===id?{...m,...d}:m));const upd:any={};if(d.status)upd.status=d.status;await supabase.from("minutas").update(upd).eq("id",id);}}
+            onCreateTasks={async(tareas:any[])=>{const ts=TODAY+" "+new Date().toTimeString().slice(0,5);const newTasks:any[]=[];for(const t of tareas){const resp=users.find((u:any)=>u.id===t.respId);const row:any={division:"",creator_id:user.id,creator_name:fn(user),dept_id:resp?.dId||1,tipo:"Administrativo",description:t.desc,due_date:t.fecha||"",urgency:"Normal",status:"curso",assigned_to:t.respId||null,requires_expense:false,expense_ok:null,resolution:"",created_at:TODAY,amount:null};const{data}=await supabase.from("tasks").insert(row).select().single();const tid=data?.id||0;if(tid){await supabase.from("task_messages").insert([{task_id:tid,user_id:user.id,user_name:fn(user),content:"Creó tarea desde minuta",type:"sys"},{task_id:tid,user_id:user.id,user_name:fn(user),content:"Asignó a "+(resp?fn(resp):""),type:"sys"}]);newTasks.push({id:tid,div:"",cId:user.id,cN:fn(user),dId:resp?.dId||1,tipo:"Administrativo",desc:t.desc,fReq:t.fecha||"",urg:"Normal",st:ST.C,asTo:t.respId,rG:false,eOk:null,resp:"",cAt:TODAY,monto:null,log:[{dt:ts,uid:user.id,by:fn(user),act:"Creó tarea desde minuta",t:"sys"},{dt:ts,uid:user.id,by:fn(user),act:"Asignó a "+(resp?fn(resp):""),t:"sys"}]});}}sPd(p=>[...newTasks,...p]);}}
           />}
-          {vw==="profs"&&<Profs users={users} deptos={deptos} areas={areas} onDel={(id:string)=>sUs(p=>p.filter(u=>u.id!==id))} onAdd={(u:any)=>sUs(p=>[...p,u])} onEditUser={(id:string,d:any)=>sUs(p=>p.map(u=>u.id===id?{...u,...d}:u))} isAd={isAd} onAssignTask={(u:any)=>{sPreAT(u);sVw("new");}}/>}
-          {vw==="new"&&<NP user={user} users={users} deptos={deptos} areas={areas} preAssign={preAT} onSub={(p:any)=>{sPd(ps=>[p,...ps]);sPreAT(null);sVw(isPersonal?"my":"dash");sAA(null);sAD(null);}} onX={()=>{sPreAT(null);sVw(isPersonal?"my":"dash");}}/>}
-          {vw==="proy"&&<Proyecto hitos={hitos} setHitos={sHi} isAd={isAd}/>}
+          {vw==="profs"&&<Profs users={users} deptos={deptos} areas={areas} onDel={async(id:string)=>{sUs(p=>p.filter(u=>u.id!==id));await supabase.from("profiles").delete().eq("id",id);}} onAdd={async(u:any)=>{
+            const{data:{session}}=await supabase.auth.getSession();const tok=session?.access_token;
+            if(!tok||!u.mail){sUs(p=>[...p,u]);return;}
+            const res=await fetch("/api/admin/create-user",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+tok},body:JSON.stringify({email:u.mail,first_name:u.n,last_name:u.a,role:u.role,dept_id:u.dId,division:u.div,phone:u.tel})});
+            const json=await res.json();if(json.user){sUs(p=>[...p,{...u,id:json.user.id}]);}else{sUs(p=>[...p,u]);}
+          }} onEditUser={async(id:string,d:any)=>{sUs(p=>p.map(u=>u.id===id?{...u,...d}:u));await supabase.from("profiles").update({first_name:d.n,last_name:d.a,role:d.role,dept_id:d.dId,division:d.div,email:d.mail||"",phone:d.tel||""}).eq("id",id);}} isAd={isAd} onAssignTask={(u:any)=>{sPreAT(u);sVw("new");}}/>}
+          {vw==="new"&&<NP user={user} users={users} deptos={deptos} areas={areas} preAssign={preAT} onSub={async(p:any)=>{
+            const row:any=taskToDB(p);
+            const{data}=await supabase.from("tasks").insert(row).select().single();
+            const tid=data?.id||p.id;
+            const localP={...p,id:tid};
+            sPd(ps=>[localP,...ps]);
+            // Persist log entries
+            for(const l of (p.log||[])){await supabase.from("task_messages").insert({task_id:tid,user_id:l.uid,user_name:l.by,content:l.act,type:l.t});}
+            sPreAT(null);sVw(isPersonal?"my":"dash");sAA(null);sAD(null);
+          }} onX={()=>{sPreAT(null);sVw(isPersonal?"my":"dash");}}/>}
+          {vw==="proy"&&<Proyecto hitos={hitos} setHitos={(updater:any)=>{sHi((prev:any)=>{const next=typeof updater==="function"?updater(prev):updater;next.forEach((h:any)=>{supabase.from("milestones").update({pct:h.pct}).eq("id",h.id);});return next;});}} isAd={isAd}/>}
           {vw==="dash"&&!isPersonal&&!aA&&!aD&&<><h2 style={{margin:"0 0 4px",fontSize:19,color:T.nv,fontWeight:800}}>Dashboard</h2><p style={{color:T.g4,fontSize:12,margin:"0 0 16px"}}>KPIs institucionales · Manual Operativo 2035</p><KPIs peds={peds}/><Circles areas={areas} deptos={deptos} pedidos={peds} onAC={hAC}/></>}
           {vw==="dash"&&!isPersonal&&(aA||aD)&&<div><Btn v="g" s="s" onClick={()=>{if(aD)sAD(null);else sAA(null);}} style={{marginBottom:12}}>← {aD?"Volver al área":"Dashboard"}</Btn><TList title={vT} icon={vI} color={vC} peds={vP} users={users} onSel={(p:any)=>sSl(p)} search={search}/></div>}
         </div>
       </div>
       {sel&&<Det p={peds.find(x=>x.id===sel.id)||sel} user={user} users={users} onX={()=>sSl(null)}
-        onTk={(id:number)=>{sPd(p=>p.map(x=>x.id===id?{...x,asTo:user.id,st:ST.C}:x));addLog(id,user.id,fn(user),"Tomó la tarea","sys");}}
-        onAs={(id:number,uid:string)=>{const ag=users.find(u=>u.id===uid);sPd(p=>p.map(x=>x.id===id?{...x,asTo:uid,st:x.st===ST.P?ST.C:x.st}:x));addLog(id,user.id,fn(user),"Asignó a "+(ag?fn(ag):""),"sys");}}
-        onRe={(id:number,r:string)=>sPd(p=>p.map(x=>x.id===id?{...x,resp:r}:x))}
-        onSE={(id:number)=>{sPd(p=>p.map(x=>x.id===id?{...x,st:ST.E}:x));addLog(id,user.id,fn(user),"Envió a Compras","sys");sSl(null);}}
-        onEO={(id:number,ok:boolean)=>{sPd(p=>p.map(x=>x.id===id?{...x,st:ST.C,eOk:ok}:x));addLog(id,user.id,fn(user),ok?"Compras aprobó":"Compras rechazó","sys");sSl(null);}}
-        onFi={(id:number)=>{sPd(p=>p.map(x=>x.id===id?{...x,st:ST.V}:x));addLog(id,user.id,fn(user),"Envió a validación","sys");sSl(null);}}
-        onVa={(id:number,ok:boolean)=>{sPd(p=>p.map(x=>x.id===id?{...x,st:ok?ST.OK:ST.C}:x));addLog(id,user.id,fn(user),ok?"Validó OK ✅":"Rechazó","sys");sSl(null);}}
-        onMsg={(id:number,txt:string)=>addLog(id,user.id,fn(user),txt,"msg")}
-        onMonto={(id:number,m:number)=>sPd(p=>p.map(x=>x.id===id?{...x,monto:m}:x))}
-        onDel={(id:number)=>{sPd(p=>p.filter(x=>x.id!==id));sSl(null);}}
-        onEditSave={(id:number,d:any)=>{sPd(p=>p.map(x=>x.id===id?{...x,...d}:x));addLog(id,user.id,fn(user),"Editó la tarea (Super Admin)","sys");}}
+        onTk={async(id:number)=>{sPd(p=>p.map(x=>x.id===id?{...x,asTo:user.id,st:ST.C}:x));await supabase.from("tasks").update({assigned_to:user.id,status:ST.C}).eq("id",id);addLog(id,user.id,fn(user),"Tomó la tarea","sys");}}
+        onAs={async(id:number,uid:string)=>{const ag=users.find(u=>u.id===uid);const newSt=peds.find(x=>x.id===id)?.st===ST.P?ST.C:peds.find(x=>x.id===id)?.st;sPd(p=>p.map(x=>x.id===id?{...x,asTo:uid,st:x.st===ST.P?ST.C:x.st}:x));await supabase.from("tasks").update({assigned_to:uid,status:newSt}).eq("id",id);addLog(id,user.id,fn(user),"Asignó a "+(ag?fn(ag):""),"sys");}}
+        onRe={async(id:number,r:string)=>{sPd(p=>p.map(x=>x.id===id?{...x,resp:r}:x));await supabase.from("tasks").update({resolution:r}).eq("id",id);}}
+        onSE={async(id:number)=>{sPd(p=>p.map(x=>x.id===id?{...x,st:ST.E}:x));await supabase.from("tasks").update({status:ST.E}).eq("id",id);addLog(id,user.id,fn(user),"Envió a Compras","sys");sSl(null);}}
+        onEO={async(id:number,ok:boolean)=>{sPd(p=>p.map(x=>x.id===id?{...x,st:ST.C,eOk:ok}:x));await supabase.from("tasks").update({status:ST.C,expense_ok:ok}).eq("id",id);addLog(id,user.id,fn(user),ok?"Compras aprobó":"Compras rechazó","sys");sSl(null);}}
+        onFi={async(id:number)=>{sPd(p=>p.map(x=>x.id===id?{...x,st:ST.V}:x));await supabase.from("tasks").update({status:ST.V}).eq("id",id);addLog(id,user.id,fn(user),"Envió a validación","sys");sSl(null);}}
+        onVa={async(id:number,ok:boolean)=>{const ns=ok?ST.OK:ST.C;sPd(p=>p.map(x=>x.id===id?{...x,st:ns}:x));await supabase.from("tasks").update({status:ns}).eq("id",id);addLog(id,user.id,fn(user),ok?"Validó OK ✅":"Rechazó","sys");sSl(null);}}
+        onMsg={async(id:number,txt:string)=>{await addLog(id,user.id,fn(user),txt,"msg");}}
+        onMonto={async(id:number,m:number)=>{sPd(p=>p.map(x=>x.id===id?{...x,monto:m}:x));await supabase.from("tasks").update({amount:m}).eq("id",id);}}
+        onDel={async(id:number)=>{sPd(p=>p.filter(x=>x.id!==id));await supabase.from("tasks").delete().eq("id",id);sSl(null);}}
+        onEditSave={async(id:number,d:any)=>{sPd(p=>p.map(x=>x.id===id?{...x,...d}:x));await supabase.from("tasks").update({tipo:d.tipo,description:d.desc,due_date:d.fReq,urgency:d.urg,division:d.div||"",requires_expense:d.rG}).eq("id",id);addLog(id,user.id,fn(user),"Editó la tarea (Super Admin)","sys");}}
       />}
     </div>
   );
