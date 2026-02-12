@@ -3,7 +3,7 @@ export const T={nv:"#0A1628",rd:"#C8102E",g1:"#F7F8FA",g2:"#E8ECF1",g3:"#CBD2DC"
 export const AREAS=[{id:100,name:"Comisión Directiva",color:"#1E293B",icon:"🏛️"},{id:101,name:"Secretaría Ejecutiva",color:"#991B1B",icon:"⚡"},{id:1,name:"Gobernanza",color:T.bl,icon:"🛡️"},{id:2,name:"Deportiva",color:T.rd,icon:"🏉"},{id:3,name:"Social",color:T.gn,icon:"🤝"},{id:4,name:"Infraestructura",color:T.yl,icon:"🔧"}];
 
 export const DEPTOS=[
-  {id:50,name:"Mesa Directiva",aId:100},{id:51,name:"Consejo Consultivo",aId:100},
+  {id:50,name:"Presidente",aId:100},{id:51,name:"Vicepresidente",aId:100},{id:52,name:"Secretario",aId:100},{id:53,name:"Tesorero",aId:100},{id:54,name:"1er Vocal Titular",aId:100},{id:80,name:"2do Vocal Titular",aId:100},{id:81,name:"1er Vocal Suplente",aId:100},{id:82,name:"2do Vocal Suplente",aId:100},
   {id:55,name:"Presidencia SE",aId:101},{id:56,name:"Coordinación General SE",aId:101},
   {id:1,name:"Coordinación General",aId:1},{id:2,name:"Eventos",aId:1},{id:3,name:"Comunicación",aId:1},{id:4,name:"Sponsoreo",aId:1},{id:5,name:"Gastronomía y Recepción",aId:1},{id:6,name:"Administración",aId:1},{id:7,name:"Compras",aId:1},
   {id:8,name:"Intendencia",aId:1},{id:9,name:"Sistemas",aId:1},{id:40,name:"Atención al Socio",aId:1},{id:41,name:"Estandarización de Procesos",aId:1},
