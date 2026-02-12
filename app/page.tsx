@@ -720,7 +720,12 @@ export default function App(){
             if(!tok||!u.mail){sUs(p=>[...p,u]);return;}
             const res=await fetch("/api/admin/create-user",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+tok},body:JSON.stringify({email:u.mail,first_name:u.n,last_name:u.a,role:u.role,dept_id:u.dId,division:u.div,phone:u.tel})});
             const json=await res.json();if(json.user){sUs(p=>[...p,{...u,id:json.user.id}]);}else{sUs(p=>[...p,u]);}
-          }} onEditUser={async(id:string,d:any)=>{sUs(p=>p.map(u=>u.id===id?{...u,...d}:u));await supabase.from("profiles").update({first_name:d.n,last_name:d.a,role:d.role,dept_id:d.dId,division:d.div,email:d.mail||"",phone:d.tel||""}).eq("id",id);}} isAd={isAd} onAssignTask={(u:any)=>{sPreAT(u);sVw("new");}}/>}
+          }} onEditUser={async(id:string,d:any)=>{
+            const oldUser=users.find(u=>u.id===id);
+            sUs(p=>p.map(u=>u.id===id?{...u,...d}:u));
+            await supabase.from("profiles").update({first_name:d.n,last_name:d.a,role:d.role,dept_id:d.dId,division:d.div,email:d.mail||"",phone:d.tel||""}).eq("id",id);
+            if(d.mail&&oldUser&&d.mail!==oldUser.mail){const{data:{session}}=await supabase.auth.getSession();const tok=session?.access_token;if(tok)await fetch("/api/admin/create-user",{method:"PUT",headers:{"Content-Type":"application/json","Authorization":"Bearer "+tok},body:JSON.stringify({userId:id,email:d.mail})});}
+          }} isAd={isAd} onAssignTask={(u:any)=>{sPreAT(u);sVw("new");}}/>}
           {vw==="new"&&<NP user={user} users={users} deptos={deptos} areas={areas} preAssign={preAT} onSub={async(p:any)=>{
             const row:any=taskToDB(p);
             const{data}=await supabase.from("tasks").insert(row).select().single();

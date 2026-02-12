@@ -60,3 +60,44 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ user: data.user });
 }
+
+export async function PUT(req: NextRequest) {
+  // Verify caller is superadmin
+  const authHeader = req.headers.get("authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+
+  const token = authHeader.slice(7);
+  const anonClient = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+  const { data: { user: caller } } = await anonClient.auth.getUser(token);
+  if (!caller) {
+    return NextResponse.json({ error: "Token inválido" }, { status: 401 });
+  }
+
+  const admin = createAdminClient();
+  const { data: callerProfile } = await admin
+    .from("profiles")
+    .select("role")
+    .eq("id", caller.id)
+    .single();
+
+  if (callerProfile?.role !== "superadmin") {
+    return NextResponse.json({ error: "Solo superadmin" }, { status: 403 });
+  }
+
+  const { userId, email } = await req.json();
+  if (!userId || !email) {
+    return NextResponse.json({ error: "Faltan campos" }, { status: 400 });
+  }
+
+  const { error } = await admin.auth.admin.updateUserById(userId, { email });
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+
+  return NextResponse.json({ ok: true });
+}
