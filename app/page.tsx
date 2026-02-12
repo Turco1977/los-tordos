@@ -587,7 +587,7 @@ function Reuniones({agendas,minutas,om,users,areas,onAddAg,onUpdAg,onAddMin,onUp
 
   /* NUEVA ORDEN DEL DÍA */
   if(mode==="newOD"){
-    if(agNotes.length!==tmpl.secs.length) sAgNotes(tmpl.secs.map(()=>""));
+    const notes=agNotes.length===tmpl.secs.length?agNotes:tmpl.secs.map(()=>"");
     return(<div style={{maxWidth:640}}>
       <Btn v="g" s="s" onClick={()=>sMode("home")} style={{marginBottom:12}}>← Volver</Btn>
       <Card>
@@ -599,12 +599,12 @@ function Reuniones({agendas,minutas,om,users,areas,onAddAg,onUpdAg,onAddMin,onUp
         {tmpl.secs.map((s:any,i:number)=><div key={i} style={{marginBottom:10,padding:10,background:"#FAFAFA",borderRadius:8,border:"1px solid "+T.g2}}>
           <div style={{fontSize:12,fontWeight:700,color:T.nv,marginBottom:2}}>{i+1}. {s.t}</div>
           {s.sub.length>0&&<div style={{marginBottom:4}}>{s.sub.map((sb:string,j:number)=><div key={j} style={{fontSize:10,color:T.g5,paddingLeft:12}}>• {sb}</div>)}</div>}
-          <textarea value={agNotes[i]||""} onChange={e=>{const n=[...agNotes];n[i]=e.target.value;sAgNotes(n);}} rows={2} placeholder="Notas adicionales..." style={{width:"100%",padding:6,borderRadius:6,border:"1px solid "+T.g3,fontSize:11,resize:"vertical" as const,boxSizing:"border-box" as const,marginTop:4}}/>
+          <textarea value={notes[i]||""} onChange={e=>{const n=[...notes];n[i]=e.target.value;sAgNotes(n);}} rows={2} placeholder="Notas adicionales..." style={{width:"100%",padding:6,borderRadius:6,border:"1px solid "+T.g3,fontSize:11,resize:"vertical" as const,boxSizing:"border-box" as const,marginTop:4}}/>
         </div>)}
         <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:12}}>
           <Btn v="g" onClick={()=>sMode("home")}>Cancelar</Btn>
-          <Btn v="p" onClick={()=>{onAddAg({id:_ag++,type:tab,areaName:areaName||undefined,date:agDate,sections:tmpl.secs.map((s:any,i:number)=>({t:s.t,sub:s.sub,notes:agNotes[i]||""})),status:"borrador",createdAt:TODAY});sMode("home");}}>💾 Guardar borrador</Btn>
-          <Btn v="r" onClick={()=>{onAddAg({id:_ag++,type:tab,areaName:areaName||undefined,date:agDate,sections:tmpl.secs.map((s:any,i:number)=>({t:s.t,sub:s.sub,notes:agNotes[i]||""})),status:"enviada",createdAt:TODAY});sMode("home");}}>📨 Guardar y enviar</Btn>
+          <Btn v="p" onClick={()=>{onAddAg({id:_ag++,type:tab,areaName:areaName||undefined,date:agDate,sections:tmpl.secs.map((s:any,i:number)=>({t:s.t,sub:s.sub,notes:notes[i]||""})),status:"borrador",createdAt:TODAY});sMode("home");}}>💾 Guardar borrador</Btn>
+          <Btn v="r" onClick={()=>{onAddAg({id:_ag++,type:tab,areaName:areaName||undefined,date:agDate,sections:tmpl.secs.map((s:any,i:number)=>({t:s.t,sub:s.sub,notes:notes[i]||""})),status:"enviada",createdAt:TODAY});sMode("home");}}>📨 Guardar y enviar</Btn>
         </div>
       </Card>
     </div>);
@@ -639,7 +639,7 @@ function Reuniones({agendas,minutas,om,users,areas,onAddAg,onUpdAg,onAddMin,onUp
 
   /* NUEVA MINUTA */
   if(mode==="newMin"){
-    if(miSecs.length!==MINSECS[tab].length) sMiSecs(MINSECS[tab].map(()=>""));
+    const secVals=miSecs.length===MINSECS[tab].length?miSecs:MINSECS[tab].map(()=>"");
     return(<div style={{maxWidth:640}}>
       <Btn v="g" s="s" onClick={()=>sMode("home")} style={{marginBottom:12}}>← Volver</Btn>
       <Card>
@@ -660,7 +660,7 @@ function Reuniones({agendas,minutas,om,users,areas,onAddAg,onUpdAg,onAddMin,onUp
           <div style={{fontSize:10,color:T.g4,marginTop:4}}>Ausentes: {members.filter((m:any)=>miPres.indexOf(m.n+" "+m.a)<0).map((m:any)=>m.n+" "+m.a).join(", ")||"–"}</div>
         </div>}
         <div style={{fontSize:12,fontWeight:700,color:T.nv,marginBottom:8,marginTop:8}}>Contenido</div>
-        {MINSECS[tab].map((title:string,i:number)=><div key={i} style={{marginBottom:8}}><label style={{fontSize:11,fontWeight:600,color:T.g5}}>{i+1}. {title}</label><textarea value={miSecs[i]||""} onChange={e=>{const n=[...miSecs];n[i]=e.target.value;sMiSecs(n);}} rows={3} placeholder={"Completar "+title.toLowerCase()+"..."} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:11,resize:"vertical" as const,boxSizing:"border-box" as const,marginTop:2}}/></div>)}
+        {MINSECS[tab].map((title:string,i:number)=><div key={i} style={{marginBottom:8}}><label style={{fontSize:11,fontWeight:600,color:T.g5}}>{i+1}. {title}</label><textarea value={secVals[i]||""} onChange={e=>{const n=[...secVals];n[i]=e.target.value;sMiSecs(n);}} rows={3} placeholder={"Completar "+title.toLowerCase()+"..."} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:11,resize:"vertical" as const,boxSizing:"border-box" as const,marginTop:2}}/></div>)}
         <div style={{marginTop:12,padding:12,background:"#FEF3C7",borderRadius:10,border:"1px solid #FDE68A"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}><div style={{fontSize:12,fontWeight:700,color:"#92400E"}}>📋 Tareas asignadas</div><Btn v="w" s="s" onClick={()=>sMiTareas(p=>[...p,{desc:"",respId:"",fecha:""}])}>+ Agregar tarea</Btn></div>
           {miTareas.length===0&&<div style={{fontSize:11,color:T.g4,textAlign:"center" as const,padding:8}}>Sin tareas. Se crearán automáticamente al finalizar la minuta.</div>}
@@ -673,8 +673,8 @@ function Reuniones({agendas,minutas,om,users,areas,onAddAg,onUpdAg,onAddMin,onUp
         </div>
         <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:14}}>
           <Btn v="g" onClick={()=>sMode("home")}>Cancelar</Btn>
-          <Btn v="p" onClick={()=>{const aus=members.filter((m:any)=>miPres.indexOf(m.n+" "+m.a)<0).map((m:any)=>m.n+" "+m.a);onAddMin({id:_mi++,type:tab,areaName:areaName||undefined,agendaId:miAgId,date:miDate,horaInicio:miHI,horaCierre:miHC,lugar:miLugar,presentes:[...miPres],ausentes:aus,sections:MINSECS[tab].map((t2:string,i2:number)=>({title:t2,content:miSecs[i2]||""})),tareas:miTareas.filter((t2:any)=>t2.desc),status:"borrador",createdAt:TODAY});sMode("home");}}>💾 Guardar borrador</Btn>
-          <Btn v="r" onClick={()=>{const aus=members.filter((m:any)=>miPres.indexOf(m.n+" "+m.a)<0).map((m:any)=>m.n+" "+m.a);const vt=miTareas.filter((t2:any)=>t2.desc&&t2.respId);onAddMin({id:_mi++,type:tab,areaName:areaName||undefined,agendaId:miAgId,date:miDate,horaInicio:miHI,horaCierre:miHC,lugar:miLugar,presentes:[...miPres],ausentes:aus,sections:MINSECS[tab].map((t2:string,i2:number)=>({title:t2,content:miSecs[i2]||""})),tareas:miTareas.filter((t2:any)=>t2.desc),status:"final",createdAt:TODAY});if(vt.length>0)onCreateTasks(vt);sMode("home");}}>✅ Finalizar y crear tareas</Btn>
+          <Btn v="p" onClick={()=>{const aus=members.filter((m:any)=>miPres.indexOf(m.n+" "+m.a)<0).map((m:any)=>m.n+" "+m.a);onAddMin({id:_mi++,type:tab,areaName:areaName||undefined,agendaId:miAgId,date:miDate,horaInicio:miHI,horaCierre:miHC,lugar:miLugar,presentes:[...miPres],ausentes:aus,sections:MINSECS[tab].map((t2:string,i2:number)=>({title:t2,content:secVals[i2]||""})),tareas:miTareas.filter((t2:any)=>t2.desc),status:"borrador",createdAt:TODAY});sMode("home");}}>💾 Guardar borrador</Btn>
+          <Btn v="r" onClick={()=>{const aus=members.filter((m:any)=>miPres.indexOf(m.n+" "+m.a)<0).map((m:any)=>m.n+" "+m.a);const vt=miTareas.filter((t2:any)=>t2.desc&&t2.respId);onAddMin({id:_mi++,type:tab,areaName:areaName||undefined,agendaId:miAgId,date:miDate,horaInicio:miHI,horaCierre:miHC,lugar:miLugar,presentes:[...miPres],ausentes:aus,sections:MINSECS[tab].map((t2:string,i2:number)=>({title:t2,content:secVals[i2]||""})),tareas:miTareas.filter((t2:any)=>t2.desc),status:"final",createdAt:TODAY});if(vt.length>0)onCreateTasks(vt);sMode("home");}}>✅ Finalizar y crear tareas</Btn>
         </div>
       </Card>
     </div>);
