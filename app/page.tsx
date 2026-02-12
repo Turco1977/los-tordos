@@ -12,7 +12,7 @@ const DEPTOS=[
   {id:1,name:"Coordinación General",aId:1},{id:2,name:"Eventos",aId:1},{id:3,name:"Comunicación",aId:1},{id:4,name:"Sponsoreo",aId:1},{id:5,name:"Gastronomía y Recepción",aId:1},{id:6,name:"Administración",aId:1},{id:7,name:"Compras",aId:1},
   {id:8,name:"Intendencia",aId:1},{id:9,name:"Sistemas",aId:1},{id:40,name:"Atención al Socio",aId:1},{id:41,name:"Estandarización de Procesos",aId:1},
   {id:42,name:"Tordos TV",aId:1},{id:43,name:"Diseño",aId:1},{id:44,name:"Redes",aId:1},{id:45,name:"Fotografía",aId:1},{id:46,name:"Filmación",aId:1},{id:47,name:"Edición",aId:1},{id:48,name:"Prensa",aId:1},{id:49,name:"Creatividad",aId:1},{id:60,name:"Asesoría Comunicación",aId:1},
-  {id:61,name:"Tesorería",aId:1},{id:62,name:"Finanzas",aId:1},{id:63,name:"Financiamiento",aId:1},{id:64,name:"Movilidad",aId:1},{id:65,name:"Tordos Shop",aId:1},
+  {id:61,name:"Tesorería",aId:1},{id:62,name:"Finanzas",aId:1},{id:63,name:"Financiamiento",aId:1},{id:65,name:"Tordos Shop",aId:1},
   {id:10,name:"Academia Tordos",aId:2},{id:11,name:"Soporte Adm. del Deporte",aId:2},{id:12,name:"Mejora Continua",aId:2},
   {id:20,name:"Solidario",aId:3},{id:21,name:"Conecta",aId:3},{id:22,name:"Captación",aId:3},{id:23,name:"Club del Ex",aId:3},
   {id:30,name:"Anexo",aId:4},{id:31,name:"Estacionamiento Cancha 2",aId:4},{id:32,name:"Plan Estratégico",aId:4},{id:33,name:"Luces Cancha 2, 3 y 4",aId:4},{id:34,name:"Cantina: Ampliación y Tribunas",aId:4},{id:35,name:"Vestuarios y Depósito",aId:4},
@@ -33,12 +33,12 @@ const daysDiff=(a:string,b:string)=>Math.round((new Date(b).getTime()-new Date(a
 const initU=[
   {id:"sa1",n:"Martín",a:"Isola",role:"superadmin",dId:1,div:"",mail:"misola@lostordos.com.ar",tel:"261-555-0000"},
   {id:"a1",n:"Admin",a:"SE",role:"admin",dId:55,div:"",mail:"admin@lostordos.com.ar",tel:"261-555-0001"},
-  {id:"c1",n:"Federico",a:"Perinetti",role:"coordinador",dId:11,div:"",mail:"fperinetti@lostordos.com.ar",tel:"261-555-0010"},
-  {id:"c2",n:"Federico",a:"Mexandeau",role:"coordinador",dId:11,div:"",mail:"fmexandeau@lostordos.com.ar",tel:"261-555-0011"},
+  {id:"c1",n:"Federico",a:"Perinetti",role:"coordinador",dId:11,div:"Coordinador",mail:"fperinetti@lostordos.com.ar",tel:"261-555-0010"},
+  {id:"c2",n:"Federico",a:"Mexandeau",role:"coordinador",dId:11,div:"Coordinador",mail:"fmexandeau@lostordos.com.ar",tel:"261-555-0011"},
   {id:"emb1",n:"Franco",a:"Lazzari",role:"embudo",dId:7,div:"",mail:"flazzari@lostordos.com.ar",tel:"261-555-0020"},
-  {id:"u1",n:"Gonzalo",a:"Santo Tomás",role:"usuario",dId:11,div:"",mail:"gst@lostordos.com.ar",tel:"261-555-0030"},
-  {id:"u2",n:"Félix",a:"Guiñazú",role:"usuario",dId:11,div:"",mail:"fg@lostordos.com.ar",tel:"261-555-0031"},
-  {id:"u3",n:"Marcos",a:"Balzarelli",role:"usuario",dId:64,div:"",mail:"mb@lostordos.com.ar",tel:"261-555-0032"},
+  {id:"u1",n:"Gonzalo",a:"Santo Tomás",role:"usuario",dId:11,div:"Responsable de Managers",mail:"gst@lostordos.com.ar",tel:"261-555-0030"},
+  {id:"u2",n:"Félix",a:"Guiñazú",role:"usuario",dId:11,div:"Coordinador Adm. Deportiva",mail:"fg@lostordos.com.ar",tel:"261-555-0031"},
+  {id:"u3",n:"Marcos",a:"Balzarelli",role:"usuario",dId:11,div:"Responsable Viajes y Logística",mail:"mb@lostordos.com.ar",tel:"261-555-0032"},
   {id:"g1",n:"Bautista",a:"Pontis",role:"coordinador",dId:1,div:"",mail:"bpontis@lt.ar",tel:""},
   {id:"g2",n:"Miguel",a:"Senosian",role:"coordinador",dId:9,div:"",mail:"msenosian@lt.ar",tel:""},
   {id:"g3",n:"Daniel",a:"Olguín",role:"usuario",dId:40,div:"",mail:"dolguin@lt.ar",tel:""},
@@ -72,19 +72,37 @@ const initU=[
   {id:"g22",n:"Ignacio",a:"Ricci",role:"usuario",dId:23,div:"",mail:"iricci2@lt.ar",tel:""},
   {id:"u20",n:"Fabián",a:"Guzzo",role:"usuario",dId:22,div:"",mail:"fguzzo@lt.ar",tel:""},
   {id:"g23",n:"Álvaro",a:"Villanueva",role:"coordinador",dId:32,div:"",mail:"avillanueva@lt.ar",tel:""},
-  {id:"e1",n:"Agustín",a:"Castillo",role:"enlace",dId:11,div:"Plantel Superior",mail:"ac@lt.ar",tel:"261-0001"},
-  {id:"e2",n:"Martín",a:"Isola",role:"enlace",dId:11,div:"M19",mail:"misola2@lt.ar",tel:"261-0002"},
-  {id:"e3",n:"Juan Pablo",a:"García",role:"enlace",dId:11,div:"M17",mail:"jpg@lt.ar",tel:"261-0003"},
-  {id:"e4",n:"Rodolfo",a:"Guerra",role:"enlace",dId:11,div:"M16",mail:"rguerra@lt.ar",tel:"261-0004"},
-  {id:"e5",n:"Sebastián",a:"Salas",role:"enlace",dId:11,div:"M15",mail:"ssalas@lt.ar",tel:"261-0005"},
-  {id:"e6",n:"Pablo",a:"Galeano",role:"enlace",dId:11,div:"M14",mail:"pg@lt.ar",tel:"261-0006"},
-  {id:"e7",n:"Lautaro",a:"Díaz",role:"enlace",dId:11,div:"M13",mail:"ldiaz@lt.ar",tel:"261-0007"},
-  {id:"e8",n:"Fabián",a:"Guzzo",role:"enlace",dId:11,div:"M12",mail:"fguzzo2@lt.ar",tel:"261-0008"},
-  {id:"e9",n:"Maximiliano",a:"Ortega",role:"enlace",dId:11,div:"M11",mail:"mortega@lt.ar",tel:"261-0009"},
-  {id:"e10",n:"Martín",a:"Sánchez",role:"enlace",dId:11,div:"M10",mail:"msanchez@lt.ar",tel:"261-0010"},
-  {id:"e11",n:"Ignacio",a:"Barbeira",role:"enlace",dId:11,div:"M9",mail:"ibarbeira@lt.ar",tel:"261-0011"},
-  {id:"e12",n:"Pelado",a:"Badano",role:"enlace",dId:11,div:"M8",mail:"pbadano@lt.ar",tel:"261-0012"},
-  {id:"e13",n:"Joel",a:"Agüero",role:"enlace",dId:11,div:"Escuelita",mail:"ja@lt.ar",tel:"261-0013"},
+  {id:"e1",n:"Agustín",a:"Castillo",role:"enlace",dId:11,div:"Enlace Plantel Superior",mail:"ac@lt.ar",tel:"261-0001"},
+  {id:"e2",n:"Martín",a:"Isola",role:"enlace",dId:11,div:"Enlace M19",mail:"misola2@lt.ar",tel:"261-0002"},
+  {id:"e3",n:"Juan Pablo",a:"García",role:"enlace",dId:11,div:"Enlace M17",mail:"jpg@lt.ar",tel:"261-0003"},
+  {id:"e4",n:"Rodolfo",a:"Guerra",role:"enlace",dId:11,div:"Enlace M16",mail:"rguerra@lt.ar",tel:"261-0004"},
+  {id:"e5",n:"Sebastián",a:"Salas",role:"enlace",dId:11,div:"Enlace M15",mail:"ssalas@lt.ar",tel:"261-0005"},
+  {id:"e6",n:"Pablo",a:"Galeano",role:"enlace",dId:11,div:"Enlace M14",mail:"pg@lt.ar",tel:"261-0006"},
+  {id:"e7",n:"Lautaro",a:"Díaz",role:"enlace",dId:11,div:"Enlace M13",mail:"ldiaz@lt.ar",tel:"261-0007"},
+  {id:"e8",n:"Fabián",a:"Guzzo",role:"enlace",dId:11,div:"Enlace M12",mail:"fguzzo2@lt.ar",tel:"261-0008"},
+  {id:"e9",n:"Maximiliano",a:"Ortega",role:"enlace",dId:11,div:"Enlace M11",mail:"mortega@lt.ar",tel:"261-0009"},
+  {id:"e10",n:"Martín",a:"Sánchez",role:"enlace",dId:11,div:"Enlace M10",mail:"msanchez@lt.ar",tel:"261-0010"},
+  {id:"e11",n:"Ignacio",a:"Barbeira",role:"enlace",dId:11,div:"Enlace M9",mail:"ibarbeira@lt.ar",tel:"261-0011"},
+  {id:"e12",n:"Pelado",a:"Badano",role:"enlace",dId:11,div:"Enlace M8",mail:"pbadano@lt.ar",tel:"261-0012"},
+  {id:"e13",n:"Joel",a:"Agüero",role:"enlace",dId:11,div:"Enlace Escuelita",mail:"ja@lt.ar",tel:"261-0013"},
+  {id:"s1",n:"César",a:"Dalla Torre",role:"usuario",dId:11,div:"Responsable Giras",mail:"cdallatorre@lt.ar",tel:""},
+  {id:"s2",n:"Juan Pablo",a:"García",role:"usuario",dId:11,div:"Resp. Torneo Alejo Duberti",mail:"jpgarcia2@lt.ar",tel:""},
+  {id:"s3",n:"Fabián",a:"Guzzo",role:"usuario",dId:11,div:"Resp. Torneo Julio Cano",mail:"fguzzo3@lt.ar",tel:""},
+  {id:"s4",n:"Germán",a:"Luppoli",role:"usuario",dId:11,div:"Resp. Torneo Beto Jofre",mail:"gluppoli@lt.ar",tel:""},
+  {id:"s5",n:"Joaquín",a:"Bancalari",role:"usuario",dId:11,div:"Resp. Hospitalidad y Recepción",mail:"jbancalari@lt.ar",tel:""},
+  {id:"s6",n:"Federico",a:"Mexandeau",role:"usuario",dId:11,div:"Enlace con la URC",mail:"fmexandeau2@lt.ar",tel:""},
+];
+
+const initAT=[
+  {id:"at1",n:"Franco",a:"Lucchini",role:"coordinador",dId:10,div:"Director Deportivo",mail:"",tel:""},
+  {id:"at2",n:"Fernando",a:"Higgs",role:"usuario",dId:10,div:"🏉 Director de Rugby",mail:"",tel:""},
+  {id:"at3",n:"Carlos",a:"Efimenco",role:"usuario",dId:10,div:"Coordinador Infantiles",mail:"",tel:""},
+  {id:"at4",n:"",a:"",role:"usuario",dId:10,div:"🏑 Director de Hockey",mail:"",tel:""},
+  {id:"at5",n:"Matías",a:"Elías",role:"usuario",dId:10,div:"💪 Preparación Física",mail:"",tel:""},
+  {id:"at6",n:"Martín",a:"Azcurra",role:"usuario",dId:10,div:"Kinesiología Rugby",mail:"",tel:""},
+  {id:"at7",n:"Carolina",a:"Armani",role:"usuario",dId:10,div:"Kinesiología Hockey",mail:"",tel:""},
+  {id:"at8",n:"Matías",a:"Zanni",role:"usuario",dId:10,div:"Nutrición",mail:"",tel:""},
+  {id:"at9",n:"Verónica",a:"Gómez",role:"usuario",dId:10,div:"Psicología",mail:"",tel:""},
 ];
 
 const initOM=[
@@ -328,20 +346,20 @@ function TList({title,icon,color,peds,users,onSel,search}:any){
 /* ── ORGANIGRAMA ── */
 function OrgNode({icon,title,sub,color,children,cnt,ex,onTog}:any){return(<div style={{marginBottom:6}}><div onClick={onTog} style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",background:"#fff",borderRadius:10,border:"1px solid "+T.g2,cursor:"pointer",borderLeft:"4px solid "+color}}><span style={{fontSize:18}}>{icon}</span><div style={{flex:1}}><div style={{fontSize:13,fontWeight:700,color:T.nv}}>{title}</div>{sub&&<div style={{fontSize:10,color:T.g4}}>{sub}</div>}</div>{cnt!==undefined&&<span style={{background:T.g1,borderRadius:12,padding:"1px 8px",fontSize:10,fontWeight:600,color:T.g5}}>{cnt}</span>}<span style={{fontSize:12,color:T.g4,transform:ex?"rotate(90deg)":"none",transition:"transform .2s"}}>▶</span></div>{ex&&<div style={{marginLeft:24,marginTop:4,borderLeft:"2px solid "+color+"22",paddingLeft:14}}>{children}</div>}</div>);}
 
-function OrgMember({m,isSA,onEdit}:any){const ok=m.n&&m.a;return(<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 10px",background:ok?"#fff":T.g1,borderRadius:7,border:"1px solid "+T.g2,marginBottom:3}}><div><div style={{fontSize:10,fontWeight:600,color:T.g4}}>{m.cargo}</div>{ok?<div style={{fontSize:12,fontWeight:600,color:T.nv}}>{m.n} {m.a}</div>:<div style={{fontSize:11,color:T.g3,fontStyle:"italic"}}>Sin asignar</div>}</div>{isSA&&<Btn v="g" s="s" onClick={()=>onEdit(m)}>✏️</Btn>}</div>);}
+function OrgMember({m,isSA,onEdit,onDel}:any){const ok=m.n&&m.a;return(<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",background:ok?"#FAFAFA":T.g1,borderRadius:7,border:"1px solid "+T.g2,marginBottom:3}}><div><div style={{fontSize:9,fontWeight:700,color:T.pr,textTransform:"uppercase" as const}}>{m.cargo}</div>{ok?<div style={{fontSize:12,fontWeight:700,color:T.nv}}>{m.n} {m.a}</div>:<div style={{fontSize:11,color:T.g3,fontStyle:"italic"}}>Sin asignar</div>}</div>{isSA&&<div style={{display:"flex",gap:3}}><Btn v="g" s="s" onClick={()=>onEdit(m)}>✏️</Btn><Btn v="g" s="s" onClick={()=>onDel&&onDel(m.id)} style={{color:T.rd}}>🗑️</Btn></div>}</div>);}
 
-function Org({areas,deptos,users,om,onEditSave,isSA}:any){
+function Org({areas,deptos,users,om,onEditSave,onDelOm,onDelUser,onEditUser,isSA}:any){
   const [ex,sEx]=useState<any>({});const [ed,sEd]=useState<any>(null);const [ef,sEf]=useState({n:"",a:"",mail:"",tel:""});
   const tog=(k:string)=>sEx((p:any)=>({...p,[k]:!p[k]}));
   return(<div style={{maxWidth:680}}><h2 style={{margin:"0 0 4px",fontSize:19,color:T.nv,fontWeight:800}}>Organigrama</h2><p style={{color:T.g4,fontSize:12,margin:"0 0 18px"}}>Estructura institucional Los Tordos Rugby Club</p>
     {ed&&<Card style={{marginBottom:12,maxWidth:400,background:"#FFFBEB",border:"1px solid #FDE68A"}}><div style={{fontSize:11,fontWeight:600,color:T.g5,marginBottom:6}}>Editando: {ed.cargo}</div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4,marginBottom:4}}><input value={ef.n} onChange={e=>sEf(p=>({...p,n:e.target.value}))} placeholder="Nombre" style={{padding:"6px 8px",borderRadius:6,border:"1px solid "+T.g3,fontSize:12}}/><input value={ef.a} onChange={e=>sEf(p=>({...p,a:e.target.value}))} placeholder="Apellido" style={{padding:"6px 8px",borderRadius:6,border:"1px solid "+T.g3,fontSize:12}}/></div><div style={{display:"flex",gap:4}}><Btn s="s" onClick={()=>{onEditSave(ed.id,ef);sEd(null);}}>Guardar</Btn><Btn v="g" s="s" onClick={()=>sEd(null)}>✕</Btn></div></Card>}
-    <OrgNode icon="🏛️" title="Comisión Directiva" color={T.nv} ex={!!ex.cd} onTog={()=>tog("cd")} cnt={om.filter((m:any)=>m.t==="cd"&&m.n).length+"/8"}>{om.filter((m:any)=>m.t==="cd").map((m:any)=><OrgMember key={m.id} m={m} isSA={isSA} onEdit={(mm:any)=>{sEd(mm);sEf({n:mm.n,a:mm.a,mail:mm.mail,tel:mm.tel});}}/>)}</OrgNode>
+    <OrgNode icon="🏛️" title="Comisión Directiva" color={T.nv} ex={!!ex.cd} onTog={()=>tog("cd")} cnt={om.filter((m:any)=>m.t==="cd"&&m.n).length+"/8"}>{om.filter((m:any)=>m.t==="cd").map((m:any)=><OrgMember key={m.id} m={m} isSA={isSA} onEdit={(mm:any)=>{sEd(mm);sEf({n:mm.n,a:mm.a,mail:mm.mail,tel:mm.tel});}} onDel={(id:string)=>onDelOm(id)}/>)}</OrgNode>
     <div style={{marginLeft:24,borderLeft:"2px solid "+T.nv+"22",paddingLeft:14}}>
-      <OrgNode icon="⚡" title="Secretaría Ejecutiva" sub="Depende de CD" color={T.rd} ex={!!ex.se} onTog={()=>tog("se")} cnt={om.filter((m:any)=>m.t==="se"&&m.n).length+"/5"}>{om.filter((m:any)=>m.t==="se").map((m:any)=><OrgMember key={m.id} m={m} isSA={isSA} onEdit={(mm:any)=>{sEd(mm);sEf({n:mm.n,a:mm.a,mail:mm.mail,tel:mm.tel});}}/>)}</OrgNode>
+      <OrgNode icon="⚡" title="Secretaría Ejecutiva" sub="Depende de CD" color={T.rd} ex={!!ex.se} onTog={()=>tog("se")} cnt={om.filter((m:any)=>m.t==="se"&&m.n).length+"/5"}>{om.filter((m:any)=>m.t==="se").map((m:any)=><OrgMember key={m.id} m={m} isSA={isSA} onEdit={(mm:any)=>{sEd(mm);sEf({n:mm.n,a:mm.a,mail:mm.mail,tel:mm.tel});}} onDel={(id:string)=>onDelOm(id)}/>)}</OrgNode>
       <div style={{marginLeft:24,borderLeft:"2px solid "+T.rd+"22",paddingLeft:14}}>
         {areas.filter((ar:any)=>ar.id!==100&&ar.id!==101).map((ar:any)=>{const ds=deptos.filter((d:any)=>d.aId===ar.id);const dsWithPeople=ds.filter((d:any)=>users.some((u:any)=>u.dId===d.id));return(<OrgNode key={ar.id} icon={ar.icon} title={ar.name} sub={dsWithPeople.length+" deptos"} color={ar.color} ex={!!ex["ar"+ar.id]} onTog={()=>tog("ar"+ar.id)} cnt={dsWithPeople.length}>{dsWithPeople.map((d:any)=>{const pp=users.filter((u:any)=>u.dId===d.id);const resp=pp.find((u:any)=>u.role==="coordinador")||pp.find((u:any)=>u.role==="admin")||pp[0];const others=pp.filter((u:any)=>u.id!==(resp?resp.id:""));return(<OrgNode key={d.id} icon="📂" title={d.name} color={ar.color} ex={!!ex["d"+d.id]} onTog={()=>tog("d"+d.id)} cnt={pp.length}>
-              {resp&&<div style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",background:"#F0F9FF",borderRadius:7,border:"1px solid #BAE6FD",marginBottom:4}}><span style={{fontSize:10}}>⭐</span><div><div style={{fontSize:9,fontWeight:700,color:T.bl,textTransform:"uppercase" as const}}>Responsable</div><div style={{fontSize:12,fontWeight:700,color:T.nv}}>{fn(resp)}</div></div></div>}
-              {others.map((u:any)=>(<div key={u.id} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",background:"#FAFAFA",borderRadius:7,border:"1px solid "+T.g2,marginBottom:3}}><span style={{fontSize:10}}>👤</span><div><div style={{fontSize:9,fontWeight:700,color:T.pr,textTransform:"uppercase" as const}}>{u.div||ROLES[u.role]?.l||""}</div><div style={{fontSize:12,fontWeight:700,color:T.nv}}>{fn(u)}</div></div></div>))}
+              {resp&&<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:6,padding:"6px 10px",background:"#F0F9FF",borderRadius:7,border:"1px solid #BAE6FD",marginBottom:4}}><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:10}}>⭐</span><div><div style={{fontSize:9,fontWeight:700,color:T.bl,textTransform:"uppercase" as const}}>Responsable</div><div style={{fontSize:12,fontWeight:700,color:T.nv}}>{fn(resp)}</div></div></div>{isSA&&<div style={{display:"flex",gap:3}}><Btn v="g" s="s" onClick={()=>onEditUser(resp)}>✏️</Btn><Btn v="g" s="s" onClick={()=>onDelUser(resp.id)} style={{color:T.rd}}>🗑️</Btn></div>}</div>}
+              {others.map((u:any)=>(<div key={u.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:6,padding:"6px 10px",background:"#FAFAFA",borderRadius:7,border:"1px solid "+T.g2,marginBottom:3}}><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:10}}>👤</span><div><div style={{fontSize:9,fontWeight:700,color:T.pr,textTransform:"uppercase" as const}}>{u.div||ROLES[u.role]?.l||""}</div><div style={{fontSize:12,fontWeight:700,color:T.nv}}>{fn(u)}</div></div></div>{isSA&&<div style={{display:"flex",gap:3}}><Btn v="g" s="s" onClick={()=>onEditUser(u)}>✏️</Btn><Btn v="g" s="s" onClick={()=>onDelUser(u.id)} style={{color:T.rd}}>🗑️</Btn></div>}</div>))}
               {others.length===0&&!resp&&<div style={{fontSize:10,color:T.g4,fontStyle:"italic",padding:4}}>Sin integrantes</div>}
             </OrgNode>);})}</OrgNode>);})}
       </div>
@@ -463,7 +481,7 @@ function notifs(user:any,peds:any[]){const n:any[]=[];if(["coordinador","admin",
 
 /* ── MAIN APP ── */
 export default function App(){
-  const [areas]=useState(AREAS);const [deptos]=useState(DEPTOS);const [users,sUs]=useState(initU);const [om,sOm]=useState(initOM);const [peds,sPd]=useState(initP);const [hitos,sHi]=useState(HITOS);
+  const [areas]=useState(AREAS);const [deptos]=useState(DEPTOS);const [users,sUs]=useState([...initU,...initAT]);const [om,sOm]=useState(initOM);const [peds,sPd]=useState(initP);const [hitos,sHi]=useState(HITOS);
   const [user,sU]=useState<any>(null);const [vw,sVw]=useState("dash");const [sel,sSl]=useState<any>(null);const [aA,sAA]=useState<number|null>(null);const [aD,sAD]=useState<number|null>(null);const [sbCol,sSbCol]=useState(false);const [search,sSr]=useState("");const [shNot,sShNot]=useState(false);
 
   const out=()=>{sU(null);sVw("dash");sSl(null);sAA(null);sAD(null);sSr("");};
@@ -504,7 +522,7 @@ export default function App(){
         </div>
         <div style={{flex:1,padding:"20px 16px",overflowY:"auto" as const,marginTop:4}}>
           {vw==="my"&&isPersonal&&<MyDash user={user} peds={peds} users={users} onSel={(p:any)=>sSl(p)}/>}
-          {vw==="org"&&<Org areas={areas} deptos={deptos} users={users} om={om} onEditSave={(id:string,d:any)=>sOm(p=>p.map(m=>m.id===id?{...m,...d}:m))} isSA={isSA}/>}
+          {vw==="org"&&<Org areas={areas} deptos={deptos} users={users} om={om} onEditSave={(id:string,d:any)=>sOm(p=>p.map(m=>m.id===id?{...m,...d}:m))} onDelOm={(id:string)=>sOm(p=>p.filter(m=>m.id!==id))} onDelUser={(id:string)=>sUs(p=>p.filter(u=>u.id!==id))} onEditUser={(u:any)=>{sVw("profs");}} isSA={isSA}/>}
           {vw==="dept"&&<Depts areas={areas} deptos={deptos} pedidos={peds} users={users} onSel={(p:any)=>sSl(p)}/>}
           {vw==="profs"&&<Profs users={users} deptos={deptos} areas={areas} onDel={(id:string)=>sUs(p=>p.filter(u=>u.id!==id))} onAdd={(u:any)=>sUs(p=>[...p,u])} onEditUser={(id:string,d:any)=>sUs(p=>p.map(u=>u.id===id?{...u,...d}:u))} isAd={isAd}/>}
           {vw==="new"&&<NP user={user} users={users} deptos={deptos} areas={areas} onSub={(p:any)=>{sPd(ps=>[p,...ps]);sVw(isPersonal?"my":"dash");sAA(null);sAD(null);}} onX={()=>sVw(isPersonal?"my":"dash")}/>}
