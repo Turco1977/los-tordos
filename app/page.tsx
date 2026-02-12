@@ -30,6 +30,39 @@ function Ring({pct,color,size,icon}:{pct:number;color:string;size:number;icon?:s
   return(<div style={{position:"relative",width:size,height:size}}><svg width={size} height={size} style={{transform:"rotate(-90deg)"}}><circle cx={size/2} cy={size/2} r={r} fill="none" stroke={T.g2} strokeWidth="5"/><circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth="5" strokeDasharray={ci} strokeDashoffset={of2} strokeLinecap="round"/></svg><div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>{icon&&<span style={{fontSize:size/4}}>{icon}</span>}<span style={{fontSize:size/6,fontWeight:800,color}}>{pct}%</span></div></div>);
 }
 
+/* ── CHANGE PASSWORD MODAL ── */
+function ChangePw({onX}:{onX:()=>void}){
+  const [cur,sCur]=useState("");const [np,sNp]=useState("");const [np2,sNp2]=useState("");const [err,sErr]=useState("");const [ok,sOk]=useState(false);const [loading,sLoading]=useState(false);
+  const submit=async(e:any)=>{e.preventDefault();sErr("");
+    if(np.length<6){sErr("La nueva contraseña debe tener al menos 6 caracteres");return;}
+    if(np!==np2){sErr("Las contraseñas no coinciden");return;}
+    sLoading(true);
+    // Verify current password by re-authenticating
+    const{data:{session}}=await supabase.auth.getSession();
+    const email=session?.user?.email;
+    if(!email){sErr("No se pudo verificar la sesión");sLoading(false);return;}
+    const{error:signErr}=await supabase.auth.signInWithPassword({email,password:cur});
+    if(signErr){sErr("Contraseña actual incorrecta");sLoading(false);return;}
+    const{error}=await supabase.auth.updateUser({password:np});
+    sLoading(false);
+    if(error){sErr(error.message);return;}
+    sOk(true);
+  };
+  return(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.4)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200}} onClick={onX}>
+    <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:14,padding:24,width:360,maxWidth:"90vw",boxShadow:"0 8px 32px rgba(0,0,0,.15)"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><h3 style={{margin:0,fontSize:16,color:T.nv}}>Cambiar contraseña</h3><button onClick={onX} style={{background:"none",border:"none",fontSize:18,cursor:"pointer",color:T.g4}}>✕</button></div>
+      {ok?<div><div style={{textAlign:"center" as const,padding:"20px 0"}}><div style={{fontSize:32,marginBottom:8}}>✅</div><div style={{fontSize:14,fontWeight:600,color:T.gn}}>Contraseña actualizada</div></div><div style={{textAlign:"center" as const,marginTop:12}}><Btn v="p" onClick={onX}>Cerrar</Btn></div></div>
+      :<form onSubmit={submit} style={{display:"flex",flexDirection:"column" as const,gap:10}}>
+        <div><label style={{fontSize:11,fontWeight:600,color:T.g5}}>Contraseña actual</label><input type="password" value={cur} onChange={e=>sCur(e.target.value)} required style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid "+T.g3,fontSize:12,marginTop:3,boxSizing:"border-box" as const}}/></div>
+        <div><label style={{fontSize:11,fontWeight:600,color:T.g5}}>Nueva contraseña</label><input type="password" value={np} onChange={e=>sNp(e.target.value)} required style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid "+T.g3,fontSize:12,marginTop:3,boxSizing:"border-box" as const}}/></div>
+        <div><label style={{fontSize:11,fontWeight:600,color:T.g5}}>Confirmar nueva contraseña</label><input type="password" value={np2} onChange={e=>sNp2(e.target.value)} required style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid "+T.g3,fontSize:12,marginTop:3,boxSizing:"border-box" as const}}/></div>
+        {err&&<div style={{color:T.rd,fontSize:11}}>{err}</div>}
+        <Btn v="p" disabled={loading}>{loading?"Guardando...":"Cambiar contraseña"}</Btn>
+      </form>}
+    </div>
+  </div>);
+}
+
 /* ── LOGIN ── */
 function Login({onLogin}:{onLogin:(user:any)=>void}){
   const [email,sEmail]=useState("");const [pw,sPw]=useState("");const [err,sErr]=useState("");const [loading,sLoading]=useState(false);
@@ -584,7 +617,7 @@ export default function App(){
   const [areas]=useState(AREAS);const [deptos]=useState(DEPTOS);
   const [users,sUs]=useState<any[]>([]);const [om,sOm]=useState<any[]>([]);const [peds,sPd]=useState<any[]>([]);const [hitos,sHi]=useState<any[]>([]);const [agendas,sAgs]=useState<any[]>([]);const [minutas,sMins]=useState<any[]>([]);
   const [user,sU]=useState<any>(null);const [authChecked,sAuthChecked]=useState(false);
-  const [vw,sVw]=useState("dash");const [sel,sSl]=useState<any>(null);const [aA,sAA]=useState<number|null>(null);const [aD,sAD]=useState<number|null>(null);const [sbCol,sSbCol]=useState(false);const [search,sSr]=useState("");const [shNot,sShNot]=useState(false);const [preAT,sPreAT]=useState<any>(null);
+  const [vw,sVw]=useState("dash");const [sel,sSl]=useState<any>(null);const [aA,sAA]=useState<number|null>(null);const [aD,sAD]=useState<number|null>(null);const [sbCol,sSbCol]=useState(false);const [search,sSr]=useState("");const [shNot,sShNot]=useState(false);const [preAT,sPreAT]=useState<any>(null);const [showPw,sShowPw]=useState(false);
 
   /* ── Fetch all data from Supabase ── */
   const fetchAll = useCallback(async()=>{
@@ -667,6 +700,7 @@ export default function App(){
             <div style={{position:"relative" as const}}><input value={search} onChange={e=>sSr(e.target.value)} placeholder="🔍 Buscar..." style={{padding:"5px 10px",borderRadius:8,border:"1px solid "+T.g3,fontSize:11,width:130}}/></div>
             <div style={{position:"relative" as const}}><button onClick={()=>sShNot(!shNot)} style={{background:"none",border:"none",fontSize:16,cursor:"pointer",position:"relative" as const}}>🔔{nts.length>0&&<span style={{position:"absolute" as const,top:-4,right:-4,width:14,height:14,borderRadius:7,background:T.rd,color:"#fff",fontSize:8,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>{nts.length}</span>}</button>{shNot&&<div style={{position:"absolute" as const,right:0,top:32,background:"#fff",borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,.12)",border:"1px solid "+T.g2,width:260,zIndex:100,padding:8}}><div style={{fontSize:11,fontWeight:700,color:T.nv,marginBottom:6}}>Notificaciones</div>{nts.length===0&&<div style={{fontSize:11,color:T.g4,padding:8}}>Todo al día ✅</div>}{nts.map((n,i)=><div key={i} style={{padding:"6px 8px",borderRadius:6,background:n.c+"10",marginBottom:3,fontSize:11,color:n.c,fontWeight:600}}>{n.t}</div>)}</div>}</div>
             <div style={{textAlign:"right" as const}}><div style={{fontSize:11,fontWeight:700,color:T.nv}}>{fn(user)}</div><div style={{fontSize:9,color:T.g4}}>{ROLES[user.role]?.i} {ROLES[user.role]?.l}{user.div?" · "+user.div:""}</div></div>
+            <button onClick={()=>sShowPw(true)} title="Cambiar contraseña" style={{width:28,height:28,borderRadius:7,border:"1px solid "+T.g2,background:"#fff",cursor:"pointer",fontSize:12}}>🔒</button>
             <button onClick={out} style={{width:28,height:28,borderRadius:7,border:"1px solid "+T.g2,background:"#fff",cursor:"pointer",fontSize:12}}>↩</button>
           </div>
         </div>
@@ -702,6 +736,7 @@ export default function App(){
           {vw==="dash"&&!isPersonal&&(aA||aD)&&<div><Btn v="g" s="s" onClick={()=>{if(aD)sAD(null);else sAA(null);}} style={{marginBottom:12}}>← {aD?"Volver al área":"Dashboard"}</Btn><TList title={vT} icon={vI} color={vC} peds={vP} users={users} onSel={(p:any)=>sSl(p)} search={search}/></div>}
         </div>
       </div>
+      {showPw&&<ChangePw onX={()=>sShowPw(false)}/>}
       {sel&&<Det p={peds.find(x=>x.id===sel.id)||sel} user={user} users={users} onX={()=>sSl(null)}
         onTk={async(id:number)=>{sPd(p=>p.map(x=>x.id===id?{...x,asTo:user.id,st:ST.C}:x));await supabase.from("tasks").update({assigned_to:user.id,status:ST.C}).eq("id",id);addLog(id,user.id,fn(user),"Tomó la tarea","sys");}}
         onAs={async(id:number,uid:string)=>{const ag=users.find(u=>u.id===uid);const newSt=peds.find(x=>x.id===id)?.st===ST.P?ST.C:peds.find(x=>x.id===id)?.st;sPd(p=>p.map(x=>x.id===id?{...x,asTo:uid,st:x.st===ST.P?ST.C:x.st}:x));await supabase.from("tasks").update({assigned_to:uid,status:newSt}).eq("id",id);addLog(id,user.id,fn(user),"Asignó a "+(ag?fn(ag):""),"sys");}}
