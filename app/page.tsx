@@ -1621,41 +1621,53 @@ function ActivityFeed({peds,users,onSel,mob}:any){
 }
 
 /* ── COMM VIEW / WhatsApp (Feature 9) ── */
-function CommView({peds,presu,agendas,users,user,mob}:any){
-  const{colors,cardBg}=useC();
-  const [tmpl,sTmpl]=useState("");const [msg,sMsg]=useState("");const [copied,sCopied]=useState(false);
-  const sig="\n\n---\n🏉 Los Tordos Rugby Club\nSistema de Gestión";
+function CommView({peds,presu,agendas,users,areas,deptos,user,mob}:any){
+  const{colors}=useC();
+  const sig="\n\n---\n🏉 Los Tordos Rugby Club";
   const now=new Date();const weekAgo=new Date(now);weekAgo.setDate(weekAgo.getDate()-7);const waStr=weekAgo.toISOString().slice(0,10);
-  const createdThisWeek=peds.filter((p:any)=>p.cAt>=waStr).length;
-  const completedThisWeek=peds.filter((p:any)=>p.st===ST.OK&&p.log?.some((l:any)=>l.dt>=waStr&&l.act?.includes("Validó"))).length;
   const overdue=peds.filter((p:any)=>p.st!==ST.OK&&isOD(p.fReq));
   const pendPresu=presu.filter((pr:any)=>pr.status==="solicitado"||pr.status==="recibido");
   const nextAg=agendas.find((a:any)=>a.date>=TODAY);
-  const templates:any={
-    resumen:{l:"Resumen Semanal",gen:()=>`📊 *Resumen Semanal*\n\n📋 Tareas creadas: ${createdThisWeek}\n✅ Completadas: ${completedThisWeek}\n⏰ Vencidas: ${overdue.length}\n📊 Total activas: ${peds.filter((p:any)=>p.st!==ST.OK).length}${sig}`},
-    reunion:{l:"Convocatoria Reunión",gen:()=>`📅 *Convocatoria a Reunión*\n\n${nextAg?`Fecha: ${fmtD(nextAg.date)}\nTipo: ${AGT[nextAg.type]?.title||""}\n\nTemas:\n${(nextAg.sections||[]).map((s:any,i:number)=>`${i+1}. ${s.t}`).join("\n")}`:"Sin reuniones programadas"}${sig}`},
-    vencidas:{l:"Tareas Vencidas",gen:()=>`⏰ *Tareas Vencidas (${overdue.length})*\n\n${overdue.slice(0,10).map((p:any)=>`• #${p.id} ${p.desc.slice(0,40)} (📅 ${p.fReq})`).join("\n")}${overdue.length>10?"\n... y "+(overdue.length-10)+" más":""}${sig}`},
-    presupuestos:{l:"Estado Presupuestos",gen:()=>`💰 *Estado de Presupuestos*\n\nPendientes: ${pendPresu.length}\nAprobados: ${presu.filter((pr:any)=>pr.status==="aprobado").length}\nTotal aprobado: $${presu.filter((pr:any)=>pr.status==="aprobado").reduce((s:number,pr:any)=>s+Number(pr.monto),0).toLocaleString()}${sig}`}
-  };
-  const selTmpl=(k:string)=>{sTmpl(k);sMsg(templates[k].gen());};
-  const sendWA=()=>{window.open("https://wa.me/?text="+encodeURIComponent(msg),"_blank");};
-  const copyMsg=()=>{navigator.clipboard.writeText(msg);sCopied(true);setTimeout(()=>sCopied(false),2000);};
-  return(<div style={{maxWidth:640}}>
-    <h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:colors.nv,fontWeight:800}}>Comunicar</h2>
-    <p style={{color:colors.g4,fontSize:12,margin:"0 0 14px"}}>Enviar comunicaciones por WhatsApp</p>
-    <div style={{display:"grid",gridTemplateColumns:mob?"1fr 1fr":"repeat(4,1fr)",gap:8,marginBottom:14}}>
-      {Object.keys(templates).map(k=><Card key={k} onClick={()=>selTmpl(k)} style={{padding:"10px 12px",cursor:"pointer",textAlign:"center" as const,border:tmpl===k?"2px solid "+colors.nv:"1px solid "+colors.g2}}>
-        <div style={{fontSize:11,fontWeight:700,color:colors.nv}}>{templates[k].l}</div>
-      </Card>)}
-    </div>
-    <Card>
-      <div style={{fontSize:12,fontWeight:700,color:colors.nv,marginBottom:8}}>Mensaje</div>
-      <textarea value={msg} onChange={e=>sMsg(e.target.value)} rows={10} placeholder="Escribí o seleccioná una plantilla..." style={{width:"100%",padding:10,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,resize:"vertical" as const,boxSizing:"border-box" as const,fontFamily:"monospace"}}/>
-      <div style={{display:"flex",gap:8,marginTop:10,justifyContent:"flex-end"}}>
-        <Btn v="g" onClick={copyMsg}>{copied?"✅ Copiado":"📋 Copiar"}</Btn>
-        <Btn v="s" onClick={sendWA} disabled={!msg.trim()}>📱 Enviar por WhatsApp</Btn>
-      </div>
-    </Card>
+  const sendWA=(txt:string)=>{window.open("https://wa.me/?text="+encodeURIComponent(txt+sig),"_blank");};
+  const WaBtn=({label,gen}:{label:string;gen:()=>string})=>(<button onClick={()=>sendWA(gen())} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"12px 16px",background:"#fff",border:"1px solid #25D366",borderRadius:10,cursor:"pointer",fontSize:14,fontWeight:600,color:"#1a1a1a",textAlign:"left" as const}}>
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+    {label}
+  </button>);
+  /* Build area-specific data */
+  const areaGroups=(areas||[]).filter((a:any)=>a.id!==100&&a.id!==101).map((a:any)=>{
+    const dIds=(deptos||[]).filter((d:any)=>d.aId===a.id).map((d:any)=>d.id);
+    const aPeds=peds.filter((p:any)=>dIds.includes(p.dId));
+    const aOver=aPeds.filter((p:any)=>p.st!==ST.OK&&isOD(p.fReq));
+    const aPresu=presu.filter((pr:any)=>dIds.includes(pr.dept_id));
+    return{...a,peds:aPeds,over:aOver,presu:aPresu};
+  });
+  const Section=({title,children}:{title:string;children:React.ReactNode})=>(<div style={{marginBottom:20}}>
+    <div style={{fontSize:15,fontWeight:800,color:colors.nv,marginBottom:8}}>{title}</div>
+    <div style={{display:"flex",flexDirection:"column" as const,gap:6}}>{children}</div>
+  </div>);
+  return(<div style={{maxWidth:540}}>
+    <h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:colors.nv,fontWeight:800}}>Compartir por WhatsApp</h2>
+    <p style={{color:colors.g4,fontSize:12,margin:"0 0 18px"}}>Tocá un botón para enviar el mensaje por WhatsApp</p>
+    <Section title="General - Todo el club">
+      <WaBtn label="Resumen semanal" gen={()=>`📊 *Resumen Semanal Los Tordos*\n\n📋 Tareas nuevas: ${peds.filter((p:any)=>p.cAt>=waStr).length}\n✅ Completadas: ${peds.filter((p:any)=>p.st===ST.OK).length}\n⏰ Vencidas: ${overdue.length}\n📊 Activas: ${peds.filter((p:any)=>p.st!==ST.OK).length}`}/>
+      <WaBtn label="Tareas vencidas" gen={()=>`⏰ *Tareas Vencidas (${overdue.length})*\n\n${overdue.slice(0,15).map((p:any)=>`• ${p.desc?.slice(0,40)} (📅 ${p.fReq})`).join("\n")}${overdue.length>15?"\n... y "+(overdue.length-15)+" más":""}`}/>
+      <WaBtn label="Estado presupuestos" gen={()=>`💰 *Estado de Presupuestos*\n\n⏳ Pendientes: ${pendPresu.length}\n✅ Aprobados: ${presu.filter((pr:any)=>pr.status==="aprobado").length}\n💲 Total aprobado: $${presu.filter((pr:any)=>pr.status==="aprobado").reduce((s:number,pr:any)=>s+Number(pr.monto||0),0).toLocaleString()}`}/>
+      <WaBtn label="Próxima reunión" gen={()=>nextAg?`📅 *Próxima Reunión*\n\nFecha: ${fmtD(nextAg.date)}\nTipo: ${AGT[nextAg.type]?.title||""}\n\nTemas:\n${(nextAg.sections||[]).map((s:any,i:number)=>`${i+1}. ${s.t}`).join("\n")}`:`📅 No hay reuniones programadas`}/>
+    </Section>
+    <Section title="Comisión Directiva">
+      <WaBtn label="Resumen CD" gen={()=>{const cdPeds=peds.filter((p:any)=>p.dId===50||p.dId===51||p.dId===52||p.dId===53||p.dId===54||p.dId===80||p.dId===81||p.dId===82);return`🏛️ *Comisión Directiva*\n\n📋 Tareas: ${cdPeds.length}\n✅ Completadas: ${cdPeds.filter((p:any)=>p.st===ST.OK).length}\n⏰ Pendientes: ${cdPeds.filter((p:any)=>p.st===ST.P).length}`;}}/>
+      <WaBtn label="Convocatoria reunión CD" gen={()=>{const cdAg=agendas.find((a:any)=>a.type==="cd"&&a.date>=TODAY);return cdAg?`📅 *Convocatoria CD*\n\nFecha: ${fmtD(cdAg.date)}\n\nTemas:\n${(cdAg.sections||[]).map((s:any,i:number)=>`${i+1}. ${s.t}`).join("\n")}`:`📅 Sin reuniones CD programadas`;}}/>
+    </Section>
+    <Section title="Secretaría Ejecutiva">
+      <WaBtn label="Resumen SE" gen={()=>{const sePeds=peds.filter((p:any)=>p.dId===55||p.dId===56);return`⚡ *Secretaría Ejecutiva*\n\n📋 Tareas: ${sePeds.length}\n✅ Completadas: ${sePeds.filter((p:any)=>p.st===ST.OK).length}\n⏰ Pendientes: ${sePeds.filter((p:any)=>p.st===ST.P).length}`;}}/>
+      <WaBtn label="Convocatoria reunión SE" gen={()=>{const seAg=agendas.find((a:any)=>a.type==="se"&&a.date>=TODAY);return seAg?`📅 *Convocatoria SE*\n\nFecha: ${fmtD(seAg.date)}\n\nTemas:\n${(seAg.sections||[]).map((s:any,i:number)=>`${i+1}. ${s.t}`).join("\n")}`:`📅 Sin reuniones SE programadas`;}}/>
+      <WaBtn label="Estado presupuestos" gen={()=>`💰 *Presupuestos*\n\n⏳ Pendientes: ${pendPresu.length}\n✅ Aprobados: ${presu.filter((pr:any)=>pr.status==="aprobado").length}`}/>
+    </Section>
+    {areaGroups.map((ag:any)=>(<Section key={ag.id} title={ag.icon+" "+ag.name}>
+      <WaBtn label={"Resumen "+ag.name} gen={()=>`${ag.icon} *${ag.name}*\n\n📋 Tareas: ${ag.peds.length}\n✅ Completadas: ${ag.peds.filter((p:any)=>p.st===ST.OK).length}\n⏰ Vencidas: ${ag.over.length}\n🔄 En curso: ${ag.peds.filter((p:any)=>p.st===ST.C).length}`}/>
+      <WaBtn label={"Tareas vencidas "+ag.name} gen={()=>`${ag.icon} *Tareas Vencidas - ${ag.name} (${ag.over.length})*\n\n${ag.over.slice(0,10).map((p:any)=>`• ${p.desc?.slice(0,40)} (📅 ${p.fReq})`).join("\n")||"Sin tareas vencidas ✅"}`}/>
+      <WaBtn label={"Tareas pendientes "+ag.name} gen={()=>{const pend=ag.peds.filter((p:any)=>p.st===ST.P);return`${ag.icon} *Tareas Pendientes - ${ag.name} (${pend.length})*\n\n${pend.slice(0,10).map((p:any)=>`• ${p.desc?.slice(0,40)} (📅 ${p.fReq})`).join("\n")||"Sin tareas pendientes ✅"}`;}}/>
+    </Section>))}
   </div>);
 }
 
@@ -1874,7 +1886,7 @@ export default function App(){
           {/* Activity Feed (Feature 5) */}
           {vw==="feed"&&!isPersonal&&<ActivityFeed peds={peds} users={users} onSel={(p:any)=>sSl(p)} mob={mob}/>}
           {/* Communications (Feature 9) */}
-          {vw==="comm"&&(isAd||user.role==="coordinador")&&<CommView peds={peds} presu={presu} agendas={agendas} users={users} user={user} mob={mob}/>}
+          {vw==="comm"&&(isAd||user.role==="coordinador")&&<CommView peds={peds} presu={presu} agendas={agendas} users={users} areas={areas} deptos={deptos} user={user} mob={mob}/>}
           {vw==="org"&&<Org areas={areas} deptos={deptos} users={users} om={om} pedidos={peds} onSel={(p:any)=>sSl(p)} onEditSave={async(id:string,d:any)=>{sOm(p=>p.map(m=>m.id===id?{...m,...d}:m));await supabase.from("org_members").update({first_name:d.n,last_name:d.a,email:d.mail||"",phone:d.tel||""}).eq("id",id);}} onDelOm={async(id:string)=>{sOm(p=>p.filter(m=>m.id!==id));await supabase.from("org_members").delete().eq("id",id);}} onDelUser={async(id:string)=>{sUs(p=>p.filter(u=>u.id!==id));await supabase.from("profiles").delete().eq("id",id);}} onEditUser={(u:any)=>{sVw("profs");}} isSA={isSA} onAssignTask={(u:any)=>{sPreAT(u);sVw("new");}} mob={mob}/>}
           {vw==="cal"&&<CalView peds={peds} agendas={agendas} minutas={minutas} presu={presu} reminders={reminders} areas={areas} deptos={deptos} users={users} user={user} onSel={(p:any)=>sSl(p)} mob={mob}
             onAddReminder={async(r:any)=>{try{const row:any={user_id:user.id,user_name:fn(user),title:r.title,date:r.date,description:r.description||"",color:r.color||"#3B82F6",recurrence:r.recurrence||"none",assigned_to:r.assigned_to||null,assigned_name:r.assigned_name||""};const{data,error}=await supabase.from("reminders").insert(row).select().single();if(error)throw new Error(error.message);sRems(p=>[...(data?[data]:[]),...p]);showT("Recordatorio creado");}catch(e:any){showT(e.message||"Error","err");}}}
