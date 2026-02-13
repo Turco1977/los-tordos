@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { T, TD, AREAS, DEPTOS, ROLES, RK, DIV, TIPOS, ST, SC, AGT, MINSECS, PST, PSC, MONEDAS, RUBROS, fn, isOD, daysDiff } from "@/lib/constants";
 import type { Profile, Task, TaskMessage, OrgMember as OrgMemberType, Milestone, Agenda, Minuta, Presupuesto, Proveedor } from "@/lib/supabase/types";
 import { notify, fetchNotifications, markRead } from "@/lib/notifications";
-import { exportCSV, exportPDF } from "@/lib/export";
+import { exportCSV, exportPDF, exportICal } from "@/lib/export";
 import { useRealtime } from "@/lib/realtime";
 import { paginate } from "@/lib/pagination";
 import { uploadFile, getFileIcon, formatFileSize } from "@/lib/storage";
@@ -1161,13 +1161,49 @@ function PresView({presu,provs,peds,users,areas,deptos,user,onAddPresu,onUpdPres
         <Card style={{padding:"10px 12px",borderTop:"3px solid "+T.bl}}><div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:16}}>📊</span><span style={{fontSize:17,fontWeight:800,color:T.bl}}>{presu.length}</span></div><div style={{fontSize:10,color:T.g4,marginTop:3}}>Total Cotizaciones</div></Card>
         <Card style={{padding:"10px 12px",borderTop:"3px solid "+T.pr}}><div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:16}}>⏱️</span><span style={{fontSize:17,fontWeight:800,color:T.pr}}>{avgDays}d</span></div><div style={{fontSize:10,color:T.g4,marginTop:3}}>Tiempo resp. prom.</div></Card>
       </div>
-      {areaGasto.length>0&&<Card style={{padding:14}}>
+      {areaGasto.length>0&&<Card style={{padding:14,marginBottom:14}}>
         <div style={{fontSize:13,fontWeight:700,color:T.nv,marginBottom:10}}>Gasto aprobado por Área</div>
         {areaGasto.map((a:any)=><div key={a.id} style={{marginBottom:8}}>
           <div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:3}}><span style={{fontWeight:600,color:T.nv}}>{a.icon} {a.name}</span><span style={{fontWeight:700,color:T.gn}}>${a.gasto.toLocaleString()}</span></div>
           <div style={{height:8,background:T.g2,borderRadius:4,overflow:"hidden"}}><div style={{height:"100%",width:Math.round(a.gasto/maxGasto*100)+"%",background:a.color,borderRadius:4}}/></div>
         </div>)}
       </Card>}
+      {/* Tendencia mensual */}
+      {(()=>{const meses=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];const now=new Date();const monthData:any[]=[];for(let i=5;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);const ym=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");const mPresu=presu.filter((pr:any)=>pr.solicitado_at&&pr.solicitado_at.startsWith(ym));const apr=mPresu.filter((pr:any)=>pr.status===PST.APR).reduce((s:number,pr:any)=>s+Number(pr.monto),0);const sol=mPresu.reduce((s:number,pr:any)=>s+Number(pr.monto),0);monthData.push({label:meses[d.getMonth()]+" "+String(d.getFullYear()).slice(2),apr,sol,count:mPresu.length});}
+      const maxM=Math.max(...monthData.map((m:any)=>m.sol),1);
+      return monthData.some((m:any)=>m.count>0)?<Card style={{padding:14,marginBottom:14}}>
+        <div style={{fontSize:13,fontWeight:700,color:T.nv,marginBottom:10}}>📈 Tendencia últimos 6 meses</div>
+        <div style={{display:"flex",gap:mob?4:8,alignItems:"flex-end",height:120}}>
+          {monthData.map((m:any,i:number)=><div key={i} style={{flex:1,display:"flex",flexDirection:"column" as const,alignItems:"center",gap:2}}>
+            <span style={{fontSize:9,fontWeight:700,color:T.gn}}>{m.apr>0?"$"+Math.round(m.apr/1000)+"k":""}</span>
+            <div style={{width:"100%",display:"flex",flexDirection:"column" as const,gap:1,justifyContent:"flex-end",height:80}}>
+              <div style={{height:Math.max(2,Math.round(m.apr/maxM*80)),background:T.gn,borderRadius:3}} title={"Aprobado: $"+m.apr.toLocaleString()}/>
+              <div style={{height:Math.max(2,Math.round((m.sol-m.apr)/maxM*80)),background:T.yl+"60",borderRadius:3}} title={"Pendiente: $"+(m.sol-m.apr).toLocaleString()}/>
+            </div>
+            <span style={{fontSize:9,color:T.g4,fontWeight:600}}>{m.label}</span>
+            <span style={{fontSize:8,color:T.g5}}>{m.count}</span>
+          </div>)}
+        </div>
+        <div style={{display:"flex",gap:12,marginTop:8,fontSize:10}}><span style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:10,height:10,borderRadius:2,background:T.gn}}/> Aprobado</span><span style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:10,height:10,borderRadius:2,background:T.yl+"60"}}/> Pendiente</span></div>
+      </Card>:null;})()}
+      {/* Top proveedores */}
+      {(()=>{const provGasto:Record<string,{nombre:string;total:number;count:number}>={};presu.filter((pr:any)=>pr.status===PST.APR).forEach((pr:any)=>{const k=pr.proveedor_nombre||"?";if(!provGasto[k])provGasto[k]={nombre:k,total:0,count:0};provGasto[k].total+=Number(pr.monto);provGasto[k].count++;});const top=Object.values(provGasto).sort((a:any,b:any)=>b.total-a.total).slice(0,5);const maxProv=top.length?top[0].total:1;
+      return top.length>0?<Card style={{padding:14,marginBottom:14}}>
+        <div style={{fontSize:13,fontWeight:700,color:T.nv,marginBottom:10}}>🏢 Top 5 Proveedores (aprobado)</div>
+        {top.map((pv:any,i:number)=><div key={i} style={{marginBottom:8}}>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:3}}><span style={{fontWeight:600,color:T.nv}}>{i+1}. {pv.nombre} <span style={{color:T.g4,fontWeight:400}}>({pv.count} cotiz.)</span></span><span style={{fontWeight:700,color:T.pr}}>${pv.total.toLocaleString()}</span></div>
+          <div style={{height:6,background:T.g2,borderRadius:3,overflow:"hidden"}}><div style={{height:"100%",width:Math.round(pv.total/maxProv*100)+"%",background:T.pr,borderRadius:3}}/></div>
+        </div>)}
+      </Card>:null;})()}
+      {/* Carga de trabajo (tareas activas por persona) */}
+      {(()=>{const workload:Record<string,{name:string;active:number;overdue:number;total:number}>={};peds.forEach((p:any)=>{if(!p.asTo)return;if(!workload[p.asTo])workload[p.asTo]={name:"",active:0,overdue:0,total:0};workload[p.asTo].total++;if(p.st!==ST.OK){workload[p.asTo].active++;if(isOD(p.fReq))workload[p.asTo].overdue++;}});Object.keys(workload).forEach(uid=>{const u=users.find((u:any)=>u.id===uid);workload[uid].name=u?fn(u):"?";});const sorted=Object.values(workload).sort((a:any,b:any)=>b.active-a.active).slice(0,10);const maxW=sorted.length?sorted[0].active:1;
+      return sorted.length>0?<Card style={{padding:14}}>
+        <div style={{fontSize:13,fontWeight:700,color:T.nv,marginBottom:10}}>👥 Carga de trabajo (tareas activas)</div>
+        {sorted.map((w:any,i:number)=><div key={i} style={{marginBottom:6}}>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:2}}><span style={{fontWeight:600,color:T.nv}}>{w.name}</span><span style={{display:"flex",gap:6}}><span style={{fontWeight:700,color:T.yl}}>{w.active} activas</span>{w.overdue>0&&<span style={{fontWeight:700,color:"#DC2626"}}>⏰ {w.overdue}</span>}<span style={{color:T.g4}}>{w.total} total</span></span></div>
+          <div style={{height:6,background:T.g2,borderRadius:3,overflow:"hidden"}}><div style={{height:"100%",width:Math.round(w.active/maxW*100)+"%",background:w.overdue>0?"#DC2626":w.active>5?T.yl:T.gn,borderRadius:3}}/></div>
+        </div>)}
+      </Card>:null;})()}
     </div>);
   }
   return null;
@@ -1266,6 +1302,7 @@ function CalView({peds,agendas,minutas,presu,reminders,areas,deptos,users,user,o
         <option value="">Todas las áreas</option>{areas.map((a:any)=><option key={a.id} value={a.id}>{a.icon} {a.name}</option>)}
       </select>}
       {onAddReminder&&<button onClick={()=>sShowAddR(!showAddR)} style={{padding:"4px 10px",borderRadius:14,border:"1px solid "+T.gn,background:showAddR?T.gn:T.gn+"12",color:showAddR?"#fff":T.gn,fontSize:10,fontWeight:600,cursor:"pointer"}}>+ Recordatorio</button>}
+      <button onClick={()=>exportICal("los-tordos-calendario",events.map(e=>({title:e.label,date:e.date,description:e.type,type:e.type})))} style={{padding:"4px 10px",borderRadius:14,border:"1px solid "+T.bl,background:T.bl+"12",color:T.bl,fontSize:10,fontWeight:600,cursor:"pointer"}}>📅 iCal</button>
     </div>
   );
 
@@ -1415,7 +1452,7 @@ function CalView({peds,agendas,minutas,presu,reminders,areas,deptos,users,user,o
 }
 
 /* ── NOTIFS ── */
-function notifs(user:any,peds:any[]){const n:any[]=[];if(["coordinador","admin","superadmin"].indexOf(user.role)>=0){const pp=peds.filter(p=>p.st===ST.P);if(pp.length)n.push({t:"🔴 "+pp.length+" pendientes",c:T.rd,act:"dash",filter:ST.P});}if(user.role==="embudo"){const ee=peds.filter(p=>p.st===ST.E);if(ee.length)n.push({t:"💰 "+ee.length+" esperando aprobación",c:T.pr,act:"dash",filter:ST.E});}const myV=peds.filter(p=>p.st===ST.V&&p.cId===user.id);if(myV.length)n.push({t:"🔵 "+myV.length+" esperando validación",c:T.bl,act:"my",filter:ST.V,first:myV[0]});const od=peds.filter(p=>p.st!==ST.OK&&isOD(p.fReq));if(od.length)n.push({t:"⏰ "+od.length+" vencidas",c:"#DC2626",act:"dash",filter:"overdue",first:od[0]});return n;}
+function notifs(user:any,peds:any[]){const n:any[]=[];if(["coordinador","admin","superadmin"].indexOf(user.role)>=0){const pp=peds.filter(p=>p.st===ST.P);if(pp.length)n.push({t:"🔴 "+pp.length+" pendientes",c:T.rd,act:"dash",filter:ST.P});}if(user.role==="embudo"){const ee=peds.filter(p=>p.st===ST.E);if(ee.length)n.push({t:"💰 "+ee.length+" esperando aprobación",c:T.pr,act:"dash",filter:ST.E});}const myV=peds.filter(p=>p.st===ST.V&&p.cId===user.id);if(myV.length)n.push({t:"🔵 "+myV.length+" esperando validación",c:T.bl,act:"my",filter:ST.V,first:myV[0]});const od=peds.filter(p=>p.st!==ST.OK&&isOD(p.fReq));if(od.length)n.push({t:"⏰ "+od.length+" vencidas",c:"#DC2626",act:"dash",filter:"overdue",first:od[0]});/* escalation: tasks stuck >7 days */if(["coordinador","admin","superadmin"].indexOf(user.role)>=0){const stuck=peds.filter(p=>p.st!==ST.OK&&p.st!==ST.P&&p.cAt&&daysDiff(p.cAt,TODAY)>7&&!isOD(p.fReq));if(stuck.length)n.push({t:"🚨 "+stuck.length+" tareas sin avance (+7d)",c:"#7C3AED",act:"dash",first:stuck[0]});}return n;}
 
 /* ── MAIN APP ── */
 export default function App(){

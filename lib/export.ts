@@ -61,3 +61,36 @@ function downloadBlob(blob: Blob, filename: string) {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+
+/* ── iCal ── */
+export function exportICal(filename: string, events: {title:string;date:string;description?:string;type?:string}[]) {
+  const esc = (s: string) => String(s ?? "").replace(/[\;,]/g, (m) => "\\" + m).replace(/\n/g, "\\n");
+  const now = new Date().toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Los Tordos RC//Panel//ES",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    "X-WR-CALNAME:Los Tordos",
+  ];
+  for (const ev of events) {
+    const dtStart = ev.date.replace(/-/g, "");
+    const dtEnd = dtStart; // all-day events
+    const uid = dtStart + "-" + Math.random().toString(36).slice(2, 8) + "@lostordos";
+    lines.push(
+      "BEGIN:VEVENT",
+      "UID:" + uid,
+      "DTSTART;VALUE=DATE:" + dtStart,
+      "DTEND;VALUE=DATE:" + dtEnd,
+      "DTSTAMP:" + now,
+      "SUMMARY:" + esc(ev.title),
+      ...(ev.description ? ["DESCRIPTION:" + esc(ev.description)] : []),
+      ...(ev.type ? ["CATEGORIES:" + esc(ev.type)] : []),
+      "END:VEVENT"
+    );
+  }
+  lines.push("END:VCALENDAR");
+  const blob = new Blob([lines.join("\r\n")], { type: "text/calendar;charset=utf-8" });
+  downloadBlob(blob, filename + ".ics");
+}
