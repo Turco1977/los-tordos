@@ -335,7 +335,7 @@ function MyDash({user,peds,users,onSel,mob,search,presu}:any){
         return(<Card key={p.id} style={{padding:"14px 16px",cursor:"pointer",borderLeft:"4px solid "+SC[p.st].c,background:od2?"#FEF2F2":"#fff"}} onClick={()=>onSel(p)}>
           <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}><Badge s={p.st} sm/>{od2&&<span style={{fontSize:9,color:"#DC2626",fontWeight:700}}>⏰</span>}{p.urg==="Urgente"&&<span style={{fontSize:9,color:T.rd,fontWeight:700}}>🔥</span>}<span style={{fontSize:10,color:T.g4}}>#{p.id}</span>{nPr>0&&<span style={{background:T.pr+"20",color:T.pr,padding:"1px 6px",borderRadius:10,fontSize:9,fontWeight:700}}>💰 {nPr}</span>}</div>
           <div style={{fontSize:13,fontWeight:700,color:T.nv}}>{p.desc}</div>
-          <div style={{fontSize:11,color:T.g5,marginTop:3}}>{p.div&&<span>📍 {p.div} · </span>}{p.tipo} · 📅 {p.fReq} · 💬 {msgs}{nPr===0&&<span> · <span style={{color:T.pr,fontWeight:600}}>💰 Agregar presupuesto</span></span>}</div>
+          <div style={{fontSize:11,color:T.g5,marginTop:3}}>{p.div&&<span>📍 {p.div} · </span>}{p.tipo} · 📅 {p.fReq} · 💬 {msgs}{p.rG&&nPr===0&&<span style={{color:T.pr,fontWeight:600}}> · 💰 Sin presupuesto</span>}</div>
         </Card>);})}
     </div>
   </div>);
@@ -454,13 +454,17 @@ function Org({areas,deptos,users,om,onEditSave,onDelOm,onDelUser,onEditUser,isSA
 }
 
 /* ── NUEVO PEDIDO ── */
-function NP({user,users,deptos,areas,onSub,onX,preAssign,mob}:any){
+function NP({user,users,deptos,areas,onSub,onX,preAssign,mob,provs}:any){
   const isE=["enlace","manager","usuario","embudo"].indexOf(user.role)>=0;
   const isHigh=["superadmin","admin","coordinador"].indexOf(user.role)>=0;
   const [f,sF]=useState({aId:"",dId:isE?String(user.dId):"",div:isE?user.div:"",asTo:"",tipo:"",desc:"",fReq:"",urg:"Normal",rG:false});
   const up=(k:string,v:any)=>sF((p:any)=>({...p,[k]:v}));
   const selArea=f.aId?areas.find((a:any)=>a.id===Number(f.aId)):null;
-  const ok=f.tipo&&f.desc&&f.fReq;const pastDate=f.fReq&&f.fReq<TODAY;
+  /* Presupuesto inline */
+  const [prf,sPrf]=useState({prov_nombre:"",prov_contacto:"",prov_id:"",descripcion:"",monto:"",moneda:"ARS",archivo_url:"",notas:""});
+  const [provSearch,sProvSearch]=useState("");
+  const presuOk=!f.rG||(prf.prov_nombre&&prf.monto);
+  const ok=f.tipo&&f.desc&&f.fReq&&presuOk;const pastDate=f.fReq&&f.fReq<TODAY;
   const [atts,sAtts]=useState<{type:string;label:string;val:string}[]>([]);const [showAtt,sShowAtt]=useState(false);const [attType,sAttType]=useState("");const [attVal,sAttVal]=useState("");
   const attTypes=[{k:"link",l:"🔗 Link",ph:"https://..."},{k:"video",l:"🎬 Video",ph:"URL del video..."},{k:"foto",l:"📷 Foto",ph:"URL de la imagen..."},{k:"ubi",l:"📍 Ubicación",ph:"Dirección o link de Maps..."},{k:"doc",l:"📄 Documento",ph:"URL del documento..."}];
   const addAtt=()=>{if(attVal.trim()){const at=attTypes.find(a=>a.k===attType);sAtts(p=>[...p,{type:attType,label:at?at.l:"📎",val:attVal.trim()}]);sAttVal("");sAttType("");sShowAtt(false);}};
@@ -472,7 +476,25 @@ function NP({user,users,deptos,areas,onSub,onX,preAssign,mob}:any){
     <div style={{marginBottom:10}}><label style={{fontSize:12,fontWeight:600,color:T.g5}}>Tipo *</label><div style={{display:"flex",flexWrap:"wrap" as const,gap:4,marginTop:4}}>{TIPOS.map(t=><button key={t} onClick={()=>up("tipo",t)} style={{padding:"4px 12px",borderRadius:18,fontSize:11,border:f.tipo===t?"2px solid "+T.nv:"1px solid "+T.g3,background:f.tipo===t?T.nv:"#fff",color:f.tipo===t?"#fff":T.g5,cursor:"pointer"}}>{t}</button>)}</div></div>
     <div style={{marginBottom:10}}><label style={{fontSize:12,fontWeight:600,color:T.g5}}>Descripción *</label><textarea value={f.desc} onChange={(e:any)=>up("desc",e.target.value)} rows={3} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,resize:"vertical" as const,boxSizing:"border-box" as const,marginTop:3}}/></div>
     <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8,marginBottom:10}}><div><label style={{fontSize:12,fontWeight:600,color:T.g5}}>Fecha límite *</label><input type="date" value={f.fReq} onChange={(e:any)=>up("fReq",e.target.value)} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:13,boxSizing:"border-box" as const,marginTop:3}}/></div><div><label style={{fontSize:12,fontWeight:600,color:T.g5}}>Urgencia</label><div style={{display:"flex",gap:4,marginTop:3}}>{["Normal","Urgente"].map(u=><button key={u} onClick={()=>up("urg",u)} style={{flex:1,padding:6,borderRadius:8,fontSize:11,fontWeight:600,border:f.urg===u?"2px solid "+T.nv:"1px solid "+T.g3,background:f.urg===u?T.nv+"15":"#fff",color:f.urg===u?T.nv:T.g4,cursor:"pointer"}}>{u}</button>)}</div></div></div>
-    <div style={{marginBottom:12}}><label style={{display:"flex",alignItems:"center",gap:6,fontSize:12,cursor:"pointer"}}><input type="checkbox" checked={f.rG} onChange={(e:any)=>up("rG",e.target.checked)}/><span style={{fontWeight:600,color:T.g5}}>Requiere gasto 💰</span></label></div>
+    <div style={{marginBottom:f.rG?4:12}}><label style={{display:"flex",alignItems:"center",gap:6,fontSize:12,cursor:"pointer"}}><input type="checkbox" checked={f.rG} onChange={(e:any)=>up("rG",e.target.checked)}/><span style={{fontWeight:600,color:T.g5}}>Requiere gasto 💰</span></label></div>
+    {f.rG&&<div style={{padding:12,background:"#F5F3FF",borderRadius:10,border:"1px solid "+T.pr+"33",marginBottom:12}}>
+      <div style={{fontSize:11,fontWeight:700,color:T.pr,marginBottom:8}}>💰 Datos del presupuesto</div>
+      <div style={{marginBottom:6}}><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Proveedor *</label>
+        <input value={provSearch} onChange={e=>{sProvSearch(e.target.value);sPrf(p=>({...p,prov_nombre:e.target.value,prov_id:""}));}} placeholder="Buscar o escribir proveedor..." style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/>
+        {provSearch&&(provs||[]).filter((pv:any)=>pv.nombre.toLowerCase().includes(provSearch.toLowerCase())).length>0&&<div style={{border:"1px solid "+T.g3,borderRadius:8,marginTop:2,maxHeight:80,overflowY:"auto" as const,background:"#fff"}}>
+          {(provs||[]).filter((pv:any)=>pv.nombre.toLowerCase().includes(provSearch.toLowerCase())).slice(0,5).map((pv:any)=><div key={pv.id} onClick={()=>{sPrf(p=>({...p,prov_id:String(pv.id),prov_nombre:pv.nombre,prov_contacto:pv.contacto||pv.telefono||pv.email}));sProvSearch(pv.nombre);}} style={{padding:"5px 10px",fontSize:11,cursor:"pointer",borderBottom:"1px solid "+T.g1}}>{pv.nombre} <span style={{color:T.g4}}>({pv.rubro})</span></div>)}
+        </div>}
+      </div>
+      <div style={{marginBottom:6}}><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Contacto proveedor</label><input value={prf.prov_contacto} onChange={e=>sPrf(p=>({...p,prov_contacto:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 80px",gap:8,marginBottom:6}}>
+        <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Monto ($) *</label><input type="number" value={prf.monto} onChange={e=>sPrf(p=>({...p,monto:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+        <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Moneda</label><select value={prf.moneda} onChange={e=>sPrf(p=>({...p,moneda:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,marginTop:2}}>{MONEDAS.map(m=><option key={m} value={m}>{m}</option>)}</select></div>
+      </div>
+      <div style={{marginBottom:6}}><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Descripción</label><textarea value={prf.descripcion} onChange={e=>sPrf(p=>({...p,descripcion:e.target.value}))} rows={2} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,resize:"vertical" as const,boxSizing:"border-box" as const,marginTop:2}}/></div>
+      <div style={{marginBottom:6}}><label style={{fontSize:10,fontWeight:600,color:T.g5}}>URL archivo/cotización</label><input value={prf.archivo_url} onChange={e=>sPrf(p=>({...p,archivo_url:e.target.value}))} placeholder="https://..." style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+      <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Notas</label><input value={prf.notas} onChange={e=>sPrf(p=>({...p,notas:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+      {!prf.prov_nombre&&!prf.monto&&<div style={{marginTop:6,fontSize:10,color:T.rd,fontWeight:600}}>⚠️ Completá proveedor y monto para poder enviar la tarea</div>}
+    </div>}
     <div style={{marginBottom:12}}>
       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><label style={{fontSize:12,fontWeight:600,color:T.g5}}>Adjuntos</label><button onClick={()=>{sShowAtt(!showAtt);sAttType("");sAttVal("");}} style={{width:28,height:28,borderRadius:14,background:showAtt?T.bl+"15":"#fff",border:"1px solid "+(showAtt?T.bl:T.g3),cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",color:showAtt?T.bl:T.g4,fontWeight:700}}>+</button></div>
       {showAtt&&<div style={{padding:10,background:"#F8FAFC",borderRadius:10,border:"1px solid "+T.g2,marginBottom:8}}>
@@ -490,7 +512,7 @@ function NP({user,users,deptos,areas,onSub,onX,preAssign,mob}:any){
       {atts.length>0&&<div style={{display:"flex",flexWrap:"wrap" as const,gap:4}}>{atts.map((a,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:4,padding:"4px 10px",background:"#E8F4FD",borderRadius:16,fontSize:10,border:"1px solid #B3D9F2"}}><span>{a.label}</span><span style={{color:T.bl,maxWidth:140,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{a.val}</span><button onClick={()=>sAtts(p=>p.filter((_,j)=>j!==i))} style={{background:"none",border:"none",cursor:"pointer",fontSize:10,color:T.g4,padding:0}}>✕</button></div>)}</div>}
     </div>
     {pastDate&&<div style={{padding:"6px 10px",background:"#FEF2F2",borderRadius:8,border:"1px solid #FECACA",fontSize:11,color:"#991B1B",marginBottom:8}}>⚠️ La fecha límite es anterior a hoy</div>}
-    <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn v="g" onClick={onX}>Cancelar</Btn><Btn v="r" disabled={!ok} onClick={()=>{const dId=Number(f.dId)||user.dId;const pa=preAssign;const ts=TODAY+" "+new Date().toTimeString().slice(0,5);onSub({id:0,div:f.div||user.div||"",cId:user.id,cN:fn(user),dId,tipo:f.tipo,desc:f.desc,fReq:f.fReq,urg:f.urg,st:pa?ST.C:ST.P,asTo:pa?pa.id:null,rG:f.rG,eOk:null,resp:"",cAt:TODAY,monto:null,log:[{dt:ts,uid:user.id,by:fn(user),act:"Creó la tarea",t:"sys"},...(pa?[{dt:ts,uid:user.id,by:fn(user),act:"Asignó a "+fn(pa),t:"sys"}]:[]),...atts.map(a=>({dt:ts,uid:user.id,by:fn(user),act:a.label+": "+a.val,t:"msg"}))]});}}>📨 Enviar</Btn></div>
+    <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn v="g" onClick={onX}>Cancelar</Btn><Btn v="r" disabled={!ok} onClick={()=>{const dId=Number(f.dId)||user.dId;const pa=preAssign;const ts=TODAY+" "+new Date().toTimeString().slice(0,5);onSub({id:0,div:f.div||user.div||"",cId:user.id,cN:fn(user),dId,tipo:f.tipo,desc:f.desc,fReq:f.fReq,urg:f.urg,st:pa?ST.C:ST.P,asTo:pa?pa.id:null,rG:f.rG,eOk:null,resp:"",cAt:TODAY,monto:f.rG&&prf.monto?Number(prf.monto):null,log:[{dt:ts,uid:user.id,by:fn(user),act:"Creó la tarea",t:"sys"},...(pa?[{dt:ts,uid:user.id,by:fn(user),act:"Asignó a "+fn(pa),t:"sys"}]:[]),...atts.map(a=>({dt:ts,uid:user.id,by:fn(user),act:a.label+": "+a.val,t:"msg"}))],_presu:f.rG?{proveedor_id:prf.prov_id?Number(prf.prov_id):null,proveedor_nombre:prf.prov_nombre,proveedor_contacto:prf.prov_contacto,descripcion:prf.descripcion,monto:Number(prf.monto),moneda:prf.moneda,archivo_url:prf.archivo_url,notas:prf.notas}:null});}}>📨 Enviar</Btn></div>
   </Card>);
 }
 
@@ -954,14 +976,10 @@ function PresView({presu,provs,peds,users,areas,deptos,user,onAddPresu,onUpdPres
   const [addMode,sAddMode]=useState(false);const [provSearch2,sProvSearch2]=useState("");
   const [npf,sNpf]=useState({task_id:"",prov_id:"",prov_nombre:"",prov_contacto:"",descripcion:"",monto:"",moneda:"ARS",archivo_url:"",notas:""});
   const resetNpf=()=>{sNpf({task_id:"",prov_id:"",prov_nombre:"",prov_contacto:"",descripcion:"",monto:"",moneda:"ARS",archivo_url:"",notas:""});sProvSearch2("");sAddMode(false);};
-  const isPersonalRole=["enlace","manager","usuario"].indexOf(user.role)>=0;
-  const myTaskIds=isPersonalRole?peds.filter((p:any)=>p.cId===user.id||p.asTo===user.id).map((p:any)=>p.id):null;
-  const myPresu=myTaskIds?presu.filter((pr:any)=>myTaskIds.indexOf(pr.task_id)>=0):presu;
-  const myPeds=myTaskIds?peds.filter((p:any)=>myTaskIds.indexOf(p.id)>=0):peds;
 
   /* TODOS */
   if(tab==="todos"){
-    let vis=[...myPresu];
+    let vis=[...presu];
     if(fSt!=="all") vis=vis.filter((pr:any)=>pr.status===fSt);
     if(fProv) vis=vis.filter((pr:any)=>pr.proveedor_nombre.toLowerCase().includes(fProv.toLowerCase()));
     if(search){const s=search.toLowerCase();vis=vis.filter((pr:any)=>(pr.proveedor_nombre+pr.descripcion+pr.notas+(pr.id+"")).toLowerCase().includes(s));}
@@ -969,13 +987,13 @@ function PresView({presu,provs,peds,users,areas,deptos,user,onAddPresu,onUpdPres
     return(<div style={{maxWidth:800}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"start",marginBottom:4}}>
         <div><h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:T.nv,fontWeight:800}}>💰 Presupuestos</h2><p style={{color:T.g4,fontSize:12,margin:0}}>Repositorio de cotizaciones y comparación de proveedores</p></div>
-        {!addMode&&<Btn v="pu" s="s" onClick={()=>sAddMode(true)}>+ Nuevo Presupuesto</Btn>}
+        {canManage&&!addMode&&<Btn v="pu" s="s" onClick={()=>sAddMode(true)}>+ Nuevo Presupuesto</Btn>}
       </div>
       <div style={{display:"flex",gap:4,marginBottom:12,marginTop:10}}>{[{k:"todos",l:"📋 Todos"},{k:"provs",l:"🏢 Proveedores"},{k:"kpis",l:"📊 KPIs"}].map(t=><button key={t.k} onClick={()=>sTab(t.k)} style={{padding:"6px 14px",borderRadius:8,border:"none",background:tab===t.k?T.pr:"#fff",color:tab===t.k?"#fff":T.g5,fontSize:12,fontWeight:600,cursor:"pointer"}}>{t.l}</button>)}</div>
       {/* Add presupuesto form */}
-      {addMode&&<Card style={{marginBottom:14,background:"#F5F3FF",border:"1px solid "+T.pr+"33"}}>
+      {addMode&&canManage&&<Card style={{marginBottom:14,background:"#F5F3FF",border:"1px solid "+T.pr+"33"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><div style={{fontSize:12,fontWeight:700,color:T.pr}}>➕ Nuevo presupuesto</div><button onClick={resetNpf} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:T.g4}}>✕</button></div>
-        <div style={{marginBottom:8}}><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Tarea vinculada *</label><select value={npf.task_id} onChange={e=>sNpf(p=>({...p,task_id:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,marginTop:2}}><option value="">Seleccionar tarea...</option>{myPeds.filter((p:any)=>p.st!=="ok").map((p:any)=><option key={p.id} value={p.id}>#{p.id} – {p.tipo}: {p.desc.slice(0,50)}</option>)}</select></div>
+        <div style={{marginBottom:8}}><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Tarea vinculada *</label><select value={npf.task_id} onChange={e=>sNpf(p=>({...p,task_id:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,marginTop:2}}><option value="">Seleccionar tarea...</option>{peds.filter((p:any)=>p.st!=="ok").map((p:any)=><option key={p.id} value={p.id}>#{p.id} – {p.tipo}: {p.desc.slice(0,50)}</option>)}</select></div>
         <div style={{marginBottom:8}}><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Proveedor *</label>
           <input value={provSearch2} onChange={e=>{sProvSearch2(e.target.value);sNpf(p=>({...p,prov_nombre:e.target.value,prov_id:""}));}} placeholder="Buscar o escribir proveedor..." style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/>
           {provSearch2&&(provs||[]).filter((pv:any)=>pv.nombre.toLowerCase().includes(provSearch2.toLowerCase())).length>0&&<div style={{border:"1px solid "+T.g3,borderRadius:8,marginTop:2,maxHeight:100,overflowY:"auto" as const,background:"#fff"}}>
@@ -1405,7 +1423,7 @@ export default function App(){
   else if(aA){const aar2=areas.find(x=>x.id===aA),ids2=deptos.filter(d=>d.aId===aA).map(d=>d.id);vT=aar2?aar2.name:"";vI=aar2?aar2.icon:"";vC=aar2?aar2.color:T.nv;vP=peds.filter(p=>ids2.indexOf(p.dId)>=0);}
 
   let nav:any[]=[];
-  if(isPersonal){nav=[{k:"my",l:"Mis Tareas",sh:true},{k:"cal",l:"📅 Calendario",sh:true},{k:"presu",l:"💰 Presupuestos",sh:true},{k:"new",l:"+ Tarea",sh:true},{k:"org",l:"Organigrama",sh:true},{k:"profs",l:"Perfiles",sh:true},{k:"proy",l:"Plan 2035",sh:true}];}
+  if(isPersonal){nav=[{k:"my",l:"Mis Tareas",sh:true},{k:"cal",l:"📅 Calendario",sh:true},{k:"new",l:"+ Tarea",sh:true},{k:"org",l:"Organigrama",sh:true},{k:"profs",l:"Perfiles",sh:true},{k:"proy",l:"Plan 2035",sh:true}];}
   else{nav=[{k:"dash",l:"Dashboard",sh:true},{k:"org",l:"Organigrama",sh:true},{k:"dept",l:"Departamentos",sh:true},{k:"cal",l:"📅 Calendario",sh:true},...(isAd||user.role==="coordinador"||user.role==="embudo"?[{k:"presu",l:"💰 Presupuestos",sh:true}]:[]),...(isAd||user.role==="coordinador"?[{k:"reun",l:"📅 Reuniones",sh:true}]:[]),{k:"proy",l:"Plan 2035",sh:true},{k:"profs",l:"Perfiles",sh:true},{k:"new",l:"+ Tarea",sh:true}];}
 
   /* ── addLog: optimistic local + persist to Supabase ── */
@@ -1443,7 +1461,7 @@ export default function App(){
             onAddReminder={async(r:any)=>{try{const row:any={user_id:user.id,user_name:fn(user),title:r.title,date:r.date,description:r.description||"",color:r.color||"#3B82F6",recurrence:r.recurrence||"none",assigned_to:r.assigned_to||null,assigned_name:r.assigned_name||""};const{data,error}=await supabase.from("reminders").insert(row).select().single();if(error)throw new Error(error.message);sRems(p=>[...(data?[data]:[]),...p]);showT("Recordatorio creado");}catch(e:any){showT(e.message||"Error","err");}}}
             onDelReminder={async(id:number)=>{try{sRems(p=>p.filter(x=>x.id!==id));await supabase.from("reminders").delete().eq("id",id);showT("Recordatorio eliminado");}catch(e:any){showT(e.message||"Error","err");}}}
           />}
-          {vw==="presu"&&<PresView presu={presu} provs={provs} peds={peds} users={users} areas={areas} deptos={deptos} user={user} mob={mob}
+          {vw==="presu"&&(isAd||user.role==="coordinador"||user.role==="embudo")&&<PresView presu={presu} provs={provs} peds={peds} users={users} areas={areas} deptos={deptos} user={user} mob={mob}
             onSel={(p:any)=>sSl(p)}
             onAddPresu={async(d:any)=>{try{const row=presuToDB(d);const{data,error}=await supabase.from("presupuestos").insert(row).select().single();if(error)throw new Error(error.message);sPr(p=>[presuFromDB(data),...p]);showT("Presupuesto agregado");}catch(e:any){showT(e.message||"Error","err");}}}
             onUpdPresu={async(id:number,d:any)=>{try{sPr(p=>p.map(x=>x.id===id?{...x,...d}:x));await supabase.from("presupuestos").update(d).eq("id",id);showT("Presupuesto actualizado");}catch(e:any){showT(e.message||"Error","err");}}}
@@ -1472,7 +1490,7 @@ export default function App(){
             if(d.mail&&oldUser&&d.mail!==oldUser.mail){const{data:{session}}=await supabase.auth.getSession();const tok=session?.access_token;if(tok)await fetch("/api/admin/create-user",{method:"PUT",headers:{"Content-Type":"application/json","Authorization":"Bearer "+tok},body:JSON.stringify({userId:id,email:d.mail})});}
             showT("Perfil actualizado");}catch(e:any){showT(e.message||"Error","err");}
           }} isAd={isAd} onAssignTask={(u:any)=>{sPreAT(u);sVw("new");}} mob={mob}/>}
-          {vw==="new"&&<NP user={user} users={users} deptos={deptos} areas={areas} preAssign={preAT} mob={mob} onSub={async(p:any)=>{
+          {vw==="new"&&<NP user={user} users={users} deptos={deptos} areas={areas} preAssign={preAT} mob={mob} provs={provs} onSub={async(p:any)=>{
             try{const row:any=taskToDB(p);
             const{data,error}=await supabase.from("tasks").insert(row).select().single();
             if(error)throw new Error(error.message);
@@ -1480,7 +1498,9 @@ export default function App(){
             const localP={...p,id:tid};
             sPd(ps=>[localP,...ps]);
             for(const l of (p.log||[])){await supabase.from("task_messages").insert({task_id:tid,user_id:l.uid,user_name:l.by,content:l.act,type:l.t});}
-            sPreAT(null);sVw(isPersonal?"my":"dash");sAA(null);sAD(null);showT("Tarea creada");}catch(e:any){showT(e.message||"Error al crear tarea","err");}
+            /* Auto-create presupuesto if rG */
+            if(p._presu&&tid){const prRow=presuToDB({...p._presu,task_id:tid,status:PST.SOL,solicitado_por:fn(user),solicitado_at:TODAY});const{data:prData}=await supabase.from("presupuestos").insert(prRow).select().single();if(prData)sPr(prev=>[presuFromDB(prData),...prev]);}
+            sPreAT(null);sVw(isPersonal?"my":"dash");sAA(null);sAD(null);showT(p._presu?"Tarea creada con presupuesto":"Tarea creada");}catch(e:any){showT(e.message||"Error al crear tarea","err");}
           }} onX={()=>{sPreAT(null);sVw(isPersonal?"my":"dash");}}/>}
           {vw==="proy"&&<Proyecto hitos={hitos} setHitos={(updater:any)=>{sHi((prev:any)=>{const next=typeof updater==="function"?updater(prev):updater;next.forEach((h:any)=>{supabase.from("milestones").update({pct:h.pct}).eq("id",h.id);});return next;});}} isAd={isAd}/>}
           {vw==="dash"&&!isPersonal&&!aA&&!aD&&<><h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:T.nv,fontWeight:800}}>Dashboard</h2><p style={{color:T.g4,fontSize:12,margin:"0 0 16px"}}>KPIs institucionales · Manual Operativo 2035</p><KPIs peds={peds} mob={mob} presu={presu}/><Circles areas={areas} deptos={deptos} pedidos={peds} onAC={hAC} mob={mob}/></>}
