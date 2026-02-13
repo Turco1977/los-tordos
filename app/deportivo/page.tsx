@@ -1,8 +1,15 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, createContext, useContext } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { T, DEP_ROLES, DEP_POSITIONS, DEP_INJ_TYPES, DEP_INJ_ZONES, DEP_INJ_SEV, DEP_WK, DEP_SEM, DEP_DIV, fn } from "@/lib/constants";
+import { T, TD, DEP_ROLES, DEP_POSITIONS, DEP_INJ_TYPES, DEP_INJ_ZONES, DEP_INJ_SEV, DEP_WK, DEP_SEM, DEP_DIV, fn } from "@/lib/constants";
 import type { DepStaff, DepAthlete, DepInjury, DepCheckin } from "@/lib/supabase/types";
+import { exportCSV, exportPDF } from "@/lib/export";
+import { useRealtime } from "@/lib/realtime";
+import { useTheme, darkCSS } from "@/lib/theme";
+
+/* ── THEME CONTEXT ── */
+const ThemeCtx = createContext<{colors:typeof T;isDark:boolean;cardBg:string}>({colors:T,isDark:false,cardBg:"#fff"});
+const useC = () => useContext(ThemeCtx);
 
 const supabase = createClient();
 const TODAY = new Date().toISOString().slice(0,10);
@@ -34,11 +41,12 @@ function useMobile(bp=768){
 
 /* ── UI PRIMITIVES ── */
 function Btn({children,onClick,v,s,disabled,style:st}:{children:any;onClick?:any;v?:string;s?:string;disabled?:boolean;style?:any}){
-  const vs:any={p:{background:T.nv,color:"#fff"},r:{background:T.rd,color:"#fff"},s:{background:T.gn,color:"#fff"},w:{background:T.yl,color:"#fff"},g:{background:"transparent",color:T.nv,border:"1px solid "+T.g3}};
+  const{colors,isDark}=useC();
+  const vs:any={p:{background:colors.nv,color:isDark?"#0F172A":"#fff"},r:{background:colors.rd,color:"#fff"},s:{background:colors.gn,color:"#fff"},w:{background:colors.yl,color:"#fff"},g:{background:"transparent",color:colors.nv,border:"1px solid "+colors.g3}};
   const sz:any={s:{padding:"4px 10px",fontSize:11},m:{padding:"7px 16px",fontSize:13}};
   return <button onClick={onClick} disabled={disabled} style={{border:"none",borderRadius:8,cursor:disabled?"not-allowed":"pointer",fontWeight:600,opacity:disabled?.5:1,...sz[s||"m"],...vs[v||"p"],...(st||{})}}>{children}</button>;
 }
-function Card({children,style:st,onClick}:{children:any;style?:any;onClick?:any}){return <div onClick={onClick} style={{background:"#fff",borderRadius:14,padding:18,boxShadow:"0 1px 4px rgba(0,0,0,.05)",border:"1px solid "+T.g2,...(st||{})}}>{children}</div>;}
+function Card({children,style:st,onClick}:{children:any;style?:any;onClick?:any}){const{cardBg,colors}=useC();return <div onClick={onClick} style={{background:cardBg,borderRadius:14,padding:18,boxShadow:"0 1px 4px rgba(0,0,0,.05)",border:"1px solid "+colors.g2,...(st||{})}}>{children}</div>;}
 
 /* ── LOGIN (inline) ── */
 function LoginPrompt({mob}:{mob:boolean}){
@@ -85,6 +93,7 @@ function NoAccess({mob,userName,onOut}:{mob:boolean;userName:string;onOut:()=>vo
 /* ── MAIN APP ── */
 export default function DeportivoApp(){
   const mob=useMobile();
+  const {mode:themeMode,toggle:toggleTheme,colors,isDark,cardBg,headerBg}=useTheme();
   const [user,sUser]=useState<any>(null);
   const [profile,sProfile]=useState<any>(null);
   const [myStaff,sMyStaff]=useState<DepStaff|null>(null);
@@ -168,11 +177,19 @@ export default function DeportivoApp(){
 
   useEffect(()=>{if(user) fetchAll();},[user,fetchAll]);
 
+  /* ── Realtime: auto-refresh on DB changes ── */
+  useRealtime([
+    {table:"dep_athletes",onChange:()=>fetchAll()},
+    {table:"dep_injuries",onChange:()=>fetchAll()},
+    {table:"dep_checkins",onChange:()=>fetchAll()},
+    {table:"dep_staff",onChange:()=>fetchAll()},
+  ],!!user);
+
   const out=async()=>{await supabase.auth.signOut();sUser(null);sProfile(null);sMyStaff(null);};
 
-  if(!authChecked) return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:T.g1}}><div style={{fontSize:14,color:T.g4}}>Cargando...</div></div>;
+  if(!authChecked) return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:colors.g1}}><div style={{fontSize:14,color:colors.g4}}>Cargando...</div></div>;
   if(!user) return <LoginPrompt mob={mob}/>;
-  if(loading) return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:T.g1}}><div style={{fontSize:14,color:T.g4}}>Cargando módulo deportivo...</div></div>;
+  if(loading) return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:colors.g1}}><div style={{fontSize:14,color:colors.g4}}>Cargando módulo deportivo...</div></div>;
 
   // Superadmin/admin can always access (to set up staff initially)
   const isAdmin=profile&&(profile.role==="superadmin"||profile.role==="admin");
@@ -207,6 +224,7 @@ export default function DeportivoApp(){
   const canEditAthlete=depLv>=4;
   const canCreateInjury=depLv>=4||depRole==="kinesiologo"||depRole==="medico";
   const canCreateCheckin=depLv>=4||depRole==="pf"||depRole==="coord_pf";
+  const canCreateTraining=depLv>=4||depRole==="entrenador"||depRole==="coord_pf"||depRole==="pf";
   const canManageStaff=depLv>=4||isAdmin;
 
   /* ── TABS ── */
@@ -215,6 +233,7 @@ export default function DeportivoApp(){
     {k:"plantel",l:"👥",f:"Plantel"},
     {k:"injuries",l:"🩹",f:"Lesiones"},
     {k:"wellness",l:"💚",f:"Wellness"},
+    {k:"training",l:"🏋️",f:"Entrenamientos"},
     ...(canManageStaff?[{k:"staff",l:"⚙️",f:"Staff"}]:[]),
   ];
 
@@ -315,33 +334,36 @@ export default function DeportivoApp(){
 
   /* ══════════════════════════ RENDER ══════════════════════════ */
 
-  return(<div style={{minHeight:"100vh",background:T.g1}}>
+  return(<ThemeCtx.Provider value={{colors,isDark,cardBg}}>
+    <style dangerouslySetInnerHTML={{__html:darkCSS}}/>
+    <div style={{minHeight:"100vh",background:colors.g1,color:colors.nv}}>
     {/* Header */}
-    <div style={{background:T.nv,padding:mob?"10px 12px":"12px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky" as const,top:0,zIndex:100}}>
+    <div style={{background:isDark?colors.g2:T.nv,padding:mob?"10px 12px":"12px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky" as const,top:0,zIndex:100}}>
       <div style={{display:"flex",alignItems:"center",gap:mob?8:12}}>
         <img src="/logo.jpg" alt="Los Tordos" style={{width:mob?32:40,height:mob?32:40,borderRadius:8,objectFit:"contain"}}/>
         <div>
-          <div style={{color:"#fff",fontSize:mob?14:18,fontWeight:800}}>Deportivo</div>
-          <div style={{color:"rgba(255,255,255,.5)",fontSize:10}}>{myStaff?DEP_ROLES[depRole]?.l:"Admin"} · {profile?.first_name} {profile?.last_name}</div>
+          <div style={{color:isDark?colors.nv:"#fff",fontSize:mob?14:18,fontWeight:800}}>Deportivo</div>
+          <div style={{color:isDark?"rgba(148,163,184,.7)":"rgba(255,255,255,.5)",fontSize:10}}>{myStaff?DEP_ROLES[depRole]?.l:"Admin"} · {profile?.first_name} {profile?.last_name}</div>
         </div>
       </div>
       <div style={{display:"flex",gap:8,alignItems:"center"}}>
-        <button onClick={out} style={{background:"rgba(255,255,255,.1)",border:"none",borderRadius:8,padding:"6px 12px",color:"rgba(255,255,255,.7)",fontSize:11,cursor:"pointer",fontWeight:600}}>Salir</button>
+        <button onClick={toggleTheme} title={isDark?"Modo claro":"Modo oscuro"} style={{background:"rgba(255,255,255,.1)",border:"none",borderRadius:8,padding:"6px 10px",color:isDark?colors.nv:"rgba(255,255,255,.7)",fontSize:14,cursor:"pointer"}}>{isDark?"☀️":"🌙"}</button>
+        <button onClick={out} style={{background:"rgba(255,255,255,.1)",border:"none",borderRadius:8,padding:"6px 12px",color:isDark?colors.nv:"rgba(255,255,255,.7)",fontSize:11,cursor:"pointer",fontWeight:600}}>Salir</button>
       </div>
     </div>
 
     {/* Tab bar */}
-    <div style={{background:"#fff",borderBottom:"1px solid "+T.g2,padding:"0 "+( mob?"8px":"24px"),display:"flex",gap:0,overflowX:"auto" as const}}>
-      {tabs.map(t=><button key={t.k} onClick={()=>{sTab(t.k);sShowForm(null);sSelAth(null);sSelInj(null);}} style={{padding:mob?"10px 12px":"12px 20px",border:"none",borderBottom:tab===t.k?"3px solid "+T.rd:"3px solid transparent",background:"none",color:tab===t.k?T.nv:T.g4,fontSize:mob?12:13,fontWeight:tab===t.k?700:500,cursor:"pointer",whiteSpace:"nowrap" as const}}>{t.l} {!mob&&t.f}</button>)}
+    <div style={{background:cardBg,borderBottom:"1px solid "+colors.g2,padding:"0 "+( mob?"8px":"24px"),display:"flex",gap:0,overflowX:"auto" as const}}>
+      {tabs.map(t=><button key={t.k} onClick={()=>{sTab(t.k);sShowForm(null);sSelAth(null);sSelInj(null);}} style={{padding:mob?"10px 12px":"12px 20px",border:"none",borderBottom:tab===t.k?"3px solid "+colors.rd:"3px solid transparent",background:"none",color:tab===t.k?colors.nv:colors.g4,fontSize:mob?12:13,fontWeight:tab===t.k?700:500,cursor:"pointer",whiteSpace:"nowrap" as const}}>{t.l} {!mob&&t.f}</button>)}
     </div>
 
     {/* Division filter + search */}
     <div style={{padding:mob?"10px 12px":"12px 24px",display:"flex",gap:8,flexWrap:"wrap" as const,alignItems:"center"}}>
-      <select value={divF} onChange={e=>sDivF(e.target.value)} style={{padding:"6px 10px",borderRadius:8,border:"1px solid "+T.g3,fontSize:12,background:"#fff"}}>
+      <select value={divF} onChange={e=>sDivF(e.target.value)} style={{padding:"6px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,background:cardBg,color:colors.nv}}>
         <option value="all">Todas las divisiones</option>
         {DEP_DIV.map(d=><option key={d} value={d}>{d}</option>)}
       </select>
-      <input value={search} onChange={e=>sSearch(e.target.value)} placeholder="Buscar..." style={{padding:"6px 10px",borderRadius:8,border:"1px solid "+T.g3,fontSize:12,width:mob?120:180}}/>
+      <input value={search} onChange={e=>sSearch(e.target.value)} placeholder="Buscar..." style={{padding:"6px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,width:mob?120:180}}/>
     </div>
 
     {/* Content */}
@@ -364,33 +386,33 @@ export default function DeportivoApp(){
         }} onCancel={()=>sShowForm(null)} mob={mob}/>
         :<div>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-            <h2 style={{margin:0,fontSize:18,color:T.nv}}>👥 Plantel ({filteredAthletes.length})</h2>
-            {canCreateAthlete&&<div style={{display:"flex",gap:6}}><Btn v="w" s="s" onClick={()=>sShowForm("bulk")}>⚡ Carga rápida</Btn><Btn v="p" s="s" onClick={()=>sShowForm("athlete")}>+ Jugador</Btn></div>}
+            <h2 style={{margin:0,fontSize:18,color:colors.nv}}>👥 Plantel ({filteredAthletes.length})</h2>
+            <div style={{display:"flex",gap:6}}>{filteredAthletes.length>0&&<><Btn v="g" s="s" onClick={()=>{const h=["Apellido","Nombre","División","Posición","DNI","Email","Teléfono"];const r=filteredAthletes.map((a:DepAthlete)=>[a.last_name,a.first_name,a.division,a.position,a.dni,a.email,a.phone]);exportCSV("plantel",h,r);}}>CSV</Btn><Btn v="g" s="s" onClick={()=>{const h=["Apellido","Nombre","División","Posición","DNI","Email","Teléfono"];const r=filteredAthletes.map((a:DepAthlete)=>[a.last_name,a.first_name,a.division,a.position,a.dni,a.email,a.phone]);exportPDF("Plantel",h,r);}}>PDF</Btn></>}{canCreateAthlete&&<><Btn v="w" s="s" onClick={()=>sShowForm("bulk")}>⚡ Carga rápida</Btn><Btn v="p" s="s" onClick={()=>sShowForm("athlete")}>+ Jugador</Btn></>}</div>
           </div>
           <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr 1fr",gap:10}}>
             {filteredAthletes.map(a=>{
               const lc=latestCheckin(a.id);const ai=activeInjuries(a.id);
               const sem=lc?semScore(lc):null;
               return<Card key={a.id} onClick={()=>sSelAth(a)} style={{cursor:"pointer",position:"relative" as const}}>
-                {ai.length>0&&<div style={{position:"absolute" as const,top:8,right:8,background:"#FEE2E2",borderRadius:12,padding:"2px 8px",fontSize:9,fontWeight:700,color:T.rd}}>🩹 {ai.length}</div>}
+                {ai.length>0&&<div style={{position:"absolute" as const,top:8,right:8,background:"#FEE2E2",borderRadius:12,padding:"2px 8px",fontSize:9,fontWeight:700,color:colors.rd}}>🩹 {ai.length}</div>}
                 <div style={{display:"flex",alignItems:"center",gap:10}}>
-                  <div style={{width:40,height:40,borderRadius:20,background:sem?sem.bg:T.g2,display:"flex",alignItems:"center",justifyContent:"center",border:"3px solid "+(sem?sem.color:T.g3)}}>
+                  <div style={{width:40,height:40,borderRadius:20,background:sem?sem.bg:colors.g2,display:"flex",alignItems:"center",justifyContent:"center",border:"3px solid "+(sem?sem.color:colors.g3)}}>
                     <span style={{fontSize:16}}>🏉</span>
                   </div>
                   <div style={{flex:1}}>
-                    <div style={{fontSize:14,fontWeight:700,color:T.nv}}>{a.last_name}, {a.first_name}</div>
-                    <div style={{fontSize:11,color:T.g5}}>{a.position||"Sin posición"} · {a.division}</div>
+                    <div style={{fontSize:14,fontWeight:700,color:colors.nv}}>{a.last_name}, {a.first_name}</div>
+                    <div style={{fontSize:11,color:colors.g5}}>{a.position||"Sin posición"} · {a.division}</div>
                   </div>
                 </div>
                 {sem&&<div style={{marginTop:8,display:"flex",gap:6,alignItems:"center"}}>
                   <span style={{width:8,height:8,borderRadius:4,background:sem.color,display:"inline-block"}}/>
                   <span style={{fontSize:10,color:sem.color,fontWeight:600}}>{sem.label} ({sem.score.toFixed(1)})</span>
                 </div>}
-                {!lc&&<div style={{marginTop:8,fontSize:10,color:T.g4}}>Sin check-in</div>}
+                {!lc&&<div style={{marginTop:8,fontSize:10,color:colors.g4}}>Sin check-in</div>}
               </Card>;
             })}
           </div>
-          {filteredAthletes.length===0&&<Card style={{textAlign:"center",padding:32,color:T.g4}}><div style={{fontSize:32}}>👥</div><div style={{marginTop:8,fontSize:13}}>No hay jugadores{divF!=="all"?" en "+divF:""}</div></Card>}
+          {filteredAthletes.length===0&&<Card style={{textAlign:"center",padding:32,color:colors.g4}}><div style={{fontSize:32}}>👥</div><div style={{marginTop:8,fontSize:13}}>No hay jugadores{divF!=="all"?" en "+divF:""}</div></Card>}
         </div>
       )}
 
@@ -404,21 +426,25 @@ export default function DeportivoApp(){
       {/* ════════ WELLNESS ════════ */}
       {tab==="wellness"&&<WellnessTab athletes={filteredAthletes} checkins={checkins} onAdd={canCreateCheckin?onAddCheckin:undefined} mob={mob}/>}
 
+      {/* ════════ ENTRENAMIENTOS ════════ */}
+      {tab==="training"&&<TrainingTab athletes={filteredAthletes} division={divF} canCreate={canCreateTraining} userId={user.id} mob={mob} showT={showT}/>}
+
       {/* ════════ STAFF ════════ */}
       {tab==="staff"&&canManageStaff&&<StaffTab staffList={staffList} allProfiles={allProfiles} onAdd={onAddStaff} onUpdate={onUpdStaff} onDel={onDelStaff} mob={mob}/>}
 
     </div>
     {toast&&<Toast msg={toast.msg} type={toast.type} onDone={()=>sToast(null)}/>}
-  </div>);
+  </div>
+  </ThemeCtx.Provider>);
 }
 
 /* ══════════════════════════ DASHBOARD TAB ══════════════════════════ */
 function DashboardTab({athletes,checkins,injuries,latestCheckin,activeInjuries,mob,onSelectAth}:any){
+  const{colors,cardBg}=useC();
   const [semF,sSemF]=useState("all");
   const byDiv:Record<string,DepAthlete[]>={};
   athletes.forEach((a:DepAthlete)=>{if(!byDiv[a.division])byDiv[a.division]=[];byDiv[a.division].push(a);});
 
-  // Stats
   const total=athletes.length;
   const withCheckin=athletes.filter((a:DepAthlete)=>latestCheckin(a.id)).length;
   const injActive=athletes.reduce((acc:number,a:DepAthlete)=>acc+activeInjuries(a.id).length,0);
@@ -437,26 +463,24 @@ function DashboardTab({athletes,checkins,injuries,latestCheckin,activeInjuries,m
   });
 
   return <div>
-    <h2 style={{margin:"0 0 14px",fontSize:18,color:T.nv}}>📊 Dashboard Deportivo</h2>
-    {/* Stats */}
+    <h2 style={{margin:"0 0 14px",fontSize:18,color:colors.nv}}>📊 Dashboard Deportivo</h2>
     <div style={{display:"grid",gridTemplateColumns:mob?"1fr 1fr":"repeat(5,1fr)",gap:10,marginBottom:16}}>
       {[
-        {l:"Jugadores",v:total,i:"👥",c:T.bl},
-        {l:"Con check-in",v:withCheckin+"/"+total,i:"💚",c:T.gn},
-        {l:"Lesiones activas",v:injActive,i:"🩹",c:T.rd},
+        {l:"Jugadores",v:total,i:"👥",c:colors.bl},
+        {l:"Con check-in",v:withCheckin+"/"+total,i:"💚",c:colors.gn},
+        {l:"Lesiones activas",v:injActive,i:"🩹",c:colors.rd},
         {l:"En alerta",v:reds,i:"🔴",c:"#DC2626"},
-        {l:"Precaución",v:yellows,i:"🟡",c:T.yl},
+        {l:"Precaución",v:yellows,i:"🟡",c:colors.yl},
       ].map((s,i)=><Card key={i} style={{textAlign:"center",padding:mob?12:16}}>
         <div style={{fontSize:20}}>{s.i}</div>
         <div style={{fontSize:mob?20:24,fontWeight:800,color:s.c}}>{s.v}</div>
-        <div style={{fontSize:10,color:T.g5}}>{s.l}</div>
+        <div style={{fontSize:10,color:colors.g5}}>{s.l}</div>
       </Card>)}
     </div>
 
-    {/* Semáforo filter */}
     <div style={{display:"flex",gap:4,marginBottom:14,flexWrap:"wrap" as const}}>
       {[{k:"all",l:"Todos"},{k:"red",l:"🔴 Alerta"},{k:"yellow",l:"🟡 Precaución"},{k:"green",l:"🟢 Óptimo"},{k:"none",l:"⚪ Sin datos"}].map(f=>
-        <button key={f.k} onClick={()=>sSemF(f.k)} style={{padding:"5px 12px",borderRadius:16,border:semF===f.k?"2px solid "+T.nv:"1px solid "+T.g3,background:semF===f.k?T.nv+"10":"#fff",color:semF===f.k?T.nv:T.g5,fontSize:11,fontWeight:600,cursor:"pointer"}}>{f.l}</button>
+        <button key={f.k} onClick={()=>sSemF(f.k)} style={{padding:"5px 12px",borderRadius:16,border:semF===f.k?"2px solid "+colors.nv:"1px solid "+colors.g3,background:semF===f.k?colors.nv+"10":cardBg,color:semF===f.k?colors.nv:colors.g5,fontSize:11,fontWeight:600,cursor:"pointer"}}>{f.l}</button>
       )}
     </div>
 
@@ -465,36 +489,37 @@ function DashboardTab({athletes,checkins,injuries,latestCheckin,activeInjuries,m
       const divAthletes=byDiv[div].filter(a=>filtered.includes(a));
       if(divAthletes.length===0) return null;
       return <div key={div} style={{marginBottom:16}}>
-        <h3 style={{fontSize:14,color:T.nv,margin:"0 0 8px",fontWeight:700}}>{div} ({divAthletes.length})</h3>
+        <h3 style={{fontSize:14,color:colors.nv,margin:"0 0 8px",fontWeight:700}}>{div} ({divAthletes.length})</h3>
         <div style={{display:"grid",gridTemplateColumns:mob?"repeat(2,1fr)":"repeat(4,1fr)",gap:8}}>
           {divAthletes.map(a=>{
             const lc=latestCheckin(a.id);const ai=activeInjuries(a.id);
             const sem=lc?semScore(lc):null;
             const daysSince=lc?Math.round((Date.now()-new Date(lc.date).getTime())/864e5):999;
-            return <div key={a.id} onClick={()=>onSelectAth(a)} style={{background:"#fff",borderRadius:10,padding:mob?10:12,border:"1px solid "+(sem?sem.color+"40":T.g3),cursor:"pointer",position:"relative" as const}}>
+            return <div key={a.id} onClick={()=>onSelectAth(a)} style={{background:cardBg,borderRadius:10,padding:mob?10:12,border:"1px solid "+(sem?sem.color+"40":colors.g3),cursor:"pointer",position:"relative" as const}}>
               {ai.length>0&&<span style={{position:"absolute" as const,top:4,right:6,fontSize:10}}>🩹</span>}
               <div style={{display:"flex",alignItems:"center",gap:8}}>
-                <div style={{width:28,height:28,borderRadius:14,background:sem?sem.bg:T.g2,display:"flex",alignItems:"center",justifyContent:"center",border:"2px solid "+(sem?sem.color:T.g3),flexShrink:0}}>
-                  <span style={{fontSize:sem?10:12,fontWeight:800,color:sem?sem.color:T.g4}}>{sem?sem.score.toFixed(1):"–"}</span>
+                <div style={{width:28,height:28,borderRadius:14,background:sem?sem.bg:colors.g2,display:"flex",alignItems:"center",justifyContent:"center",border:"2px solid "+(sem?sem.color:colors.g3),flexShrink:0}}>
+                  <span style={{fontSize:sem?10:12,fontWeight:800,color:sem?sem.color:colors.g4}}>{sem?sem.score.toFixed(1):"–"}</span>
                 </div>
                 <div style={{minWidth:0}}>
-                  <div style={{fontSize:12,fontWeight:700,color:T.nv,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{a.last_name}</div>
-                  <div style={{fontSize:10,color:T.g5}}>{a.position||"–"}</div>
+                  <div style={{fontSize:12,fontWeight:700,color:colors.nv,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{a.last_name}</div>
+                  <div style={{fontSize:10,color:colors.g5}}>{a.position||"–"}</div>
                 </div>
               </div>
-              {daysSince>2&&lc&&<div style={{fontSize:9,color:T.yl,marginTop:4,fontWeight:600}}>⚠️ {daysSince}d sin check-in</div>}
-              {!lc&&<div style={{fontSize:9,color:T.g4,marginTop:4}}>Sin datos</div>}
+              {daysSince>2&&lc&&<div style={{fontSize:9,color:colors.yl,marginTop:4,fontWeight:600}}>⚠️ {daysSince}d sin check-in</div>}
+              {!lc&&<div style={{fontSize:9,color:colors.g4,marginTop:4}}>Sin datos</div>}
             </div>;
           })}
         </div>
       </div>;
     })}
-    {filtered.length===0&&<Card style={{textAlign:"center",padding:32,color:T.g4}}><div style={{fontSize:32}}>📊</div><div style={{marginTop:8}}>No hay jugadores para mostrar</div></Card>}
+    {filtered.length===0&&<Card style={{textAlign:"center",padding:32,color:colors.g4}}><div style={{fontSize:32}}>📊</div><div style={{marginTop:8}}>No hay jugadores para mostrar</div></Card>}
   </div>;
 }
 
 /* ══════════════════════════ FICHA JUGADOR ══════════════════════════ */
 function FichaJugador({ath,injuries,checkins,onBack,onEdit,onDeactivate,latestCheckin,mob}:any){
+  const{colors,cardBg}=useC();
   const [editing,sEditing]=useState(false);
   const [f,sF]=useState({first_name:ath.first_name,last_name:ath.last_name,division:ath.division,position:ath.position,birth_date:ath.birth_date||"",dni:ath.dni,phone:ath.phone,email:ath.email,emergency_contact:ath.emergency_contact||{},medical_info:ath.medical_info||{}});
   const sem=latestCheckin?semScore(latestCheckin):null;
@@ -502,7 +527,7 @@ function FichaJugador({ath,injuries,checkins,onBack,onEdit,onDeactivate,latestCh
 
   if(editing&&onEdit) return <div>
     <Btn v="g" s="s" onClick={()=>sEditing(false)} style={{marginBottom:12}}>← Cancelar</Btn>
-    <h2 style={{fontSize:16,color:T.nv,margin:"0 0 14px"}}>Editar: {ath.first_name} {ath.last_name}</h2>
+    <h2 style={{fontSize:16,color:colors.nv,margin:"0 0 14px"}}>Editar: {ath.first_name} {ath.last_name}</h2>
     <Card>
       <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:10}}>
         {[["Nombre","first_name"],["Apellido","last_name"]].map(([l,k])=><div key={k}><label style={{fontSize:11,fontWeight:600,color:T.g5}}>{l}</label><input value={(f as any)[k]} onChange={e=>sF(prev=>({...prev,[k]:e.target.value}))} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:3}}/></div>)}
@@ -539,14 +564,14 @@ function FichaJugador({ath,injuries,checkins,onBack,onEdit,onDeactivate,latestCh
     {/* Header */}
     <Card style={{marginBottom:12}}>
       <div style={{display:"flex",alignItems:"center",gap:14}}>
-        <div style={{width:60,height:60,borderRadius:30,background:sem?sem.bg:T.g2,display:"flex",alignItems:"center",justifyContent:"center",border:"3px solid "+(sem?sem.color:T.g3)}}>
+        <div style={{width:60,height:60,borderRadius:30,background:sem?sem.bg:colors.g2,display:"flex",alignItems:"center",justifyContent:"center",border:"3px solid "+(sem?sem.color:colors.g3)}}>
           <span style={{fontSize:24}}>🏉</span>
         </div>
         <div style={{flex:1}}>
-          <h2 style={{margin:0,fontSize:20,color:T.nv}}>{ath.first_name} {ath.last_name}</h2>
-          <div style={{fontSize:12,color:T.g5}}>{ath.position||"Sin posición"} · {ath.division} · Temporada {ath.season}</div>
+          <h2 style={{margin:0,fontSize:20,color:colors.nv}}>{ath.first_name} {ath.last_name}</h2>
+          <div style={{fontSize:12,color:colors.g5}}>{ath.position||"Sin posición"} · {ath.division} · Temporada {ath.season}</div>
           {sem&&<div style={{marginTop:4}}><span style={{background:sem.bg,color:sem.color,padding:"2px 10px",borderRadius:12,fontSize:11,fontWeight:700}}>{sem.label} ({sem.score.toFixed(1)})</span></div>}
-          {activeInj.length>0&&<div style={{marginTop:4}}><span style={{background:"#FEE2E2",color:T.rd,padding:"2px 10px",borderRadius:12,fontSize:11,fontWeight:700}}>🩹 {activeInj.length} lesión{activeInj.length>1?"es":""} activa{activeInj.length>1?"s":""}</span></div>}
+          {activeInj.length>0&&<div style={{marginTop:4}}><span style={{background:"#FEE2E2",color:colors.rd,padding:"2px 10px",borderRadius:12,fontSize:11,fontWeight:700}}>🩹 {activeInj.length} lesión{activeInj.length>1?"es":""} activa{activeInj.length>1?"s":""}</span></div>}
         </div>
       </div>
     </Card>
@@ -976,6 +1001,180 @@ function WellnessTab({athletes,checkins,onAdd,mob}:any){
     </div>}
 
     {dayCheckins.length===0&&unchecked.length===0&&<Card style={{textAlign:"center",padding:24,color:T.g4}}><div style={{fontSize:24}}>💚</div><div style={{marginTop:6,fontSize:12}}>No hay jugadores para mostrar</div></Card>}
+  </div>;
+}
+
+/* ══════════════════════════ TRAINING TAB ══════════════════════════ */
+const TRAIN_TYPES=["Entrenamiento","Gimnasio","Técnico","Táctico","Regenerativo","Partido amistoso"];
+function TrainingTab({athletes,division,canCreate,userId,mob,showT}:any){
+  const [sessions,sSessions]=useState<any[]>([]);
+  const [attendance,sAttendance]=useState<any[]>([]);
+  const [loading,sLoading]=useState(true);
+  const [showAdd,sShowAdd]=useState(false);
+  const [selSess,sSelSess]=useState<any>(null);
+  const [weekOff,sWeekOff]=useState(0);
+  const [nf,sNf]=useState({division:division!=="all"?division:DEP_DIV[0],date:TODAY,time_start:"09:00",time_end:"11:00",type:TRAIN_TYPES[0],description:"",location:""});
+
+  const fetchSessions=useCallback(async()=>{
+    sLoading(true);
+    const[sRes,aRes]=await Promise.all([
+      supabase.from("dep_training_sessions").select("*").order("date",{ascending:false}),
+      supabase.from("dep_attendance").select("*"),
+    ]);
+    if(sRes.data) sSessions(sRes.data);
+    if(aRes.data) sAttendance(aRes.data);
+    sLoading(false);
+  },[]);
+  useEffect(()=>{fetchSessions();},[fetchSessions]);
+
+  /* Week calculation */
+  const getMonday=(off:number)=>{const d=new Date();d.setDate(d.getDate()-d.getDay()+1+(off*7));return d;};
+  const mon=getMonday(weekOff);
+  const weekDays=Array.from({length:7},(_,i)=>{const d=new Date(mon);d.setDate(d.getDate()+i);return d.toISOString().slice(0,10);});
+  const weekLabel=weekDays[0].slice(5)+" → "+weekDays[6].slice(5);
+
+  const weekSessions=sessions.filter(s=>{
+    if(division!=="all"&&s.division!==division) return false;
+    return weekDays.includes(s.date);
+  });
+
+  const onAddSession=async()=>{
+    try{
+      const{data,error}=await supabase.from("dep_training_sessions").insert({...nf,created_by:userId}).select().single();
+      if(error) throw error;
+      sSessions(p=>[data,...p]);sShowAdd(false);showT("Sesión creada");
+      sNf(prev=>({...prev,description:"",location:""}));
+    }catch(e:any){showT(e.message||"Error","err");}
+  };
+
+  const onDelSession=async(id:number)=>{
+    try{
+      await supabase.from("dep_training_sessions").delete().eq("id",id);
+      sSessions(p=>p.filter(s=>s.id!==id));sSelSess(null);showT("Sesión eliminada");
+    }catch(e:any){showT(e.message||"Error","err");}
+  };
+
+  const onSaveAttendance=async(sessId:number,records:{athlete_id:number;status:string}[])=>{
+    try{
+      const rows=records.map(r=>({session_id:sessId,athlete_id:r.athlete_id,status:r.status,notes:"",recorded_by:userId}));
+      const{error}=await supabase.from("dep_attendance").upsert(rows,{onConflict:"session_id,athlete_id"});
+      if(error) throw error;
+      // Refresh attendance
+      const{data}=await supabase.from("dep_attendance").select("*").eq("session_id",sessId);
+      sAttendance(prev=>[...prev.filter(a=>a.session_id!==sessId),...(data||[])]);
+      showT("Asistencia guardada");
+    }catch(e:any){showT(e.message||"Error","err");}
+  };
+
+  if(loading) return <div style={{textAlign:"center",padding:32,color:T.g4}}>Cargando...</div>;
+
+  /* ── Attendance detail view ── */
+  if(selSess){
+    const sessAtts=attendance.filter(a=>a.session_id===selSess.id);
+    const divAthletes=athletes.filter((a:DepAthlete)=>a.division===selSess.division&&a.active);
+    const [localAtt,sLocalAtt]=useState<Record<number,string>>(()=>{
+      const m:Record<number,string>={};
+      divAthletes.forEach((a:DepAthlete)=>{
+        const existing=sessAtts.find(x=>x.athlete_id===a.id);
+        m[a.id]=existing?.status||"presente";
+      });
+      return m;
+    });
+
+    return <div>
+      <Btn v="g" s="s" onClick={()=>sSelSess(null)} style={{marginBottom:12}}>← Volver</Btn>
+      <Card>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <div>
+            <h3 style={{margin:0,fontSize:15,color:T.nv}}>{selSess.type}</h3>
+            <div style={{fontSize:11,color:T.g5}}>{selSess.division} · {fmtD(selSess.date)} · {selSess.time_start}–{selSess.time_end}</div>
+            {selSess.description&&<div style={{fontSize:11,color:T.g4,marginTop:2}}>{selSess.description}</div>}
+          </div>
+          {canCreate&&<Btn v="r" s="s" onClick={()=>{if(confirm("¿Eliminar sesión?"))onDelSession(selSess.id);}}>Eliminar</Btn>}
+        </div>
+        <h4 style={{margin:"0 0 8px",fontSize:12,color:T.nv}}>Asistencia ({divAthletes.length} jugadores)</h4>
+        <div style={{display:"flex",gap:4,marginBottom:10}}>
+          {[{k:"presente",l:"Presente",c:T.gn},{k:"tarde",l:"Tarde",c:T.yl},{k:"ausente",l:"Ausente",c:T.rd},{k:"justificado",l:"Justificado",c:T.bl}].map(s=>
+            <span key={s.k} style={{fontSize:10,color:s.c,fontWeight:600}}>{s.l}: {Object.values(localAtt).filter(v=>v===s.k).length}</span>
+          )}
+        </div>
+        <div style={{display:"flex",flexDirection:"column" as const,gap:4}}>
+          {divAthletes.map((a:DepAthlete)=><div key={a.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"6px 8px",borderRadius:6,border:"1px solid "+T.g1}}>
+            <span style={{fontSize:12,fontWeight:600,color:T.nv}}>{a.last_name}, {a.first_name}</span>
+            <div style={{display:"flex",gap:3}}>
+              {(["presente","tarde","ausente","justificado"] as const).map(st=>{
+                const cols:any={presente:T.gn,tarde:T.yl,ausente:T.rd,justificado:T.bl};
+                const labels:any={presente:"P",tarde:"T",ausente:"A",justificado:"J"};
+                return <button key={st} onClick={()=>sLocalAtt(prev=>({...prev,[a.id]:st}))} style={{width:28,height:28,borderRadius:6,border:localAtt[a.id]===st?"2px solid "+cols[st]:"1px solid "+T.g3,background:localAtt[a.id]===st?cols[st]+"20":"#fff",color:localAtt[a.id]===st?cols[st]:T.g4,fontSize:10,fontWeight:700,cursor:"pointer"}}>{labels[st]}</button>;
+              })}
+            </div>
+          </div>)}
+        </div>
+        {canCreate&&<div style={{marginTop:12}}><Btn v="s" onClick={()=>onSaveAttendance(selSess.id,Object.entries(localAtt).map(([id,st])=>({athlete_id:Number(id),status:st})))}>💾 Guardar asistencia</Btn></div>}
+      </Card>
+    </div>;
+  }
+
+  return <div>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+      <h2 style={{margin:0,fontSize:18,color:T.nv}}>🏋️ Entrenamientos</h2>
+      <div style={{display:"flex",gap:6}}>
+        <Btn v="g" s="s" onClick={()=>sWeekOff(p=>p-1)}>← Sem</Btn>
+        <span style={{fontSize:11,color:T.g5,fontWeight:600,padding:"4px 0"}}>{weekLabel}</span>
+        <Btn v="g" s="s" onClick={()=>sWeekOff(p=>p+1)}>Sem →</Btn>
+        {weekOff!==0&&<Btn v="g" s="s" onClick={()=>sWeekOff(0)}>Hoy</Btn>}
+        {canCreate&&<Btn v="p" s="s" onClick={()=>sShowAdd(!showAdd)}>+ Sesión</Btn>}
+      </div>
+    </div>
+
+    {/* Add session form */}
+    {showAdd&&<Card style={{marginBottom:14,background:"#FFFBEB",border:"1px solid #FDE68A"}}>
+      <h3 style={{margin:"0 0 10px",fontSize:13,color:T.nv}}>Nueva sesión</h3>
+      <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:10}}>
+        <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>División</label><select value={nf.division} onChange={e=>sNf(p=>({...p,division:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,marginTop:2}}>{DEP_DIV.map(d=><option key={d} value={d}>{d}</option>)}</select></div>
+        <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Fecha</label><input type="date" value={nf.date} onChange={e=>sNf(p=>({...p,date:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+        <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Hora inicio</label><input type="time" value={nf.time_start} onChange={e=>sNf(p=>({...p,time_start:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+        <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Hora fin</label><input type="time" value={nf.time_end} onChange={e=>sNf(p=>({...p,time_end:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+        <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Tipo</label><select value={nf.type} onChange={e=>sNf(p=>({...p,type:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,marginTop:2}}>{TRAIN_TYPES.map(t=><option key={t} value={t}>{t}</option>)}</select></div>
+        <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Ubicación</label><input value={nf.location} onChange={e=>sNf(p=>({...p,location:e.target.value}))} placeholder="Cancha 1, Gimnasio..." style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+        <div style={{gridColumn:mob?"1":"1 / -1"}}><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Descripción</label><textarea value={nf.description} onChange={e=>sNf(p=>({...p,description:e.target.value}))} rows={2} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,resize:"vertical" as const,boxSizing:"border-box" as const,marginTop:2}}/></div>
+      </div>
+      <div style={{display:"flex",gap:8,marginTop:10}}><Btn v="p" onClick={onAddSession} disabled={!nf.date||!nf.division}>Crear sesión</Btn><Btn v="g" onClick={()=>sShowAdd(false)}>Cancelar</Btn></div>
+    </Card>}
+
+    {/* Weekly grid */}
+    <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"repeat(7,1fr)",gap:6}}>
+      {weekDays.map(day=>{
+        const daySess=weekSessions.filter(s=>s.date===day);
+        const d=new Date(day+"T12:00:00");
+        const dayName=["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"][d.getDay()];
+        const isToday=day===TODAY;
+        return <div key={day} style={{background:isToday?"#EFF6FF":"#fff",borderRadius:10,border:"1px solid "+(isToday?T.bl+"40":T.g2),padding:mob?10:8,minHeight:mob?undefined:100}}>
+          <div style={{fontSize:10,fontWeight:700,color:isToday?T.bl:T.g5,marginBottom:6}}>{dayName} {day.slice(8)}</div>
+          {daySess.length===0&&<div style={{fontSize:10,color:T.g4}}>Sin sesiones</div>}
+          {daySess.map(s=>{
+            const sessAtts=attendance.filter(a=>a.session_id===s.id);
+            const pres=sessAtts.filter(a=>a.status==="presente"||a.status==="tarde").length;
+            return <div key={s.id} onClick={()=>sSelSess(s)} style={{padding:"6px 8px",borderRadius:6,background:T.gn+"10",border:"1px solid "+T.gn+"30",marginBottom:4,cursor:"pointer"}}>
+              <div style={{fontSize:10,fontWeight:700,color:T.nv}}>{s.type}</div>
+              <div style={{fontSize:9,color:T.g5}}>{s.division} · {s.time_start}</div>
+              {sessAtts.length>0&&<div style={{fontSize:9,color:T.gn,fontWeight:600}}>{pres}/{sessAtts.length} presentes</div>}
+            </div>;
+          })}
+        </div>;
+      })}
+    </div>
+
+    {/* Stats */}
+    {weekSessions.length>0&&<Card style={{marginTop:14}}>
+      <h3 style={{margin:"0 0 8px",fontSize:13,color:T.nv}}>Resumen semanal</h3>
+      <div style={{display:"grid",gridTemplateColumns:mob?"1fr 1fr":"repeat(4,1fr)",gap:10}}>
+        <div style={{textAlign:"center" as const}}><div style={{fontSize:20,fontWeight:800,color:T.bl}}>{weekSessions.length}</div><div style={{fontSize:10,color:T.g5}}>Sesiones</div></div>
+        {DEP_DIV.map(d=>{const cnt=weekSessions.filter(s=>s.division===d).length;if(!cnt) return null;return <div key={d} style={{textAlign:"center" as const}}><div style={{fontSize:20,fontWeight:800,color:T.nv}}>{cnt}</div><div style={{fontSize:10,color:T.g5}}>{d}</div></div>;})}
+      </div>
+    </Card>}
+
+    {weekSessions.length===0&&<Card style={{textAlign:"center",padding:32,color:T.g4,marginTop:14}}><div style={{fontSize:32}}>🏋️</div><div style={{marginTop:8,fontSize:13}}>No hay sesiones esta semana</div></Card>}
   </div>;
 }
 

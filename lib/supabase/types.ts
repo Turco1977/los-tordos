@@ -159,6 +159,40 @@ export interface Proveedor {
   created_at?: string;
 }
 
+export interface Notification {
+  id: number;
+  user_id: string;
+  title: string;
+  message: string;
+  type: "task" | "budget" | "deadline" | "injury" | "info";
+  link: string;
+  read: boolean;
+  created_at?: string;
+}
+
+export interface DepTrainingSession {
+  id: number;
+  division: string;
+  date: string;
+  time_start: string;
+  time_end: string;
+  type: string;
+  description: string;
+  location: string;
+  created_by: string;
+  created_at?: string;
+}
+
+export interface DepAttendance {
+  id: number;
+  session_id: number;
+  athlete_id: number;
+  status: "presente" | "ausente" | "tarde" | "justificado";
+  notes: string;
+  recorded_by: string;
+  created_at?: string;
+}
+
 export interface Presupuesto {
   id: number;
   task_id: number;

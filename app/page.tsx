@@ -1,8 +1,18 @@
 "use client";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, createContext, useContext } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { T, AREAS, DEPTOS, ROLES, RK, DIV, TIPOS, ST, SC, AGT, MINSECS, PST, PSC, MONEDAS, RUBROS, fn, isOD, daysDiff } from "@/lib/constants";
+import { T, TD, AREAS, DEPTOS, ROLES, RK, DIV, TIPOS, ST, SC, AGT, MINSECS, PST, PSC, MONEDAS, RUBROS, fn, isOD, daysDiff } from "@/lib/constants";
 import type { Profile, Task, TaskMessage, OrgMember as OrgMemberType, Milestone, Agenda, Minuta, Presupuesto, Proveedor } from "@/lib/supabase/types";
+import { notify, fetchNotifications, markRead } from "@/lib/notifications";
+import { exportCSV, exportPDF } from "@/lib/export";
+import { useRealtime } from "@/lib/realtime";
+import { paginate } from "@/lib/pagination";
+import { uploadFile, getFileIcon, formatFileSize } from "@/lib/storage";
+import { useTheme, darkCSS } from "@/lib/theme";
+
+/* ── THEME CONTEXT ── */
+const ThemeCtx = createContext<{colors:typeof T;isDark:boolean;cardBg:string}>({colors:T,isDark:false,cardBg:"#fff"});
+const useC = () => useContext(ThemeCtx);
 
 const supabase = createClient();
 const TODAY = new Date().toISOString().slice(0,10);
@@ -40,30 +50,65 @@ const presuFromDB=(p:any)=>({id:p.id,task_id:p.task_id,proveedor_id:p.proveedor_
 const presuToDB=(p:any)=>({task_id:p.task_id,proveedor_id:p.proveedor_id||null,proveedor_nombre:p.proveedor_nombre||"",proveedor_contacto:p.proveedor_contacto||"",descripcion:p.descripcion||"",monto:p.monto||0,moneda:p.moneda||"ARS",archivo_url:p.archivo_url||"",notas:p.notas||"",status:p.status||"solicitado",solicitado_por:p.solicitado_por||"",solicitado_at:p.solicitado_at||"",recibido_at:p.recibido_at||"",resuelto_por:p.resuelto_por||"",resuelto_at:p.resuelto_at||""});
 const provFromDB=(p:any)=>({id:p.id,nombre:p.nombre||"",contacto:p.contacto||"",email:p.email||"",telefono:p.telefono||"",rubro:p.rubro||"",notas:p.notas||"",created_at:p.created_at});
 
+/* ── FILE UPLOAD FIELD ── */
+function FileField({value,onChange,folder}:{value:string;onChange:(url:string)=>void;folder?:string}){
+  const{colors,cardBg}=useC();
+  const [uploading,sUploading]=useState(false);
+  const doUpload=async(e:any)=>{
+    const file=e.target.files?.[0];if(!file)return;
+    sUploading(true);
+    const res=await uploadFile(file,folder||"presupuestos");
+    sUploading(false);
+    if("url" in res) onChange(res.url);
+  };
+  return <div>
+    <label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Archivo/cotización</label>
+    <div style={{display:"flex",gap:4,marginTop:3}}>
+      <input value={value} onChange={e=>onChange(e.target.value)} placeholder="URL o subir archivo..." style={{flex:1,padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const}}/>
+      <label style={{padding:"7px 12px",borderRadius:7,border:"1px solid "+colors.g3,background:cardBg,fontSize:11,fontWeight:600,color:colors.nv,cursor:uploading?"wait":"pointer",opacity:uploading?.5:1}}>
+        {uploading?"Subiendo...":"📎 Subir"}
+        <input type="file" onChange={doUpload} style={{display:"none"}} disabled={uploading}/>
+      </label>
+    </div>
+    {value&&<div style={{marginTop:4,fontSize:10}}><a href={value} target="_blank" rel="noopener noreferrer" style={{color:colors.bl}}>{getFileIcon(value)} Ver archivo</a></div>}
+  </div>;
+}
+
 /* ── UI PRIMITIVES ── */
 function Badge({s,sm}:{s:string;sm?:boolean}){const c=SC[s];return <span style={{background:c.bg,color:c.c,padding:sm?"1px 6px":"2px 9px",borderRadius:20,fontSize:sm?9:11,fontWeight:600,whiteSpace:"nowrap"}}>{c.i} {c.l}</span>;}
 function PBadge({s,sm}:{s:string;sm?:boolean}){const c=PSC[s];if(!c)return null;return <span style={{background:c.bg,color:c.c,padding:sm?"1px 6px":"2px 9px",borderRadius:20,fontSize:sm?9:11,fontWeight:600,whiteSpace:"nowrap"}}>{c.i} {c.l}</span>;}
 
 function Btn({children,onClick,v,s,disabled,style:st}:{children:any;onClick?:any;v?:string;s?:string;disabled?:boolean;style?:any}){
-  const vs:any={p:{background:T.nv,color:"#fff"},r:{background:T.rd,color:"#fff"},s:{background:T.gn,color:"#fff"},w:{background:T.yl,color:"#fff"},g:{background:"transparent",color:T.nv,border:"1px solid "+T.g3},pu:{background:T.pr,color:"#fff"}};
+  const{colors,isDark}=useC();
+  const vs:any={p:{background:colors.nv,color:isDark?"#0F172A":"#fff"},r:{background:colors.rd,color:"#fff"},s:{background:colors.gn,color:"#fff"},w:{background:colors.yl,color:"#fff"},g:{background:"transparent",color:colors.nv,border:"1px solid "+colors.g3},pu:{background:colors.pr,color:"#fff"}};
   const sz:any={s:{padding:"4px 10px",fontSize:11},m:{padding:"7px 16px",fontSize:13}};
   return <button onClick={onClick} disabled={disabled} style={{border:"none",borderRadius:8,cursor:disabled?"not-allowed":"pointer",fontWeight:600,opacity:disabled?.5:1,...sz[s||"m"],...vs[v||"p"],...(st||{})}}>{children}</button>;
 }
 
-function Card({children,style:st,onClick}:{children:any;style?:any;onClick?:any}){return <div onClick={onClick} style={{background:"#fff",borderRadius:14,padding:18,boxShadow:"0 1px 4px rgba(0,0,0,.05)",border:"1px solid "+T.g2,...(st||{})}}>{children}</div>;}
+function Card({children,style:st,onClick}:{children:any;style?:any;onClick?:any}){const{cardBg,colors}=useC();return <div onClick={onClick} style={{background:cardBg,borderRadius:14,padding:18,boxShadow:"0 1px 4px rgba(0,0,0,.05)",border:"1px solid "+colors.g2,...(st||{})}}>{children}</div>;}
+function Pager({page,totalPages,onPage}:{page:number;totalPages:number;onPage:(p:number)=>void}){
+  const{colors,cardBg}=useC();
+  if(totalPages<=1) return null;
+  return <div style={{display:"flex",gap:4,justifyContent:"center",alignItems:"center",marginTop:12}}>
+    <button onClick={()=>onPage(page-1)} disabled={page<=1} style={{padding:"4px 10px",borderRadius:6,border:"1px solid "+colors.g3,background:cardBg,cursor:page<=1?"not-allowed":"pointer",fontSize:11,fontWeight:600,opacity:page<=1?.4:1,color:colors.nv}}>←</button>
+    <span style={{fontSize:11,color:colors.g5,fontWeight:600}}>{page} / {totalPages}</span>
+    <button onClick={()=>onPage(page+1)} disabled={page>=totalPages} style={{padding:"4px 10px",borderRadius:6,border:"1px solid "+colors.g3,background:cardBg,cursor:page>=totalPages?"not-allowed":"pointer",fontSize:11,fontWeight:600,opacity:page>=totalPages?.4:1,color:colors.nv}}>→</button>
+  </div>;
+}
 function Ring({pct,color,size,icon}:{pct:number;color:string;size:number;icon?:string}){
+  const{colors}=useC();
   const r=(size/2)-6,ci=2*Math.PI*r,of2=ci-(pct/100)*ci;
-  return(<div style={{position:"relative",width:size,height:size}}><svg width={size} height={size} style={{transform:"rotate(-90deg)"}}><circle cx={size/2} cy={size/2} r={r} fill="none" stroke={T.g2} strokeWidth="5"/><circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth="5" strokeDasharray={ci} strokeDashoffset={of2} strokeLinecap="round"/></svg><div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>{icon&&<span style={{fontSize:size/4}}>{icon}</span>}<span style={{fontSize:size/6,fontWeight:800,color}}>{pct}%</span></div></div>);
+  return(<div style={{position:"relative",width:size,height:size}}><svg width={size} height={size} style={{transform:"rotate(-90deg)"}}><circle cx={size/2} cy={size/2} r={r} fill="none" stroke={colors.g2} strokeWidth="5"/><circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth="5" strokeDasharray={ci} strokeDashoffset={of2} strokeLinecap="round"/></svg><div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>{icon&&<span style={{fontSize:size/4}}>{icon}</span>}<span style={{fontSize:size/6,fontWeight:800,color}}>{pct}%</span></div></div>);
 }
 
 /* ── CHANGE PASSWORD MODAL ── */
 function ChangePw({onX}:{onX:()=>void}){
+  const{colors,cardBg}=useC();
   const [cur,sCur]=useState("");const [np,sNp]=useState("");const [np2,sNp2]=useState("");const [err,sErr]=useState("");const [ok,sOk]=useState(false);const [loading,sLoading]=useState(false);
   const submit=async(e:any)=>{e.preventDefault();sErr("");
     if(np.length<6){sErr("La nueva contraseña debe tener al menos 6 caracteres");return;}
     if(np!==np2){sErr("Las contraseñas no coinciden");return;}
     sLoading(true);
-    // Verify current password by re-authenticating
     const{data:{session}}=await supabase.auth.getSession();
     const email=session?.user?.email;
     if(!email){sErr("No se pudo verificar la sesión");sLoading(false);return;}
@@ -75,14 +120,14 @@ function ChangePw({onX}:{onX:()=>void}){
     sOk(true);
   };
   return(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.4)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200}} onClick={onX}>
-    <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:14,padding:24,width:360,maxWidth:"90vw",boxShadow:"0 8px 32px rgba(0,0,0,.15)"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><h3 style={{margin:0,fontSize:16,color:T.nv}}>Cambiar contraseña</h3><button onClick={onX} style={{background:"none",border:"none",fontSize:18,cursor:"pointer",color:T.g4}}>✕</button></div>
-      {ok?<div><div style={{textAlign:"center" as const,padding:"20px 0"}}><div style={{fontSize:32,marginBottom:8}}>✅</div><div style={{fontSize:14,fontWeight:600,color:T.gn}}>Contraseña actualizada</div></div><div style={{textAlign:"center" as const,marginTop:12}}><Btn v="p" onClick={onX}>Cerrar</Btn></div></div>
+    <div onClick={e=>e.stopPropagation()} style={{background:cardBg,borderRadius:14,padding:24,width:360,maxWidth:"90vw",boxShadow:"0 8px 32px rgba(0,0,0,.15)"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><h3 style={{margin:0,fontSize:16,color:colors.nv}}>Cambiar contraseña</h3><button onClick={onX} style={{background:"none",border:"none",fontSize:18,cursor:"pointer",color:colors.g4}}>✕</button></div>
+      {ok?<div><div style={{textAlign:"center" as const,padding:"20px 0"}}><div style={{fontSize:32,marginBottom:8}}>✅</div><div style={{fontSize:14,fontWeight:600,color:colors.gn}}>Contraseña actualizada</div></div><div style={{textAlign:"center" as const,marginTop:12}}><Btn v="p" onClick={onX}>Cerrar</Btn></div></div>
       :<form onSubmit={submit} style={{display:"flex",flexDirection:"column" as const,gap:10}}>
-        <div><label style={{fontSize:11,fontWeight:600,color:T.g5}}>Contraseña actual</label><input type="password" value={cur} onChange={e=>sCur(e.target.value)} required style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid "+T.g3,fontSize:12,marginTop:3,boxSizing:"border-box" as const}}/></div>
-        <div><label style={{fontSize:11,fontWeight:600,color:T.g5}}>Nueva contraseña</label><input type="password" value={np} onChange={e=>sNp(e.target.value)} required style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid "+T.g3,fontSize:12,marginTop:3,boxSizing:"border-box" as const}}/></div>
-        <div><label style={{fontSize:11,fontWeight:600,color:T.g5}}>Confirmar nueva contraseña</label><input type="password" value={np2} onChange={e=>sNp2(e.target.value)} required style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid "+T.g3,fontSize:12,marginTop:3,boxSizing:"border-box" as const}}/></div>
-        {err&&<div style={{color:T.rd,fontSize:11}}>{err}</div>}
+        <div><label style={{fontSize:11,fontWeight:600,color:colors.g5}}>Contraseña actual</label><input type="password" value={cur} onChange={e=>sCur(e.target.value)} required style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,marginTop:3,boxSizing:"border-box" as const}}/></div>
+        <div><label style={{fontSize:11,fontWeight:600,color:colors.g5}}>Nueva contraseña</label><input type="password" value={np} onChange={e=>sNp(e.target.value)} required style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,marginTop:3,boxSizing:"border-box" as const}}/></div>
+        <div><label style={{fontSize:11,fontWeight:600,color:colors.g5}}>Confirmar nueva contraseña</label><input type="password" value={np2} onChange={e=>sNp2(e.target.value)} required style={{width:"100%",padding:"8px 12px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,marginTop:3,boxSizing:"border-box" as const}}/></div>
+        {err&&<div style={{color:colors.rd,fontSize:11}}>{err}</div>}
         <Btn v="p" disabled={loading}>{loading?"Guardando...":"Cambiar contraseña"}</Btn>
       </form>}
     </div>
@@ -282,7 +327,7 @@ function Det({p,user,users,onX,onTk,onAs,onRe,onSE,onEO,onFi,onVa,onMsg,onMonto,
               <div><label style={{fontSize:11,fontWeight:600,color:T.g5}}>Monto ($)</label><input type="number" value={pf.monto} onChange={e=>sPf(prev=>({...prev,monto:e.target.value}))} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:3}}/></div>
               <div><label style={{fontSize:11,fontWeight:600,color:T.g5}}>Moneda</label><select value={pf.moneda} onChange={e=>sPf(prev=>({...prev,moneda:e.target.value}))} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,marginTop:3}}>{MONEDAS.map(m=><option key={m} value={m}>{m}</option>)}</select></div>
             </div>
-            <div><label style={{fontSize:11,fontWeight:600,color:T.g5}}>URL archivo/cotización</label><input value={pf.archivo_url} onChange={e=>sPf(prev=>({...prev,archivo_url:e.target.value}))} placeholder="https://..." style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:3}}/></div>
+            <div><FileField value={pf.archivo_url} onChange={url=>sPf(prev=>({...prev,archivo_url:url}))} folder="presupuestos"/></div>
             <div><label style={{fontSize:11,fontWeight:600,color:T.g5}}>Notas</label><input value={pf.notas} onChange={e=>sPf(prev=>({...prev,notas:e.target.value}))} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:3}}/></div>
             <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}><Btn v="g" onClick={()=>sPrSub("list")}>Cancelar</Btn><Btn v="pu" disabled={!pf.prov_nombre||!pf.monto} onClick={()=>{onAddPresu({task_id:p.id,proveedor_id:pf.prov_id?Number(pf.prov_id):null,proveedor_nombre:pf.prov_nombre,proveedor_contacto:pf.prov_contacto,descripcion:pf.descripcion,monto:Number(pf.monto),moneda:pf.moneda,archivo_url:pf.archivo_url,notas:pf.notas,status:PST.SOL,solicitado_por:fn(user),solicitado_at:TODAY});sPf({prov_id:"",prov_nombre:"",prov_contacto:"",descripcion:"",monto:"",moneda:"ARS",archivo_url:"",notas:""});sProvSearch("");sPrSub("list");}}>💰 Agregar</Btn></div>
           </div>}
@@ -372,61 +417,78 @@ function SB({areas,deptos,pedidos,aA,aD,onAC,onDC,col,onCol,isPersonal,mob,sbOpe
 
 /* ── KPIs ── */
 function KPIs({peds,mob,presu}:{peds:any[];mob?:boolean;presu?:any[]}){
+  const{colors}=useC();
   const tot=peds.length,ok=peds.filter(p=>p.st===ST.OK).length,pe=peds.filter(p=>p.st===ST.P).length;
   const active=peds.filter(p=>p.st!==ST.OK),overdue=active.filter(p=>isOD(p.fReq)).length;
-  const kpis:{l:string;v:any;c:string;i:string}[]=[{l:"Completadas",v:ok+"/"+tot,c:T.gn,i:"✅"},{l:"Pendientes",v:pe,c:T.rd,i:"🔴"},{l:"Vencidas",v:overdue,c:"#DC2626",i:"⏰"},{l:"Con Gasto",v:peds.filter(p=>p.monto).length,c:T.pr,i:"💰"}];
-  if(presu&&presu.length>0){const apr=presu.filter((pr:any)=>pr.status===PST.APR).reduce((s:number,pr:any)=>s+Number(pr.monto),0);const pend=presu.filter((pr:any)=>pr.status===PST.SOL||pr.status===PST.REC).length;kpis.push({l:"$ Aprobado",v:"$"+apr.toLocaleString(),c:T.gn,i:"💵"},{l:"Pres. Pendientes",v:pend,c:T.yl,i:"📤"});}
-  return(<div style={{display:"grid",gridTemplateColumns:mob?"repeat(auto-fit,minmax(80px,1fr))":"repeat(auto-fit,minmax(120px,1fr))",gap:mob?6:10,marginBottom:mob?12:18}}>{kpis.map((k,i)=>(<Card key={i} style={{padding:mob?"8px 8px":"10px 12px",borderTop:"3px solid "+k.c}}><div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:mob?14:16}}>{k.i}</span><span style={{fontSize:mob?14:17,fontWeight:800,color:k.c}}>{k.v}</span></div><div style={{fontSize:mob?9:10,color:T.g4,marginTop:3}}>{k.l}</div></Card>))}</div>);
+  const kpis:{l:string;v:any;c:string;i:string}[]=[{l:"Completadas",v:ok+"/"+tot,c:colors.gn,i:"✅"},{l:"Pendientes",v:pe,c:colors.rd,i:"🔴"},{l:"Vencidas",v:overdue,c:"#DC2626",i:"⏰"},{l:"Con Gasto",v:peds.filter(p=>p.monto).length,c:colors.pr,i:"💰"}];
+  if(presu&&presu.length>0){const apr=presu.filter((pr:any)=>pr.status===PST.APR).reduce((s:number,pr:any)=>s+Number(pr.monto),0);const pend=presu.filter((pr:any)=>pr.status===PST.SOL||pr.status===PST.REC).length;kpis.push({l:"$ Aprobado",v:"$"+apr.toLocaleString(),c:colors.gn,i:"💵"},{l:"Pres. Pendientes",v:pend,c:colors.yl,i:"📤"});}
+  return(<div style={{display:"grid",gridTemplateColumns:mob?"repeat(auto-fit,minmax(80px,1fr))":"repeat(auto-fit,minmax(120px,1fr))",gap:mob?6:10,marginBottom:mob?12:18}}>{kpis.map((k,i)=>(<Card key={i} style={{padding:mob?"8px 8px":"10px 12px",borderTop:"3px solid "+k.c}}><div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:mob?14:16}}>{k.i}</span><span style={{fontSize:mob?14:17,fontWeight:800,color:k.c}}>{k.v}</span></div><div style={{fontSize:mob?9:10,color:colors.g4,marginTop:3}}>{k.l}</div></Card>))}</div>);
 }
 
 /* ── CIRCLES ── */
 function Circles({areas,deptos,pedidos,onAC,mob}:any){
+  const{colors,cardBg}=useC();
   return(<div style={{display:"grid",gridTemplateColumns:mob?"repeat(auto-fit,minmax(140px,1fr))":"repeat(auto-fit,minmax(180px,1fr))",gap:mob?8:14}}>
     {areas.map((ar:any)=>{const ids=deptos.filter((d:any)=>d.aId===ar.id).map((d:any)=>d.id),ap=pedidos.filter((p:any)=>ids.indexOf(p.dId)>=0),tot=ap.length,ok=ap.filter((p:any)=>p.st===ST.OK).length,pe=ap.filter((p:any)=>p.st===ST.P).length,cu=ap.filter((p:any)=>[ST.C,ST.E,ST.V].indexOf(p.st)>=0).length,pct=tot?Math.round(ok/tot*100):0;
-      return(<div key={ar.id} onClick={()=>onAC(ar.id)} style={{background:"#fff",borderRadius:16,padding:"20px 16px",textAlign:"center" as const,cursor:"pointer",border:"1px solid "+T.g2}}><Ring pct={pct} color={ar.color} size={100} icon={ar.icon}/><div style={{fontSize:14,fontWeight:700,color:T.nv,marginTop:6}}>{ar.name}</div><div style={{display:"flex",justifyContent:"center",gap:8,fontSize:11,marginTop:5}}><span style={{color:T.rd}}>🔴{pe}</span><span style={{color:T.yl}}>🟡{cu}</span><span style={{color:T.gn}}>🟢{ok}</span></div></div>);})}
+      return(<div key={ar.id} onClick={()=>onAC(ar.id)} style={{background:cardBg,borderRadius:16,padding:"20px 16px",textAlign:"center" as const,cursor:"pointer",border:"1px solid "+colors.g2}}><Ring pct={pct} color={ar.color} size={100} icon={ar.icon}/><div style={{fontSize:14,fontWeight:700,color:colors.nv,marginTop:6}}>{ar.name}</div><div style={{display:"flex",justifyContent:"center",gap:8,fontSize:11,marginTop:5}}><span style={{color:colors.rd}}>🔴{pe}</span><span style={{color:colors.yl}}>🟡{cu}</span><span style={{color:colors.gn}}>🟢{ok}</span></div></div>);})}
   </div>);
 }
 
 /* ── DEPT CIRCLES (intermediate screen) ── */
 function DeptCircles({area,deptos,pedidos,onDC,mob}:any){
+  const{colors,cardBg}=useC();
   const ds=deptos.filter((d:any)=>d.aId===area.id);
   return(<div style={{display:"grid",gridTemplateColumns:mob?"repeat(auto-fit,minmax(140px,1fr))":"repeat(auto-fit,minmax(180px,1fr))",gap:mob?8:14}}>
     {ds.map((d:any)=>{const dp=pedidos.filter((p:any)=>p.dId===d.id),tot=dp.length,ok=dp.filter((p:any)=>p.st===ST.OK).length,pe=dp.filter((p:any)=>p.st===ST.P).length,cu=dp.filter((p:any)=>[ST.C,ST.E,ST.V].indexOf(p.st)>=0).length,pct=tot?Math.round(ok/tot*100):0;
-      return(<div key={d.id} onClick={()=>onDC(d.id)} style={{background:"#fff",borderRadius:16,padding:"20px 16px",textAlign:"center" as const,cursor:"pointer",border:"1px solid "+T.g2}}><Ring pct={pct} color={area.color} size={100} icon="📂"/><div style={{fontSize:14,fontWeight:700,color:T.nv,marginTop:6}}>{d.name}</div><div style={{display:"flex",justifyContent:"center",gap:8,fontSize:11,marginTop:5}}><span style={{color:T.rd}}>🔴{pe}</span><span style={{color:T.yl}}>🟡{cu}</span><span style={{color:T.gn}}>🟢{ok}</span></div></div>);})}
+      return(<div key={d.id} onClick={()=>onDC(d.id)} style={{background:cardBg,borderRadius:16,padding:"20px 16px",textAlign:"center" as const,cursor:"pointer",border:"1px solid "+colors.g2}}><Ring pct={pct} color={area.color} size={100} icon="📂"/><div style={{fontSize:14,fontWeight:700,color:colors.nv,marginTop:6}}>{d.name}</div><div style={{display:"flex",justifyContent:"center",gap:8,fontSize:11,marginTop:5}}><span style={{color:colors.rd}}>🔴{pe}</span><span style={{color:colors.yl}}>🟡{cu}</span><span style={{color:colors.gn}}>🟢{ok}</span></div></div>);})}
   </div>);
 }
 
 /* ── BREADCRUMB ── */
 function Bread({parts,mob}:{parts:{label:string;onClick?:()=>void}[];mob?:boolean}){
+  const{colors}=useC();
   return(<div style={{display:"flex",alignItems:"center",gap:4,marginBottom:mob?10:14,flexWrap:"wrap" as const}}>
     {parts.map((p,i)=><span key={i} style={{display:"flex",alignItems:"center",gap:4}}>
-      {i>0&&<span style={{color:T.g4,fontSize:11}}>›</span>}
-      {p.onClick?<button onClick={p.onClick} style={{background:"none",border:"none",cursor:"pointer",fontSize:mob?12:13,fontWeight:i===parts.length-1?700:500,color:i===parts.length-1?T.nv:T.bl,padding:0,textDecoration:i<parts.length-1?"underline":"none"}}>{p.label}</button>
-      :<span style={{fontSize:mob?12:13,fontWeight:700,color:T.nv}}>{p.label}</span>}
+      {i>0&&<span style={{color:colors.g4,fontSize:11}}>›</span>}
+      {p.onClick?<button onClick={p.onClick} style={{background:"none",border:"none",cursor:"pointer",fontSize:mob?12:13,fontWeight:i===parts.length-1?700:500,color:i===parts.length-1?colors.nv:colors.bl,padding:0,textDecoration:i<parts.length-1?"underline":"none"}}>{p.label}</button>
+      :<span style={{fontSize:mob?12:13,fontWeight:700,color:colors.nv}}>{p.label}</span>}
     </span>)}
   </div>);
 }
 
 /* ── TASK LIST ── */
 function TList({title,icon,color,peds,users,onSel,search,mob}:any){
+  const{colors,isDark,cardBg}=useC();
   const [f,sF]=useState("all");
+  const [pg,sPg]=useState(1);
+  const PER_PAGE=20;
   let v=f==="all"?peds:peds.filter((p:any)=>p.st===f);
   if(search){const s=search.toLowerCase();v=v.filter((p:any)=>(p.desc+p.cN+p.tipo+p.div+(p.id+"")).toLowerCase().includes(s));}
+  const allFiltered=v;
+  const pgData=paginate(v,pg,PER_PAGE);v=pgData.data;
+  const doExport=(fmt:"csv"|"pdf")=>{
+    const headers=["#","Tipo","Descripción","Solicitante","Fecha","Estado","Asignado"];
+    const rows=allFiltered.map((p:any)=>{const ag=users.find((u:any)=>u.id===p.asTo);return[String(p.id),p.tipo,p.desc,p.cN,p.fReq,SC[p.st]?.l||p.st,ag?fn(ag):"–"];});
+    if(fmt==="csv") exportCSV("tareas-"+title.replace(/\s/g,"_"),headers,rows);
+    else exportPDF("Tareas — "+title,headers,rows,{landscape:true});
+  };
+  const odBg=isDark?"#451A1A":"#FEF2F2";
   return(<div>
-    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}><div style={{width:30,height:30,borderRadius:8,background:color+"15",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15}}>{icon}</div><div><h2 style={{margin:0,fontSize:mob?14:16,color:T.nv,fontWeight:800}}>{title}</h2><p style={{margin:0,fontSize:11,color:T.g4}}>{v.length} tareas</p></div></div>
-    <div style={{display:"flex",gap:4,marginBottom:10,flexWrap:"wrap" as const}}><Btn v={f==="all"?"p":"g"} s="s" onClick={()=>sF("all")}>Todos</Btn>{Object.keys(SC).map(k=><Btn key={k} v={f===k?"p":"g"} s="s" onClick={()=>sF(f===k?"all":k)}>{SC[k].i} {peds.filter((p:any)=>p.st===k).length}</Btn>)}</div>
+    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,justifyContent:"space-between"}}><div style={{display:"flex",alignItems:"center",gap:8}}><div style={{width:30,height:30,borderRadius:8,background:color+"15",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15}}>{icon}</div><div><h2 style={{margin:0,fontSize:mob?14:16,color:colors.nv,fontWeight:800}}>{title}</h2><p style={{margin:0,fontSize:11,color:colors.g4}}>{allFiltered.length} tareas</p></div></div>{allFiltered.length>0&&<div style={{display:"flex",gap:4}}><Btn v="g" s="s" onClick={()=>doExport("csv")}>CSV</Btn><Btn v="g" s="s" onClick={()=>doExport("pdf")}>PDF</Btn></div>}</div>
+    <div style={{display:"flex",gap:4,marginBottom:10,flexWrap:"wrap" as const}}><Btn v={f==="all"?"p":"g"} s="s" onClick={()=>{sF("all");sPg(1);}}>Todos</Btn>{Object.keys(SC).map(k=><Btn key={k} v={f===k?"p":"g"} s="s" onClick={()=>{sF(f===k?"all":k);sPg(1);}}>{SC[k].i} {peds.filter((p:any)=>p.st===k).length}</Btn>)}</div>
     {mob?<div style={{display:"flex",flexDirection:"column" as const,gap:8}}>
-      {v.length===0&&<Card style={{textAlign:"center" as const,padding:24,color:T.g4}}>Sin tareas</Card>}
-      {v.map((p:any)=>{const ag=users.find((u:any)=>u.id===p.asTo),od=p.st!==ST.OK&&isOD(p.fReq);return(<Card key={p.id} onClick={()=>onSel(p)} style={{padding:"10px 14px",cursor:"pointer",borderLeft:"4px solid "+SC[p.st].c,background:od?"#FEF2F2":"#fff"}}>
-        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}><span style={{fontSize:10,fontWeight:600,color:T.nv}}>#{p.id}</span><Badge s={p.st} sm/>{od&&<span style={{fontSize:9,color:"#DC2626"}}>⏰</span>}{p.urg==="Urgente"&&<span style={{fontSize:9,color:T.rd}}>🔥</span>}</div>
-        <div style={{fontSize:12,fontWeight:700,color:T.nv,marginBottom:3}}>{p.desc}</div>
-        <div style={{fontSize:10,color:T.g5}}>{p.tipo} · 📅 {p.fReq}{ag?" · ⚙️ "+fn(ag):""}</div>
+      {v.length===0&&<Card style={{textAlign:"center" as const,padding:24,color:colors.g4}}>Sin tareas</Card>}
+      {v.map((p:any)=>{const ag=users.find((u:any)=>u.id===p.asTo),od=p.st!==ST.OK&&isOD(p.fReq);return(<Card key={p.id} onClick={()=>onSel(p)} style={{padding:"10px 14px",cursor:"pointer",borderLeft:"4px solid "+SC[p.st].c,background:od?odBg:cardBg}}>
+        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}><span style={{fontSize:10,fontWeight:600,color:colors.nv}}>#{p.id}</span><Badge s={p.st} sm/>{od&&<span style={{fontSize:9,color:"#DC2626"}}>⏰</span>}{p.urg==="Urgente"&&<span style={{fontSize:9,color:colors.rd}}>🔥</span>}</div>
+        <div style={{fontSize:12,fontWeight:700,color:colors.nv,marginBottom:3}}>{p.desc}</div>
+        <div style={{fontSize:10,color:colors.g5}}>{p.tipo} · 📅 {p.fReq}{ag?" · ⚙️ "+fn(ag):""}</div>
       </Card>);})}
     </div>
-    :<Card style={{padding:0,overflow:"hidden"}}><table style={{width:"100%",borderCollapse:"collapse" as const,fontSize:12}}><thead><tr style={{background:T.g1}}>{["#","Tipo","Solicitante","Fecha","Estado","Asignado"].map((h,i)=><th key={i} style={{padding:"7px 8px",textAlign:"left" as const,fontSize:10,color:T.g4,fontWeight:700}}>{h}</th>)}</tr></thead><tbody>
-      {v.length===0&&<tr><td colSpan={6} style={{padding:28,textAlign:"center" as const,color:T.g4}}>Sin tareas</td></tr>}
-      {v.map((p:any)=>{const ag=users.find((u:any)=>u.id===p.asTo),od=p.st!==ST.OK&&isOD(p.fReq);return(<tr key={p.id} onClick={()=>onSel(p)} style={{borderBottom:"1px solid "+T.g1,cursor:"pointer",background:od?"#FEF2F2":"transparent"}}><td style={{padding:"7px 8px",fontWeight:600,color:T.nv}}>{p.id}</td><td style={{padding:"7px 8px"}}>{p.tipo}</td><td style={{padding:"7px 8px",fontSize:11}}>{p.cN}</td><td style={{padding:"7px 8px",fontSize:11}}>{p.fReq}{od&&<span style={{marginLeft:4,fontSize:9,color:"#DC2626"}}>⏰</span>}</td><td style={{padding:"7px 8px"}}><Badge s={p.st} sm/></td><td style={{padding:"7px 8px",fontSize:11,color:T.g4}}>{ag?fn(ag):"–"}</td></tr>);})}
+    :<Card style={{padding:0,overflow:"hidden"}}><table style={{width:"100%",borderCollapse:"collapse" as const,fontSize:12,color:colors.nv}}><thead><tr style={{background:colors.g1}}>{["#","Tipo","Solicitante","Fecha","Estado","Asignado"].map((h,i)=><th key={i} style={{padding:"7px 8px",textAlign:"left" as const,fontSize:10,color:colors.g4,fontWeight:700}}>{h}</th>)}</tr></thead><tbody>
+      {v.length===0&&<tr><td colSpan={6} style={{padding:28,textAlign:"center" as const,color:colors.g4}}>Sin tareas</td></tr>}
+      {v.map((p:any)=>{const ag=users.find((u:any)=>u.id===p.asTo),od=p.st!==ST.OK&&isOD(p.fReq);return(<tr key={p.id} onClick={()=>onSel(p)} style={{borderBottom:"1px solid "+colors.g1,cursor:"pointer",background:od?odBg:"transparent"}}><td style={{padding:"7px 8px",fontWeight:600,color:colors.nv}}>{p.id}</td><td style={{padding:"7px 8px"}}>{p.tipo}</td><td style={{padding:"7px 8px",fontSize:11}}>{p.cN}</td><td style={{padding:"7px 8px",fontSize:11}}>{p.fReq}{od&&<span style={{marginLeft:4,fontSize:9,color:"#DC2626"}}>⏰</span>}</td><td style={{padding:"7px 8px"}}><Badge s={p.st} sm/></td><td style={{padding:"7px 8px",fontSize:11,color:colors.g4}}>{ag?fn(ag):"–"}</td></tr>);})}
     </tbody></table></Card>}
+    <Pager page={pgData.page} totalPages={pgData.totalPages} onPage={sPg}/>
   </div>);
 }
 
@@ -491,7 +553,7 @@ function NP({user,users,deptos,areas,onSub,onX,preAssign,mob,provs}:any){
         <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Moneda</label><select value={prf.moneda} onChange={e=>sPrf(p=>({...p,moneda:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,marginTop:2}}>{MONEDAS.map(m=><option key={m} value={m}>{m}</option>)}</select></div>
       </div>
       <div style={{marginBottom:6}}><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Descripción</label><textarea value={prf.descripcion} onChange={e=>sPrf(p=>({...p,descripcion:e.target.value}))} rows={2} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,resize:"vertical" as const,boxSizing:"border-box" as const,marginTop:2}}/></div>
-      <div style={{marginBottom:6}}><label style={{fontSize:10,fontWeight:600,color:T.g5}}>URL archivo/cotización</label><input value={prf.archivo_url} onChange={e=>sPrf(p=>({...p,archivo_url:e.target.value}))} placeholder="https://..." style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+      <div style={{marginBottom:6}}><FileField value={prf.archivo_url} onChange={url=>sPrf(p=>({...p,archivo_url:url}))} folder="presupuestos"/></div>
       <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Notas</label><input value={prf.notas} onChange={e=>sPrf(p=>({...p,notas:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
       {!prf.prov_nombre&&!prf.monto&&<div style={{marginTop:6,fontSize:10,color:T.rd,fontWeight:600}}>⚠️ Completá proveedor y monto para poder enviar la tarea</div>}
     </div>}
@@ -984,10 +1046,16 @@ function PresView({presu,provs,peds,users,areas,deptos,user,onAddPresu,onUpdPres
     if(fProv) vis=vis.filter((pr:any)=>pr.proveedor_nombre.toLowerCase().includes(fProv.toLowerCase()));
     if(search){const s=search.toLowerCase();vis=vis.filter((pr:any)=>(pr.proveedor_nombre+pr.descripcion+pr.notas+(pr.id+"")).toLowerCase().includes(s));}
     if(fArea){const ar=areas.find((a:any)=>a.id===Number(fArea));if(ar){const dIds=deptos.filter((d:any)=>d.aId===ar.id).map((d:any)=>d.id);const tIds=peds.filter((p:any)=>dIds.indexOf(p.dId)>=0).map((p:any)=>p.id);vis=vis.filter((pr:any)=>tIds.indexOf(pr.task_id)>=0);}}
+    const doExportPresu=(fmt:"csv"|"pdf")=>{
+      const headers=["#","Tarea","Proveedor","Descripción","Monto","Moneda","Estado","Fecha"];
+      const rows=vis.map((pr:any)=>[String(pr.id),String(pr.task_id),pr.proveedor_nombre,pr.descripcion,String(pr.monto),pr.moneda,PSC[pr.status]?.l||pr.status,pr.solicitado_at||""]);
+      if(fmt==="csv") exportCSV("presupuestos",headers,rows);
+      else exportPDF("Presupuestos",headers,rows,{landscape:true});
+    };
     return(<div style={{maxWidth:800}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"start",marginBottom:4}}>
         <div><h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:T.nv,fontWeight:800}}>💰 Presupuestos</h2><p style={{color:T.g4,fontSize:12,margin:0}}>Repositorio de cotizaciones y comparación de proveedores</p></div>
-        {canManage&&!addMode&&<Btn v="pu" s="s" onClick={()=>sAddMode(true)}>+ Nuevo Presupuesto</Btn>}
+        <div style={{display:"flex",gap:4,alignItems:"center"}}>{vis.length>0&&<><Btn v="g" s="s" onClick={()=>doExportPresu("csv")}>CSV</Btn><Btn v="g" s="s" onClick={()=>doExportPresu("pdf")}>PDF</Btn></>}{canManage&&!addMode&&<Btn v="pu" s="s" onClick={()=>sAddMode(true)}>+ Nuevo Presupuesto</Btn>}</div>
       </div>
       <div style={{display:"flex",gap:4,marginBottom:12,marginTop:10}}>{[{k:"todos",l:"📋 Todos"},{k:"provs",l:"🏢 Proveedores"},{k:"kpis",l:"📊 KPIs"}].map(t=><button key={t.k} onClick={()=>sTab(t.k)} style={{padding:"6px 14px",borderRadius:8,border:"none",background:tab===t.k?T.pr:"#fff",color:tab===t.k?"#fff":T.g5,fontSize:12,fontWeight:600,cursor:"pointer"}}>{t.l}</button>)}</div>
       {/* Add presupuesto form */}
@@ -1006,7 +1074,7 @@ function PresView({presu,provs,peds,users,areas,deptos,user,onAddPresu,onUpdPres
           <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Monto ($) *</label><input type="number" value={npf.monto} onChange={e=>sNpf(p=>({...p,monto:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
           <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Moneda</label><select value={npf.moneda} onChange={e=>sNpf(p=>({...p,moneda:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,marginTop:2}}>{MONEDAS.map(m=><option key={m} value={m}>{m}</option>)}</select></div>
         </div>
-        <div style={{marginBottom:8}}><label style={{fontSize:10,fontWeight:600,color:T.g5}}>URL archivo/cotización</label><input value={npf.archivo_url} onChange={e=>sNpf(p=>({...p,archivo_url:e.target.value}))} placeholder="https://..." style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+        <div style={{marginBottom:8}}><FileField value={npf.archivo_url} onChange={url=>sNpf(p=>({...p,archivo_url:url}))} folder="presupuestos"/></div>
         <div style={{marginBottom:8}}><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Notas</label><input value={npf.notas} onChange={e=>sNpf(p=>({...p,notas:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
         <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}><Btn v="g" s="s" onClick={resetNpf}>Cancelar</Btn><Btn v="pu" s="s" disabled={!npf.task_id||!npf.prov_nombre||!npf.monto} onClick={()=>{onAddPresu({task_id:Number(npf.task_id),proveedor_id:npf.prov_id?Number(npf.prov_id):null,proveedor_nombre:npf.prov_nombre,proveedor_contacto:npf.prov_contacto,descripcion:npf.descripcion,monto:Number(npf.monto),moneda:npf.moneda,archivo_url:npf.archivo_url,notas:npf.notas,status:PST.SOL,solicitado_por:fn(user),solicitado_at:TODAY});resetNpf();}}>💰 Cargar presupuesto</Btn></div>
       </Card>}
@@ -1354,9 +1422,11 @@ export default function App(){
   const [areas]=useState(AREAS);const [deptos]=useState(DEPTOS);
   const [users,sUs]=useState<any[]>([]);const [om,sOm]=useState<any[]>([]);const [peds,sPd]=useState<any[]>([]);const [hitos,sHi]=useState<any[]>([]);const [agendas,sAgs]=useState<any[]>([]);const [minutas,sMins]=useState<any[]>([]);
   const [presu,sPr]=useState<any[]>([]);const [provs,sPv]=useState<any[]>([]);const [reminders,sRems]=useState<any[]>([]);
+  const [dbNotifs,sDbNotifs]=useState<any[]>([]);
   const [user,sU]=useState<any>(null);const [authChecked,sAuthChecked]=useState(false);
   const [vw,sVw]=useState("dash");const [sel,sSl]=useState<any>(null);const [aA,sAA]=useState<number|null>(null);const [aD,sAD]=useState<number|null>(null);const [sbCol,sSbCol]=useState(false);const [search,sSr]=useState("");const [shNot,sShNot]=useState(false);const [preAT,sPreAT]=useState<any>(null);const [showPw,sShowPw]=useState(false);const [toast,sToast]=useState<{msg:string;type:"ok"|"err"}|null>(null);
   const mob=useMobile();const [sbOpen,sSbOpen]=useState(false);
+  const {mode:themeMode,toggle:toggleTheme,colors,isDark,cardBg,headerBg}=useTheme();
   const showT=(msg:string,type:"ok"|"err"="ok")=>sToast({msg,type});
 
   /* ── Fetch all data from Supabase ── */
@@ -1406,15 +1476,41 @@ export default function App(){
   /* ── Fetch data when user logs in ── */
   useEffect(()=>{if(user) fetchAll();},[user,fetchAll]);
 
-  const out=async()=>{await supabase.auth.signOut();sU(null);sVw("dash");sSl(null);sAA(null);sAD(null);sSr("");sPd([]);sUs([]);sOm([]);sHi([]);sAgs([]);sMins([]);sPr([]);sPv([]);sRems([]);};
+  /* ── Realtime: auto-refresh on DB changes ── */
+  useRealtime([
+    {table:"tasks",onChange:()=>fetchAll()},
+    {table:"task_messages",onChange:()=>fetchAll()},
+    {table:"presupuestos",onChange:()=>fetchAll()},
+    {table:"notifications",onChange:()=>refreshNotifs()},
+  ],!!user);
+
+  /* ── Auth token helper for API calls ── */
+  const getToken=async()=>{const{data:{session}}=await supabase.auth.getSession();return session?.access_token||"";};
+
+  /* ── Fetch persistent notifications ── */
+  const refreshNotifs=useCallback(async()=>{
+    const tok=await getToken();
+    if(tok){const n=await fetchNotifications(tok);sDbNotifs(n);}
+  },[]);
+  useEffect(()=>{if(user){refreshNotifs();const iv=setInterval(refreshNotifs,60000);return()=>clearInterval(iv);}},[user,refreshNotifs]);
+
+  /* ── Send notification helper ── */
+  const sendNotif=async(userId:string,title:string,message:string,type:"task"|"budget"|"deadline"|"injury"|"info"="task",link="")=>{
+    const tok=await getToken();
+    if(tok) await notify({token:tok,user_id:userId,title,message,type,link});
+  };
+
+  const out=async()=>{await supabase.auth.signOut();sU(null);sVw("dash");sSl(null);sAA(null);sAD(null);sSr("");sPd([]);sUs([]);sOm([]);sHi([]);sAgs([]);sMins([]);sPr([]);sPv([]);sRems([]);sDbNotifs([]);};
   const isAd=user&&(user.role==="admin"||user.role==="superadmin");
   const isSA=user&&user.role==="superadmin";
   const isPersonal=user&&(user.role==="enlace"||user.role==="manager"||user.role==="usuario");
 
-  if(!authChecked) return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:T.g1}}><div style={{fontSize:14,color:T.g4}}>Cargando...</div></div>;
+  if(!authChecked) return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:colors.g1}}><div style={{fontSize:14,color:colors.g4}}>Cargando...</div></div>;
   if(!user) return <Login onLogin={(u:any)=>sU(u)} mob={mob}/>;
 
-  const nts=notifs(user,peds);
+  const computedNts=notifs(user,peds);
+  const unreadDb=dbNotifs.filter((n:any)=>!n.read);
+  const nts=[...computedNts,...unreadDb.slice(0,10).map((n:any)=>({t:n.title,c:n.type==="task"?T.bl:n.type==="budget"?T.pr:n.type==="deadline"?T.rd:T.gn,act:n.link?"":"dash",link:n.link,dbId:n.id}))];
   const hAC=(id:number)=>{sAA(aA===id?null:id);sAD(null);sVw("dash");};
   const hDC=(id:number)=>sAD(aD===id?null:id);
 
@@ -1437,20 +1533,23 @@ export default function App(){
   if(isPersonal&&vw==="dash") { setTimeout(()=>sVw("my"),0); return null; }
 
   return(
-    <div style={{display:"flex",minHeight:"100vh",background:T.g1,fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"}}>
+    <ThemeCtx.Provider value={{colors,isDark,cardBg}}>
+    <style dangerouslySetInnerHTML={{__html:darkCSS}}/>
+    <div style={{display:"flex",minHeight:"100vh",background:colors.g1,fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",color:colors.nv}}>
       <SB areas={areas} deptos={deptos} pedidos={peds} aA={aA} aD={aD} onAC={hAC} onDC={hDC} col={sbCol} onCol={()=>sSbCol(!sbCol)} isPersonal={isPersonal} mob={mob} sbOpen={sbOpen} onClose={()=>sSbOpen(false)}/>
       <div style={{flex:1,display:"flex",flexDirection:"column" as const,minWidth:0}}>
-        <div style={{background:"#fff",borderBottom:"1px solid "+T.g2,padding:mob?"0 8px":"0 14px",display:"flex",justifyContent:"space-between",alignItems:"center",height:48}}>
+        <div style={{background:headerBg,borderBottom:"1px solid "+colors.g2,padding:mob?"0 8px":"0 14px",display:"flex",justifyContent:"space-between",alignItems:"center",height:48}}>
           <div style={{display:"flex",gap:1,overflowX:"auto" as const,alignItems:"center"}}>
-            {mob&&<button onClick={()=>sSbOpen(true)} style={{background:"none",border:"none",fontSize:18,cursor:"pointer",color:T.nv,padding:"4px 6px",flexShrink:0}}>☰</button>}
-            {nav.filter(n=>n.sh).map(n=><button key={n.k} onClick={()=>{sVw(n.k);if(n.k==="dash"||n.k==="my"){sAA(null);sAD(null);}}} style={{padding:mob?"5px 8px":"6px 11px",border:"none",borderRadius:7,background:vw===n.k?T.nv:"transparent",color:vw===n.k?"#fff":T.g5,fontSize:mob?10:11,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap" as const}}>{n.l}</button>)}
+            {mob&&<button onClick={()=>sSbOpen(true)} style={{background:"none",border:"none",fontSize:18,cursor:"pointer",color:colors.nv,padding:"4px 6px",flexShrink:0}}>☰</button>}
+            {nav.filter(n=>n.sh).map(n=><button key={n.k} onClick={()=>{sVw(n.k);if(n.k==="dash"||n.k==="my"){sAA(null);sAD(null);}}} style={{padding:mob?"5px 8px":"6px 11px",border:"none",borderRadius:7,background:vw===n.k?colors.nv:"transparent",color:vw===n.k?(isDark?"#0F172A":"#fff"):colors.g5,fontSize:mob?10:11,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap" as const}}>{n.l}</button>)}
           </div>
           <div style={{display:"flex",alignItems:"center",gap:mob?4:8,flexShrink:0}}>
-            <div style={{position:"relative" as const}}><input value={search} onChange={e=>sSr(e.target.value)} placeholder="🔍 Buscar..." style={{padding:"5px 10px",borderRadius:8,border:"1px solid "+T.g3,fontSize:11,width:mob?80:130}}/></div>
-            <div style={{position:"relative" as const}}><button onClick={()=>sShNot(!shNot)} style={{background:"none",border:"none",fontSize:16,cursor:"pointer",position:"relative" as const}}>🔔{nts.length>0&&<span style={{position:"absolute" as const,top:-4,right:-4,width:14,height:14,borderRadius:7,background:T.rd,color:"#fff",fontSize:8,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>{nts.length}</span>}</button>{shNot&&<div style={{position:"absolute" as const,right:0,top:32,background:"#fff",borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,.12)",border:"1px solid "+T.g2,width:260,zIndex:100,padding:8}}><div style={{fontSize:11,fontWeight:700,color:T.nv,marginBottom:6}}>Notificaciones</div>{nts.length===0&&<div style={{fontSize:11,color:T.g4,padding:8}}>Todo al día ✅</div>}{nts.map((n,i)=><div key={i} onClick={()=>{sShNot(false);if(n.first){sSl(n.first);}else if(n.act){sVw(n.act);sAA(null);sAD(null);}}} style={{padding:"6px 8px",borderRadius:6,background:n.c+"10",marginBottom:3,fontSize:11,color:n.c,fontWeight:600,cursor:"pointer"}}>{ n.t}</div>)}</div>}</div>
-            {!mob&&<div style={{textAlign:"right" as const}}><div style={{fontSize:11,fontWeight:700,color:T.nv}}>{fn(user)}</div><div style={{fontSize:9,color:T.g4}}>{ROLES[user.role]?.i} {ROLES[user.role]?.l}{user.div?" · "+user.div:""}</div></div>}
-            <button onClick={()=>sShowPw(true)} title="Cambiar contraseña" style={{width:28,height:28,borderRadius:7,border:"1px solid "+T.g2,background:"#fff",cursor:"pointer",fontSize:12}}>🔒</button>
-            <button onClick={out} style={{width:28,height:28,borderRadius:7,border:"1px solid "+T.g2,background:"#fff",cursor:"pointer",fontSize:12}}>↩</button>
+            <div style={{position:"relative" as const}}><input value={search} onChange={e=>sSr(e.target.value)} placeholder="🔍 Buscar..." style={{padding:"5px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:11,width:mob?80:130}}/></div>
+            <div style={{position:"relative" as const}}><button onClick={()=>sShNot(!shNot)} style={{background:"none",border:"none",fontSize:16,cursor:"pointer",position:"relative" as const}}>🔔{nts.length>0&&<span style={{position:"absolute" as const,top:-4,right:-4,width:14,height:14,borderRadius:7,background:colors.rd,color:"#fff",fontSize:8,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>{nts.length}</span>}</button>{shNot&&<div style={{position:"absolute" as const,right:0,top:32,background:cardBg,borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,.12)",border:"1px solid "+colors.g2,width:280,zIndex:100,padding:8,maxHeight:360,overflowY:"auto" as const}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}><div style={{fontSize:11,fontWeight:700,color:colors.nv}}>Notificaciones</div>{unreadDb.length>0&&<button onClick={async()=>{const tok=await getToken();await markRead(tok);sDbNotifs(prev=>prev.map((n:any)=>({...n,read:true})));}} style={{background:"none",border:"none",fontSize:10,color:colors.bl,cursor:"pointer",fontWeight:600}}>Marcar leídas</button>}</div>{nts.length===0&&<div style={{fontSize:11,color:colors.g4,padding:8}}>Todo al día ✅</div>}{nts.map((n,i)=><div key={i} onClick={()=>{sShNot(false);if(n.dbId){getToken().then(tok=>markRead(tok,[n.dbId]));sDbNotifs(prev=>prev.map((x:any)=>x.id===n.dbId?{...x,read:true}:x));}if(n.first){sSl(n.first);}else if(n.link){window.location.hash=n.link;}else if(n.act){sVw(n.act);sAA(null);sAD(null);}}} style={{padding:"6px 8px",borderRadius:6,background:n.c+"10",marginBottom:3,fontSize:11,color:n.c,fontWeight:600,cursor:"pointer"}}>{n.t}</div>)}</div>}</div>
+            {!mob&&<div style={{textAlign:"right" as const}}><div style={{fontSize:11,fontWeight:700,color:colors.nv}}>{fn(user)}</div><div style={{fontSize:9,color:colors.g4}}>{ROLES[user.role]?.i} {ROLES[user.role]?.l}{user.div?" · "+user.div:""}</div></div>}
+            <button onClick={toggleTheme} title={isDark?"Modo claro":"Modo oscuro"} style={{width:28,height:28,borderRadius:7,border:"1px solid "+colors.g2,background:cardBg,cursor:"pointer",fontSize:12}}>{isDark?"☀️":"🌙"}</button>
+            <button onClick={()=>sShowPw(true)} title="Cambiar contraseña" style={{width:28,height:28,borderRadius:7,border:"1px solid "+colors.g2,background:cardBg,cursor:"pointer",fontSize:12}}>🔒</button>
+            <button onClick={out} style={{width:28,height:28,borderRadius:7,border:"1px solid "+colors.g2,background:cardBg,cursor:"pointer",fontSize:12}}>↩</button>
           </div>
         </div>
         <div style={{flex:1,padding:mob?"12px 8px":"20px 16px",overflowY:"auto" as const,marginTop:4}}>
@@ -1503,9 +1602,9 @@ export default function App(){
             sPreAT(null);sVw(isPersonal?"my":"dash");sAA(null);sAD(null);showT(p._presu?"Tarea creada con presupuesto":"Tarea creada");}catch(e:any){showT(e.message||"Error al crear tarea","err");}
           }} onX={()=>{sPreAT(null);sVw(isPersonal?"my":"dash");}}/>}
           {vw==="proy"&&<Proyecto hitos={hitos} setHitos={(updater:any)=>{sHi((prev:any)=>{const next=typeof updater==="function"?updater(prev):updater;next.forEach((h:any)=>{supabase.from("milestones").update({pct:h.pct}).eq("id",h.id);});return next;});}} isAd={isAd}/>}
-          {vw==="dash"&&!isPersonal&&!aA&&!aD&&<><h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:T.nv,fontWeight:800}}>Dashboard</h2><p style={{color:T.g4,fontSize:12,margin:"0 0 16px"}}>KPIs institucionales · Manual Operativo 2035</p><KPIs peds={peds} mob={mob} presu={presu}/><Circles areas={areas} deptos={deptos} pedidos={peds} onAC={hAC} mob={mob}/></>}
+          {vw==="dash"&&!isPersonal&&!aA&&!aD&&<><h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:colors.nv,fontWeight:800}}>Dashboard</h2><p style={{color:colors.g4,fontSize:12,margin:"0 0 16px"}}>KPIs institucionales · Manual Operativo 2035</p><KPIs peds={peds} mob={mob} presu={presu}/><Circles areas={areas} deptos={deptos} pedidos={peds} onAC={hAC} mob={mob}/></>}
           {vw==="dash"&&!isPersonal&&aA&&!aD&&(aA===100||aA===101)&&<div><Bread parts={[{label:"Dashboard",onClick:()=>sAA(null)},{label:vT}]} mob={mob}/><KPIs peds={vP} mob={mob}/><TList title={vT} icon={vI} color={vC} peds={vP} users={users} onSel={(p:any)=>sSl(p)} search={search} mob={mob}/></div>}
-          {vw==="dash"&&!isPersonal&&aA&&!aD&&aA!==100&&aA!==101&&(()=>{const selAr=areas.find((a:any)=>a.id===aA);return <div><Bread parts={[{label:"Dashboard",onClick:()=>sAA(null)},{label:selAr?.name||""}]} mob={mob}/><h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:T.nv,fontWeight:800}}>{selAr?.icon} {selAr?.name}</h2><p style={{color:T.g4,fontSize:12,margin:"0 0 16px"}}>{deptos.filter((d:any)=>d.aId===aA).length} departamentos</p><KPIs peds={vP} mob={mob}/><DeptCircles area={selAr} deptos={deptos} pedidos={peds} onDC={(id:number)=>sAD(id)} mob={mob}/></div>;})()}
+          {vw==="dash"&&!isPersonal&&aA&&!aD&&aA!==100&&aA!==101&&(()=>{const selAr=areas.find((a:any)=>a.id===aA);return <div><Bread parts={[{label:"Dashboard",onClick:()=>sAA(null)},{label:selAr?.name||""}]} mob={mob}/><h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:colors.nv,fontWeight:800}}>{selAr?.icon} {selAr?.name}</h2><p style={{color:colors.g4,fontSize:12,margin:"0 0 16px"}}>{deptos.filter((d:any)=>d.aId===aA).length} departamentos</p><KPIs peds={vP} mob={mob}/><DeptCircles area={selAr} deptos={deptos} pedidos={peds} onDC={(id:number)=>sAD(id)} mob={mob}/></div>;})()}
           {vw==="dash"&&!isPersonal&&aD&&(()=>{const selAr=areas.find((a:any)=>a.id===aA);const selDp=deptos.find((d:any)=>d.id===aD);return <div><Bread parts={[{label:"Dashboard",onClick:()=>{sAA(null);sAD(null);}},{label:selAr?.name||"",onClick:()=>sAD(null)},{label:selDp?.name||""}]} mob={mob}/><TList title={vT} icon={vI} color={vC} peds={vP} users={users} onSel={(p:any)=>sSl(p)} search={search} mob={mob}/></div>;})()}
         </div>
       </div>
@@ -1515,12 +1614,12 @@ export default function App(){
         onUpdPresu={async(id:number,d:any)=>{try{sPr(p=>p.map(x=>x.id===id?{...x,...d}:x));await supabase.from("presupuestos").update(d).eq("id",id);showT("Presupuesto actualizado");}catch(e:any){showT(e.message||"Error","err");}}}
         onDelPresu={async(id:number)=>{try{sPr(p=>p.filter(x=>x.id!==id));await supabase.from("presupuestos").delete().eq("id",id);showT("Presupuesto eliminado");}catch(e:any){showT(e.message||"Error","err");}}}
         onTk={async(id:number)=>{try{sPd(p=>p.map(x=>x.id===id?{...x,asTo:user.id,st:ST.C}:x));await supabase.from("tasks").update({assigned_to:user.id,status:ST.C}).eq("id",id);addLog(id,user.id,fn(user),"Tomó la tarea","sys");showT("Tarea tomada");}catch(e:any){showT(e.message||"Error","err");}}}
-        onAs={async(id:number,uid:string)=>{try{const ag=users.find(u=>u.id===uid);const newSt=peds.find(x=>x.id===id)?.st===ST.P?ST.C:peds.find(x=>x.id===id)?.st;sPd(p=>p.map(x=>x.id===id?{...x,asTo:uid,st:x.st===ST.P?ST.C:x.st}:x));await supabase.from("tasks").update({assigned_to:uid,status:newSt}).eq("id",id);addLog(id,user.id,fn(user),"Asignó a "+(ag?fn(ag):""),"sys");showT("Tarea asignada");}catch(e:any){showT(e.message||"Error","err");}}}
+        onAs={async(id:number,uid:string)=>{try{const ag=users.find(u=>u.id===uid);const p2=peds.find(x=>x.id===id);const newSt=p2?.st===ST.P?ST.C:p2?.st;sPd(p=>p.map(x=>x.id===id?{...x,asTo:uid,st:x.st===ST.P?ST.C:x.st}:x));await supabase.from("tasks").update({assigned_to:uid,status:newSt}).eq("id",id);addLog(id,user.id,fn(user),"Asignó a "+(ag?fn(ag):""),"sys");sendNotif(uid,"Te asignaron una tarea",p2?.desc||"","task");showT("Tarea asignada");}catch(e:any){showT(e.message||"Error","err");}}}
         onRe={async(id:number,r:string)=>{try{sPd(p=>p.map(x=>x.id===id?{...x,resp:r}:x));await supabase.from("tasks").update({resolution:r}).eq("id",id);showT("Resolución guardada");}catch(e:any){showT(e.message||"Error","err");}}}
-        onSE={async(id:number)=>{try{sPd(p=>p.map(x=>x.id===id?{...x,st:ST.E}:x));await supabase.from("tasks").update({status:ST.E}).eq("id",id);addLog(id,user.id,fn(user),"Envió a Compras","sys");showT("Enviado a Compras");sSl(null);}catch(e:any){showT(e.message||"Error","err");}}}
-        onEO={async(id:number,ok:boolean)=>{try{sPd(p=>p.map(x=>x.id===id?{...x,st:ST.C,eOk:ok}:x));await supabase.from("tasks").update({status:ST.C,expense_ok:ok}).eq("id",id);addLog(id,user.id,fn(user),ok?"Compras aprobó":"Compras rechazó","sys");showT(ok?"Gasto aprobado":"Gasto rechazado");sSl(null);}catch(e:any){showT(e.message||"Error","err");}}}
-        onFi={async(id:number)=>{try{sPd(p=>p.map(x=>x.id===id?{...x,st:ST.V}:x));await supabase.from("tasks").update({status:ST.V}).eq("id",id);addLog(id,user.id,fn(user),"Envió a validación","sys");showT("Enviado a validación");sSl(null);}catch(e:any){showT(e.message||"Error","err");}}}
-        onVa={async(id:number,ok:boolean)=>{try{const ns=ok?ST.OK:ST.C;sPd(p=>p.map(x=>x.id===id?{...x,st:ns}:x));await supabase.from("tasks").update({status:ns}).eq("id",id);addLog(id,user.id,fn(user),ok?"Validó OK ✅":"Rechazó","sys");showT(ok?"Tarea completada":"Tarea rechazada");sSl(null);}catch(e:any){showT(e.message||"Error","err");}}}
+        onSE={async(id:number)=>{try{sPd(p=>p.map(x=>x.id===id?{...x,st:ST.E}:x));await supabase.from("tasks").update({status:ST.E}).eq("id",id);addLog(id,user.id,fn(user),"Envió a Compras","sys");users.filter(u=>u.role==="embudo").forEach(u=>sendNotif(u.id,"Nueva tarea en Compras",peds.find(x=>x.id===id)?.desc||"","budget"));showT("Enviado a Compras");sSl(null);}catch(e:any){showT(e.message||"Error","err");}}}
+        onEO={async(id:number,ok:boolean)=>{try{const p2=peds.find(x=>x.id===id);sPd(p=>p.map(x=>x.id===id?{...x,st:ST.C,eOk:ok}:x));await supabase.from("tasks").update({status:ST.C,expense_ok:ok}).eq("id",id);addLog(id,user.id,fn(user),ok?"Compras aprobó":"Compras rechazó","sys");if(p2?.asTo)sendNotif(p2.asTo,ok?"Gasto aprobado":"Gasto rechazado",p2.desc||"","budget");if(p2?.cId&&p2.cId!==p2.asTo)sendNotif(p2.cId,ok?"Gasto aprobado":"Gasto rechazado",p2.desc||"","budget");showT(ok?"Gasto aprobado":"Gasto rechazado");sSl(null);}catch(e:any){showT(e.message||"Error","err");}}}
+        onFi={async(id:number)=>{try{const p2=peds.find(x=>x.id===id);sPd(p=>p.map(x=>x.id===id?{...x,st:ST.V}:x));await supabase.from("tasks").update({status:ST.V}).eq("id",id);addLog(id,user.id,fn(user),"Envió a validación","sys");if(p2?.cId)sendNotif(p2.cId,"Tarea lista para validar",p2.desc||"","task");showT("Enviado a validación");sSl(null);}catch(e:any){showT(e.message||"Error","err");}}}
+        onVa={async(id:number,ok:boolean)=>{try{const p2=peds.find(x=>x.id===id);const ns=ok?ST.OK:ST.C;sPd(p=>p.map(x=>x.id===id?{...x,st:ns}:x));await supabase.from("tasks").update({status:ns}).eq("id",id);addLog(id,user.id,fn(user),ok?"Validó OK ✅":"Rechazó","sys");if(p2?.asTo)sendNotif(p2.asTo,ok?"Tarea completada":"Tarea rechazada",p2.desc||"","task");showT(ok?"Tarea completada":"Tarea rechazada");sSl(null);}catch(e:any){showT(e.message||"Error","err");}}}
         onMsg={async(id:number,txt:string)=>{try{await addLog(id,user.id,fn(user),txt,"msg");}catch(e:any){showT("Error al enviar mensaje","err");}}}
         onMonto={async(id:number,m:number)=>{try{sPd(p=>p.map(x=>x.id===id?{...x,monto:m}:x));await supabase.from("tasks").update({amount:m}).eq("id",id);}catch(e:any){showT(e.message||"Error","err");}}}
         onDel={async(id:number)=>{try{sPd(p=>p.filter(x=>x.id!==id));await supabase.from("tasks").delete().eq("id",id);showT("Tarea eliminada");sSl(null);}catch(e:any){showT(e.message||"Error","err");}}}
@@ -1528,5 +1627,6 @@ export default function App(){
       />}
       {toast&&<Toast msg={toast.msg} type={toast.type} onDone={()=>sToast(null)}/>}
     </div>
+    </ThemeCtx.Provider>
   );
 }

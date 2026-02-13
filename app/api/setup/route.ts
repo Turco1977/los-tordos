@@ -8,15 +8,13 @@ export async function GET() {
     { auth: { autoRefreshToken: false, persistSession: false } }
   );
 
-  // Try to select from reminders to see if it exists
-  const { error } = await admin.from("reminders").select("id").limit(1);
+  const missing: { table: string; sql: string }[] = [];
 
-  if (error && error.code === "42P01") {
-    // Table doesn't exist — we can't create it via PostgREST.
-    // Return the SQL to run manually.
-    return NextResponse.json({
-      status: "missing",
-      message: "Table 'reminders' does not exist. Run this SQL in Supabase SQL Editor:",
+  // Check reminders table
+  const { error: remErr } = await admin.from("reminders").select("id").limit(1);
+  if (remErr && remErr.code === "42P01") {
+    missing.push({
+      table: "reminders",
       sql: `CREATE TABLE reminders (
   id SERIAL PRIMARY KEY,
   user_id UUID NOT NULL,
@@ -25,16 +23,87 @@ export async function GET() {
   date DATE NOT NULL,
   description TEXT DEFAULT '',
   color TEXT DEFAULT '#3B82F6',
+  recurrence TEXT DEFAULT 'none',
+  assigned_to UUID,
+  assigned_name TEXT DEFAULT '',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 ALTER TABLE reminders ENABLE ROW LEVEL SECURITY;
-CREATE POLICY reminders_all ON reminders FOR ALL USING (true) WITH CHECK (true);`
+CREATE POLICY reminders_all ON reminders FOR ALL USING (true) WITH CHECK (true);`,
     });
   }
 
-  if (error) {
-    return NextResponse.json({ status: "error", message: error.message });
+  // Check notifications table
+  const { error: notErr } = await admin.from("notifications").select("id").limit(1);
+  if (notErr && notErr.code === "42P01") {
+    missing.push({
+      table: "notifications",
+      sql: `CREATE TABLE notifications (
+  id SERIAL PRIMARY KEY,
+  user_id UUID NOT NULL,
+  title TEXT NOT NULL,
+  message TEXT DEFAULT '',
+  type TEXT DEFAULT 'info',
+  link TEXT DEFAULT '',
+  read BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX idx_notifications_user ON notifications(user_id, read);
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+CREATE POLICY notifications_all ON notifications FOR ALL USING (true) WITH CHECK (true);`,
+    });
   }
 
-  return NextResponse.json({ status: "ok", message: "Table 'reminders' exists" });
+  // Check dep_training_sessions table
+  const { error: tsErr } = await admin.from("dep_training_sessions").select("id").limit(1);
+  if (tsErr && tsErr.code === "42P01") {
+    missing.push({
+      table: "dep_training_sessions",
+      sql: `CREATE TABLE dep_training_sessions (
+  id SERIAL PRIMARY KEY,
+  division TEXT NOT NULL,
+  date DATE NOT NULL,
+  time_start TEXT DEFAULT '',
+  time_end TEXT DEFAULT '',
+  type TEXT DEFAULT 'Entrenamiento',
+  description TEXT DEFAULT '',
+  location TEXT DEFAULT '',
+  created_by UUID NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE dep_training_sessions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY dep_training_sessions_all ON dep_training_sessions FOR ALL USING (true) WITH CHECK (true);`,
+    });
+  }
+
+  // Check dep_attendance table
+  const { error: attErr } = await admin.from("dep_attendance").select("id").limit(1);
+  if (attErr && attErr.code === "42P01") {
+    missing.push({
+      table: "dep_attendance",
+      sql: `CREATE TABLE dep_attendance (
+  id SERIAL PRIMARY KEY,
+  session_id INTEGER NOT NULL REFERENCES dep_training_sessions(id) ON DELETE CASCADE,
+  athlete_id INTEGER NOT NULL REFERENCES dep_athletes(id) ON DELETE CASCADE,
+  status TEXT DEFAULT 'presente',
+  notes TEXT DEFAULT '',
+  recorded_by UUID NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(session_id, athlete_id)
+);
+ALTER TABLE dep_attendance ENABLE ROW LEVEL SECURITY;
+CREATE POLICY dep_attendance_all ON dep_attendance FOR ALL USING (true) WITH CHECK (true);`,
+    });
+  }
+
+  if (missing.length > 0) {
+    return NextResponse.json({
+      status: "missing",
+      message: `${missing.length} table(s) missing. Run the SQL below in Supabase SQL Editor:`,
+      tables: missing.map((m) => m.table),
+      sql: missing.map((m) => `-- Table: ${m.table}\n${m.sql}`).join("\n\n"),
+    });
+  }
+
+  return NextResponse.json({ status: "ok", message: "All tables exist" });
 }
