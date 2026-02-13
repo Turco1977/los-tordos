@@ -38,6 +38,36 @@ function useMobile(bp=768){
   return mob;
 }
 
+/* ── PUSH NOTIFICATIONS HOOK ── */
+function usePushNotifs(user:any,peds:any[]){
+  const [pushEnabled,sPushEnabled]=useState(false);
+  useEffect(()=>{
+    if(!user||!("Notification" in window))return;
+    sPushEnabled(Notification.permission==="granted");
+  },[user]);
+  const requestPush=async()=>{
+    if(!("Notification" in window))return;
+    const perm=await Notification.requestPermission();
+    sPushEnabled(perm==="granted");
+  };
+  const sendPush=(title:string,body:string,icon?:string)=>{
+    if(pushEnabled&&document.hidden){
+      new Notification(title,{body,icon:icon||"/logo.jpg",badge:"/logo.jpg"});
+    }
+  };
+  /* Check for overdue tasks every 5 minutes */
+  useEffect(()=>{
+    if(!pushEnabled||!user||!peds.length)return;
+    const check=()=>{
+      const od=peds.filter(p=>p.st!==ST.OK&&isOD(p.fReq)&&(p.asTo===user.id||p.cId===user.id));
+      if(od.length>0) sendPush("⏰ Tareas vencidas","Tenés "+od.length+" tarea(s) vencida(s)");
+    };
+    const iv=setInterval(check,300000);// 5min
+    return()=>clearInterval(iv);
+  },[pushEnabled,user,peds]);
+  return {pushEnabled,requestPush,sendPush};
+}
+
 /* Helper: map DB profile to legacy shape used by components */
 const profileToUser = (p: Profile) => ({ id: p.id, n: p.first_name, a: p.last_name, role: p.role, dId: p.dept_id, div: p.division, mail: p.email, tel: p.phone });
 const taskFromDB = (t: Task, msgs: TaskMessage[]) => ({ id: t.id, div: t.division, cId: t.creator_id, cN: t.creator_name, dId: t.dept_id, tipo: t.tipo, desc: t.description, fReq: t.due_date, urg: t.urgency, st: t.status, asTo: t.assigned_to, rG: t.requires_expense, eOk: t.expense_ok, resp: t.resolution, cAt: t.created_at, monto: t.amount, log: msgs.map(m => ({ dt: m.created_at || "", uid: m.user_id, by: m.user_name, act: m.content, t: m.type })) });
@@ -495,9 +525,22 @@ function TList({title,icon,color,peds,users,onSel,search,mob,onBulk,onImport,use
   const [pg,sPg]=useState(1);
   const [bulkSel,sBulkSel]=useState<number[]>([]);
   const [showImport,sShowImport]=useState(false);
+  const [showFilters,sShowFilters]=useState(false);
+  const [fTipo,sFTipo]=useState("");
+  const [fUrg,sFUrg]=useState("");
+  const [fAsTo,sFAsTo]=useState("");
+  const [fDateFrom,sFDateFrom]=useState("");
+  const [fDateTo,sFDateTo]=useState("");
+  const [sortBy,sSortBy]=useState("id");const [sortDir,sSortDir]=useState<"asc"|"desc">("desc");
   const PER_PAGE=20;
   let v=f==="all"?peds:peds.filter((p:any)=>p.st===f);
   if(search){const s=search.toLowerCase();v=v.filter((p:any)=>(p.desc+p.cN+p.tipo+p.div+(p.id+"")).toLowerCase().includes(s));}
+  if(fTipo)v=v.filter((p:any)=>p.tipo===fTipo);
+  if(fUrg)v=v.filter((p:any)=>p.urg===fUrg);
+  if(fAsTo)v=v.filter((p:any)=>p.asTo===fAsTo);
+  if(fDateFrom)v=v.filter((p:any)=>p.fReq>=fDateFrom);
+  if(fDateTo)v=v.filter((p:any)=>p.fReq<=fDateTo);
+  v=[...v].sort((a:any,b:any)=>{const dir=sortDir==="asc"?1:-1;if(sortBy==="date")return((a.fReq||"").localeCompare(b.fReq||""))*dir;if(sortBy==="tipo")return((a.tipo||"").localeCompare(b.tipo||""))*dir;return(a.id-b.id)*dir;});
   const allFiltered=v;
   const pgData=paginate(v,pg,PER_PAGE);v=pgData.data;
   const doExport=(fmt:"csv"|"pdf")=>{
@@ -521,6 +564,23 @@ function TList({title,icon,color,peds,users,onSel,search,mob,onBulk,onImport,use
       <Btn v="g" s="s" onClick={()=>sBulkSel([])}>✕ Limpiar</Btn>
     </div>}
     {showImport&&onImport&&<CsvImport user={user} onImport={onImport} onX={()=>sShowImport(false)} mob={mob}/>}
+    <div style={{display:"flex",gap:6,marginBottom:8,alignItems:"center",flexWrap:"wrap" as const}}>
+      <Btn v={showFilters?"p":"g"} s="s" onClick={()=>sShowFilters(!showFilters)}>🔍 Filtros{(fTipo||fUrg||fAsTo||fDateFrom||fDateTo)?" •":""}</Btn>
+      <div style={{display:"flex",gap:4,alignItems:"center"}}>
+        <select value={sortBy} onChange={e=>{sSortBy(e.target.value);sPg(1);}} style={{padding:"4px 8px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:10,background:cardBg,color:colors.nv}}>
+          <option value="id">Ordenar: #ID</option><option value="date">Ordenar: Fecha</option><option value="tipo">Ordenar: Tipo</option>
+        </select>
+        <button onClick={()=>{sSortDir(d=>d==="asc"?"desc":"asc");sPg(1);}} style={{padding:"3px 6px",borderRadius:6,border:"1px solid "+colors.g3,background:cardBg,fontSize:10,cursor:"pointer",color:colors.nv}}>{sortDir==="asc"?"↑":"↓"}</button>
+      </div>
+    </div>
+    {showFilters&&<div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap" as const,padding:10,background:colors.g1,borderRadius:8}}>
+      <select value={fTipo} onChange={e=>{sFTipo(e.target.value);sPg(1);}} style={{padding:"5px 8px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:10,background:cardBg,color:colors.nv}}><option value="">Tipo: Todos</option>{TIPOS.map(t=><option key={t} value={t}>{t}</option>)}</select>
+      <select value={fUrg} onChange={e=>{sFUrg(e.target.value);sPg(1);}} style={{padding:"5px 8px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:10,background:cardBg,color:colors.nv}}><option value="">Urgencia: Todas</option><option value="Normal">Normal</option><option value="Urgente">Urgente</option></select>
+      <select value={fAsTo} onChange={e=>{sFAsTo(e.target.value);sPg(1);}} style={{padding:"5px 8px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:10,background:cardBg,color:colors.nv}}><option value="">Asignado: Todos</option>{users.filter((u:any)=>rlv(u.role)>=2).map((u:any)=><option key={u.id} value={u.id}>{fn(u)}</option>)}</select>
+      <input type="date" value={fDateFrom} onChange={e=>{sFDateFrom(e.target.value);sPg(1);}} style={{padding:"4px 6px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:10,background:cardBg,color:colors.nv}} title="Desde"/>
+      <input type="date" value={fDateTo} onChange={e=>{sFDateTo(e.target.value);sPg(1);}} style={{padding:"4px 6px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:10,background:cardBg,color:colors.nv}} title="Hasta"/>
+      {(fTipo||fUrg||fAsTo||fDateFrom||fDateTo)&&<button onClick={()=>{sFTipo("");sFUrg("");sFAsTo("");sFDateFrom("");sFDateTo("");sPg(1);}} style={{padding:"4px 8px",borderRadius:6,border:"none",background:colors.rd,color:"#fff",fontSize:10,fontWeight:600,cursor:"pointer"}}>✕ Limpiar</button>}
+    </div>}
     <div style={{display:"flex",gap:4,marginBottom:10,flexWrap:"wrap" as const}}><Btn v={f==="all"?"p":"g"} s="s" onClick={()=>{sF("all");sPg(1);}}>Todos</Btn>{Object.keys(SC).map(k=><Btn key={k} v={f===k?"p":"g"} s="s" onClick={()=>{sF(f===k?"all":k);sPg(1);}}>{SC[k].i} {peds.filter((p:any)=>p.st===k).length}</Btn>)}</div>
     {mob?<div style={{display:"flex",flexDirection:"column" as const,gap:8}}>
       {v.length===0&&<Card style={{textAlign:"center" as const,padding:24,color:colors.g4}}>Sin tareas</Card>}
@@ -1569,19 +1629,84 @@ function CalView({peds,agendas,minutas,presu,reminders,areas,deptos,users,user,o
   </div>);
 }
 
+/* ── DASHBOARD WIDGETS ── */
+function DashWidgets({peds,presu,agendas,minutas,users,areas,deptos,onSel,mob}:any){
+  const{colors,isDark,cardBg}=useC();
+  const now=new Date();const weekAgo=new Date(now);weekAgo.setDate(weekAgo.getDate()-7);const waStr=weekAgo.toISOString().slice(0,10);
+  const active=peds.filter((p:any)=>p.st!==ST.OK);
+  const overdue=active.filter((p:any)=>isOD(p.fReq));
+  const upcoming=active.filter((p:any)=>p.fReq&&p.fReq>=TODAY&&daysDiff(TODAY,p.fReq)<=7).sort((a:any,b:any)=>(a.fReq||"").localeCompare(b.fReq||""));
+  const recentLogs=peds.flatMap((p:any)=>(p.log||[]).map((l:any)=>({...l,pId:p.id,pDesc:p.desc}))).sort((a:any,b:any)=>(b.dt||"").localeCompare(a.dt||"")).slice(0,8);
+  /* Workload by user */
+  const workload=users.filter((u:any)=>rlv(u.role)>=2).map((u:any)=>{const tasks=active.filter((p:any)=>p.asTo===u.id);return{id:u.id,name:fn(u),count:tasks.length,overdue:tasks.filter((p:any)=>isOD(p.fReq)).length};}).filter((w:any)=>w.count>0).sort((a:any,b:any)=>b.count-a.count).slice(0,8);
+  const maxWL=Math.max(...workload.map((w:any)=>w.count),1);
+  /* Budget summary */
+  const budgetApproved=presu.filter((pr:any)=>pr.status==="aprobado").reduce((s:number,pr:any)=>s+Number(pr.monto||0),0);
+  /* Tasks created this week */
+  const createdThisWeek=peds.filter((p:any)=>p.cAt>=waStr).length;
+  const completedThisWeek=peds.filter((p:any)=>p.st===ST.OK&&p.log?.some((l:any)=>l.dt>=waStr)).length;
+
+  return(<div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:mob?8:14,marginBottom:mob?12:18}}>
+    {/* Widget 1: Upcoming Deadlines */}
+    <Card style={{padding:mob?"10px 12px":"14px 16px"}}>
+      <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:8}}>📅 Próximos Vencimientos</div>
+      {upcoming.length===0&&<div style={{fontSize:11,color:colors.g4,padding:8}}>Sin vencimientos próximos</div>}
+      {upcoming.slice(0,5).map((p:any)=>{const d=daysDiff(TODAY,p.fReq);return(<div key={p.id} onClick={()=>onSel(p)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 0",borderBottom:"1px solid "+colors.g1,cursor:"pointer",fontSize:11}}>
+        <div style={{flex:1,minWidth:0}}><span style={{color:colors.g4}}>#{p.id}</span> <span style={{fontWeight:600,color:colors.nv}}>{(p.desc||"").slice(0,30)}</span></div>
+        <span style={{fontSize:10,fontWeight:600,padding:"1px 6px",borderRadius:8,background:d<=1?"#FEE2E2":d<=3?"#FEF3C7":"#D1FAE5",color:d<=1?"#DC2626":d<=3?"#92400E":"#065F46",flexShrink:0}}>{d===0?"Hoy":d===1?"Mañana":d+" días"}</span>
+      </div>);})}
+    </Card>
+    {/* Widget 2: Recent Activity */}
+    <Card style={{padding:mob?"10px 12px":"14px 16px"}}>
+      <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:8}}>📰 Actividad Reciente</div>
+      {recentLogs.length===0&&<div style={{fontSize:11,color:colors.g4,padding:8}}>Sin actividad</div>}
+      {recentLogs.map((l:any,i:number)=><div key={i} style={{display:"flex",gap:6,padding:"3px 0",borderBottom:"1px solid "+colors.g1,fontSize:10}}>
+        <div style={{width:6,height:6,borderRadius:3,background:l.t==="sys"?colors.bl:colors.gn,marginTop:4,flexShrink:0}}/>
+        <div style={{flex:1,minWidth:0}}><span style={{fontWeight:600,color:colors.nv}}>{l.by}</span> <span style={{color:colors.g5}}>{(l.act||"").slice(0,35)}</span><div style={{fontSize:9,color:colors.g4}}>#{l.pId} · {(l.dt||"").slice(5,16)}</div></div>
+      </div>)}
+    </Card>
+    {/* Widget 3: Team Workload */}
+    <Card style={{padding:mob?"10px 12px":"14px 16px"}}>
+      <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:8}}>👥 Carga de Trabajo</div>
+      {workload.length===0&&<div style={{fontSize:11,color:colors.g4,padding:8}}>Sin tareas asignadas</div>}
+      {workload.map((w:any)=><div key={w.id} style={{marginBottom:6}}>
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:10,marginBottom:2}}><span style={{fontWeight:600,color:colors.nv}}>{w.name}</span><span style={{color:colors.g4}}>{w.count} tareas{w.overdue>0?<span style={{color:"#DC2626"}}> ({w.overdue} ⏰)</span>:""}</span></div>
+        <div style={{height:8,background:colors.g1,borderRadius:4,overflow:"hidden"}}><div style={{height:"100%",borderRadius:4,width:(w.count/maxWL*100)+"%",background:w.overdue>0?"#DC2626":w.count>5?colors.yl:colors.gn}}/></div>
+      </div>)}
+    </Card>
+    {/* Widget 4: Weekly Summary */}
+    <Card style={{padding:mob?"10px 12px":"14px 16px"}}>
+      <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:8}}>📊 Resumen Semanal</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+        <div style={{textAlign:"center" as const,padding:8,background:colors.gn+"10",borderRadius:8}}><div style={{fontSize:18,fontWeight:800,color:colors.gn}}>{completedThisWeek}</div><div style={{fontSize:9,color:colors.g5}}>Completadas</div></div>
+        <div style={{textAlign:"center" as const,padding:8,background:colors.bl+"10",borderRadius:8}}><div style={{fontSize:18,fontWeight:800,color:colors.bl}}>{createdThisWeek}</div><div style={{fontSize:9,color:colors.g5}}>Nuevas</div></div>
+        <div style={{textAlign:"center" as const,padding:8,background:"#DC262610",borderRadius:8}}><div style={{fontSize:18,fontWeight:800,color:"#DC2626"}}>{overdue.length}</div><div style={{fontSize:9,color:colors.g5}}>Vencidas</div></div>
+        <div style={{textAlign:"center" as const,padding:8,background:colors.pr+"10",borderRadius:8}}><div style={{fontSize:18,fontWeight:800,color:colors.pr}}>${budgetApproved.toLocaleString()}</div><div style={{fontSize:9,color:colors.g5}}>$ Aprobado</div></div>
+      </div>
+    </Card>
+  </div>);
+}
+
 /* ── KANBAN VIEW (Feature 4) ── */
 function KanbanView({peds,users,user,onSel,onStatusChange,mob}:any){
   const{colors,isDark,cardBg}=useC();
+  const [dragId,sDragId]=useState<number|null>(null);
+  const [dragOver,sDragOver]=useState<string|null>(null);
   const cols=[{st:ST.P,l:"Pendiente",c:T.rd},{st:ST.C,l:"En Curso",c:T.yl},{st:ST.E,l:"Compras",c:T.pr},{st:ST.V,l:"Validación",c:T.bl},{st:ST.OK,l:"Completada",c:T.gn}];
   const nextSt=(st:string)=>{const i=cols.findIndex(c=>c.st===st);return i<cols.length-1?cols[i+1].st:st;};
+  const handleDragStart=(e:any,id:number)=>{sDragId(id);e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain",String(id));};
+  const handleDragEnd=()=>{sDragId(null);sDragOver(null);};
+  const handleDragOver=(e:any,st:string)=>{e.preventDefault();e.dataTransfer.dropEffect="move";sDragOver(st);};
+  const handleDragLeave=()=>sDragOver(null);
+  const handleDrop=(e:any,targetSt:string)=>{e.preventDefault();sDragOver(null);const id=Number(e.dataTransfer.getData("text/plain"));if(!id)return;const task=peds.find((p:any)=>p.id===id);if(task&&task.st!==targetSt){onStatusChange(id,targetSt);}sDragId(null);};
   return(<div>
     <h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:colors.nv,fontWeight:800}}>Kanban</h2>
-    <p style={{color:colors.g4,fontSize:12,margin:"0 0 14px"}}>Vista de tareas por estado</p>
+    <p style={{color:colors.g4,fontSize:12,margin:"0 0 14px"}}>Arrastrá las tareas entre columnas para cambiar estado</p>
     <div style={{display:mob?"flex":"grid",gridTemplateColumns:"repeat(5,1fr)",flexDirection:mob?"column" as const:undefined,gap:10,overflowX:mob?undefined:"auto" as const}}>
-      {cols.map(col=>{const cp=peds.filter((p:any)=>p.st===col.st);return(<div key={col.st} style={{background:colors.g1,borderRadius:12,padding:10,minWidth:mob?undefined:180,borderTop:"3px solid "+col.c}}>
+      {cols.map(col=>{const cp=peds.filter((p:any)=>p.st===col.st);const isOver=dragOver===col.st;return(<div key={col.st} onDragOver={e=>handleDragOver(e,col.st)} onDragLeave={handleDragLeave} onDrop={e=>handleDrop(e,col.st)} style={{background:isOver?(col.c+"20"):colors.g1,borderRadius:12,padding:10,minWidth:mob?undefined:180,borderTop:"3px solid "+col.c,transition:"background .15s",outline:isOver?"2px dashed "+col.c:"none"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}><span style={{fontSize:12,fontWeight:700,color:colors.nv}}>{col.l}</span><span style={{fontSize:10,fontWeight:700,color:col.c,background:col.c+"20",borderRadius:10,padding:"1px 6px"}}>{cp.length}</span></div>
         {cp.length===0&&<div style={{fontSize:10,color:colors.g4,textAlign:"center" as const,padding:12}}>—</div>}
-        {cp.map((p:any)=>{const ag=users.find((u:any)=>u.id===p.asTo);const od=p.st!==ST.OK&&isOD(p.fReq);return(<div key={p.id} onClick={()=>onSel(p)} style={{background:od?(isDark?"#451A1A":"#FEF2F2"):cardBg,borderRadius:10,padding:"8px 10px",marginBottom:6,cursor:"pointer",border:"1px solid "+colors.g2,borderLeft:"3px solid "+col.c}}>
+        {cp.map((p:any)=>{const ag=users.find((u:any)=>u.id===p.asTo);const od=p.st!==ST.OK&&isOD(p.fReq);const isDragging=dragId===p.id;return(<div key={p.id} draggable onDragStart={e=>handleDragStart(e,p.id)} onDragEnd={handleDragEnd} onClick={()=>onSel(p)} style={{background:od?(isDark?"#451A1A":"#FEF2F2"):cardBg,borderRadius:10,padding:"8px 10px",marginBottom:6,cursor:isDragging?"grabbing":"grab",border:"1px solid "+(isDragging?col.c:colors.g2),borderLeft:"3px solid "+col.c,opacity:isDragging?.5:1,transition:"opacity .15s, transform .15s",transform:isDragging?"rotate(2deg)":"none",userSelect:"none" as const}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"start"}}>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:9,color:colors.g4,fontWeight:600}}>#{p.id}{p.urg==="Urgente"?" 🔥":""}{od?" ⏰":""}</div>
@@ -1647,6 +1772,9 @@ function CommView({peds,presu,agendas,minutas,users,areas,deptos,user,mob}:any){
     presupuestos:{l:"💰 Estado Presupuestos",gen:()=>`💰 *Estado de Presupuestos*\n\nPendientes: ${pendPresu.length}\nAprobados: ${presu.filter((pr:any)=>pr.status==="aprobado").length}\nTotal aprobado: $${presu.filter((pr:any)=>pr.status==="aprobado").reduce((s:number,pr:any)=>s+Number(pr.monto||0),0).toLocaleString()}${sig}`},
     cd:{l:"🏛️ Resumen CD",gen:()=>{const cdPeds=peds.filter((p:any)=>[50,51,52,53,54,80,81,82].includes(p.dId));return`🏛️ *Comisión Directiva*\n\n📋 Tareas: ${cdPeds.length}\n✅ Completadas: ${cdPeds.filter((p:any)=>p.st===ST.OK).length}\n⏰ Pendientes: ${cdPeds.filter((p:any)=>p.st===ST.P).length}${sig}`;}},
     se:{l:"⚡ Resumen SE",gen:()=>{const sePeds=peds.filter((p:any)=>p.dId===55||p.dId===56);return`⚡ *Secretaría Ejecutiva*\n\n📋 Tareas: ${sePeds.length}\n✅ Completadas: ${sePeds.filter((p:any)=>p.st===ST.OK).length}\n⏰ Pendientes: ${sePeds.filter((p:any)=>p.st===ST.P).length}${sig}`;}},
+    asistencia:{l:"📋 Asistencia",gen:()=>{const div=DIV;return`📋 *Control de Asistencia*\n\n📆 Fecha: ${fmtD(TODAY)}\n\n${div.map((d:string)=>`*${d}:*\n✅ Presentes: \n❌ Ausentes: `).join("\n\n")}${sig}`;}},
+    citacion:{l:"🏉 Citación",gen:()=>`🏉 *Citación a Entrenamiento*\n\n📆 ${fmtD(TODAY)}\n🕐 Horario: 19:00 hs\n📍 Club Los Tordos\n\nCitados:\n• \n\n⚠️ Confirmar asistencia\n_Los Tordos Rugby Club_`},
+    convocatoria:{l:"📣 Convocatoria",gen:()=>`📣 *Convocatoria General*\n\n🏉 Los Tordos Rugby Club\n📆 ${fmtD(TODAY)}\n📍 Club Los Tordos\n\n*Motivo:*\n\n*Agenda:*\n1. \n2. \n3. \n\n⚠️ Se solicita puntual asistencia\n_Comisión Directiva - Los Tordos RC_`},
     libre:{l:"✏️ Mensaje Libre",gen:()=>""}
   };
   const selTmpl=(k:string)=>{sTmpl(k);sMsg(templates[k].gen());};
@@ -1760,6 +1888,7 @@ export default function App(){
   /* Global Search state (Feature 1) */
   const [gsOpen,sGsOpen]=useState(false);const gsRef=useRef<HTMLDivElement>(null);
   const mob=useMobile();const [sbOpen,sSbOpen]=useState(false);
+  const {pushEnabled,requestPush,sendPush}=usePushNotifs(user,peds);
   const {mode:themeMode,toggle:toggleTheme,colors,isDark,cardBg,headerBg}=useTheme();
   const showT=(msg:string,type:"ok"|"err"="ok")=>sToast({msg,type});
 
@@ -1915,7 +2044,7 @@ export default function App(){
                 {r.presu.length>0&&<div><div style={{fontSize:9,fontWeight:700,color:colors.g4,padding:"4px 8px",textTransform:"uppercase" as const}}>Presupuestos</div>{r.presu.map((pr:any)=><div key={pr.id} onClick={()=>{sVw("presu");sGsOpen(false);sSr("");}} style={{padding:"5px 8px",borderRadius:6,cursor:"pointer",fontSize:11,color:colors.nv}}>💰 {pr.proveedor_nombre} <span style={{color:colors.g4,fontSize:9}}>${Number(pr.monto).toLocaleString()}</span></div>)}</div>}
               </div>:null;})()}
             </div>
-            <div style={{position:"relative" as const}}><button onClick={()=>sShNot(!shNot)} style={{background:"none",border:"none",fontSize:16,cursor:"pointer",position:"relative" as const}}>🔔{nts.length>0&&<span style={{position:"absolute" as const,top:-4,right:-4,width:14,height:14,borderRadius:7,background:colors.rd,color:"#fff",fontSize:8,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>{nts.length}</span>}</button>{shNot&&<div style={{position:"absolute" as const,right:0,top:32,background:cardBg,borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,.12)",border:"1px solid "+colors.g2,width:280,zIndex:100,padding:8,maxHeight:360,overflowY:"auto" as const}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}><div style={{fontSize:11,fontWeight:700,color:colors.nv}}>Notificaciones</div>{unreadDb.length>0&&<button onClick={async()=>{const tok=await getToken();await markRead(tok);sDbNotifs(prev=>prev.map((n:any)=>({...n,read:true})));}} style={{background:"none",border:"none",fontSize:10,color:colors.bl,cursor:"pointer",fontWeight:600}}>Marcar leídas</button>}</div>{nts.length===0&&<div style={{fontSize:11,color:colors.g4,padding:8}}>Todo al día ✅</div>}{nts.map((n,i)=><div key={i} onClick={()=>{sShNot(false);if(n.dbId){getToken().then(tok=>markRead(tok,[n.dbId]));sDbNotifs(prev=>prev.map((x:any)=>x.id===n.dbId?{...x,read:true}:x));}if(n.first){sSl(n.first);}else if(n.link){window.location.hash=n.link;}else if(n.act){sVw(n.act);sAA(null);sAD(null);}}} style={{padding:"6px 8px",borderRadius:6,background:n.c+"10",marginBottom:3,fontSize:11,color:n.c,fontWeight:600,cursor:"pointer"}}>{n.t}</div>)}</div>}</div>
+            <div style={{position:"relative" as const}}><button onClick={()=>sShNot(!shNot)} style={{background:"none",border:"none",fontSize:16,cursor:"pointer",position:"relative" as const}}>🔔{nts.length>0&&<span style={{position:"absolute" as const,top:-4,right:-4,width:14,height:14,borderRadius:7,background:colors.rd,color:"#fff",fontSize:8,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>{nts.length}</span>}</button>{shNot&&<div style={{position:"absolute" as const,right:0,top:32,background:cardBg,borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,.12)",border:"1px solid "+colors.g2,width:280,zIndex:100,padding:8,maxHeight:360,overflowY:"auto" as const}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}><div style={{fontSize:11,fontWeight:700,color:colors.nv}}>Notificaciones</div>{unreadDb.length>0&&<button onClick={async()=>{const tok=await getToken();await markRead(tok);sDbNotifs(prev=>prev.map((n:any)=>({...n,read:true})));}} style={{background:"none",border:"none",fontSize:10,color:colors.bl,cursor:"pointer",fontWeight:600}}>Marcar leídas</button>}</div>{nts.length===0&&<div style={{fontSize:11,color:colors.g4,padding:8}}>Todo al día ✅</div>}{nts.map((n,i)=><div key={i} onClick={()=>{sShNot(false);if(n.dbId){getToken().then(tok=>markRead(tok,[n.dbId]));sDbNotifs(prev=>prev.map((x:any)=>x.id===n.dbId?{...x,read:true}:x));}if(n.first){sSl(n.first);}else if(n.link){window.location.hash=n.link;}else if(n.act){sVw(n.act);sAA(null);sAD(null);}}} style={{padding:"6px 8px",borderRadius:6,background:n.c+"10",marginBottom:3,fontSize:11,color:n.c,fontWeight:600,cursor:"pointer"}}>{n.t}</div>)}{!pushEnabled&&"Notification" in (typeof window!=="undefined"?window:{})&&<div style={{borderTop:"1px solid "+colors.g2,padding:"6px 8px",marginTop:4}}><button onClick={requestPush} style={{width:"100%",padding:"6px 0",border:"1px solid "+colors.bl,borderRadius:6,background:"transparent",color:colors.bl,fontSize:10,fontWeight:600,cursor:"pointer"}}>🔔 Activar notificaciones push</button></div>}</div>}</div>
             {!mob&&<div style={{textAlign:"right" as const}}><div style={{fontSize:11,fontWeight:700,color:colors.nv}}>{fn(user)}</div><div style={{fontSize:9,color:colors.g4}}>{ROLES[user.role]?.i} {ROLES[user.role]?.l}{user.div?" · "+user.div:""}</div></div>}
             <button onClick={toggleTheme} title={isDark?"Modo claro":"Modo oscuro"} style={{width:28,height:28,borderRadius:7,border:"1px solid "+colors.g2,background:cardBg,cursor:"pointer",fontSize:12}}>{isDark?"☀️":"🌙"}</button>
             <button onClick={()=>sShowPw(true)} title="Cambiar contraseña" style={{width:28,height:28,borderRadius:7,border:"1px solid "+colors.g2,background:cardBg,cursor:"pointer",fontSize:12}}>🔒</button>
@@ -1977,7 +2106,7 @@ export default function App(){
             sPreAT(null);sVw(isPersonal?"my":"dash");sAA(null);sAD(null);showT(p._presu?"Tarea creada con presupuesto":"Tarea creada");}catch(e:any){showT(e.message||"Error al crear tarea","err");}
           }} onX={()=>{sPreAT(null);sVw(isPersonal?"my":"dash");}}/>}
           {vw==="proy"&&<Proyecto hitos={hitos} setHitos={(updater:any)=>{sHi((prev:any)=>{const next=typeof updater==="function"?updater(prev):updater;next.forEach((h:any)=>{supabase.from("milestones").update({pct:h.pct}).eq("id",h.id);});return next;});}} isAd={isAd} mob={mob}/>}
-          {vw==="dash"&&!isPersonal&&!aA&&!aD&&!kpiFilt&&<><h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:colors.nv,fontWeight:800}}>Dashboard</h2><p style={{color:colors.g4,fontSize:12,margin:"0 0 16px"}}>KPIs institucionales · Manual Operativo 2035</p><KPIs peds={peds} mob={mob} presu={presu} onFilter={(k:string)=>sKpiFilt(k)}/><Circles areas={areas} deptos={deptos} pedidos={peds} onAC={hAC} mob={mob}/></>}
+          {vw==="dash"&&!isPersonal&&!aA&&!aD&&!kpiFilt&&<><h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:colors.nv,fontWeight:800}}>Dashboard</h2><p style={{color:colors.g4,fontSize:12,margin:"0 0 16px"}}>KPIs institucionales · Manual Operativo 2035</p><KPIs peds={peds} mob={mob} presu={presu} onFilter={(k:string)=>sKpiFilt(k)}/><DashWidgets peds={peds} presu={presu} agendas={agendas} minutas={minutas} users={users} areas={areas} deptos={deptos} onSel={(p:any)=>sSl(p)} mob={mob}/><Circles areas={areas} deptos={deptos} pedidos={peds} onAC={hAC} mob={mob}/></>}
           {vw==="dash"&&!isPersonal&&!aA&&!aD&&kpiFilt&&(()=>{const fl=KPIF[kpiFilt];const fp=kpiFilter(peds,kpiFilt);return <div><Bread parts={[{label:"Dashboard",onClick:()=>sKpiFilt(null)},{label:fl?.l||""}]} mob={mob}/><TList title={fl?.l||""} icon={fl?.i||""} color={fl?.c||T.bl} peds={fp} users={users} onSel={(p:any)=>sSl(p)} search={search} mob={mob} onBulk={handleBulk} onImport={handleImport} user={user}/></div>;})()}
           {vw==="dash"&&!isPersonal&&aA&&!aD&&(aA===100||aA===101)&&<div><Bread parts={[{label:"Dashboard",onClick:()=>{sAA(null);sKpiFilt(null);}},{label:vT}]} mob={mob}/><KPIs peds={vP} mob={mob} onFilter={(k:string)=>{sAA(null);sKpiFilt(k);}}/><TList title={vT} icon={vI} color={vC} peds={vP} users={users} onSel={(p:any)=>sSl(p)} search={search} mob={mob} onBulk={handleBulk} onImport={handleImport} user={user}/></div>}
           {vw==="dash"&&!isPersonal&&aA&&!aD&&aA!==100&&aA!==101&&(()=>{const selAr=areas.find((a:any)=>a.id===aA);return <div><Bread parts={[{label:"Dashboard",onClick:()=>{sAA(null);sKpiFilt(null);}},{label:selAr?.name||""}]} mob={mob}/><h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:colors.nv,fontWeight:800}}>{selAr?.icon} {selAr?.name}</h2><p style={{color:colors.g4,fontSize:12,margin:"0 0 16px"}}>{deptos.filter((d:any)=>d.aId===aA).length} departamentos</p><KPIs peds={vP} mob={mob} onFilter={(k:string)=>{sAA(null);sKpiFilt(k);}}/><DeptCircles area={selAr} deptos={deptos} pedidos={peds} onDC={(id:number)=>sAD(id)} mob={mob}/></div>;})()}
