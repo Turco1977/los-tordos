@@ -160,11 +160,15 @@ function Login({onLogin,mob}:{onLogin:(user:any)=>void;mob?:boolean}){
 }
 
 /* ── THREAD ── */
-function Thread({log,userId,onSend}:{log:any[];userId:string;onSend:any}){
+function Thread({log,userId,onSend,users}:{log:any[];userId:string;onSend:any;users?:any[]}){
   const [msg,sMsg]=useState("");const [showAtt,sShowAtt]=useState(false);const [attType,sAttType]=useState("");const [attVal,sAttVal]=useState("");
+  const [mentionOpen,sMentionOpen]=useState(false);const [mentionQ,sMentionQ]=useState("");const mentionRef=useRef<HTMLInputElement>(null);
   const attTypes=[{k:"link",l:"🔗 Link",ph:"https://..."},{k:"video",l:"🎬 Video",ph:"URL del video..."},{k:"foto",l:"📷 Foto",ph:"URL de la imagen..."},{k:"ubi",l:"📍 Ubicación",ph:"Dirección o link de Maps..."},{k:"doc",l:"📄 Documento",ph:"URL del documento..."}];
   const sendAtt=()=>{if(attVal.trim()){const at=attTypes.find(a=>a.k===attType);onSend((at?at.l+": ":"📎 ")+attVal.trim());sAttVal("");sAttType("");sShowAtt(false);}};
-  const renderMsg=(act:string)=>{const m=act.match(/(https?:\/\/\S+)/);if(m){const parts=act.split(m[1]);return <>{parts[0]}<a href={m[1]} target="_blank" rel="noopener noreferrer" style={{color:T.bl,textDecoration:"underline",wordBreak:"break-all" as const}}>{m[1]}</a>{parts[1]}</>;}return act;};
+  const handleMsgChange=(val:string)=>{sMsg(val);const atIdx=val.lastIndexOf("@");if(atIdx>=0&&(atIdx===0||val[atIdx-1]===" ")){const q=val.slice(atIdx+1);if(!q.includes(" ")){sMentionOpen(true);sMentionQ(q.toLowerCase());return;}}sMentionOpen(false);};
+  const insertMention=(u:any)=>{const atIdx=msg.lastIndexOf("@");const before=msg.slice(0,atIdx);sMsg(before+"@"+fn(u)+" ");sMentionOpen(false);mentionRef.current?.focus();};
+  const filtUsers=(users||[]).filter((u:any)=>(fn(u)).toLowerCase().includes(mentionQ)).slice(0,5);
+  const renderMsg=(act:string)=>{const m=act.match(/(https?:\/\/\S+)/);if(m){const parts=act.split(m[1]);return <>{parts[0]}<a href={m[1]} target="_blank" rel="noopener noreferrer" style={{color:T.bl,textDecoration:"underline",wordBreak:"break-all" as const}}>{m[1]}</a>{parts[1]}</>;}/* highlight @mentions */const mentionRx=/@[\w\s]+/g;const parts2=act.split(mentionRx);const mentions=act.match(mentionRx);if(mentions){return <>{parts2.map((pt,i)=><span key={i}>{pt}{mentions[i]?<span style={{color:T.bl,fontWeight:700}}>{mentions[i]}</span>:null}</span>)}</>;}return act;};
   return(<div style={{display:"flex",flexDirection:"column" as const,height:"100%"}}>
     <div style={{flex:1,overflowY:"auto" as const,padding:"8px 0",display:"flex",flexDirection:"column" as const,gap:6}}>
       {(log||[]).map((l:any,i:number)=>{
@@ -191,18 +195,28 @@ function Thread({log,userId,onSend}:{log:any[];userId:string;onSend:any}){
         <Btn v="g" s="s" onClick={()=>{sAttType("");sAttVal("");}}>←</Btn>
       </div>}
     </div>}
-    <div style={{display:"flex",gap:6,paddingTop:8,borderTop:"1px solid "+T.g2}}>
-      <button onClick={()=>{sShowAtt(!showAtt);sAttType("");sAttVal("");}} style={{width:36,height:36,borderRadius:18,background:showAtt?T.bl+"15":"#fff",border:"1px solid "+(showAtt?T.bl:T.g3),cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,color:showAtt?T.bl:T.g4}}>+</button>
-      <input value={msg} onChange={e=>sMsg(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&msg.trim()){onSend(msg.trim());sMsg("");}}} placeholder="Escribí un mensaje..." style={{flex:1,padding:"8px 12px",borderRadius:20,border:"1px solid "+T.g3,fontSize:12,outline:"none"}}/>
-      <button onClick={()=>{if(msg.trim()){onSend(msg.trim());sMsg("");}}} disabled={!msg.trim()} style={{width:36,height:36,borderRadius:18,background:msg.trim()?T.nv:T.g2,color:"#fff",border:"none",cursor:msg.trim()?"pointer":"default",fontSize:14}}>➤</button>
+    <div style={{position:"relative" as const}}>
+      {mentionOpen&&filtUsers.length>0&&<div style={{position:"absolute" as const,bottom:"100%",left:40,background:"#fff",border:"1px solid "+T.g3,borderRadius:8,boxShadow:"0 4px 12px rgba(0,0,0,.1)",maxHeight:140,overflowY:"auto" as const,zIndex:10,width:200}}>
+        {filtUsers.map((u:any)=><div key={u.id} onClick={()=>insertMention(u)} style={{padding:"6px 10px",fontSize:11,cursor:"pointer",borderBottom:"1px solid "+T.g1,fontWeight:600,color:T.nv}}>👤 {fn(u)} <span style={{color:T.g4,fontWeight:400}}>({ROLES[u.role]?.l||""})</span></div>)}
+      </div>}
+      <div style={{display:"flex",gap:6,paddingTop:8,borderTop:"1px solid "+T.g2}}>
+        <button onClick={()=>{sShowAtt(!showAtt);sAttType("");sAttVal("");}} style={{width:36,height:36,borderRadius:18,background:showAtt?T.bl+"15":"#fff",border:"1px solid "+(showAtt?T.bl:T.g3),cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,color:showAtt?T.bl:T.g4}}>+</button>
+        <input ref={mentionRef} value={msg} onChange={e=>handleMsgChange(e.target.value)} onKeyDown={e=>{if(e.key==="Escape")sMentionOpen(false);if(e.key==="Enter"&&msg.trim()&&!mentionOpen){onSend(msg.trim());sMsg("");}}} placeholder="Escribí un mensaje... (@mención)" style={{flex:1,padding:"8px 12px",borderRadius:20,border:"1px solid "+T.g3,fontSize:12,outline:"none"}}/>
+        <button onClick={()=>{if(msg.trim()){onSend(msg.trim());sMsg("");}}} disabled={!msg.trim()} style={{width:36,height:36,borderRadius:18,background:msg.trim()?T.nv:T.g2,color:"#fff",border:"none",cursor:msg.trim()?"pointer":"default",fontSize:14}}>➤</button>
+      </div>
     </div>
   </div>);
 }
 
 /* ── DETAIL MODAL ── */
-function Det({p,user,users,onX,onTk,onAs,onRe,onSE,onEO,onFi,onVa,onMsg,onMonto,onDel,onEditSave,presu,provs,onAddPresu,onUpdPresu,onDelPresu,mob}:any){
+function Det({p,user,users,onX,onTk,onAs,onRe,onSE,onEO,onFi,onVa,onMsg,onMonto,onDel,onEditSave,presu,provs,onAddPresu,onUpdPresu,onDelPresu,onDup,onCheck,mob}:any){
   const [at,sAt]=useState("");const [mt,sMt]=useState(p.monto||"");const [tab,sTab]=useState("chat");const [rp,sRp]=useState(p.resp||"");
   const [editing,sEditing]=useState(false);const [ef,sEf]=useState({tipo:p.tipo,desc:p.desc,fReq:p.fReq,urg:p.urg,div:p.div||"",rG:p.rG});
+  /* Checklist state (Feature 6) */
+  const checkLogs=(p.log||[]).filter((l:any)=>l.t==="check");
+  const [chkItems,sChkItems]=useState<{text:string;done:boolean}[]>(checkLogs.map((l:any)=>{try{return JSON.parse(l.act);}catch{return{text:l.act,done:false};}}).filter(Boolean));
+  const [newChk,sNewChk]=useState("");
+  const chkPct=chkItems.length?Math.round(chkItems.filter(c=>c.done).length/chkItems.length*100):0;
   const ag=users.find((u:any)=>u.id===p.asTo),isCo=rlv(user.role)>=3,isEm=user.role==="embudo",isM=p.asTo===user.id,isCr=p.cId===user.id;
   const isSA=user.role==="superadmin";
   const canT=rlv(user.role)>=2&&rlv(user.role)<=4&&p.st===ST.P;
@@ -222,17 +236,17 @@ function Det({p,user,users,onX,onTk,onAs,onRe,onSE,onEO,onFi,onVa,onMsg,onMonto,
       <div style={{padding:"16px 20px 12px",borderBottom:"1px solid "+T.g2,flexShrink:0}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"start"}}>
           <div><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:10,color:T.g4}}>#{p.id}</span><Badge s={p.st} sm/>{od&&<span style={{fontSize:10,color:"#DC2626",fontWeight:700}}>⏰ VENCIDA</span>}{p.urg==="Urgente"&&<span style={{fontSize:10,color:T.rd,fontWeight:700}}>🔥 URGENTE</span>}</div><h2 style={{margin:"4px 0 0",fontSize:15,color:T.nv,fontWeight:800}}>{p.tipo}: {p.desc.slice(0,60)}</h2></div>
-          <div style={{display:"flex",gap:4,alignItems:"center"}}>{rlv(user.role)>=4&&<Btn v="g" s="s" onClick={()=>{sEditing(true);sTab("edit");}}>✏️</Btn>}{isSA&&<Btn v="g" s="s" onClick={()=>{if(confirm("¿Eliminar esta tarea?")){onDel(p.id);onX();}}} style={{color:T.rd}}>🗑️</Btn>}<button onClick={onX} style={{background:"none",border:"none",fontSize:18,cursor:"pointer",color:T.g4}}>✕</button></div>
+          <div style={{display:"flex",gap:4,alignItems:"center"}}>{rlv(user.role)>=4&&<Btn v="g" s="s" onClick={()=>{sEditing(true);sTab("edit");}}>✏️</Btn>}{onDup&&rlv(user.role)>=3&&<Btn v="g" s="s" onClick={()=>onDup(p)}>📋</Btn>}{isSA&&<Btn v="g" s="s" onClick={()=>{if(confirm("¿Eliminar esta tarea?")){onDel(p.id);onX();}}} style={{color:T.rd}}>🗑️</Btn>}<button onClick={onX} style={{background:"none",border:"none",fontSize:18,cursor:"pointer",color:T.g4}}>✕</button></div>
         </div>
         <div style={{display:"flex",gap:12,marginTop:8,flexWrap:"wrap" as const,fontSize:11,color:T.g5}}>
           <span>📍 {p.div||"General"}</span><span>👤 {p.cN}</span>{ag&&<span>⚙️ {fn(ag)}</span>}<span>📅 {p.fReq}</span>{p.monto&&<span style={{color:T.pr,fontWeight:700}}>💰 ${p.monto.toLocaleString()}</span>}
         </div>
         <div style={{display:"flex",gap:4,marginTop:10}}>
-          {[{k:"chat",l:"💬 Chat ("+msgs+")"},{k:"info",l:"📋 Detalle"},{k:"acc",l:"⚡ Acciones"},{k:"presu",l:"💰 Presu ("+tPresu.length+")"},...(editing?[{k:"edit",l:"✏️ Editar"}]:[])].map(t=><button key={t.k} onClick={()=>sTab(t.k)} style={{padding:"5px 12px",borderRadius:6,border:"none",background:tab===t.k?T.nv:"transparent",color:tab===t.k?"#fff":T.g5,fontSize:11,fontWeight:600,cursor:"pointer"}}>{t.l}</button>)}
+          {[{k:"chat",l:"💬 Chat ("+msgs+")"},{k:"info",l:"📋 Detalle"},{k:"acc",l:"⚡ Acciones"},{k:"check",l:"☑️ ("+(chkItems.filter(c=>c.done).length)+"/"+chkItems.length+")"},{k:"presu",l:"💰 Presu ("+tPresu.length+")"},...(editing?[{k:"edit",l:"✏️ Editar"}]:[])].map(t=><button key={t.k} onClick={()=>sTab(t.k)} style={{padding:"5px 12px",borderRadius:6,border:"none",background:tab===t.k?T.nv:"transparent",color:tab===t.k?"#fff":T.g5,fontSize:11,fontWeight:600,cursor:"pointer"}}>{t.l}</button>)}
         </div>
       </div>
       <div style={{flex:1,padding:"12px 20px",overflow:"auto",display:"flex",flexDirection:"column" as const}}>
-        {tab==="chat"&&<Thread log={p.log} userId={user.id} onSend={(txt:string)=>onMsg(p.id,txt)}/>}
+        {tab==="chat"&&<Thread log={p.log} userId={user.id} onSend={(txt:string)=>onMsg(p.id,txt)} users={users}/>}
         {tab==="edit"&&rlv(user.role)>=4&&<div style={{display:"flex",flexDirection:"column" as const,gap:10}}>
           <div style={{padding:10,background:"#FFFBEB",borderRadius:8,border:"1px solid #FDE68A"}}><span style={{fontSize:11,fontWeight:700,color:"#92400E"}}>👑 Edición Administrativa</span></div>
           <div><label style={{fontSize:11,fontWeight:600,color:T.g5}}>Tipo</label><div style={{display:"flex",flexWrap:"wrap" as const,gap:4,marginTop:3}}>{TIPOS.map(t=><button key={t} onClick={()=>sEf(prev=>({...prev,tipo:t}))} style={{padding:"4px 10px",borderRadius:16,fontSize:10,border:ef.tipo===t?"2px solid "+T.nv:"1px solid "+T.g3,background:ef.tipo===t?T.nv:"#fff",color:ef.tipo===t?"#fff":T.g5,cursor:"pointer"}}>{t}</button>)}</div></div>
@@ -275,6 +289,16 @@ function Det({p,user,users,onX,onTk,onAs,onRe,onSE,onEO,onFi,onVa,onMsg,onMonto,
           {isEm&&!isSA&&p.st===ST.E&&<div style={{background:"#EDE9FE",padding:14,borderRadius:10}}><div style={{fontSize:13,fontWeight:700,color:"#5B21B6",marginBottom:8}}>💰 Aprobación{p.monto&&" – $"+p.monto.toLocaleString()}</div>{tPresu.length>0&&<div style={{fontSize:11,color:T.pr,marginBottom:6,cursor:"pointer"}} onClick={()=>sTab("presu")}>📋 {tPresu.length} presupuesto(s) cargado(s) → Ver comparación</div>}<div style={{display:"flex",gap:8}}><Btn v="s" onClick={()=>onEO(p.id,true)}>✅ Aprobar</Btn><Btn v="r" onClick={()=>onEO(p.id,false)}>❌ Rechazar</Btn></div></div>}
           {isCr&&!isSA&&p.st===ST.V&&<div style={{background:"#F0FDF4",padding:14,borderRadius:10}}><div style={{fontSize:13,fontWeight:700,color:"#166534",marginBottom:8}}>¿Confirmás resolución?</div><div style={{display:"flex",gap:8}}><Btn v="s" onClick={()=>onVa(p.id,true)}>✅ Validar</Btn><Btn v="r" onClick={()=>onVa(p.id,false)}>❌ Rechazar</Btn></div></div>}
           {!(canT||isCo||isSA||(isM&&p.st===ST.C)||(isEm&&p.st===ST.E)||(isCr&&p.st===ST.V)||p.st===ST.OK)&&<div style={{padding:16,textAlign:"center" as const,color:T.g4,fontSize:12}}>No hay acciones disponibles.</div>}
+        </div>}
+        {tab==="check"&&<div style={{display:"flex",flexDirection:"column" as const,gap:8}}>
+          {chkItems.length>0&&<div style={{marginBottom:4}}><div style={{display:"flex",justifyContent:"space-between",fontSize:10,marginBottom:3}}><span style={{fontWeight:600,color:T.nv}}>Progreso</span><span style={{fontWeight:700,color:chkPct>=100?T.gn:T.yl}}>{chkPct}%</span></div><div style={{height:6,background:T.g2,borderRadius:3,overflow:"hidden"}}><div style={{height:"100%",width:chkPct+"%",background:chkPct>=100?T.gn:T.yl,borderRadius:3,transition:"width .3s"}}/></div></div>}
+          {chkItems.map((c,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 8px",background:c.done?"#D1FAE5":"#fff",borderRadius:6,border:"1px solid "+(c.done?T.gn:T.g2)}}>
+            <input type="checkbox" checked={c.done} onChange={()=>{const nu=[...chkItems];nu[i]={...nu[i],done:!nu[i].done};sChkItems(nu);if(onCheck)onCheck(p.id,nu);}} style={{width:16,height:16}}/>
+            <span style={{flex:1,fontSize:12,color:c.done?T.gn:T.nv,textDecoration:c.done?"line-through":"none"}}>{c.text}</span>
+            <button onClick={()=>{const nu=chkItems.filter((_,j)=>j!==i);sChkItems(nu);if(onCheck)onCheck(p.id,nu);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:10,color:T.g4}}>✕</button>
+          </div>)}
+          <div style={{display:"flex",gap:4}}><input value={newChk} onChange={e=>sNewChk(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newChk.trim()){const nu=[...chkItems,{text:newChk.trim(),done:false}];sChkItems(nu);sNewChk("");if(onCheck)onCheck(p.id,nu);}}} placeholder="Nuevo item..." style={{flex:1,padding:"6px 10px",borderRadius:6,border:"1px solid "+T.g3,fontSize:12}}/><Btn v="p" s="s" disabled={!newChk.trim()} onClick={()=>{const nu=[...chkItems,{text:newChk.trim(),done:false}];sChkItems(nu);sNewChk("");if(onCheck)onCheck(p.id,nu);}}>+</Btn></div>
+          {chkItems.length===0&&<div style={{textAlign:"center" as const,padding:16,color:T.g4,fontSize:12}}>Sin checklist. Agregá items arriba.</div>}
         </div>}
         {tab==="presu"&&<div style={{display:"flex",flexDirection:"column" as const,gap:8}}>
           {/* Sub-tabs: list, add, compare */}
@@ -465,10 +489,12 @@ function Bread({parts,mob}:{parts:{label:string;onClick?:()=>void}[];mob?:boolea
 }
 
 /* ── TASK LIST ── */
-function TList({title,icon,color,peds,users,onSel,search,mob}:any){
+function TList({title,icon,color,peds,users,onSel,search,mob,onBulk,onImport,user}:any){
   const{colors,isDark,cardBg}=useC();
   const [f,sF]=useState("all");
   const [pg,sPg]=useState(1);
+  const [bulkSel,sBulkSel]=useState<number[]>([]);
+  const [showImport,sShowImport]=useState(false);
   const PER_PAGE=20;
   let v=f==="all"?peds:peds.filter((p:any)=>p.st===f);
   if(search){const s=search.toLowerCase();v=v.filter((p:any)=>(p.desc+p.cN+p.tipo+p.div+(p.id+"")).toLowerCase().includes(s));}
@@ -481,20 +507,35 @@ function TList({title,icon,color,peds,users,onSel,search,mob}:any){
     else exportPDF("Tareas — "+title,headers,rows,{landscape:true});
   };
   const odBg=isDark?"#451A1A":"#FEF2F2";
+  const toggleBulk=(id:number)=>sBulkSel(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
+  const allVis=v.map((p:any)=>p.id);
+  const allSelected=allVis.length>0&&allVis.every((id:number)=>bulkSel.includes(id));
   return(<div>
-    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,justifyContent:"space-between"}}><div style={{display:"flex",alignItems:"center",gap:8}}><div style={{width:30,height:30,borderRadius:8,background:color+"15",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15}}>{icon}</div><div><h2 style={{margin:0,fontSize:mob?14:16,color:colors.nv,fontWeight:800}}>{title}</h2><p style={{margin:0,fontSize:11,color:colors.g4}}>{allFiltered.length} tareas</p></div></div>{allFiltered.length>0&&<div style={{display:"flex",gap:4}}><Btn v="g" s="s" onClick={()=>doExport("csv")}>CSV</Btn><Btn v="g" s="s" onClick={()=>doExport("pdf")}>PDF</Btn></div>}</div>
+    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,justifyContent:"space-between"}}><div style={{display:"flex",alignItems:"center",gap:8}}><div style={{width:30,height:30,borderRadius:8,background:color+"15",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15}}>{icon}</div><div><h2 style={{margin:0,fontSize:mob?14:16,color:colors.nv,fontWeight:800}}>{title}</h2><p style={{margin:0,fontSize:11,color:colors.g4}}>{allFiltered.length} tareas</p></div></div><div style={{display:"flex",gap:4}}>{allFiltered.length>0&&<><Btn v="g" s="s" onClick={()=>doExport("csv")}>CSV</Btn><Btn v="g" s="s" onClick={()=>doExport("pdf")}>PDF</Btn></>}{onImport&&user&&(user.role==="superadmin"||user.role==="admin")&&<Btn v="g" s="s" onClick={()=>sShowImport(true)}>📥 Importar</Btn>}</div></div>
+    {/* Bulk action bar (Feature 3) */}
+    {bulkSel.length>0&&onBulk&&<div style={{display:"flex",gap:6,alignItems:"center",padding:"6px 10px",background:colors.nv+"10",borderRadius:8,marginBottom:8,flexWrap:"wrap" as const}}>
+      <label style={{display:"flex",alignItems:"center",gap:4,fontSize:10,cursor:"pointer"}}><input type="checkbox" checked={allSelected} onChange={()=>{if(allSelected)sBulkSel([]);else sBulkSel(allVis);}}/><span style={{fontWeight:600}}>Todos</span></label>
+      <span style={{fontSize:10,fontWeight:700,color:colors.nv}}>{bulkSel.length} seleccionados</span>
+      <select onChange={e=>{if(e.target.value){onBulk(bulkSel,"status",e.target.value);sBulkSel([]);}}} style={{padding:"3px 6px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:10}} defaultValue=""><option value="">Cambiar estado...</option>{Object.keys(SC).map(k=><option key={k} value={k}>{SC[k].l}</option>)}</select>
+      <select onChange={e=>{if(e.target.value){onBulk(bulkSel,"assign",e.target.value);sBulkSel([]);}}} style={{padding:"3px 6px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:10}} defaultValue=""><option value="">Asignar a...</option>{users.filter((u:any)=>rlv(u.role)>=2).map((u:any)=><option key={u.id} value={u.id}>{fn(u)}</option>)}</select>
+      <Btn v="g" s="s" onClick={()=>sBulkSel([])}>✕ Limpiar</Btn>
+    </div>}
+    {showImport&&onImport&&<CsvImport user={user} onImport={onImport} onX={()=>sShowImport(false)} mob={mob}/>}
     <div style={{display:"flex",gap:4,marginBottom:10,flexWrap:"wrap" as const}}><Btn v={f==="all"?"p":"g"} s="s" onClick={()=>{sF("all");sPg(1);}}>Todos</Btn>{Object.keys(SC).map(k=><Btn key={k} v={f===k?"p":"g"} s="s" onClick={()=>{sF(f===k?"all":k);sPg(1);}}>{SC[k].i} {peds.filter((p:any)=>p.st===k).length}</Btn>)}</div>
     {mob?<div style={{display:"flex",flexDirection:"column" as const,gap:8}}>
       {v.length===0&&<Card style={{textAlign:"center" as const,padding:24,color:colors.g4}}>Sin tareas</Card>}
-      {v.map((p:any)=>{const ag=users.find((u:any)=>u.id===p.asTo),od=p.st!==ST.OK&&isOD(p.fReq);return(<Card key={p.id} onClick={()=>onSel(p)} style={{padding:"10px 14px",cursor:"pointer",borderLeft:"4px solid "+SC[p.st].c,background:od?odBg:cardBg}}>
-        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}><span style={{fontSize:10,fontWeight:600,color:colors.nv}}>#{p.id}</span><Badge s={p.st} sm/>{od&&<span style={{fontSize:9,color:"#DC2626"}}>⏰</span>}{p.urg==="Urgente"&&<span style={{fontSize:9,color:colors.rd}}>🔥</span>}</div>
-        <div style={{fontSize:12,fontWeight:700,color:colors.nv,marginBottom:3}}>{p.desc}</div>
-        <div style={{fontSize:10,color:colors.g5}}>{p.tipo} · 📅 {p.fReq}{ag?" · ⚙️ "+fn(ag):""}</div>
+      {v.map((p:any)=>{const ag=users.find((u:any)=>u.id===p.asTo),od=p.st!==ST.OK&&isOD(p.fReq);return(<Card key={p.id} style={{padding:"10px 14px",cursor:"pointer",borderLeft:"4px solid "+SC[p.st].c,background:od?odBg:cardBg,display:"flex",gap:8,alignItems:"start"}}>
+        {onBulk&&<input type="checkbox" checked={bulkSel.includes(p.id)} onChange={()=>toggleBulk(p.id)} onClick={(e:any)=>e.stopPropagation()} style={{width:14,height:14,marginTop:4,flexShrink:0}}/>}
+        <div onClick={()=>onSel(p)} style={{flex:1}}>
+          <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}><span style={{fontSize:10,fontWeight:600,color:colors.nv}}>#{p.id}</span><Badge s={p.st} sm/>{od&&<span style={{fontSize:9,color:"#DC2626"}}>⏰</span>}{p.urg==="Urgente"&&<span style={{fontSize:9,color:colors.rd}}>🔥</span>}</div>
+          <div style={{fontSize:12,fontWeight:700,color:colors.nv,marginBottom:3}}>{p.desc}</div>
+          <div style={{fontSize:10,color:colors.g5}}>{p.tipo} · 📅 {p.fReq}{ag?" · ⚙️ "+fn(ag):""}</div>
+        </div>
       </Card>);})}
     </div>
-    :<Card style={{padding:0,overflow:"hidden"}}><table style={{width:"100%",borderCollapse:"collapse" as const,fontSize:12,color:colors.nv}}><thead><tr style={{background:colors.g1}}>{["#","Tipo","Solicitante","Fecha","Estado","Asignado"].map((h,i)=><th key={i} style={{padding:"7px 8px",textAlign:"left" as const,fontSize:10,color:colors.g4,fontWeight:700}}>{h}</th>)}</tr></thead><tbody>
-      {v.length===0&&<tr><td colSpan={6} style={{padding:28,textAlign:"center" as const,color:colors.g4}}>Sin tareas</td></tr>}
-      {v.map((p:any)=>{const ag=users.find((u:any)=>u.id===p.asTo),od=p.st!==ST.OK&&isOD(p.fReq);return(<tr key={p.id} onClick={()=>onSel(p)} style={{borderBottom:"1px solid "+colors.g1,cursor:"pointer",background:od?odBg:"transparent"}}><td style={{padding:"7px 8px",fontWeight:600,color:colors.nv}}>{p.id}</td><td style={{padding:"7px 8px"}}>{p.tipo}</td><td style={{padding:"7px 8px",fontSize:11}}>{p.cN}</td><td style={{padding:"7px 8px",fontSize:11}}>{p.fReq}{od&&<span style={{marginLeft:4,fontSize:9,color:"#DC2626"}}>⏰</span>}</td><td style={{padding:"7px 8px"}}><Badge s={p.st} sm/></td><td style={{padding:"7px 8px",fontSize:11,color:colors.g4}}>{ag?fn(ag):"–"}</td></tr>);})}
+    :<Card style={{padding:0,overflow:"hidden"}}><table style={{width:"100%",borderCollapse:"collapse" as const,fontSize:12,color:colors.nv}}><thead><tr style={{background:colors.g1}}>{[...(onBulk?[""]:[]),"#","Tipo","Solicitante","Fecha","Estado","Asignado"].map((h,i)=><th key={i} style={{padding:"7px 8px",textAlign:"left" as const,fontSize:10,color:colors.g4,fontWeight:700,width:i===0&&onBulk?24:undefined}}>{h}</th>)}</tr></thead><tbody>
+      {v.length===0&&<tr><td colSpan={onBulk?7:6} style={{padding:28,textAlign:"center" as const,color:colors.g4}}>Sin tareas</td></tr>}
+      {v.map((p:any)=>{const ag=users.find((u:any)=>u.id===p.asTo),od=p.st!==ST.OK&&isOD(p.fReq);return(<tr key={p.id} onClick={()=>onSel(p)} style={{borderBottom:"1px solid "+colors.g1,cursor:"pointer",background:od?odBg:"transparent"}}>{onBulk&&<td style={{padding:"7px 4px"}} onClick={e=>e.stopPropagation()}><input type="checkbox" checked={bulkSel.includes(p.id)} onChange={()=>toggleBulk(p.id)} style={{width:14,height:14}}/></td>}<td style={{padding:"7px 8px",fontWeight:600,color:colors.nv}}>{p.id}</td><td style={{padding:"7px 8px"}}>{p.tipo}</td><td style={{padding:"7px 8px",fontSize:11}}>{p.cN}</td><td style={{padding:"7px 8px",fontSize:11}}>{p.fReq}{od&&<span style={{marginLeft:4,fontSize:9,color:"#DC2626"}}>⏰</span>}</td><td style={{padding:"7px 8px"}}><Badge s={p.st} sm/></td><td style={{padding:"7px 8px",fontSize:11,color:colors.g4}}>{ag?fn(ag):"–"}</td></tr>);})}
     </tbody></table></Card>}
     <Pager page={pgData.page} totalPages={pgData.totalPages} onPage={sPg}/>
   </div>);
@@ -616,7 +657,40 @@ function NP({user,users,deptos,areas,onSub,onX,preAssign,mob,provs}:any){
 }
 
 /* ── PROYECTO ── */
-function Proyecto({hitos,setHitos,isAd}:any){return(<div style={{maxWidth:700}}><h2 style={{margin:"0 0 4px",fontSize:19,color:T.nv,fontWeight:800}}>📋 Plan Maestro 2035</h2><p style={{color:T.g4,fontSize:12,margin:"0 0 18px"}}>Hitos de infraestructura</p>{hitos.map((h:any)=>(<Card key={h.id} style={{marginBottom:10,borderLeft:"4px solid "+h.color,display:"flex",gap:16,alignItems:"center"}}><Ring pct={h.pct} color={h.color} size={70}/><div style={{flex:1}}><div style={{fontSize:10,fontWeight:700,color:h.color,textTransform:"uppercase" as const}}>{h.fase} · {h.periodo}</div><div style={{fontSize:14,fontWeight:700,color:T.nv,margin:"3px 0"}}>{h.name}</div><div style={{height:4,background:T.g2,borderRadius:4,overflow:"hidden"}}><div style={{height:"100%",width:h.pct+"%",background:h.color,borderRadius:4}}/></div></div>{isAd&&<div style={{display:"flex",gap:3}}><Btn v="g" s="s" onClick={()=>setHitos((p:any)=>p.map((x:any)=>x.id===h.id?{...x,pct:Math.max(0,x.pct-5)}:x))}>−</Btn><Btn v="g" s="s" onClick={()=>setHitos((p:any)=>p.map((x:any)=>x.id===h.id?{...x,pct:Math.min(100,x.pct+5)}:x))}>+</Btn></div>}</Card>))}</div>);}
+function Proyecto({hitos,setHitos,isAd,mob}:any){
+  const{colors,isDark,cardBg}=useC();
+  const [subTab,sSubTab]=useState("list");
+  /* Gantt: parse periodo strings like "2024-2026" into start/end years */
+  const parseRange=(per:string)=>{const m=per.match(/(\d{4})/g);if(m&&m.length>=2)return{s:Number(m[0]),e:Number(m[m.length-1])};if(m&&m.length===1)return{s:Number(m[0]),e:Number(m[0])+1};return{s:2024,e:2035};};
+  const minY=Math.min(...hitos.map((h:any)=>parseRange(h.periodo).s),2024);
+  const maxY=Math.max(...hitos.map((h:any)=>parseRange(h.periodo).e),2035);
+  const totalYears=maxY-minY+1;
+  return(<div style={{maxWidth:mob?undefined:900}}><h2 style={{margin:"0 0 4px",fontSize:19,color:colors.nv,fontWeight:800}}>Plan Maestro 2035</h2><p style={{color:colors.g4,fontSize:12,margin:"0 0 12px"}}>Hitos de infraestructura</p>
+    <div style={{display:"flex",gap:4,marginBottom:14}}>{[{k:"list",l:"📋 Lista"},{k:"gantt",l:"📊 Gantt"}].map(t=><button key={t.k} onClick={()=>sSubTab(t.k)} style={{padding:"6px 14px",borderRadius:8,border:"none",background:subTab===t.k?colors.nv:"#fff",color:subTab===t.k?(isDark?"#0F172A":"#fff"):colors.g5,fontSize:12,fontWeight:600,cursor:"pointer"}}>{t.l}</button>)}</div>
+    {subTab==="list"&&hitos.map((h:any)=>(<Card key={h.id} style={{marginBottom:10,borderLeft:"4px solid "+h.color,display:"flex",gap:16,alignItems:"center"}}><Ring pct={h.pct} color={h.color} size={70}/><div style={{flex:1}}><div style={{fontSize:10,fontWeight:700,color:h.color,textTransform:"uppercase" as const}}>{h.fase} · {h.periodo}</div><div style={{fontSize:14,fontWeight:700,color:colors.nv,margin:"3px 0"}}>{h.name}</div><div style={{height:4,background:colors.g2,borderRadius:4,overflow:"hidden"}}><div style={{height:"100%",width:h.pct+"%",background:h.color,borderRadius:4}}/></div></div>{isAd&&<div style={{display:"flex",gap:3}}><Btn v="g" s="s" onClick={()=>setHitos((p:any)=>p.map((x:any)=>x.id===h.id?{...x,pct:Math.max(0,x.pct-5)}:x))}>−</Btn><Btn v="g" s="s" onClick={()=>setHitos((p:any)=>p.map((x:any)=>x.id===h.id?{...x,pct:Math.min(100,x.pct+5)}:x))}>+</Btn></div>}</Card>))}
+    {subTab==="gantt"&&<Card style={{padding:16,overflowX:"auto" as const}}>
+      <div style={{minWidth:600}}>
+        {/* Header: year labels */}
+        <div style={{display:"flex",marginBottom:8,marginLeft:mob?120:200}}>
+          {Array.from({length:totalYears},(_,i)=>minY+i).map(y=><div key={y} style={{flex:1,fontSize:9,fontWeight:700,color:colors.g4,textAlign:"center" as const,borderLeft:"1px solid "+colors.g2}}>{y}</div>)}
+        </div>
+        {/* Rows */}
+        {hitos.map((h:any)=>{const r=parseRange(h.periodo);const leftPct=((r.s-minY)/totalYears)*100;const widthPct=((r.e-r.s+1)/totalYears)*100;
+          return(<div key={h.id} style={{display:"flex",alignItems:"center",marginBottom:6}}>
+            <div style={{width:mob?120:200,flexShrink:0,paddingRight:8}}>
+              <div style={{fontSize:11,fontWeight:700,color:colors.nv,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{h.name}</div>
+              <div style={{fontSize:9,color:colors.g4}}>{h.fase} · {h.pct}%</div>
+            </div>
+            <div style={{flex:1,position:"relative" as const,height:24,background:colors.g1,borderRadius:4}}>
+              <div style={{position:"absolute" as const,left:leftPct+"%",width:widthPct+"%",height:"100%",background:h.color+"30",borderRadius:4,overflow:"hidden"}}>
+                <div style={{height:"100%",width:h.pct+"%",background:h.color,borderRadius:4}}/>
+              </div>
+            </div>
+          </div>);})}
+      </div>
+    </Card>}
+  </div>);
+}
 
 /* ── PERFILES ── */
 function Profs({users,deptos,areas,onDel,onAdd,onEditUser,isAd,onAssignTask,mob}:any){
@@ -1198,6 +1272,8 @@ function PresView({presu,provs,peds,users,areas,deptos,user,onAddPresu,onUpdPres
         <Card style={{padding:"10px 12px",borderTop:"3px solid "+T.bl}}><div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:16}}>📊</span><span style={{fontSize:17,fontWeight:800,color:T.bl}}>{presu.length}</span></div><div style={{fontSize:10,color:T.g4,marginTop:3}}>Total Cotizaciones</div></Card>
         <Card style={{padding:"10px 12px",borderTop:"3px solid "+T.pr}}><div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:16}}>⏱️</span><span style={{fontSize:17,fontWeight:800,color:T.pr}}>{avgDays}d</span></div><div style={{fontSize:10,color:T.g4,marginTop:3}}>Tiempo resp. prom.</div></Card>
       </div>
+      {/* Auto PDF Report (Feature 11) */}
+      <div style={{marginBottom:14}}><Btn v="pu" s="s" onClick={()=>{const odPeds=peds.filter((p:any)=>p.st!==ST.OK&&isOD(p.fReq));const hdr=["KPI","Valor"];const rows=[["Total tareas",String(peds.length)],["Completadas",String(peds.filter((p:any)=>p.st===ST.OK).length)],["Pendientes",String(peds.filter((p:any)=>p.st===ST.P).length)],["En curso",String(peds.filter((p:any)=>p.st===ST.C).length)],["Vencidas",String(odPeds.length)],["---","---"],["Presupuesto aprobado","$"+totalApr.toLocaleString()],["Cotizaciones pendientes",String(pendientes)],["Tiempo respuesta prom.",avgDays+"d"],["---","---"],...odPeds.slice(0,10).map((p:any)=>["Vencida #"+p.id,p.desc.slice(0,40)+" ("+p.fReq+")"])];exportPDF("Reporte Los Tordos — "+TODAY,hdr,rows);}}>📄 Generar Reporte PDF</Btn></div>
       {areaGasto.length>0&&<Card style={{padding:14,marginBottom:14}}>
         <div style={{fontSize:13,fontWeight:700,color:T.nv,marginBottom:10}}>Gasto aprobado por Área</div>
         {areaGasto.map((a:any)=><div key={a.id} style={{marginBottom:8}}>
@@ -1488,6 +1564,128 @@ function CalView({peds,agendas,minutas,presu,reminders,areas,deptos,users,user,o
   </div>);
 }
 
+/* ── KANBAN VIEW (Feature 4) ── */
+function KanbanView({peds,users,user,onSel,onStatusChange,mob}:any){
+  const{colors,isDark,cardBg}=useC();
+  const cols=[{st:ST.P,l:"Pendiente",c:T.rd},{st:ST.C,l:"En Curso",c:T.yl},{st:ST.E,l:"Compras",c:T.pr},{st:ST.V,l:"Validación",c:T.bl},{st:ST.OK,l:"Completada",c:T.gn}];
+  const nextSt=(st:string)=>{const i=cols.findIndex(c=>c.st===st);return i<cols.length-1?cols[i+1].st:st;};
+  return(<div>
+    <h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:colors.nv,fontWeight:800}}>Kanban</h2>
+    <p style={{color:colors.g4,fontSize:12,margin:"0 0 14px"}}>Vista de tareas por estado</p>
+    <div style={{display:mob?"flex":"grid",gridTemplateColumns:"repeat(5,1fr)",flexDirection:mob?"column" as const:undefined,gap:10,overflowX:mob?undefined:"auto" as const}}>
+      {cols.map(col=>{const cp=peds.filter((p:any)=>p.st===col.st);return(<div key={col.st} style={{background:colors.g1,borderRadius:12,padding:10,minWidth:mob?undefined:180,borderTop:"3px solid "+col.c}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}><span style={{fontSize:12,fontWeight:700,color:colors.nv}}>{col.l}</span><span style={{fontSize:10,fontWeight:700,color:col.c,background:col.c+"20",borderRadius:10,padding:"1px 6px"}}>{cp.length}</span></div>
+        {cp.length===0&&<div style={{fontSize:10,color:colors.g4,textAlign:"center" as const,padding:12}}>—</div>}
+        {cp.map((p:any)=>{const ag=users.find((u:any)=>u.id===p.asTo);const od=p.st!==ST.OK&&isOD(p.fReq);return(<div key={p.id} onClick={()=>onSel(p)} style={{background:od?(isDark?"#451A1A":"#FEF2F2"):cardBg,borderRadius:10,padding:"8px 10px",marginBottom:6,cursor:"pointer",border:"1px solid "+colors.g2,borderLeft:"3px solid "+col.c}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"start"}}>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:9,color:colors.g4,fontWeight:600}}>#{p.id}{p.urg==="Urgente"?" 🔥":""}{od?" ⏰":""}</div>
+              <div style={{fontSize:11,fontWeight:700,color:colors.nv,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{p.desc}</div>
+              <div style={{fontSize:9,color:colors.g5,marginTop:2}}>{p.tipo} · 📅 {p.fReq}{ag?" · "+fn(ag):""}</div>
+            </div>
+            {col.st!==ST.OK&&<button onClick={(e:any)=>{e.stopPropagation();onStatusChange(p.id,nextSt(col.st));}} style={{background:"none",border:"1px solid "+colors.g3,borderRadius:4,cursor:"pointer",fontSize:10,color:colors.g5,padding:"2px 4px",flexShrink:0,marginLeft:4}} title="Avanzar estado">→</button>}
+          </div>
+        </div>);})}
+      </div>);})}
+    </div>
+  </div>);
+}
+
+/* ── ACTIVITY FEED (Feature 5) ── */
+function ActivityFeed({peds,users,onSel,mob}:any){
+  const{colors,cardBg}=useC();
+  const allLogs=peds.flatMap((p:any)=>(p.log||[]).map((l:any)=>({...l,taskId:p.id,taskDesc:p.desc,taskTipo:p.tipo}))).sort((a:any,b:any)=>(b.dt||"").localeCompare(a.dt||"")).slice(0,50);
+  return(<div style={{maxWidth:720}}>
+    <h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:colors.nv,fontWeight:800}}>Actividad Reciente</h2>
+    <p style={{color:colors.g4,fontSize:12,margin:"0 0 14px"}}>Últimas 50 acciones en el sistema</p>
+    {allLogs.length===0&&<Card style={{textAlign:"center" as const,padding:24,color:colors.g4}}>Sin actividad reciente</Card>}
+    <div style={{display:"flex",flexDirection:"column" as const,gap:4}}>
+      {allLogs.map((l:any,i:number)=><div key={i} style={{display:"flex",gap:8,padding:"8px 12px",background:cardBg,borderRadius:8,border:"1px solid "+colors.g2,alignItems:"start"}}>
+        <div style={{width:8,height:8,borderRadius:4,background:l.t==="sys"?colors.bl:colors.gn,marginTop:6,flexShrink:0}}/>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:2}}>
+            <span style={{fontSize:10,fontWeight:700,color:colors.nv}}>{l.by}</span>
+            <span style={{fontSize:9,color:colors.g4}}>{l.dt}</span>
+          </div>
+          <div style={{fontSize:11,color:colors.g5}}>{l.act}</div>
+          <div onClick={()=>{const p=peds.find((p:any)=>p.id===l.taskId);if(p)onSel(p);}} style={{fontSize:9,color:colors.bl,cursor:"pointer",marginTop:2}}>📋 #{l.taskId} {l.taskDesc?.slice(0,40)}</div>
+        </div>
+      </div>)}
+    </div>
+  </div>);
+}
+
+/* ── COMM VIEW / WhatsApp (Feature 9) ── */
+function CommView({peds,presu,agendas,users,user,mob}:any){
+  const{colors,cardBg}=useC();
+  const [tmpl,sTmpl]=useState("");const [msg,sMsg]=useState("");const [copied,sCopied]=useState(false);
+  const sig="\n\n---\n🏉 Los Tordos Rugby Club\nSistema de Gestión";
+  const now=new Date();const weekAgo=new Date(now);weekAgo.setDate(weekAgo.getDate()-7);const waStr=weekAgo.toISOString().slice(0,10);
+  const createdThisWeek=peds.filter((p:any)=>p.cAt>=waStr).length;
+  const completedThisWeek=peds.filter((p:any)=>p.st===ST.OK&&p.log?.some((l:any)=>l.dt>=waStr&&l.act?.includes("Validó"))).length;
+  const overdue=peds.filter((p:any)=>p.st!==ST.OK&&isOD(p.fReq));
+  const pendPresu=presu.filter((pr:any)=>pr.status==="solicitado"||pr.status==="recibido");
+  const nextAg=agendas.find((a:any)=>a.date>=TODAY);
+  const templates:any={
+    resumen:{l:"Resumen Semanal",gen:()=>`📊 *Resumen Semanal*\n\n📋 Tareas creadas: ${createdThisWeek}\n✅ Completadas: ${completedThisWeek}\n⏰ Vencidas: ${overdue.length}\n📊 Total activas: ${peds.filter((p:any)=>p.st!==ST.OK).length}${sig}`},
+    reunion:{l:"Convocatoria Reunión",gen:()=>`📅 *Convocatoria a Reunión*\n\n${nextAg?`Fecha: ${fmtD(nextAg.date)}\nTipo: ${AGT[nextAg.type]?.title||""}\n\nTemas:\n${(nextAg.sections||[]).map((s:any,i:number)=>`${i+1}. ${s.t}`).join("\n")}`:"Sin reuniones programadas"}${sig}`},
+    vencidas:{l:"Tareas Vencidas",gen:()=>`⏰ *Tareas Vencidas (${overdue.length})*\n\n${overdue.slice(0,10).map((p:any)=>`• #${p.id} ${p.desc.slice(0,40)} (📅 ${p.fReq})`).join("\n")}${overdue.length>10?"\n... y "+(overdue.length-10)+" más":""}${sig}`},
+    presupuestos:{l:"Estado Presupuestos",gen:()=>`💰 *Estado de Presupuestos*\n\nPendientes: ${pendPresu.length}\nAprobados: ${presu.filter((pr:any)=>pr.status==="aprobado").length}\nTotal aprobado: $${presu.filter((pr:any)=>pr.status==="aprobado").reduce((s:number,pr:any)=>s+Number(pr.monto),0).toLocaleString()}${sig}`}
+  };
+  const selTmpl=(k:string)=>{sTmpl(k);sMsg(templates[k].gen());};
+  const sendWA=()=>{window.open("https://wa.me/?text="+encodeURIComponent(msg),"_blank");};
+  const copyMsg=()=>{navigator.clipboard.writeText(msg);sCopied(true);setTimeout(()=>sCopied(false),2000);};
+  return(<div style={{maxWidth:640}}>
+    <h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:colors.nv,fontWeight:800}}>Comunicar</h2>
+    <p style={{color:colors.g4,fontSize:12,margin:"0 0 14px"}}>Enviar comunicaciones por WhatsApp</p>
+    <div style={{display:"grid",gridTemplateColumns:mob?"1fr 1fr":"repeat(4,1fr)",gap:8,marginBottom:14}}>
+      {Object.keys(templates).map(k=><Card key={k} onClick={()=>selTmpl(k)} style={{padding:"10px 12px",cursor:"pointer",textAlign:"center" as const,border:tmpl===k?"2px solid "+colors.nv:"1px solid "+colors.g2}}>
+        <div style={{fontSize:11,fontWeight:700,color:colors.nv}}>{templates[k].l}</div>
+      </Card>)}
+    </div>
+    <Card>
+      <div style={{fontSize:12,fontWeight:700,color:colors.nv,marginBottom:8}}>Mensaje</div>
+      <textarea value={msg} onChange={e=>sMsg(e.target.value)} rows={10} placeholder="Escribí o seleccioná una plantilla..." style={{width:"100%",padding:10,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,resize:"vertical" as const,boxSizing:"border-box" as const,fontFamily:"monospace"}}/>
+      <div style={{display:"flex",gap:8,marginTop:10,justifyContent:"flex-end"}}>
+        <Btn v="g" onClick={copyMsg}>{copied?"✅ Copiado":"📋 Copiar"}</Btn>
+        <Btn v="s" onClick={sendWA} disabled={!msg.trim()}>📱 Enviar por WhatsApp</Btn>
+      </div>
+    </Card>
+  </div>);
+}
+
+/* ── CSV IMPORT MODAL (Feature 12) ── */
+function CsvImport({user,onImport,onX,mob}:any){
+  const{colors,cardBg}=useC();
+  const [rows,sRows]=useState<any[]>([]);const [err,sErr]=useState("");
+  const parseCSV=(txt:string)=>{
+    const lines=txt.trim().split("\n");if(lines.length<2){sErr("CSV debe tener encabezados + datos");return;}
+    const hdr=lines[0].split(",").map(h=>h.trim().toLowerCase());
+    const req=["tipo","descripcion","fecha_limite"];
+    if(!req.every(r=>hdr.includes(r))){sErr("Columnas requeridas: tipo, descripcion, fecha_limite");return;}
+    const parsed=lines.slice(1).map(line=>{const vals=line.split(",").map(v=>v.trim());const obj:any={};hdr.forEach((h,i)=>obj[h]=vals[i]||"");return obj;}).filter(r=>r.tipo&&r.descripcion&&r.fecha_limite);
+    sRows(parsed);sErr("");
+  };
+  const handleFile=(e:any)=>{const f=e.target.files?.[0];if(!f)return;const reader=new FileReader();reader.onload=(ev:any)=>parseCSV(ev.target.result);reader.readAsText(f);};
+  return(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.4)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200}} onClick={onX}>
+    <div onClick={e=>e.stopPropagation()} style={{background:cardBg,borderRadius:14,padding:24,width:500,maxWidth:"90vw",maxHeight:"80vh",overflow:"auto",boxShadow:"0 8px 32px rgba(0,0,0,.15)"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><h3 style={{margin:0,fontSize:16,color:colors.nv}}>Importar CSV</h3><button onClick={onX} style={{background:"none",border:"none",fontSize:18,cursor:"pointer",color:colors.g4}}>✕</button></div>
+      <div style={{padding:10,background:colors.g1,borderRadius:8,marginBottom:12,fontSize:11,color:colors.g5}}>Columnas: tipo, descripcion, fecha_limite, division (opc), urgencia (opc)</div>
+      <input type="file" accept=".csv" onChange={handleFile} style={{marginBottom:12,fontSize:12}}/>
+      {err&&<div style={{color:colors.rd,fontSize:11,marginBottom:8}}>{err}</div>}
+      {rows.length>0&&<div>
+        <div style={{fontSize:11,fontWeight:700,color:colors.nv,marginBottom:6}}>{rows.length} tareas encontradas</div>
+        <div style={{maxHeight:200,overflow:"auto",border:"1px solid "+colors.g2,borderRadius:8,marginBottom:12}}>
+          <table style={{width:"100%",borderCollapse:"collapse" as const,fontSize:10}}><thead><tr style={{background:colors.g1}}><th style={{padding:4,textAlign:"left" as const}}>Tipo</th><th style={{padding:4,textAlign:"left" as const}}>Descripción</th><th style={{padding:4,textAlign:"left" as const}}>Fecha</th></tr></thead><tbody>
+            {rows.map((r,i)=><tr key={i} style={{borderBottom:"1px solid "+colors.g1}}><td style={{padding:4}}>{r.tipo}</td><td style={{padding:4}}>{r.descripcion?.slice(0,40)}</td><td style={{padding:4}}>{r.fecha_limite}</td></tr>)}
+          </tbody></table>
+        </div>
+        <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}><Btn v="g" onClick={onX}>Cancelar</Btn><Btn v="s" onClick={()=>{onImport(rows);onX();}}>Importar {rows.length} tareas</Btn></div>
+      </div>}
+    </div>
+  </div>);
+}
+
 /* ── NOTIFS ── */
 function notifs(user:any,peds:any[]){const n:any[]=[];if(["coordinador","admin","superadmin"].indexOf(user.role)>=0){const pp=peds.filter(p=>p.st===ST.P);if(pp.length)n.push({t:"🔴 "+pp.length+" pendientes",c:T.rd,act:"dash",filter:ST.P});}if(user.role==="embudo"){const ee=peds.filter(p=>p.st===ST.E);if(ee.length)n.push({t:"💰 "+ee.length+" esperando aprobación",c:T.pr,act:"dash",filter:ST.E});}const myV=peds.filter(p=>p.st===ST.V&&p.cId===user.id);if(myV.length)n.push({t:"🔵 "+myV.length+" esperando validación",c:T.bl,act:"my",filter:ST.V,first:myV[0]});const od=peds.filter(p=>p.st!==ST.OK&&isOD(p.fReq));if(od.length)n.push({t:"⏰ "+od.length+" vencidas",c:"#DC2626",act:"dash",filter:"overdue",first:od[0]});/* escalation: tasks stuck >7 days */if(["coordinador","admin","superadmin"].indexOf(user.role)>=0){const stuck=peds.filter(p=>p.st!==ST.OK&&p.st!==ST.P&&p.cAt&&daysDiff(p.cAt,TODAY)>7&&!isOD(p.fReq));if(stuck.length)n.push({t:"🚨 "+stuck.length+" tareas sin avance (+7d)",c:"#7C3AED",act:"dash",first:stuck[0]});}return n;}
 
@@ -1499,6 +1697,8 @@ export default function App(){
   const [dbNotifs,sDbNotifs]=useState<any[]>([]);
   const [user,sU]=useState<any>(null);const [authChecked,sAuthChecked]=useState(false);
   const [vw,sVw]=useState("dash");const [sel,sSl]=useState<any>(null);const [aA,sAA]=useState<number|null>(null);const [aD,sAD]=useState<number|null>(null);const [sbCol,sSbCol]=useState(false);const [search,sSr]=useState("");const [shNot,sShNot]=useState(false);const [preAT,sPreAT]=useState<any>(null);const [showPw,sShowPw]=useState(false);const [toast,sToast]=useState<{msg:string;type:"ok"|"err"}|null>(null);const [kpiFilt,sKpiFilt]=useState<string|null>(null);
+  /* Global Search state (Feature 1) */
+  const [gsOpen,sGsOpen]=useState(false);const gsRef=useRef<HTMLDivElement>(null);
   const mob=useMobile();const [sbOpen,sSbOpen]=useState(false);
   const {mode:themeMode,toggle:toggleTheme,colors,isDark,cardBg,headerBg}=useTheme();
   const showT=(msg:string,type:"ok"|"err"="ok")=>sToast({msg,type});
@@ -1579,6 +1779,36 @@ export default function App(){
   const isSA=user&&user.role==="superadmin";
   const isPersonal=user&&(user.role==="enlace"||user.role==="manager"||user.role==="usuario");
 
+  /* Global Search logic (Feature 1) */
+  const gsResults=useCallback(()=>{
+    if(!search||search.length<2)return{tasks:[],users:[],presu:[]};
+    const s=search.toLowerCase();
+    const tasks=peds.filter((p:any)=>(p.desc+p.cN+p.tipo+(p.id+"")).toLowerCase().includes(s)).slice(0,5);
+    const usrs=users.filter((u:any)=>(u.n+" "+u.a).toLowerCase().includes(s)).slice(0,5);
+    const pres=presu.filter((pr:any)=>(pr.proveedor_nombre+pr.descripcion).toLowerCase().includes(s)).slice(0,5);
+    return{tasks,users:usrs,presu:pres};
+  },[search,peds,users,presu]);
+  /* Close global search on outside click */
+  useEffect(()=>{const h=(e:any)=>{if(gsRef.current&&!gsRef.current.contains(e.target))sGsOpen(false);};document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h);},[]);
+
+  /* Bulk action handler (Feature 3) */
+  const handleBulk=async(ids:number[],action:string,value:string)=>{
+    try{if(action==="status"){sPd(p=>p.map(x=>ids.includes(x.id)?{...x,st:value}:x));for(const id of ids){await supabase.from("tasks").update({status:value}).eq("id",id);await addLog(id,user.id,fn(user),"Cambió estado a "+SC[value]?.l,"sys");}showT(ids.length+" tareas actualizadas");}
+    else if(action==="assign"){sPd(p=>p.map(x=>ids.includes(x.id)?{...x,asTo:value,st:x.st===ST.P?ST.C:x.st}:x));const ag=users.find((u:any)=>u.id===value);for(const id of ids){await supabase.from("tasks").update({assigned_to:value,status:peds.find(x=>x.id===id)?.st===ST.P?ST.C:undefined}).eq("id",id);await addLog(id,user.id,fn(user),"Asignó a "+(ag?fn(ag):""),"sys");}showT(ids.length+" tareas asignadas");}
+    }catch(e:any){showT(e.message||"Error","err");}
+  };
+
+  /* CSV Import handler (Feature 12) */
+  const handleImport=async(rows:any[])=>{
+    try{const ts=TODAY+" "+new Date().toTimeString().slice(0,5);const newTasks:any[]=[];
+    for(const r of rows){const row:any={division:r.division||"",creator_id:user.id,creator_name:fn(user),dept_id:user.dId||1,tipo:r.tipo,description:r.descripcion,due_date:r.fecha_limite,urgency:r.urgencia||"Normal",status:ST.P,assigned_to:null,requires_expense:false,expense_ok:null,resolution:"",created_at:TODAY,amount:null};
+    const{data}=await supabase.from("tasks").insert(row).select().single();const tid=data?.id||0;
+    if(tid){await supabase.from("task_messages").insert({task_id:tid,user_id:user.id,user_name:fn(user),content:"Creó tarea (importado CSV)",type:"sys"});
+    newTasks.push({id:tid,div:r.division||"",cId:user.id,cN:fn(user),dId:user.dId||1,tipo:r.tipo,desc:r.descripcion,fReq:r.fecha_limite,urg:r.urgencia||"Normal",st:ST.P,asTo:null,rG:false,eOk:null,resp:"",cAt:TODAY,monto:null,log:[{dt:ts,uid:user.id,by:fn(user),act:"Creó tarea (importado CSV)",t:"sys"}]});}}
+    sPd(p=>[...newTasks,...p]);showT(newTasks.length+" tareas importadas");
+    }catch(e:any){showT(e.message||"Error al importar","err");}
+  };
+
   if(!authChecked) return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:colors.g1}}><div style={{fontSize:14,color:colors.g4}}>Cargando...</div></div>;
   if(!user) return <Login onLogin={(u:any)=>sU(u)} mob={mob}/>;
 
@@ -1594,7 +1824,7 @@ export default function App(){
 
   let nav:any[]=[];
   if(isPersonal){nav=[{k:"my",l:"Mis Tareas",sh:true},{k:"cal",l:"📅 Calendario",sh:true},{k:"new",l:"+ Tarea",sh:true},{k:"org",l:"Organigrama",sh:true},{k:"profs",l:"Perfiles",sh:true},{k:"proy",l:"Plan 2035",sh:true}];}
-  else{nav=[{k:"dash",l:"Dashboard",sh:true},{k:"org",l:"Organigrama",sh:true},{k:"cal",l:"📅 Calendario",sh:true},...(isAd||user.role==="coordinador"||user.role==="embudo"?[{k:"presu",l:"💰 Presupuestos",sh:true}]:[]),...(isAd||user.role==="coordinador"?[{k:"reun",l:"🤝 Reuniones",sh:true}]:[]),{k:"proy",l:"Plan 2035",sh:true},{k:"profs",l:"Perfiles",sh:true},{k:"new",l:"+ Tarea",sh:true}];}
+  else{nav=[{k:"dash",l:"Dashboard",sh:true},{k:"kanban",l:"📊 Kanban",sh:true},{k:"feed",l:"📰 Actividad",sh:true},{k:"org",l:"Organigrama",sh:true},{k:"cal",l:"📅 Calendario",sh:true},...(isAd||user.role==="coordinador"||user.role==="embudo"?[{k:"presu",l:"💰 Presupuestos",sh:true}]:[]),...(isAd||user.role==="coordinador"?[{k:"reun",l:"🤝 Reuniones",sh:true},{k:"comm",l:"📢 Comunicar",sh:true}]:[]),{k:"proy",l:"Plan 2035",sh:true},{k:"profs",l:"Perfiles",sh:true},{k:"new",l:"+ Tarea",sh:true}];}
 
   /* ── addLog: optimistic local + persist to Supabase ── */
   const addLog=async(id:number,uid:string,by:string,act:string,t?:string)=>{
@@ -1618,7 +1848,13 @@ export default function App(){
             {nav.filter(n=>n.sh).map(n=><button key={n.k} onClick={()=>{sVw(n.k);if(n.k==="dash"||n.k==="my"){sAA(null);sAD(null);sKpiFilt(null);}}} style={{padding:mob?"5px 8px":"6px 11px",border:"none",borderRadius:7,background:vw===n.k?colors.nv:"transparent",color:vw===n.k?(isDark?"#0F172A":"#fff"):colors.g5,fontSize:mob?10:11,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap" as const}}>{n.l}</button>)}
           </div>
           <div style={{display:"flex",alignItems:"center",gap:mob?4:8,flexShrink:0}}>
-            <div style={{position:"relative" as const}}><input value={search} onChange={e=>sSr(e.target.value)} placeholder="🔍 Buscar..." style={{padding:"5px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:11,width:mob?80:130}}/></div>
+            <div ref={gsRef} style={{position:"relative" as const}}><input value={search} onChange={e=>{sSr(e.target.value);sGsOpen(true);}} onFocus={()=>{if(search.length>=2)sGsOpen(true);}} onKeyDown={e=>{if(e.key==="Escape")sGsOpen(false);}} placeholder="🔍 Buscar..." style={{padding:"5px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:11,width:mob?80:160}}/>
+              {gsOpen&&search.length>=2&&(()=>{const r=gsResults();const hasR=r.tasks.length||r.users.length||r.presu.length;return hasR?<div style={{position:"absolute" as const,top:32,right:0,background:cardBg,borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,.12)",border:"1px solid "+colors.g2,width:280,zIndex:100,maxHeight:360,overflowY:"auto" as const,padding:6}}>
+                {r.tasks.length>0&&<div><div style={{fontSize:9,fontWeight:700,color:colors.g4,padding:"4px 8px",textTransform:"uppercase" as const}}>Tareas</div>{r.tasks.map((p:any)=><div key={p.id} onClick={()=>{sSl(p);sGsOpen(false);sSr("");}} style={{padding:"5px 8px",borderRadius:6,cursor:"pointer",fontSize:11,color:colors.nv,fontWeight:600}}><span style={{color:colors.g4}}>#{p.id}</span> {p.desc?.slice(0,35)} <Badge s={p.st} sm/></div>)}</div>}
+                {r.users.length>0&&<div><div style={{fontSize:9,fontWeight:700,color:colors.g4,padding:"4px 8px",textTransform:"uppercase" as const}}>Personas</div>{r.users.map((u:any)=><div key={u.id} onClick={()=>{sVw("profs");sGsOpen(false);sSr("");}} style={{padding:"5px 8px",borderRadius:6,cursor:"pointer",fontSize:11,color:colors.nv}}>👤 {fn(u)} <span style={{color:colors.g4,fontSize:9}}>{ROLES[u.role]?.l}</span></div>)}</div>}
+                {r.presu.length>0&&<div><div style={{fontSize:9,fontWeight:700,color:colors.g4,padding:"4px 8px",textTransform:"uppercase" as const}}>Presupuestos</div>{r.presu.map((pr:any)=><div key={pr.id} onClick={()=>{sVw("presu");sGsOpen(false);sSr("");}} style={{padding:"5px 8px",borderRadius:6,cursor:"pointer",fontSize:11,color:colors.nv}}>💰 {pr.proveedor_nombre} <span style={{color:colors.g4,fontSize:9}}>${Number(pr.monto).toLocaleString()}</span></div>)}</div>}
+              </div>:null;})()}
+            </div>
             <div style={{position:"relative" as const}}><button onClick={()=>sShNot(!shNot)} style={{background:"none",border:"none",fontSize:16,cursor:"pointer",position:"relative" as const}}>🔔{nts.length>0&&<span style={{position:"absolute" as const,top:-4,right:-4,width:14,height:14,borderRadius:7,background:colors.rd,color:"#fff",fontSize:8,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>{nts.length}</span>}</button>{shNot&&<div style={{position:"absolute" as const,right:0,top:32,background:cardBg,borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,.12)",border:"1px solid "+colors.g2,width:280,zIndex:100,padding:8,maxHeight:360,overflowY:"auto" as const}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}><div style={{fontSize:11,fontWeight:700,color:colors.nv}}>Notificaciones</div>{unreadDb.length>0&&<button onClick={async()=>{const tok=await getToken();await markRead(tok);sDbNotifs(prev=>prev.map((n:any)=>({...n,read:true})));}} style={{background:"none",border:"none",fontSize:10,color:colors.bl,cursor:"pointer",fontWeight:600}}>Marcar leídas</button>}</div>{nts.length===0&&<div style={{fontSize:11,color:colors.g4,padding:8}}>Todo al día ✅</div>}{nts.map((n,i)=><div key={i} onClick={()=>{sShNot(false);if(n.dbId){getToken().then(tok=>markRead(tok,[n.dbId]));sDbNotifs(prev=>prev.map((x:any)=>x.id===n.dbId?{...x,read:true}:x));}if(n.first){sSl(n.first);}else if(n.link){window.location.hash=n.link;}else if(n.act){sVw(n.act);sAA(null);sAD(null);}}} style={{padding:"6px 8px",borderRadius:6,background:n.c+"10",marginBottom:3,fontSize:11,color:n.c,fontWeight:600,cursor:"pointer"}}>{n.t}</div>)}</div>}</div>
             {!mob&&<div style={{textAlign:"right" as const}}><div style={{fontSize:11,fontWeight:700,color:colors.nv}}>{fn(user)}</div><div style={{fontSize:9,color:colors.g4}}>{ROLES[user.role]?.i} {ROLES[user.role]?.l}{user.div?" · "+user.div:""}</div></div>}
             <button onClick={toggleTheme} title={isDark?"Modo claro":"Modo oscuro"} style={{width:28,height:28,borderRadius:7,border:"1px solid "+colors.g2,background:cardBg,cursor:"pointer",fontSize:12}}>{isDark?"☀️":"🌙"}</button>
@@ -1628,6 +1864,12 @@ export default function App(){
         </div>
         <div style={{flex:1,padding:mob?"12px 8px":"20px 16px",overflowY:"auto" as const,marginTop:4}}>
           {vw==="my"&&isPersonal&&<MyDash user={user} peds={peds} users={users} onSel={(p:any)=>sSl(p)} mob={mob} search={search} presu={presu}/>}
+          {/* Kanban View (Feature 4) */}
+          {vw==="kanban"&&!isPersonal&&<KanbanView peds={peds} users={users} user={user} onSel={(p:any)=>sSl(p)} mob={mob} onStatusChange={async(id:number,newSt:string)=>{try{sPd(p=>p.map(x=>x.id===id?{...x,st:newSt}:x));await supabase.from("tasks").update({status:newSt}).eq("id",id);addLog(id,user.id,fn(user),"Cambió estado a "+SC[newSt]?.l,"sys");showT("Estado actualizado");}catch(e:any){showT(e.message||"Error","err");}}}/>}
+          {/* Activity Feed (Feature 5) */}
+          {vw==="feed"&&!isPersonal&&<ActivityFeed peds={peds} users={users} onSel={(p:any)=>sSl(p)} mob={mob}/>}
+          {/* Communications (Feature 9) */}
+          {vw==="comm"&&(isAd||user.role==="coordinador")&&<CommView peds={peds} presu={presu} agendas={agendas} users={users} user={user} mob={mob}/>}
           {vw==="org"&&<Org areas={areas} deptos={deptos} users={users} om={om} pedidos={peds} onSel={(p:any)=>sSl(p)} onEditSave={async(id:string,d:any)=>{sOm(p=>p.map(m=>m.id===id?{...m,...d}:m));await supabase.from("org_members").update({first_name:d.n,last_name:d.a,email:d.mail||"",phone:d.tel||""}).eq("id",id);}} onDelOm={async(id:string)=>{sOm(p=>p.filter(m=>m.id!==id));await supabase.from("org_members").delete().eq("id",id);}} onDelUser={async(id:string)=>{sUs(p=>p.filter(u=>u.id!==id));await supabase.from("profiles").delete().eq("id",id);}} onEditUser={(u:any)=>{sVw("profs");}} isSA={isSA} onAssignTask={(u:any)=>{sPreAT(u);sVw("new");}} mob={mob}/>}
           {vw==="cal"&&<CalView peds={peds} agendas={agendas} minutas={minutas} presu={presu} reminders={reminders} areas={areas} deptos={deptos} users={users} user={user} onSel={(p:any)=>sSl(p)} mob={mob}
             onAddReminder={async(r:any)=>{try{const row:any={user_id:user.id,user_name:fn(user),title:r.title,date:r.date,description:r.description||"",color:r.color||"#3B82F6",recurrence:r.recurrence||"none",assigned_to:r.assigned_to||null,assigned_name:r.assigned_name||""};const{data,error}=await supabase.from("reminders").insert(row).select().single();if(error)throw new Error(error.message);sRems(p=>[...(data?[data]:[]),...p]);showT("Recordatorio creado");}catch(e:any){showT(e.message||"Error","err");}}}
@@ -1674,16 +1916,18 @@ export default function App(){
             if(p._presu&&tid){const prRow=presuToDB({...p._presu,task_id:tid,status:PST.SOL,solicitado_por:fn(user),solicitado_at:TODAY});const{data:prData}=await supabase.from("presupuestos").insert(prRow).select().single();if(prData)sPr(prev=>[presuFromDB(prData),...prev]);}
             sPreAT(null);sVw(isPersonal?"my":"dash");sAA(null);sAD(null);showT(p._presu?"Tarea creada con presupuesto":"Tarea creada");}catch(e:any){showT(e.message||"Error al crear tarea","err");}
           }} onX={()=>{sPreAT(null);sVw(isPersonal?"my":"dash");}}/>}
-          {vw==="proy"&&<Proyecto hitos={hitos} setHitos={(updater:any)=>{sHi((prev:any)=>{const next=typeof updater==="function"?updater(prev):updater;next.forEach((h:any)=>{supabase.from("milestones").update({pct:h.pct}).eq("id",h.id);});return next;});}} isAd={isAd}/>}
+          {vw==="proy"&&<Proyecto hitos={hitos} setHitos={(updater:any)=>{sHi((prev:any)=>{const next=typeof updater==="function"?updater(prev):updater;next.forEach((h:any)=>{supabase.from("milestones").update({pct:h.pct}).eq("id",h.id);});return next;});}} isAd={isAd} mob={mob}/>}
           {vw==="dash"&&!isPersonal&&!aA&&!aD&&!kpiFilt&&<><h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:colors.nv,fontWeight:800}}>Dashboard</h2><p style={{color:colors.g4,fontSize:12,margin:"0 0 16px"}}>KPIs institucionales · Manual Operativo 2035</p><KPIs peds={peds} mob={mob} presu={presu} onFilter={(k:string)=>sKpiFilt(k)}/><Circles areas={areas} deptos={deptos} pedidos={peds} onAC={hAC} mob={mob}/></>}
-          {vw==="dash"&&!isPersonal&&!aA&&!aD&&kpiFilt&&(()=>{const fl=KPIF[kpiFilt];const fp=kpiFilter(peds,kpiFilt);return <div><Bread parts={[{label:"Dashboard",onClick:()=>sKpiFilt(null)},{label:fl?.l||""}]} mob={mob}/><TList title={fl?.l||""} icon={fl?.i||""} color={fl?.c||T.bl} peds={fp} users={users} onSel={(p:any)=>sSl(p)} search={search} mob={mob}/></div>;})()}
-          {vw==="dash"&&!isPersonal&&aA&&!aD&&(aA===100||aA===101)&&<div><Bread parts={[{label:"Dashboard",onClick:()=>{sAA(null);sKpiFilt(null);}},{label:vT}]} mob={mob}/><KPIs peds={vP} mob={mob} onFilter={(k:string)=>{sAA(null);sKpiFilt(k);}}/><TList title={vT} icon={vI} color={vC} peds={vP} users={users} onSel={(p:any)=>sSl(p)} search={search} mob={mob}/></div>}
+          {vw==="dash"&&!isPersonal&&!aA&&!aD&&kpiFilt&&(()=>{const fl=KPIF[kpiFilt];const fp=kpiFilter(peds,kpiFilt);return <div><Bread parts={[{label:"Dashboard",onClick:()=>sKpiFilt(null)},{label:fl?.l||""}]} mob={mob}/><TList title={fl?.l||""} icon={fl?.i||""} color={fl?.c||T.bl} peds={fp} users={users} onSel={(p:any)=>sSl(p)} search={search} mob={mob} onBulk={handleBulk} onImport={handleImport} user={user}/></div>;})()}
+          {vw==="dash"&&!isPersonal&&aA&&!aD&&(aA===100||aA===101)&&<div><Bread parts={[{label:"Dashboard",onClick:()=>{sAA(null);sKpiFilt(null);}},{label:vT}]} mob={mob}/><KPIs peds={vP} mob={mob} onFilter={(k:string)=>{sAA(null);sKpiFilt(k);}}/><TList title={vT} icon={vI} color={vC} peds={vP} users={users} onSel={(p:any)=>sSl(p)} search={search} mob={mob} onBulk={handleBulk} onImport={handleImport} user={user}/></div>}
           {vw==="dash"&&!isPersonal&&aA&&!aD&&aA!==100&&aA!==101&&(()=>{const selAr=areas.find((a:any)=>a.id===aA);return <div><Bread parts={[{label:"Dashboard",onClick:()=>{sAA(null);sKpiFilt(null);}},{label:selAr?.name||""}]} mob={mob}/><h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:colors.nv,fontWeight:800}}>{selAr?.icon} {selAr?.name}</h2><p style={{color:colors.g4,fontSize:12,margin:"0 0 16px"}}>{deptos.filter((d:any)=>d.aId===aA).length} departamentos</p><KPIs peds={vP} mob={mob} onFilter={(k:string)=>{sAA(null);sKpiFilt(k);}}/><DeptCircles area={selAr} deptos={deptos} pedidos={peds} onDC={(id:number)=>sAD(id)} mob={mob}/></div>;})()}
-          {vw==="dash"&&!isPersonal&&aD&&(()=>{const selAr=areas.find((a:any)=>a.id===aA);const selDp=deptos.find((d:any)=>d.id===aD);return <div><Bread parts={[{label:"Dashboard",onClick:()=>{sAA(null);sAD(null);sKpiFilt(null);}},{label:selAr?.name||"",onClick:()=>{sAD(null);sKpiFilt(null);}},{label:selDp?.name||""}]} mob={mob}/><TList title={vT} icon={vI} color={vC} peds={vP} users={users} onSel={(p:any)=>sSl(p)} search={search} mob={mob}/></div>;})()}
+          {vw==="dash"&&!isPersonal&&aD&&(()=>{const selAr=areas.find((a:any)=>a.id===aA);const selDp=deptos.find((d:any)=>d.id===aD);return <div><Bread parts={[{label:"Dashboard",onClick:()=>{sAA(null);sAD(null);sKpiFilt(null);}},{label:selAr?.name||"",onClick:()=>{sAD(null);sKpiFilt(null);}},{label:selDp?.name||""}]} mob={mob}/><TList title={vT} icon={vI} color={vC} peds={vP} users={users} onSel={(p:any)=>sSl(p)} search={search} mob={mob} onBulk={handleBulk} onImport={handleImport} user={user}/></div>;})()}
         </div>
       </div>
       {showPw&&<ChangePw onX={()=>sShowPw(false)}/>}
       {sel&&<Det p={peds.find(x=>x.id===sel.id)||sel} user={user} users={users} presu={presu} provs={provs} onX={()=>sSl(null)} mob={mob}
+        onDup={async(p:any)=>{try{const ts=TODAY+" "+new Date().toTimeString().slice(0,5);const row:any=taskToDB({...p,st:ST.P,asTo:null,resp:"",monto:null,eOk:null,cAt:TODAY,cId:user.id,cN:fn(user)});const{data,error}=await supabase.from("tasks").insert(row).select().single();if(error)throw new Error(error.message);const tid=data?.id||0;const newP={...p,id:tid,st:ST.P,asTo:null,resp:"",monto:null,eOk:null,cAt:TODAY,cId:user.id,cN:fn(user),log:[{dt:ts,uid:user.id,by:fn(user),act:"Creó tarea (duplicada de #"+p.id+")",t:"sys"}]};sPd(ps=>[newP,...ps]);await supabase.from("task_messages").insert({task_id:tid,user_id:user.id,user_name:fn(user),content:"Creó tarea (duplicada de #"+p.id+")",type:"sys"});sSl(newP);showT("Tarea duplicada");}catch(e:any){showT(e.message||"Error","err");}}}
+        onCheck={async(id:number,items:any[])=>{try{/* save checklist as special log entries */for(const item of items){await supabase.from("task_messages").upsert({task_id:id,user_id:user.id,user_name:fn(user),content:JSON.stringify(item),type:"check"});}/* update local */const ts=TODAY+" "+new Date().toTimeString().slice(0,5);sPd(p=>p.map(x=>x.id===id?{...x,log:[...(x.log||[]).filter((l:any)=>l.t!=="check"),...items.map(item=>({dt:ts,uid:user.id,by:fn(user),act:JSON.stringify(item),t:"check"}))]}:x));}catch(e:any){showT(e.message||"Error","err");}}}
         onAddPresu={async(d:any)=>{try{const row=presuToDB(d);const{data,error}=await supabase.from("presupuestos").insert(row).select().single();if(error)throw new Error(error.message);sPr(p=>[presuFromDB(data),...p]);showT("Presupuesto agregado");}catch(e:any){showT(e.message||"Error","err");}}}
         onUpdPresu={async(id:number,d:any)=>{try{sPr(p=>p.map(x=>x.id===id?{...x,...d}:x));await supabase.from("presupuestos").update(d).eq("id",id);showT("Presupuesto actualizado");}catch(e:any){showT(e.message||"Error","err");}}}
         onDelPresu={async(id:number)=>{try{sPr(p=>p.filter(x=>x.id!==id));await supabase.from("presupuestos").delete().eq("id",id);showT("Presupuesto eliminado");}catch(e:any){showT(e.message||"Error","err");}}}
@@ -1694,7 +1938,7 @@ export default function App(){
         onEO={async(id:number,ok:boolean)=>{try{const p2=peds.find(x=>x.id===id);sPd(p=>p.map(x=>x.id===id?{...x,st:ST.C,eOk:ok}:x));await supabase.from("tasks").update({status:ST.C,expense_ok:ok}).eq("id",id);addLog(id,user.id,fn(user),ok?"Compras aprobó":"Compras rechazó","sys");if(p2?.asTo)sendNotif(p2.asTo,ok?"Gasto aprobado":"Gasto rechazado",p2.desc||"","budget");if(p2?.cId&&p2.cId!==p2.asTo)sendNotif(p2.cId,ok?"Gasto aprobado":"Gasto rechazado",p2.desc||"","budget");showT(ok?"Gasto aprobado":"Gasto rechazado");sSl(null);}catch(e:any){showT(e.message||"Error","err");}}}
         onFi={async(id:number)=>{try{const p2=peds.find(x=>x.id===id);sPd(p=>p.map(x=>x.id===id?{...x,st:ST.V}:x));await supabase.from("tasks").update({status:ST.V}).eq("id",id);addLog(id,user.id,fn(user),"Envió a validación","sys");if(p2?.cId)sendNotif(p2.cId,"Tarea lista para validar",p2.desc||"","task");showT("Enviado a validación");sSl(null);}catch(e:any){showT(e.message||"Error","err");}}}
         onVa={async(id:number,ok:boolean)=>{try{const p2=peds.find(x=>x.id===id);const ns=ok?ST.OK:ST.C;sPd(p=>p.map(x=>x.id===id?{...x,st:ns}:x));await supabase.from("tasks").update({status:ns}).eq("id",id);addLog(id,user.id,fn(user),ok?"Validó OK ✅":"Rechazó","sys");if(p2?.asTo)sendNotif(p2.asTo,ok?"Tarea completada":"Tarea rechazada",p2.desc||"","task");showT(ok?"Tarea completada":"Tarea rechazada");sSl(null);}catch(e:any){showT(e.message||"Error","err");}}}
-        onMsg={async(id:number,txt:string)=>{try{await addLog(id,user.id,fn(user),txt,"msg");}catch(e:any){showT("Error al enviar mensaje","err");}}}
+        onMsg={async(id:number,txt:string)=>{try{await addLog(id,user.id,fn(user),txt,"msg");/* @mention notifications (Feature 7) */const mentionRx=/@([\w\s]+?)(?=\s@|$)/g;let match;while((match=mentionRx.exec(txt))!==null){const mName=match[1].trim();const mUser=users.find((u:any)=>(fn(u)).toLowerCase()===mName.toLowerCase());if(mUser&&mUser.id!==user.id){sendNotif(mUser.id,"Te mencionaron en tarea #"+id,txt.slice(0,80),"task");}}}catch(e:any){showT("Error al enviar mensaje","err");}}}
         onMonto={async(id:number,m:number)=>{try{sPd(p=>p.map(x=>x.id===id?{...x,monto:m}:x));await supabase.from("tasks").update({amount:m}).eq("id",id);}catch(e:any){showT(e.message||"Error","err");}}}
         onDel={async(id:number)=>{try{sPd(p=>p.filter(x=>x.id!==id));await supabase.from("tasks").delete().eq("id",id);showT("Tarea eliminada");sSl(null);}catch(e:any){showT(e.message||"Error","err");}}}
         onEditSave={async(id:number,d:any)=>{try{sPd(p=>p.map(x=>x.id===id?{...x,...d}:x));await supabase.from("tasks").update({tipo:d.tipo,description:d.desc,due_date:d.fReq,urgency:d.urg,division:d.div||"",requires_expense:d.rG}).eq("id",id);addLog(id,user.id,fn(user),"Editó la tarea","sys");showT("Tarea actualizada");}catch(e:any){showT(e.message||"Error","err");}}}

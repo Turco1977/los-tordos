@@ -1,0 +1,14 @@
+{
+  "name": "Los Tordos RC - Panel de Control",
+  "short_name": "Los Tordos",
+  "description": "Panel de gestión Los Tordos Rugby Club",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0A1628",
+  "theme_color": "#0A1628",
+  "orientation": "any",
+  "icons": [
+    {"src": "/logo.jpg", "sizes": "192x192", "type": "image/jpeg"},
+    {"src": "/logo.jpg", "sizes": "512x512", "type": "image/jpeg"}
+  ]
+}
