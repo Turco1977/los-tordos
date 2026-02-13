@@ -166,7 +166,7 @@ function Det({p,user,users,onX,onTk,onAs,onRe,onSE,onEO,onFi,onVa,onMsg,onMonto,
   const msgs=(p.log||[]).filter((l:any)=>l.t==="msg").length;
   /* presupuestos for this task */
   const tPresu=(presu||[]).filter((pr:any)=>pr.task_id===p.id);
-  const canManagePresu=rlv(user.role)>=3||user.role==="embudo";
+  const canManagePresu=true;
   const canChangeStatus=isSA||user.role==="admin"||user.role==="embudo";
   const [prSub,sPrSub]=useState("list");const [prSel,sPrSel]=useState<number[]>([]);
   const [pf,sPf]=useState({prov_id:"",prov_nombre:"",prov_contacto:"",descripcion:"",monto:"",moneda:"ARS",archivo_url:"",notas:""});
@@ -255,15 +255,16 @@ function Det({p,user,users,onX,onTk,onAs,onRe,onSE,onEO,onFi,onVa,onMsg,onMonto,
                 {pr.archivo_url&&<a href={pr.archivo_url} target="_blank" rel="noopener noreferrer" style={{color:T.bl,textDecoration:"underline"}}>📎 Archivo</a>}
                 {pr.solicitado_at&&<span>📤 {pr.solicitado_at}</span>}
               </div>
-              {canChangeStatus&&<div style={{display:"flex",gap:4,marginTop:6}}>
+              {canChangeStatus&&<div style={{display:"flex",gap:4,marginTop:6,flexWrap:"wrap" as const}}>
                 {pr.status===PST.SOL&&<Btn v="g" s="s" onClick={()=>onUpdPresu(pr.id,{status:PST.REC,recibido_at:TODAY})}>📥 Recibido</Btn>}
                 {(pr.status===PST.SOL||pr.status===PST.REC)&&<Btn v="s" s="s" onClick={()=>{onUpdPresu(pr.id,{status:PST.APR,resuelto_por:fn(user),resuelto_at:TODAY});/* sync monto to task */onMonto(p.id,Number(pr.monto));}}>✅ Aprobar</Btn>}
                 {(pr.status===PST.SOL||pr.status===PST.REC)&&<Btn v="r" s="s" onClick={()=>onUpdPresu(pr.id,{status:PST.RECH,resuelto_por:fn(user),resuelto_at:TODAY})}>❌ Rechazar</Btn>}
+                {pr.status===PST.REC&&<Btn v="w" s="s" onClick={()=>onUpdPresu(pr.id,{status:PST.SOL,recibido_at:null})}>↩ Devolver</Btn>}
                 {isSA&&<Btn v="g" s="s" onClick={()=>{if(confirm("¿Eliminar presupuesto?"))onDelPresu(pr.id);}} style={{color:T.rd}}>🗑️</Btn>}
               </div>}
               {pr.notas&&<div style={{fontSize:10,color:T.g5,marginTop:4,fontStyle:"italic"}}>💬 {pr.notas}</div>}
             </div>);})}
-            {canManagePresu&&tPresu.length===0&&<Btn v="pu" onClick={()=>sPrSub("add")}>➕ Agregar presupuesto</Btn>}
+            <Btn v="pu" onClick={()=>sPrSub("add")}>➕ Agregar presupuesto</Btn>
           </div>}
           {/* ADD */}
           {prSub==="add"&&canManagePresu&&<div style={{display:"flex",flexDirection:"column" as const,gap:8}}>
