@@ -53,7 +53,7 @@ export const AGT:Record<string,{title:string;icon:string;color:string;per:string
     {t:"Resoluciones rápidas operativas",sub:[]},
     {t:"Agenda próxima quincena",sub:[]},
     {t:"Definición de temas a elevar a CD",sub:[]}]},
-  area:{title:"Subcomisiones / Áreas",icon:"📂",color:T.bl,per:"Quincenal",dur:"1 hora",secs:[
+  area:{title:"Área / Departamento",icon:"📂",color:T.bl,per:"Quincenal",dur:"1 hora",secs:[
     {t:"Qué hicimos",sub:[]},
     {t:"Qué estamos haciendo",sub:[]},
     {t:"Stoppers",sub:[]},
