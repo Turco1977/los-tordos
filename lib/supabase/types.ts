@@ -64,6 +64,7 @@ export interface Agenda {
   area_name?: string;
   date: string;
   sections: any;
+  presentes?: string[];
   status: string;
   created_at?: string;
 }
@@ -82,5 +83,98 @@ export interface Minuta {
   sections: any;
   tareas: any;
   status: string;
+  created_at?: string;
+}
+
+export interface DepStaff {
+  id: string;
+  user_id: string;
+  dep_role: "dd"|"dr"|"entrenador"|"pf"|"coord_pf"|"kinesiologo"|"medico";
+  divisions: string[];
+  reports_to: string | null;
+  active: boolean;
+  created_at?: string;
+  first_name?: string;
+  last_name?: string;
+}
+
+export interface DepAthlete {
+  id: number;
+  first_name: string;
+  last_name: string;
+  division: string;
+  position: string;
+  birth_date: string;
+  dni: string;
+  phone: string;
+  email: string;
+  emergency_contact: { name?: string; phone?: string; relation?: string };
+  medical_info: { blood_type?: string; allergies?: string; conditions?: string };
+  photo_url: string;
+  season: string;
+  active: boolean;
+  created_at?: string;
+}
+
+export interface DepInjury {
+  id: number;
+  athlete_id: number;
+  reported_by: string;
+  type: string;
+  zone: string;
+  muscle: string;
+  severity: "leve" | "moderada" | "grave";
+  description: string;
+  date_injury: string;
+  date_return: string | null;
+  status: "activa" | "recuperacion" | "alta";
+  notes: string;
+  created_at?: string;
+  athlete_name?: string;
+}
+
+export interface DepCheckin {
+  id: number;
+  athlete_id: number;
+  date: string;
+  sleep: number;
+  fatigue: number;
+  stress: number;
+  soreness: number;
+  mood: number;
+  notes: string;
+  recorded_by: string;
+  created_at?: string;
+  athlete_name?: string;
+}
+
+export interface Proveedor {
+  id: number;
+  nombre: string;
+  contacto: string;
+  email: string;
+  telefono: string;
+  rubro: string;
+  notas: string;
+  created_at?: string;
+}
+
+export interface Presupuesto {
+  id: number;
+  task_id: number;
+  proveedor_id: number | null;
+  proveedor_nombre: string;
+  proveedor_contacto: string;
+  descripcion: string;
+  monto: number;
+  moneda: string;
+  archivo_url: string;
+  notas: string;
+  status: "solicitado" | "recibido" | "aprobado" | "rechazado";
+  solicitado_por: string;
+  solicitado_at: string;
+  recibido_at: string;
+  resuelto_por: string;
+  resuelto_at: string;
   created_at?: string;
 }

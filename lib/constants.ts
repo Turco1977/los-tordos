@@ -22,6 +22,16 @@ export const TIPOS=["Logística","Administrativo","Infraestructura","Material de
 export const ST={P:"pend",C:"curso",E:"emb",V:"valid",OK:"ok"};
 export const SC: Record<string,{l:string;c:string;bg:string;i:string}>={[ST.P]:{l:"Pendiente",c:T.rd,bg:"#FEE2E2",i:"🔴"},[ST.C]:{l:"En Curso",c:T.yl,bg:"#FEF3C7",i:"🟡"},[ST.E]:{l:"Compras",c:T.pr,bg:"#EDE9FE",i:"💰"},[ST.V]:{l:"Validación",c:T.bl,bg:"#DBEAFE",i:"🔵"},[ST.OK]:{l:"Completada",c:T.gn,bg:"#D1FAE5",i:"🟢"}};
 
+export const PST={SOL:"solicitado",REC:"recibido",APR:"aprobado",RECH:"rechazado"};
+export const PSC:Record<string,{l:string;c:string;bg:string;i:string}>={
+  [PST.SOL]:{l:"Solicitado",c:T.yl,bg:"#FEF3C7",i:"📤"},
+  [PST.REC]:{l:"Recibido",c:T.bl,bg:"#DBEAFE",i:"📥"},
+  [PST.APR]:{l:"Aprobado",c:T.gn,bg:"#D1FAE5",i:"✅"},
+  [PST.RECH]:{l:"Rechazado",c:T.rd,bg:"#FEE2E2",i:"❌"},
+};
+export const MONEDAS=["ARS","USD"];
+export const RUBROS=["Materiales","Servicios","Equipamiento","Indumentaria","Construcción","Catering","Transporte","Otro"];
+
 export const fn=(u:any)=>(u.first_name||u.n||"")+" "+(u.last_name||u.a||"");
 export const isOD=(d:string)=>{const today=new Date().toISOString().slice(0,10);return d<today&&d!=="";};
 export const daysDiff=(a:string,b:string)=>Math.round((new Date(b).getTime()-new Date(a).getTime())/864e5);
@@ -54,3 +64,13 @@ export const MINSECS:Record<string,string[]>={
   se:["Avances","Decisiones operativas","Escalamientos a CD","Próximos pasos"],
   area:["Qué hice","Qué hago","Stoppers","Necesita aprobación de SE/CD"]
 };
+
+// Deportivo module constants
+export const DEP_ROLES: Record<string,{l:string;i:string;lv:number}>={dd:{l:"Director Deportivo",i:"🎯",lv:5},dr:{l:"Director de Rugby",i:"🏉",lv:4},coord_pf:{l:"Coordinador PF",i:"💪",lv:3},entrenador:{l:"Entrenador",i:"📋",lv:2},pf:{l:"Preparador Físico",i:"🏋️",lv:2},kinesiologo:{l:"Kinesiólogo",i:"🩺",lv:2},medico:{l:"Médico",i:"⚕️",lv:2}};
+export const DEP_POSITIONS=["Pilar Izq","Hooker","Pilar Der","2da Línea","Ala","8","Medio Scrum","Apertura","Centro Int","Centro Ext","Wing Izq","Wing Der","Fullback"];
+export const DEP_INJ_TYPES=["Muscular","Articular","Ósea","Ligamentaria","Tendinosa","Contusión","Otra"];
+export const DEP_INJ_ZONES=["Cabeza","Cuello","Hombro","Brazo","Codo","Muñeca","Mano","Espalda","Pecho","Abdomen","Cadera","Muslo","Rodilla","Pierna","Tobillo","Pie"];
+export const DEP_INJ_SEV: Record<string,{l:string;c:string;bg:string}>={leve:{l:"Leve",c:"#10B981",bg:"#D1FAE5"},moderada:{l:"Moderada",c:"#F59E0B",bg:"#FEF3C7"},grave:{l:"Grave",c:"#C8102E",bg:"#FEE2E2"}};
+export const DEP_WK={sleep:{l:"Sueño",i:"😴",labels:["Muy malo","Malo","Regular","Bueno","Excelente"]},fatigue:{l:"Fatiga",i:"🔋",labels:["Exhausto","Cansado","Normal","Descansado","Muy descansado"]},stress:{l:"Estrés",i:"🧠",labels:["Muy alto","Alto","Normal","Bajo","Muy bajo"]},soreness:{l:"Dolor muscular",i:"💢",labels:["Muy alto","Alto","Normal","Bajo","Ninguno"]},mood:{l:"Ánimo",i:"😊",labels:["Muy malo","Malo","Normal","Bueno","Muy bueno"]}};
+export const DEP_SEM={red:{max:2.5,l:"Alerta",c:"#C8102E",bg:"#FEE2E2"},yellow:{max:3.5,l:"Precaución",c:"#F59E0B",bg:"#FEF3C7"},green:{max:5,l:"Óptimo",c:"#10B981",bg:"#D1FAE5"}};
+export const DEP_DIV=["Plantel Superior","M19","M17"];
