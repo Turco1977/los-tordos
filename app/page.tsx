@@ -505,11 +505,22 @@ function OrgNode({icon,title,sub,color,children,cnt,ex,onTog,mob}:any){return(<d
 
 function OrgMember({m,isSA,onEdit,onDel,onAssign}:any){const ok=m.n&&m.a;return(<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",background:ok?"#FAFAFA":T.g1,borderRadius:7,border:"1px solid "+T.g2,marginBottom:3}}><div><div style={{fontSize:9,fontWeight:700,color:T.rd,textTransform:"uppercase" as const}}>{m.cargo}</div>{ok?<div style={{fontSize:12,fontWeight:700,color:T.nv}}>{m.n} {m.a}</div>:<div style={{fontSize:11,color:T.g3,fontStyle:"italic"}}>Sin asignar</div>}</div><div style={{display:"flex",gap:3}}>{ok&&onAssign&&<span title="Asignar tarea"><Btn v="g" s="s" onClick={()=>onAssign(m)}>📋</Btn></span>}{isSA&&<Btn v="g" s="s" onClick={()=>onEdit(m)}>✏️</Btn>}{isSA&&<Btn v="g" s="s" onClick={()=>onDel&&onDel(m.id)} style={{color:T.rd}}>🗑️</Btn>}</div></div>);}
 
-function Org({areas,deptos,users,om,onEditSave,onDelOm,onDelUser,onEditUser,isSA,onAssignTask,mob}:any){
+function Org({areas,deptos,users,om,onEditSave,onDelOm,onDelUser,onEditUser,isSA,onAssignTask,mob,pedidos,onSel}:any){
   const [ex,sEx]=useState<any>({});const [ed,sEd]=useState<any>(null);const [ef,sEf]=useState({n:"",a:"",mail:"",tel:""});
+  const [tab,sTab]=useState("struct");const [selA,sSelA]=useState<number|null>(null);const [selD,sSelD]=useState<number|null>(null);
   const tog=(k:string)=>sEx((p:any)=>({...p,[k]:!p[k]}));
   const findUser=(m:any)=>users.find((u:any)=>u.mail&&m.mail&&u.mail===m.mail)||users.find((u:any)=>u.n===m.n&&u.a===m.a);
-  return(<div style={{maxWidth:mob?undefined:680}}><h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:T.nv,fontWeight:800}}>Organigrama</h2><p style={{color:T.g4,fontSize:12,margin:"0 0 18px"}}>Estructura institucional Los Tordos Rugby Club</p>
+  /* Depts sub-view */
+  const fDeptos=selA?deptos.filter((d:any)=>d.aId===selA):deptos;
+  const selDepto=selD?deptos.find((d:any)=>d.id===selD):null;
+  const selArea2=selDepto?areas.find((a:any)=>a.id===selDepto.aId):null;
+  const dPeds=selD?(pedidos||[]).filter((p:any)=>p.dId===selD):[];
+  return(<div style={{maxWidth:mob?undefined:720}}>
+    <h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:T.nv,fontWeight:800}}>Organigrama</h2><p style={{color:T.g4,fontSize:12,margin:"0 0 12px"}}>Estructura institucional Los Tordos Rugby Club</p>
+    <div style={{display:"flex",gap:4,marginBottom:14}}>
+      {[{k:"struct",l:"👥 Estructura"},{k:"tasks",l:"📋 Tareas x Depto"}].map(t=><button key={t.k} onClick={()=>{sTab(t.k);sSelD(null);}} style={{padding:"7px 16px",borderRadius:8,border:"none",background:tab===t.k?T.nv:"#fff",color:tab===t.k?"#fff":T.g5,fontSize:12,fontWeight:600,cursor:"pointer"}}>{t.l}</button>)}
+    </div>
+    {tab==="struct"&&<div style={{maxWidth:mob?undefined:680}}>
     {ed&&<Card style={{marginBottom:12,maxWidth:mob?undefined:400,background:"#FFFBEB",border:"1px solid #FDE68A"}}><div style={{fontSize:11,fontWeight:600,color:T.g5,marginBottom:6}}>Editando: {ed.cargo}</div><div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:4,marginBottom:4}}><input value={ef.n} onChange={e=>sEf(p=>({...p,n:e.target.value}))} placeholder="Nombre" style={{padding:"6px 8px",borderRadius:6,border:"1px solid "+T.g3,fontSize:12}}/><input value={ef.a} onChange={e=>sEf(p=>({...p,a:e.target.value}))} placeholder="Apellido" style={{padding:"6px 8px",borderRadius:6,border:"1px solid "+T.g3,fontSize:12}}/></div><div style={{display:"flex",gap:4}}><Btn s="s" onClick={()=>{onEditSave(ed.id,ef);sEd(null);}}>Guardar</Btn><Btn v="g" s="s" onClick={()=>sEd(null)}>✕</Btn></div></Card>}
     <OrgNode mob={mob} icon="🏛️" title="Comisión Directiva" color={T.nv} ex={!!ex.cd} onTog={()=>tog("cd")} cnt={om.filter((m:any)=>m.t==="cd"&&m.n).length+"/8"}>{om.filter((m:any)=>m.t==="cd").map((m:any)=><OrgMember key={m.id} m={m} isSA={isSA} onEdit={(mm:any)=>{sEd(mm);sEf({n:mm.n,a:mm.a,mail:mm.mail,tel:mm.tel});}} onDel={(id:string)=>onDelOm(id)} onAssign={(mm:any)=>{const u=findUser(mm);if(u)onAssignTask(u);}}/>)}</OrgNode>
     <OrgNode mob={mob} icon="⚡" title="Secretaría Ejecutiva" sub="Depende de CD" color={T.rd} ex={!!ex.se} onTog={()=>tog("se")} cnt={om.filter((m:any)=>m.t==="se"&&m.n).length+"/5"}>{om.filter((m:any)=>m.t==="se").map((m:any)=><OrgMember key={m.id} m={m} isSA={isSA} onEdit={(mm:any)=>{sEd(mm);sEf({n:mm.n,a:mm.a,mail:mm.mail,tel:mm.tel});}} onDel={(id:string)=>onDelOm(id)} onAssign={(mm:any)=>{const u=findUser(mm);if(u)onAssignTask(u);}}/>)}</OrgNode>
@@ -520,6 +531,30 @@ function Org({areas,deptos,users,om,onEditSave,onDelOm,onDelUser,onEditUser,isSA
             {others.length===0&&!resp&&<div style={{fontSize:10,color:T.g4,fontStyle:"italic",padding:4}}>Sin integrantes</div>}
           </OrgNode>);})}</OrgNode>);})}
     </div>
+    </div>}
+    {tab==="tasks"&&!selD&&<div>
+      <div style={{display:"flex",gap:4,marginBottom:14,flexWrap:"wrap" as const}}>
+        <Btn v={selA===null?"p":"g"} s="s" onClick={()=>sSelA(null)}>Todas las áreas</Btn>
+        {areas.map((a:any)=><Btn key={a.id} v={selA===a.id?"p":"g"} s="s" onClick={()=>sSelA(selA===a.id?null:a.id)}>{a.icon} {a.name}</Btn>)}
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:10}}>
+        {fDeptos.map((d:any)=>{const ar=areas.find((a:any)=>a.id===d.aId);const dp=(pedidos||[]).filter((p:any)=>p.dId===d.id);const pe=dp.filter((p:any)=>p.st===ST.P).length,cu=dp.filter((p:any)=>[ST.C,ST.E,ST.V].indexOf(p.st)>=0).length,ok=dp.filter((p:any)=>p.st===ST.OK).length;
+          return(<Card key={d.id} onClick={()=>sSelD(d.id)} style={{padding:"14px 16px",cursor:"pointer",borderLeft:"4px solid "+(ar?ar.color:T.nv)}}>
+            <div style={{fontSize:13,fontWeight:700,color:T.nv}}>{d.name}</div>
+            <div style={{fontSize:10,color:T.g4,marginTop:2}}>{ar?ar.icon+" "+ar.name:""}</div>
+            <div style={{display:"flex",gap:8,marginTop:8,fontSize:11}}>
+              {pe>0&&<span style={{color:T.rd}}>🔴 {pe}</span>}
+              {cu>0&&<span style={{color:T.yl}}>🟡 {cu}</span>}
+              {ok>0&&<span style={{color:T.gn}}>🟢 {ok}</span>}
+              {dp.length===0&&<span style={{color:T.g4}}>Sin tareas</span>}
+            </div>
+          </Card>);})}
+      </div>
+    </div>}
+    {tab==="tasks"&&selD&&selDepto&&<div>
+      <Btn v="g" s="s" onClick={()=>sSelD(null)} style={{marginBottom:12}}>← Volver</Btn>
+      <TList title={selDepto.name} icon="📂" color={selArea2?selArea2.color:T.nv} peds={dPeds} users={users} onSel={onSel} search="" mob={mob}/>
+    </div>}
   </div>);
 }
 
@@ -1565,7 +1600,7 @@ export default function App(){
 
   let nav:any[]=[];
   if(isPersonal){nav=[{k:"my",l:"Mis Tareas",sh:true},{k:"cal",l:"📅 Calendario",sh:true},{k:"new",l:"+ Tarea",sh:true},{k:"org",l:"Organigrama",sh:true},{k:"profs",l:"Perfiles",sh:true},{k:"proy",l:"Plan 2035",sh:true}];}
-  else{nav=[{k:"dash",l:"Dashboard",sh:true},{k:"org",l:"Organigrama",sh:true},{k:"dept",l:"Departamentos",sh:true},{k:"cal",l:"📅 Calendario",sh:true},...(isAd||user.role==="coordinador"||user.role==="embudo"?[{k:"presu",l:"💰 Presupuestos",sh:true}]:[]),...(isAd||user.role==="coordinador"?[{k:"reun",l:"📅 Reuniones",sh:true}]:[]),{k:"proy",l:"Plan 2035",sh:true},{k:"profs",l:"Perfiles",sh:true},{k:"new",l:"+ Tarea",sh:true}];}
+  else{nav=[{k:"dash",l:"Dashboard",sh:true},{k:"org",l:"Organigrama",sh:true},{k:"cal",l:"📅 Calendario",sh:true},...(isAd||user.role==="coordinador"||user.role==="embudo"?[{k:"presu",l:"💰 Presupuestos",sh:true}]:[]),...(isAd||user.role==="coordinador"?[{k:"reun",l:"🤝 Reuniones",sh:true}]:[]),{k:"proy",l:"Plan 2035",sh:true},{k:"profs",l:"Perfiles",sh:true},{k:"new",l:"+ Tarea",sh:true}];}
 
   /* ── addLog: optimistic local + persist to Supabase ── */
   const addLog=async(id:number,uid:string,by:string,act:string,t?:string)=>{
@@ -1599,8 +1634,7 @@ export default function App(){
         </div>
         <div style={{flex:1,padding:mob?"12px 8px":"20px 16px",overflowY:"auto" as const,marginTop:4}}>
           {vw==="my"&&isPersonal&&<MyDash user={user} peds={peds} users={users} onSel={(p:any)=>sSl(p)} mob={mob} search={search} presu={presu}/>}
-          {vw==="org"&&<Org areas={areas} deptos={deptos} users={users} om={om} onEditSave={async(id:string,d:any)=>{sOm(p=>p.map(m=>m.id===id?{...m,...d}:m));await supabase.from("org_members").update({first_name:d.n,last_name:d.a,email:d.mail||"",phone:d.tel||""}).eq("id",id);}} onDelOm={async(id:string)=>{sOm(p=>p.filter(m=>m.id!==id));await supabase.from("org_members").delete().eq("id",id);}} onDelUser={async(id:string)=>{sUs(p=>p.filter(u=>u.id!==id));await supabase.from("profiles").delete().eq("id",id);}} onEditUser={(u:any)=>{sVw("profs");}} isSA={isSA} onAssignTask={(u:any)=>{sPreAT(u);sVw("new");}} mob={mob}/>}
-          {vw==="dept"&&<Depts areas={areas} deptos={deptos} pedidos={peds} users={users} onSel={(p:any)=>sSl(p)} mob={mob}/>}
+          {vw==="org"&&<Org areas={areas} deptos={deptos} users={users} om={om} pedidos={peds} onSel={(p:any)=>sSl(p)} onEditSave={async(id:string,d:any)=>{sOm(p=>p.map(m=>m.id===id?{...m,...d}:m));await supabase.from("org_members").update({first_name:d.n,last_name:d.a,email:d.mail||"",phone:d.tel||""}).eq("id",id);}} onDelOm={async(id:string)=>{sOm(p=>p.filter(m=>m.id!==id));await supabase.from("org_members").delete().eq("id",id);}} onDelUser={async(id:string)=>{sUs(p=>p.filter(u=>u.id!==id));await supabase.from("profiles").delete().eq("id",id);}} onEditUser={(u:any)=>{sVw("profs");}} isSA={isSA} onAssignTask={(u:any)=>{sPreAT(u);sVw("new");}} mob={mob}/>}
           {vw==="cal"&&<CalView peds={peds} agendas={agendas} minutas={minutas} presu={presu} reminders={reminders} areas={areas} deptos={deptos} users={users} user={user} onSel={(p:any)=>sSl(p)} mob={mob}
             onAddReminder={async(r:any)=>{try{const row:any={user_id:user.id,user_name:fn(user),title:r.title,date:r.date,description:r.description||"",color:r.color||"#3B82F6",recurrence:r.recurrence||"none",assigned_to:r.assigned_to||null,assigned_name:r.assigned_name||""};const{data,error}=await supabase.from("reminders").insert(row).select().single();if(error)throw new Error(error.message);sRems(p=>[...(data?[data]:[]),...p]);showT("Recordatorio creado");}catch(e:any){showT(e.message||"Error","err");}}}
             onDelReminder={async(id:number)=>{try{sRems(p=>p.filter(x=>x.id!==id));await supabase.from("reminders").delete().eq("id",id);showT("Recordatorio eliminado");}catch(e:any){showT(e.message||"Error","err");}}}
