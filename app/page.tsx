@@ -1625,6 +1625,10 @@ function CommView({peds,presu,agendas,users,areas,deptos,user,mob}:any){
   const{colors,cardBg}=useC();
   const [tmpl,sTmpl]=useState("");const [msg,sMsg]=useState("");const [copied,sCopied]=useState(false);
   const [showPlus,sShowPlus]=useState(false);const [areaFilter,sAreaFilter]=useState("");
+  const [plusPanel,sPlusPanel]=useState<string|null>(null);const [uploading,sUploading]=useState(false);
+  const [pollQ,sPollQ]=useState("");const [pollOpts,sPollOpts]=useState(["","",""]);
+  const [evTitle,sEvTitle]=useState("");const [evDate,sEvDate]=useState(TODAY);const [evTime,sEvTime]=useState("18:00");const [evPlace,sEvPlace]=useState("Club Los Tordos");
+  const [contactSel,sContactSel]=useState("");
   const sig="\n\n---\n🏉 Los Tordos Rugby Club\nSistema de Gestión";
   const now=new Date();const weekAgo=new Date(now);weekAgo.setDate(weekAgo.getDate()-7);const waStr=weekAgo.toISOString().slice(0,10);
   const createdThisWeek=peds.filter((p:any)=>p.cAt>=waStr).length;
@@ -1651,14 +1655,14 @@ function CommView({peds,presu,agendas,users,areas,deptos,user,mob}:any){
   const selTmpl=(k:string)=>{sTmpl(k);sMsg(templates[k].gen());};
   const sendWA=()=>{window.open("https://wa.me/?text="+encodeURIComponent(msg),"_blank");};
   const copyMsg=()=>{navigator.clipboard.writeText(msg);sCopied(true);setTimeout(()=>sCopied(false),2000);};
-  /* PDF export via + button */
-  const exportPdfReport=(type:string)=>{
-    let title="",headers:string[]=[],rows:string[][]=[];
-    if(type==="tareas"){title="Reporte de Tareas";headers=["#","Tipo","Descripción","Fecha","Estado","Asignado"];rows=peds.map((p:any)=>[String(p.id),p.tipo||"",p.desc||"",p.fReq||"",SC[p.st]?.l||"",users.find((u:any)=>u.id===p.asTo)?fn(users.find((u:any)=>u.id===p.asTo)):"-"]);}
-    else if(type==="vencidas"){title="Tareas Vencidas";headers=["#","Descripción","Fecha","Solicitante"];rows=overdue.map((p:any)=>[String(p.id),p.desc||"",p.fReq||"",p.cN||""]);}
-    else if(type==="presupuestos"){title="Reporte de Presupuestos";headers=["Proveedor","Monto","Estado","Fecha"];rows=presu.map((pr:any)=>[pr.proveedor_nombre||"",pr.monto?"$"+Number(pr.monto).toLocaleString():"",pr.status||"",pr.solicitado_at||""]);}
-    exportPDF(title,headers,rows,{landscape:true});sShowPlus(false);
-  };
+  /* File upload handler */
+  const handleFileUpload=async(accept:string)=>{const inp=document.createElement("input");inp.type="file";inp.accept=accept;inp.onchange=async()=>{const f=inp.files?.[0];if(!f)return;sUploading(true);try{const path=`comm/${Date.now()}-${f.name}`;const{error}=await supabase.storage.from("attachments").upload(path,f,{upsert:true});if(error)throw error;const{data:{publicUrl}}=supabase.storage.from("attachments").getPublicUrl(path);sMsg(prev=>prev+(prev?"\n\n":"")+"📎 "+f.name+"\n"+publicUrl);}catch(e:any){alert("Error al subir: "+(e.message||""));}sUploading(false);sShowPlus(false);sPlusPanel(null);};inp.click();};
+  /* Insert contact */
+  const insertContact=(uid:string)=>{const u=users.find((x:any)=>x.id===uid);if(!u)return;const txt=`👤 *${fn(u)}*\n${u.mail?"📧 "+u.mail+"\n":""}${u.tel?"📱 "+u.tel:""}`;sMsg(prev=>prev+(prev?"\n\n":"")+txt);sShowPlus(false);sPlusPanel(null);sContactSel("");};
+  /* Insert poll */
+  const insertPoll=()=>{const opts=pollOpts.filter(o=>o.trim());if(!pollQ.trim()||opts.length<2)return;const txt=`📊 *ENCUESTA*\n\n${pollQ}\n\n${opts.map((o,i)=>`${["1️⃣","2️⃣","3️⃣","4️⃣","5️⃣"][i]||"•"} ${o}`).join("\n")}\n\n_Respondé con el número de tu opción_`;sMsg(prev=>prev+(prev?"\n\n":"")+txt);sShowPlus(false);sPlusPanel(null);sPollQ("");sPollOpts(["","",""]);};
+  /* Insert event */
+  const insertEvent=()=>{if(!evTitle.trim())return;const txt=`📅 *EVENTO*\n\n${evTitle}\n📆 ${fmtD(evDate)} · 🕐 ${evTime}\n📍 ${evPlace}\n\n_Los Tordos Rugby Club_`;sMsg(prev=>prev+(prev?"\n\n":"")+txt);sShowPlus(false);sPlusPanel(null);sEvTitle("");sEvDate(TODAY);sEvTime("18:00");sEvPlace("Club Los Tordos");};
   return(<div style={{maxWidth:640}}>
     <h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:colors.nv,fontWeight:800}}>Comunicar</h2>
     <p style={{color:colors.g4,fontSize:12,margin:"0 0 14px"}}>Enviar comunicaciones por WhatsApp</p>
@@ -1682,16 +1686,36 @@ function CommView({peds,presu,agendas,users,areas,deptos,user,mob}:any){
         <div style={{fontSize:12,fontWeight:700,color:colors.nv}}>Mensaje</div>
         {/* + Button for attachments */}
         <div style={{position:"relative" as const}}>
-          <button onClick={()=>sShowPlus(!showPlus)} style={{width:32,height:32,borderRadius:"50%",background:colors.nv,color:"#fff",border:"none",fontSize:18,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
-          {showPlus&&<div style={{position:"absolute" as const,right:0,top:36,background:"#fff",borderRadius:10,boxShadow:"0 4px 20px rgba(0,0,0,.15)",border:"1px solid "+colors.g2,zIndex:50,minWidth:200,overflow:"hidden"}}>
-            <div onClick={()=>exportPdfReport("tareas")} style={{padding:"10px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:8,borderBottom:"1px solid "+colors.g1,fontSize:13}}><span>📄</span> Reporte tareas (PDF)</div>
-            <div onClick={()=>exportPdfReport("vencidas")} style={{padding:"10px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:8,borderBottom:"1px solid "+colors.g1,fontSize:13}}><span>⏰</span> Tareas vencidas (PDF)</div>
-            <div onClick={()=>exportPdfReport("presupuestos")} style={{padding:"10px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:8,borderBottom:"1px solid "+colors.g1,fontSize:13}}><span>💰</span> Presupuestos (PDF)</div>
-            <div onClick={()=>{exportCSV("tareas-lostordos",["#","Tipo","Desc","Fecha","Estado"],peds.map((p:any)=>[String(p.id),p.tipo||"",p.desc||"",p.fReq||"",SC[p.st]?.l||""]));sShowPlus(false);}} style={{padding:"10px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:8,borderBottom:"1px solid "+colors.g1,fontSize:13}}><span>📊</span> Exportar tareas (CSV)</div>
-            <div onClick={()=>{exportICal("lostordos-agenda",agendas.filter((a:any)=>a.date).map((a:any)=>({title:(AGT[a.type]?.title||"Reunión")+(a.areaName?" - "+a.areaName:""),date:a.date,type:a.type})));sShowPlus(false);}} style={{padding:"10px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:8,fontSize:13}}><span>📅</span> Calendario (iCal)</div>
+          <button onClick={()=>{sShowPlus(!showPlus);sPlusPanel(null);}} style={{width:32,height:32,borderRadius:"50%",background:colors.nv,color:"#fff",border:"none",fontSize:18,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>{showPlus?"×":"+"}</button>
+          {showPlus&&!plusPanel&&<div style={{position:"absolute" as const,right:0,top:36,background:"#fff",borderRadius:12,boxShadow:"0 4px 20px rgba(0,0,0,.15)",border:"1px solid "+colors.g2,zIndex:50,minWidth:220,overflow:"hidden"}}>
+            <div onClick={()=>handleFileUpload("*/*")} style={{padding:"12px 16px",cursor:"pointer",display:"flex",alignItems:"center",gap:10,borderBottom:"1px solid #f0f0f0",fontSize:14}}><span style={{fontSize:20}}>📁</span><span style={{fontWeight:600}}>Archivo</span></div>
+            <div onClick={()=>handleFileUpload("image/*,video/*")} style={{padding:"12px 16px",cursor:"pointer",display:"flex",alignItems:"center",gap:10,borderBottom:"1px solid #f0f0f0",fontSize:14}}><span style={{fontSize:20}}>🖼️</span><span style={{fontWeight:600}}>Fotos y videos</span></div>
+            <div onClick={()=>sPlusPanel("contacto")} style={{padding:"12px 16px",cursor:"pointer",display:"flex",alignItems:"center",gap:10,borderBottom:"1px solid #f0f0f0",fontSize:14}}><span style={{fontSize:20}}>👤</span><span style={{fontWeight:600}}>Contacto</span></div>
+            <div onClick={()=>sPlusPanel("encuesta")} style={{padding:"12px 16px",cursor:"pointer",display:"flex",alignItems:"center",gap:10,borderBottom:"1px solid #f0f0f0",fontSize:14}}><span style={{fontSize:20}}>📊</span><span style={{fontWeight:600}}>Encuesta</span></div>
+            <div onClick={()=>sPlusPanel("evento")} style={{padding:"12px 16px",cursor:"pointer",display:"flex",alignItems:"center",gap:10,fontSize:14}}><span style={{fontSize:20}}>📅</span><span style={{fontWeight:600}}>Evento</span></div>
+          </div>}
+          {showPlus&&plusPanel==="contacto"&&<div style={{position:"absolute" as const,right:0,top:36,background:"#fff",borderRadius:12,boxShadow:"0 4px 20px rgba(0,0,0,.15)",border:"1px solid "+colors.g2,zIndex:50,minWidth:260,padding:12}}>
+            <div style={{fontSize:12,fontWeight:700,color:colors.nv,marginBottom:8}}>👤 Seleccionar contacto</div>
+            <select value={contactSel} onChange={e=>sContactSel(e.target.value)} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,marginBottom:8}}><option value="">Elegir...</option>{users.map((u:any)=><option key={u.id} value={u.id}>{fn(u)}</option>)}</select>
+            <div style={{display:"flex",gap:6}}><Btn v="g" s="s" onClick={()=>{sPlusPanel(null);}}>Cancelar</Btn><Btn v="s" s="s" disabled={!contactSel} onClick={()=>insertContact(contactSel)}>Insertar</Btn></div>
+          </div>}
+          {showPlus&&plusPanel==="encuesta"&&<div style={{position:"absolute" as const,right:0,top:36,background:"#fff",borderRadius:12,boxShadow:"0 4px 20px rgba(0,0,0,.15)",border:"1px solid "+colors.g2,zIndex:50,minWidth:280,padding:12}}>
+            <div style={{fontSize:12,fontWeight:700,color:colors.nv,marginBottom:8}}>📊 Crear encuesta</div>
+            <input value={pollQ} onChange={e=>sPollQ(e.target.value)} placeholder="Pregunta..." style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,marginBottom:6,boxSizing:"border-box" as const}}/>
+            {pollOpts.map((o,i)=><input key={i} value={o} onChange={e=>{const n=[...pollOpts];n[i]=e.target.value;sPollOpts(n);}} placeholder={`Opción ${i+1}`} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:11,marginBottom:4,boxSizing:"border-box" as const}}/>)}
+            <button onClick={()=>sPollOpts([...pollOpts,""])} style={{border:"none",background:"none",color:colors.bl,fontSize:11,cursor:"pointer",marginBottom:6}}>+ Agregar opción</button>
+            <div style={{display:"flex",gap:6}}><Btn v="g" s="s" onClick={()=>sPlusPanel(null)}>Cancelar</Btn><Btn v="s" s="s" onClick={insertPoll}>Insertar</Btn></div>
+          </div>}
+          {showPlus&&plusPanel==="evento"&&<div style={{position:"absolute" as const,right:0,top:36,background:"#fff",borderRadius:12,boxShadow:"0 4px 20px rgba(0,0,0,.15)",border:"1px solid "+colors.g2,zIndex:50,minWidth:280,padding:12}}>
+            <div style={{fontSize:12,fontWeight:700,color:colors.nv,marginBottom:8}}>📅 Crear evento</div>
+            <input value={evTitle} onChange={e=>sEvTitle(e.target.value)} placeholder="Título del evento" style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,marginBottom:6,boxSizing:"border-box" as const}}/>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:6}}><input type="date" value={evDate} onChange={e=>sEvDate(e.target.value)} style={{padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:11}}/><input type="time" value={evTime} onChange={e=>sEvTime(e.target.value)} style={{padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:11}}/></div>
+            <input value={evPlace} onChange={e=>sEvPlace(e.target.value)} placeholder="Lugar" style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,marginBottom:8,boxSizing:"border-box" as const}}/>
+            <div style={{display:"flex",gap:6}}><Btn v="g" s="s" onClick={()=>sPlusPanel(null)}>Cancelar</Btn><Btn v="s" s="s" onClick={insertEvent}>Insertar</Btn></div>
           </div>}
         </div>
       </div>
+      {uploading&&<div style={{padding:8,background:"#FEF3C7",borderRadius:8,fontSize:11,color:"#92400E",marginBottom:6}}>⏳ Subiendo archivo...</div>}
       <textarea value={msg} onChange={e=>sMsg(e.target.value)} rows={10} placeholder="Seleccioná una plantilla o escribí un mensaje libre..." style={{width:"100%",padding:10,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,resize:"vertical" as const,boxSizing:"border-box" as const,fontFamily:"monospace"}}/>
       <div style={{display:"flex",gap:8,marginTop:10,justifyContent:"flex-end"}}>
         <Btn v="g" onClick={copyMsg}>{copied?"✅ Copiado":"📋 Copiar"}</Btn>
