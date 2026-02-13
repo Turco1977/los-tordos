@@ -357,21 +357,25 @@ function Det({p,user,users,onX,onTk,onAs,onRe,onSE,onEO,onFi,onVa,onMsg,onMonto,
 /* ── MY DASHBOARD ── */
 function MyDash({user,peds,users,onSel,mob,search,presu}:any){
   const [tab,sTab]=useState("active");
+  const [subFilt,sSubFilt]=useState<string|null>(null);
   const isEnl=user.role==="enlace"||user.role==="manager";
   let myPeds=peds.filter((p:any)=>p.cId===user.id||p.asTo===user.id);
   if(search){const s=search.toLowerCase();myPeds=myPeds.filter((p:any)=>(p.desc+p.cN+p.tipo+p.div+(p.id+"")).toLowerCase().includes(s));}
   const active=myPeds.filter((p:any)=>p.st!==ST.OK),done=myPeds.filter((p:any)=>p.st===ST.OK);
   const total=myPeds.length,okC=done.length,pct=total?Math.round(okC/total*100):0;
   const overdue=active.filter((p:any)=>isOD(p.fReq));
-  const vis=tab==="active"?active:done;
+  let vis=tab==="active"?active:done;
+  if(subFilt==="venc")vis=overdue;
+  else if(subFilt==="gasto")vis=myPeds.filter((p:any)=>p.monto);
+  const clk=(t:string,sf?:string)=>{sTab(t);sSubFilt(sf||null);};
   return(<div style={{maxWidth:720}}>
     <div style={{display:"flex",gap:mob?10:16,alignItems:"center",marginBottom:mob?14:20}}>
       <Ring pct={pct} color={pct>=80?T.gn:pct>=40?T.yl:T.rd} size={mob?70:90} icon={isEnl?"🔗":"👤"}/>
-      <div style={{flex:1}}><h2 style={{margin:0,fontSize:20,color:T.nv,fontWeight:800}}>{isEnl?"Mis Pedidos":"Mis Tareas"}</h2><div style={{fontSize:12,color:T.g5}}>{fn(user)}{user.div?" · "+user.div:""}</div><div style={{display:"flex",gap:12,marginTop:8,fontSize:12}}><span style={{fontWeight:700,color:T.nv}}>{total} total</span><span style={{fontWeight:700,color:T.gn}}>✅ {okC}</span><span style={{fontWeight:700,color:T.yl}}>🟡 {active.length}</span>{overdue.length>0&&<span style={{fontWeight:700,color:"#DC2626"}}>⏰ {overdue.length}</span>}</div></div>
+      <div style={{flex:1}}><h2 style={{margin:0,fontSize:20,color:T.nv,fontWeight:800}}>{isEnl?"Mis Pedidos":"Mis Tareas"}</h2><div style={{fontSize:12,color:T.g5}}>{fn(user)}{user.div?" · "+user.div:""}</div><div style={{display:"flex",gap:12,marginTop:8,fontSize:12}}><span onClick={()=>clk("active")} style={{fontWeight:700,color:T.nv,cursor:"pointer"}}>{total} total</span><span onClick={()=>clk("done")} style={{fontWeight:700,color:T.gn,cursor:"pointer"}}>✅ {okC}</span><span onClick={()=>clk("active")} style={{fontWeight:700,color:T.yl,cursor:"pointer"}}>🟡 {active.length}</span>{overdue.length>0&&<span onClick={()=>clk("active","venc")} style={{fontWeight:700,color:"#DC2626",cursor:"pointer"}}>⏰ {overdue.length}</span>}</div></div>
     </div>
-    <div style={{display:"flex",gap:4,marginBottom:14}}>
-      {[{k:"active",l:"🟡 Activas ("+active.length+")",bg:T.nv},{k:"done",l:"✅ Realizadas ("+done.length+")",bg:T.gn}].map(t=>
-        <button key={t.k} onClick={()=>sTab(t.k)} style={{padding:"7px 16px",borderRadius:8,border:"none",background:tab===t.k?t.bg:"#fff",color:tab===t.k?"#fff":T.g5,fontSize:12,fontWeight:600,cursor:"pointer"}}>{t.l}</button>
+    <div style={{display:"flex",gap:4,marginBottom:14,flexWrap:"wrap" as const}}>
+      {[{k:"active",l:"🟡 Activas ("+active.length+")",bg:T.nv,sf:null as string|null},{k:"done",l:"✅ Realizadas ("+done.length+")",bg:T.gn,sf:null as string|null},{k:"active",l:"⏰ Vencidas ("+overdue.length+")",bg:"#DC2626",sf:"venc"},{k:"active",l:"💰 Con Gasto ("+myPeds.filter((p:any)=>p.monto).length+")",bg:T.pr,sf:"gasto"}].map((t,i)=>
+        <button key={i} onClick={()=>clk(t.k,t.sf||undefined)} style={{padding:"7px 16px",borderRadius:8,border:"none",background:(tab===t.k&&subFilt===t.sf)?t.bg:"#fff",color:(tab===t.k&&subFilt===t.sf)?"#fff":T.g5,fontSize:12,fontWeight:600,cursor:"pointer"}}>{t.l}</button>
       )}
     </div>
     <div style={{display:"flex",flexDirection:"column" as const,gap:8}}>
@@ -415,14 +419,18 @@ function SB({areas,deptos,pedidos,aA,aD,onAC,onDC,col,onCol,isPersonal,mob,sbOpe
   );
 }
 
+/* ── KPI filter helpers ── */
+const KPIF:{[k:string]:{l:string;i:string;c:string}}={ok:{l:"Completadas",i:"✅",c:T.gn},pend:{l:"Pendientes",i:"🔴",c:T.rd},venc:{l:"Vencidas",i:"⏰",c:"#DC2626"},gasto:{l:"Con Gasto",i:"💰",c:T.pr}};
+const kpiFilter=(peds:any[],k:string)=>{switch(k){case"ok":return peds.filter(p=>p.st===ST.OK);case"pend":return peds.filter(p=>p.st===ST.P);case"venc":return peds.filter(p=>p.st!==ST.OK&&isOD(p.fReq));case"gasto":return peds.filter(p=>p.monto);default:return peds;}};
+
 /* ── KPIs ── */
-function KPIs({peds,mob,presu}:{peds:any[];mob?:boolean;presu?:any[]}){
+function KPIs({peds,mob,presu,onFilter}:{peds:any[];mob?:boolean;presu?:any[];onFilter?:(key:string)=>void}){
   const{colors}=useC();
   const tot=peds.length,ok=peds.filter(p=>p.st===ST.OK).length,pe=peds.filter(p=>p.st===ST.P).length;
   const active=peds.filter(p=>p.st!==ST.OK),overdue=active.filter(p=>isOD(p.fReq)).length;
-  const kpis:{l:string;v:any;c:string;i:string}[]=[{l:"Completadas",v:ok+"/"+tot,c:colors.gn,i:"✅"},{l:"Pendientes",v:pe,c:colors.rd,i:"🔴"},{l:"Vencidas",v:overdue,c:"#DC2626",i:"⏰"},{l:"Con Gasto",v:peds.filter(p=>p.monto).length,c:colors.pr,i:"💰"}];
-  if(presu&&presu.length>0){const apr=presu.filter((pr:any)=>pr.status===PST.APR).reduce((s:number,pr:any)=>s+Number(pr.monto),0);const pend=presu.filter((pr:any)=>pr.status===PST.SOL||pr.status===PST.REC).length;kpis.push({l:"$ Aprobado",v:"$"+apr.toLocaleString(),c:colors.gn,i:"💵"},{l:"Pres. Pendientes",v:pend,c:colors.yl,i:"📤"});}
-  return(<div style={{display:"grid",gridTemplateColumns:mob?"repeat(auto-fit,minmax(80px,1fr))":"repeat(auto-fit,minmax(120px,1fr))",gap:mob?6:10,marginBottom:mob?12:18}}>{kpis.map((k,i)=>(<Card key={i} style={{padding:mob?"8px 8px":"10px 12px",borderTop:"3px solid "+k.c}}><div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:mob?14:16}}>{k.i}</span><span style={{fontSize:mob?14:17,fontWeight:800,color:k.c}}>{k.v}</span></div><div style={{fontSize:mob?9:10,color:colors.g4,marginTop:3}}>{k.l}</div></Card>))}</div>);
+  const kpis:{l:string;v:any;c:string;i:string;fk:string}[]=[{l:"Completadas",v:ok+"/"+tot,c:colors.gn,i:"✅",fk:"ok"},{l:"Pendientes",v:pe,c:colors.rd,i:"🔴",fk:"pend"},{l:"Vencidas",v:overdue,c:"#DC2626",i:"⏰",fk:"venc"},{l:"Con Gasto",v:peds.filter(p=>p.monto).length,c:colors.pr,i:"💰",fk:"gasto"}];
+  if(presu&&presu.length>0){const apr=presu.filter((pr:any)=>pr.status===PST.APR).reduce((s:number,pr:any)=>s+Number(pr.monto),0);const pend=presu.filter((pr:any)=>pr.status===PST.SOL||pr.status===PST.REC).length;kpis.push({l:"$ Aprobado",v:"$"+apr.toLocaleString(),c:colors.gn,i:"💵",fk:""},{l:"Pres. Pendientes",v:pend,c:colors.yl,i:"📤",fk:""});}
+  return(<div style={{display:"grid",gridTemplateColumns:mob?"repeat(auto-fit,minmax(80px,1fr))":"repeat(auto-fit,minmax(120px,1fr))",gap:mob?6:10,marginBottom:mob?12:18}}>{kpis.map((k,i)=>(<Card key={i} onClick={k.fk&&onFilter?()=>onFilter(k.fk):undefined} style={{padding:mob?"8px 8px":"10px 12px",borderTop:"3px solid "+k.c,cursor:k.fk&&onFilter?"pointer":"default"}}><div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:mob?14:16}}>{k.i}</span><span style={{fontSize:mob?14:17,fontWeight:800,color:k.c}}>{k.v}</span></div><div style={{fontSize:mob?9:10,color:colors.g4,marginTop:3}}>{k.l}</div></Card>))}</div>);
 }
 
 /* ── CIRCLES ── */
@@ -1461,7 +1469,7 @@ export default function App(){
   const [presu,sPr]=useState<any[]>([]);const [provs,sPv]=useState<any[]>([]);const [reminders,sRems]=useState<any[]>([]);
   const [dbNotifs,sDbNotifs]=useState<any[]>([]);
   const [user,sU]=useState<any>(null);const [authChecked,sAuthChecked]=useState(false);
-  const [vw,sVw]=useState("dash");const [sel,sSl]=useState<any>(null);const [aA,sAA]=useState<number|null>(null);const [aD,sAD]=useState<number|null>(null);const [sbCol,sSbCol]=useState(false);const [search,sSr]=useState("");const [shNot,sShNot]=useState(false);const [preAT,sPreAT]=useState<any>(null);const [showPw,sShowPw]=useState(false);const [toast,sToast]=useState<{msg:string;type:"ok"|"err"}|null>(null);
+  const [vw,sVw]=useState("dash");const [sel,sSl]=useState<any>(null);const [aA,sAA]=useState<number|null>(null);const [aD,sAD]=useState<number|null>(null);const [sbCol,sSbCol]=useState(false);const [search,sSr]=useState("");const [shNot,sShNot]=useState(false);const [preAT,sPreAT]=useState<any>(null);const [showPw,sShowPw]=useState(false);const [toast,sToast]=useState<{msg:string;type:"ok"|"err"}|null>(null);const [kpiFilt,sKpiFilt]=useState<string|null>(null);
   const mob=useMobile();const [sbOpen,sSbOpen]=useState(false);
   const {mode:themeMode,toggle:toggleTheme,colors,isDark,cardBg,headerBg}=useTheme();
   const showT=(msg:string,type:"ok"|"err"="ok")=>sToast({msg,type});
@@ -1548,7 +1556,7 @@ export default function App(){
   const computedNts=notifs(user,peds);
   const unreadDb=dbNotifs.filter((n:any)=>!n.read);
   const nts=[...computedNts,...unreadDb.slice(0,10).map((n:any)=>({t:n.title,c:n.type==="task"?T.bl:n.type==="budget"?T.pr:n.type==="deadline"?T.rd:T.gn,act:n.link?"":"dash",link:n.link,dbId:n.id}))];
-  const hAC=(id:number)=>{sAA(aA===id?null:id);sAD(null);sVw("dash");};
+  const hAC=(id:number)=>{sAA(aA===id?null:id);sAD(null);sKpiFilt(null);sVw("dash");};
   const hDC=(id:number)=>sAD(aD===id?null:id);
 
   let vT="",vI="",vC=T.nv,vP=peds;
@@ -1578,7 +1586,7 @@ export default function App(){
         <div style={{background:headerBg,borderBottom:"1px solid "+colors.g2,padding:mob?"0 8px":"0 14px",display:"flex",justifyContent:"space-between",alignItems:"center",height:48}}>
           <div style={{display:"flex",gap:1,overflowX:"auto" as const,alignItems:"center"}}>
             {mob&&<button onClick={()=>sSbOpen(true)} style={{background:"none",border:"none",fontSize:18,cursor:"pointer",color:colors.nv,padding:"4px 6px",flexShrink:0}}>☰</button>}
-            {nav.filter(n=>n.sh).map(n=><button key={n.k} onClick={()=>{sVw(n.k);if(n.k==="dash"||n.k==="my"){sAA(null);sAD(null);}}} style={{padding:mob?"5px 8px":"6px 11px",border:"none",borderRadius:7,background:vw===n.k?colors.nv:"transparent",color:vw===n.k?(isDark?"#0F172A":"#fff"):colors.g5,fontSize:mob?10:11,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap" as const}}>{n.l}</button>)}
+            {nav.filter(n=>n.sh).map(n=><button key={n.k} onClick={()=>{sVw(n.k);if(n.k==="dash"||n.k==="my"){sAA(null);sAD(null);sKpiFilt(null);}}} style={{padding:mob?"5px 8px":"6px 11px",border:"none",borderRadius:7,background:vw===n.k?colors.nv:"transparent",color:vw===n.k?(isDark?"#0F172A":"#fff"):colors.g5,fontSize:mob?10:11,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap" as const}}>{n.l}</button>)}
           </div>
           <div style={{display:"flex",alignItems:"center",gap:mob?4:8,flexShrink:0}}>
             <div style={{position:"relative" as const}}><input value={search} onChange={e=>sSr(e.target.value)} placeholder="🔍 Buscar..." style={{padding:"5px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:11,width:mob?80:130}}/></div>
@@ -1639,10 +1647,11 @@ export default function App(){
             sPreAT(null);sVw(isPersonal?"my":"dash");sAA(null);sAD(null);showT(p._presu?"Tarea creada con presupuesto":"Tarea creada");}catch(e:any){showT(e.message||"Error al crear tarea","err");}
           }} onX={()=>{sPreAT(null);sVw(isPersonal?"my":"dash");}}/>}
           {vw==="proy"&&<Proyecto hitos={hitos} setHitos={(updater:any)=>{sHi((prev:any)=>{const next=typeof updater==="function"?updater(prev):updater;next.forEach((h:any)=>{supabase.from("milestones").update({pct:h.pct}).eq("id",h.id);});return next;});}} isAd={isAd}/>}
-          {vw==="dash"&&!isPersonal&&!aA&&!aD&&<><h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:colors.nv,fontWeight:800}}>Dashboard</h2><p style={{color:colors.g4,fontSize:12,margin:"0 0 16px"}}>KPIs institucionales · Manual Operativo 2035</p><KPIs peds={peds} mob={mob} presu={presu}/><Circles areas={areas} deptos={deptos} pedidos={peds} onAC={hAC} mob={mob}/></>}
-          {vw==="dash"&&!isPersonal&&aA&&!aD&&(aA===100||aA===101)&&<div><Bread parts={[{label:"Dashboard",onClick:()=>sAA(null)},{label:vT}]} mob={mob}/><KPIs peds={vP} mob={mob}/><TList title={vT} icon={vI} color={vC} peds={vP} users={users} onSel={(p:any)=>sSl(p)} search={search} mob={mob}/></div>}
-          {vw==="dash"&&!isPersonal&&aA&&!aD&&aA!==100&&aA!==101&&(()=>{const selAr=areas.find((a:any)=>a.id===aA);return <div><Bread parts={[{label:"Dashboard",onClick:()=>sAA(null)},{label:selAr?.name||""}]} mob={mob}/><h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:colors.nv,fontWeight:800}}>{selAr?.icon} {selAr?.name}</h2><p style={{color:colors.g4,fontSize:12,margin:"0 0 16px"}}>{deptos.filter((d:any)=>d.aId===aA).length} departamentos</p><KPIs peds={vP} mob={mob}/><DeptCircles area={selAr} deptos={deptos} pedidos={peds} onDC={(id:number)=>sAD(id)} mob={mob}/></div>;})()}
-          {vw==="dash"&&!isPersonal&&aD&&(()=>{const selAr=areas.find((a:any)=>a.id===aA);const selDp=deptos.find((d:any)=>d.id===aD);return <div><Bread parts={[{label:"Dashboard",onClick:()=>{sAA(null);sAD(null);}},{label:selAr?.name||"",onClick:()=>sAD(null)},{label:selDp?.name||""}]} mob={mob}/><TList title={vT} icon={vI} color={vC} peds={vP} users={users} onSel={(p:any)=>sSl(p)} search={search} mob={mob}/></div>;})()}
+          {vw==="dash"&&!isPersonal&&!aA&&!aD&&!kpiFilt&&<><h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:colors.nv,fontWeight:800}}>Dashboard</h2><p style={{color:colors.g4,fontSize:12,margin:"0 0 16px"}}>KPIs institucionales · Manual Operativo 2035</p><KPIs peds={peds} mob={mob} presu={presu} onFilter={(k:string)=>sKpiFilt(k)}/><Circles areas={areas} deptos={deptos} pedidos={peds} onAC={hAC} mob={mob}/></>}
+          {vw==="dash"&&!isPersonal&&!aA&&!aD&&kpiFilt&&(()=>{const fl=KPIF[kpiFilt];const fp=kpiFilter(peds,kpiFilt);return <div><Bread parts={[{label:"Dashboard",onClick:()=>sKpiFilt(null)},{label:fl?.l||""}]} mob={mob}/><TList title={fl?.l||""} icon={fl?.i||""} color={fl?.c||T.bl} peds={fp} users={users} onSel={(p:any)=>sSl(p)} search={search} mob={mob}/></div>;})()}
+          {vw==="dash"&&!isPersonal&&aA&&!aD&&(aA===100||aA===101)&&<div><Bread parts={[{label:"Dashboard",onClick:()=>{sAA(null);sKpiFilt(null);}},{label:vT}]} mob={mob}/><KPIs peds={vP} mob={mob} onFilter={(k:string)=>{sAA(null);sKpiFilt(k);}}/><TList title={vT} icon={vI} color={vC} peds={vP} users={users} onSel={(p:any)=>sSl(p)} search={search} mob={mob}/></div>}
+          {vw==="dash"&&!isPersonal&&aA&&!aD&&aA!==100&&aA!==101&&(()=>{const selAr=areas.find((a:any)=>a.id===aA);return <div><Bread parts={[{label:"Dashboard",onClick:()=>{sAA(null);sKpiFilt(null);}},{label:selAr?.name||""}]} mob={mob}/><h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:colors.nv,fontWeight:800}}>{selAr?.icon} {selAr?.name}</h2><p style={{color:colors.g4,fontSize:12,margin:"0 0 16px"}}>{deptos.filter((d:any)=>d.aId===aA).length} departamentos</p><KPIs peds={vP} mob={mob} onFilter={(k:string)=>{sAA(null);sKpiFilt(k);}}/><DeptCircles area={selAr} deptos={deptos} pedidos={peds} onDC={(id:number)=>sAD(id)} mob={mob}/></div>;})()}
+          {vw==="dash"&&!isPersonal&&aD&&(()=>{const selAr=areas.find((a:any)=>a.id===aA);const selDp=deptos.find((d:any)=>d.id===aD);return <div><Bread parts={[{label:"Dashboard",onClick:()=>{sAA(null);sAD(null);sKpiFilt(null);}},{label:selAr?.name||"",onClick:()=>{sAD(null);sKpiFilt(null);}},{label:selDp?.name||""}]} mob={mob}/><TList title={vT} icon={vI} color={vC} peds={vP} users={users} onSel={(p:any)=>sSl(p)} search={search} mob={mob}/></div>;})()}
         </div>
       </div>
       {showPw&&<ChangePw onX={()=>sShowPw(false)}/>}
