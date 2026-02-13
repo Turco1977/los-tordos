@@ -1621,10 +1621,10 @@ function ActivityFeed({peds,users,onSel,mob}:any){
 }
 
 /* ── COMM VIEW / WhatsApp (Feature 9) ── */
-function CommView({peds,presu,agendas,users,areas,deptos,user,mob}:any){
+function CommView({peds,presu,agendas,minutas,users,areas,deptos,user,mob}:any){
   const{colors,cardBg}=useC();
   const [tmpl,sTmpl]=useState("");const [msg,sMsg]=useState("");const [copied,sCopied]=useState(false);
-  const [showPlus,sShowPlus]=useState(false);const [areaFilter,sAreaFilter]=useState("");
+  const [showPlus,sShowPlus]=useState(false);
   const [plusPanel,sPlusPanel]=useState<string|null>(null);const [uploading,sUploading]=useState(false);
   const [pollQ,sPollQ]=useState("");const [pollOpts,sPollOpts]=useState(["","",""]);
   const [evTitle,sEvTitle]=useState("");const [evDate,sEvDate]=useState(TODAY);const [evTime,sEvTime]=useState("18:00");const [evPlace,sEvPlace]=useState("Club Los Tordos");
@@ -1636,21 +1636,18 @@ function CommView({peds,presu,agendas,users,areas,deptos,user,mob}:any){
   const overdue=peds.filter((p:any)=>p.st!==ST.OK&&isOD(p.fReq));
   const pendPresu=presu.filter((pr:any)=>pr.status==="solicitado"||pr.status==="recibido");
   const nextAg=agendas.find((a:any)=>a.date>=TODAY);
-  /* Area-specific helpers */
-  const areaObj=areaFilter?(areas||[]).find((a:any)=>a.name===areaFilter):null;
-  const areaDIds=areaObj?(deptos||[]).filter((d:any)=>d.aId===areaObj.id).map((d:any)=>d.id):[];
-  const areaPeds=areaFilter?peds.filter((p:any)=>areaDIds.includes(p.dId)):[];
-  const areaOver=areaPeds.filter((p:any)=>p.st!==ST.OK&&isOD(p.fReq));
+  /* Latest minuta helper */
+  const latestMin=minutas?.length?[...minutas].sort((a:any,b:any)=>(b.date||"").localeCompare(a.date||""))[0]:null;
   /* Templates */
   const templates:any={
-    resumen:{l:"📊 Resumen Semanal",i:"📊",gen:()=>`📊 *Resumen Semanal Los Tordos*\n\n📋 Tareas creadas: ${createdThisWeek}\n✅ Completadas: ${completedThisWeek}\n⏰ Vencidas: ${overdue.length}\n📊 Total activas: ${peds.filter((p:any)=>p.st!==ST.OK).length}${sig}`},
-    reunion:{l:"📅 Próxima Reunión",i:"📅",gen:()=>`📅 *Convocatoria a Reunión*\n\n${nextAg?`Fecha: ${fmtD(nextAg.date)}\nTipo: ${AGT[nextAg.type]?.title||""}\n\nTemas:\n${(nextAg.sections||[]).map((s:any,i:number)=>`${i+1}. ${s.t}`).join("\n")}`:"Sin reuniones programadas"}${sig}`},
-    vencidas:{l:"⏰ Tareas Vencidas",i:"⏰",gen:()=>`⏰ *Tareas Vencidas (${overdue.length})*\n\n${overdue.slice(0,15).map((p:any)=>`• #${p.id} ${p.desc?.slice(0,40)} (📅 ${p.fReq})`).join("\n")}${overdue.length>15?"\n... y "+(overdue.length-15)+" más":""}${sig}`},
-    presupuestos:{l:"💰 Estado Presupuestos",i:"💰",gen:()=>`💰 *Estado de Presupuestos*\n\nPendientes: ${pendPresu.length}\nAprobados: ${presu.filter((pr:any)=>pr.status==="aprobado").length}\nTotal aprobado: $${presu.filter((pr:any)=>pr.status==="aprobado").reduce((s:number,pr:any)=>s+Number(pr.monto||0),0).toLocaleString()}${sig}`},
-    cd:{l:"🏛️ Resumen CD",i:"🏛️",gen:()=>{const cdPeds=peds.filter((p:any)=>[50,51,52,53,54,80,81,82].includes(p.dId));return`🏛️ *Comisión Directiva*\n\n📋 Tareas: ${cdPeds.length}\n✅ Completadas: ${cdPeds.filter((p:any)=>p.st===ST.OK).length}\n⏰ Pendientes: ${cdPeds.filter((p:any)=>p.st===ST.P).length}${sig}`;}},
-    se:{l:"⚡ Resumen SE",i:"⚡",gen:()=>{const sePeds=peds.filter((p:any)=>p.dId===55||p.dId===56);return`⚡ *Secretaría Ejecutiva*\n\n📋 Tareas: ${sePeds.length}\n✅ Completadas: ${sePeds.filter((p:any)=>p.st===ST.OK).length}\n⏰ Pendientes: ${sePeds.filter((p:any)=>p.st===ST.P).length}${sig}`;}},
-    area:{l:areaFilter?`${areaObj?.icon||"📂"} ${areaFilter}`:"📂 Resumen por Área",i:"📂",gen:()=>areaFilter?`${areaObj?.icon||"📂"} *${areaFilter}*\n\n📋 Tareas: ${areaPeds.length}\n✅ Completadas: ${areaPeds.filter((p:any)=>p.st===ST.OK).length}\n⏰ Vencidas: ${areaOver.length}\n🔄 En curso: ${areaPeds.filter((p:any)=>p.st===ST.C).length}${sig}`:"Seleccioná un área primero"},
-    libre:{l:"✏️ Mensaje Libre",i:"✏️",gen:()=>""}
+    resumen:{l:"📊 Resumen Semanal",gen:()=>`📊 *Resumen Semanal Los Tordos*\n\n📋 Tareas creadas: ${createdThisWeek}\n✅ Completadas: ${completedThisWeek}\n⏰ Vencidas: ${overdue.length}\n📊 Total activas: ${peds.filter((p:any)=>p.st!==ST.OK).length}${sig}`},
+    reunion:{l:"📅 Próxima Reunión",gen:()=>`📅 *Convocatoria a Reunión*\n\n${nextAg?`Fecha: ${fmtD(nextAg.date)}\nTipo: ${AGT[nextAg.type]?.title||""}\n\nTemas:\n${(nextAg.sections||[]).map((s:any,i:number)=>`${i+1}. ${s.t}`).join("\n")}`:"Sin reuniones programadas"}${sig}`},
+    minuta:{l:"📝 Minuta",gen:()=>{if(!latestMin)return"📝 No hay minutas disponibles"+sig;const mi=latestMin;const tipo=AGT[mi.type]?.title||mi.type;const secs=(mi.sections||[]).map((s:any,i:number)=>typeof s==="string"?s:`*${s.title||"Sección "+(i+1)}*\n${s.content||""}`).filter((s:string)=>s.trim()).join("\n\n");const tareas=(mi.tareas||[]).filter((t:any)=>t.desc).map((t:any,i:number)=>`${i+1}. ${t.desc}${t.fecha?" (📅 "+t.fecha+")":""}`).join("\n");return`📝 *Minuta – ${tipo}*${mi.areaName?" · "+mi.areaName:""}\n\n📆 Fecha: ${fmtD(mi.date)}\n🕐 ${mi.horaInicio||""} – ${mi.horaCierre||""}\n📍 ${mi.lugar||"Club Los Tordos"}\n\n👥 *Presentes:* ${(mi.presentes||[]).join(", ")||"–"}\n❌ *Ausentes:* ${(mi.ausentes||[]).join(", ")||"–"}\n\n${secs?`📋 *Desarrollo:*\n\n${secs}`:""}\n\n${tareas?`✅ *Tareas asignadas:*\n${tareas}`:""}${sig}`;}},
+    vencidas:{l:"⏰ Tareas Vencidas",gen:()=>`⏰ *Tareas Vencidas (${overdue.length})*\n\n${overdue.slice(0,15).map((p:any)=>`• #${p.id} ${p.desc?.slice(0,40)} (📅 ${p.fReq})`).join("\n")}${overdue.length>15?"\n... y "+(overdue.length-15)+" más":""}${sig}`},
+    presupuestos:{l:"💰 Estado Presupuestos",gen:()=>`💰 *Estado de Presupuestos*\n\nPendientes: ${pendPresu.length}\nAprobados: ${presu.filter((pr:any)=>pr.status==="aprobado").length}\nTotal aprobado: $${presu.filter((pr:any)=>pr.status==="aprobado").reduce((s:number,pr:any)=>s+Number(pr.monto||0),0).toLocaleString()}${sig}`},
+    cd:{l:"🏛️ Resumen CD",gen:()=>{const cdPeds=peds.filter((p:any)=>[50,51,52,53,54,80,81,82].includes(p.dId));return`🏛️ *Comisión Directiva*\n\n📋 Tareas: ${cdPeds.length}\n✅ Completadas: ${cdPeds.filter((p:any)=>p.st===ST.OK).length}\n⏰ Pendientes: ${cdPeds.filter((p:any)=>p.st===ST.P).length}${sig}`;}},
+    se:{l:"⚡ Resumen SE",gen:()=>{const sePeds=peds.filter((p:any)=>p.dId===55||p.dId===56);return`⚡ *Secretaría Ejecutiva*\n\n📋 Tareas: ${sePeds.length}\n✅ Completadas: ${sePeds.filter((p:any)=>p.st===ST.OK).length}\n⏰ Pendientes: ${sePeds.filter((p:any)=>p.st===ST.P).length}${sig}`;}},
+    libre:{l:"✏️ Mensaje Libre",gen:()=>""}
   };
   const selTmpl=(k:string)=>{sTmpl(k);sMsg(templates[k].gen());};
   const sendWA=()=>{window.open("https://wa.me/?text="+encodeURIComponent(msg),"_blank");};
@@ -1668,17 +1665,9 @@ function CommView({peds,presu,agendas,users,areas,deptos,user,mob}:any){
     <p style={{color:colors.g4,fontSize:12,margin:"0 0 14px"}}>Enviar comunicaciones por WhatsApp</p>
     {/* Template grid */}
     <div style={{display:"grid",gridTemplateColumns:mob?"1fr 1fr":"repeat(4,1fr)",gap:8,marginBottom:14}}>
-      {Object.keys(templates).map(k=><Card key={k} onClick={()=>{if(k==="area"&&!areaFilter)return;selTmpl(k);}} style={{padding:"10px 12px",cursor:k==="area"&&!areaFilter?"default":"pointer",textAlign:"center" as const,border:tmpl===k?"2px solid "+colors.nv:"1px solid "+colors.g2,opacity:k==="area"&&!areaFilter?0.5:1}}>
+      {Object.keys(templates).map(k=><Card key={k} onClick={()=>selTmpl(k)} style={{padding:"10px 12px",cursor:"pointer",textAlign:"center" as const,border:tmpl===k?"2px solid "+colors.nv:"1px solid "+colors.g2}}>
         <div style={{fontSize:11,fontWeight:700,color:colors.nv}}>{templates[k].l}</div>
       </Card>)}
-    </div>
-    {/* Area filter */}
-    <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:14}}>
-      <label style={{fontSize:11,fontWeight:600,color:colors.g5}}>Filtrar por área:</label>
-      <select value={areaFilter} onChange={e=>{sAreaFilter(e.target.value);if(tmpl==="area")sTmpl("");}} style={{padding:"6px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:12}}>
-        <option value="">Todas</option>
-        {(areas||[]).filter((a:any)=>a.id!==100&&a.id!==101).map((a:any)=><option key={a.id} value={a.name}>{a.icon} {a.name}</option>)}
-      </select>
     </div>
     {/* Message area */}
     <Card>
@@ -1940,7 +1929,7 @@ export default function App(){
           {/* Activity Feed (Feature 5) */}
           {vw==="feed"&&!isPersonal&&<ActivityFeed peds={peds} users={users} onSel={(p:any)=>sSl(p)} mob={mob}/>}
           {/* Communications (Feature 9) */}
-          {vw==="comm"&&(isAd||user.role==="coordinador")&&<CommView peds={peds} presu={presu} agendas={agendas} users={users} areas={areas} deptos={deptos} user={user} mob={mob}/>}
+          {vw==="comm"&&(isAd||user.role==="coordinador")&&<CommView peds={peds} presu={presu} agendas={agendas} minutas={minutas} users={users} areas={areas} deptos={deptos} user={user} mob={mob}/>}
           {vw==="org"&&<Org areas={areas} deptos={deptos} users={users} om={om} pedidos={peds} onSel={(p:any)=>sSl(p)} onEditSave={async(id:string,d:any)=>{sOm(p=>p.map(m=>m.id===id?{...m,...d}:m));await supabase.from("org_members").update({first_name:d.n,last_name:d.a,email:d.mail||"",phone:d.tel||""}).eq("id",id);}} onDelOm={async(id:string)=>{sOm(p=>p.filter(m=>m.id!==id));await supabase.from("org_members").delete().eq("id",id);}} onDelUser={async(id:string)=>{sUs(p=>p.filter(u=>u.id!==id));await supabase.from("profiles").delete().eq("id",id);}} onEditUser={(u:any)=>{sVw("profs");}} isSA={isSA} onAssignTask={(u:any)=>{sPreAT(u);sVw("new");}} mob={mob}/>}
           {vw==="cal"&&<CalView peds={peds} agendas={agendas} minutas={minutas} presu={presu} reminders={reminders} areas={areas} deptos={deptos} users={users} user={user} onSel={(p:any)=>sSl(p)} mob={mob}
             onAddReminder={async(r:any)=>{try{const row:any={user_id:user.id,user_name:fn(user),title:r.title,date:r.date,description:r.description||"",color:r.color||"#3B82F6",recurrence:r.recurrence||"none",assigned_to:r.assigned_to||null,assigned_name:r.assigned_name||""};const{data,error}=await supabase.from("reminders").insert(row).select().single();if(error)throw new Error(error.message);sRems(p=>[...(data?[data]:[]),...p]);showT("Recordatorio creado");}catch(e:any){showT(e.message||"Error","err");}}}
