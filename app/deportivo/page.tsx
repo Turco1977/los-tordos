@@ -105,7 +105,6 @@ export default function DeportivoApp(){
   const [injuries,sInjuries]=useState<DepInjury[]>([]);
   const [checkins,sCheckins]=useState<DepCheckin[]>([]);
   const [staffList,sStaffList]=useState<DepStaff[]>([]);
-  const [allProfiles,sAllProfiles]=useState<any[]>([]);
 
   // UI
   const [tab,sTab]=useState("dash");
@@ -138,19 +137,22 @@ export default function DeportivoApp(){
   const fetchAll=useCallback(async()=>{
     if(!user) return;
     sLoading(true);
-    const [stRes,athRes,injRes,ckRes,prRes]=await Promise.all([
+    const [stRes,athRes,injRes,ckRes]=await Promise.all([
       supabase.from("dep_staff").select("*"),
       supabase.from("dep_athletes").select("*").order("last_name"),
       supabase.from("dep_injuries").select("*").order("id",{ascending:false}),
       supabase.from("dep_checkins").select("*").order("date",{ascending:false}),
-      supabase.from("profiles").select("id,first_name,last_name,role,email"),
     ]);
     if(stRes.data){
-      // Join staff with profile names
-      const profiles=prRes.data||[];
+      // Fetch only profiles that belong to dep_staff
+      const staffUserIds=stRes.data.map((s:any)=>s.user_id);
+      const{data:profiles}=staffUserIds.length>0
+        ?await supabase.from("profiles").select("id,first_name,last_name,role,email").in("id",staffUserIds)
+        :{data:[]};
+      const pMap=new Map((profiles||[]).map((p:any)=>[p.id,p]));
       const staff=stRes.data.map((s:any)=>{
-        const pr=profiles.find((p:any)=>p.id===s.user_id);
-        return{...s,first_name:pr?.first_name||"",last_name:pr?.last_name||""};
+        const pr=pMap.get(s.user_id);
+        return{...s,first_name:pr?.first_name||"",last_name:pr?.last_name||"",email:pr?.email||""};
       });
       sStaffList(staff);
       const me=staff.find((s:any)=>s.user_id===user.id&&s.active);
@@ -171,7 +173,6 @@ export default function DeportivoApp(){
         return{...c,athlete_name:a?a.first_name+" "+a.last_name:"?"};
       }));
     }
-    if(prRes.data) sAllProfiles(prRes.data);
     sLoading(false);
   },[user]);
 
@@ -234,7 +235,7 @@ export default function DeportivoApp(){
     {k:"injuries",l:"🩹",f:"Lesiones"},
     {k:"wellness",l:"💚",f:"Wellness"},
     {k:"training",l:"🏋️",f:"Entrenamientos"},
-    ...(canManageStaff?[{k:"staff",l:"⚙️",f:"Staff"}]:[]),
+    ...(canManageStaff?[{k:"perfiles",l:"👤",f:"Perfiles"}]:[]),
   ];
 
   /* ══════════════════════════ HANDLERS ══════════════════════════ */
@@ -310,13 +311,6 @@ export default function DeportivoApp(){
   };
 
   /* ── Staff CRUD ── */
-  const onAddStaff=async(userId:string,depRole:string,divisions:string[])=>{
-    try{
-      const{error}=await supabase.from("dep_staff").insert({user_id:userId,dep_role:depRole,divisions,active:true});
-      if(error) throw error;
-      showT("Staff agregado");fetchAll();
-    }catch(e:any){showT(e.message||"Error","err");}
-  };
   const onUpdStaff=async(id:string,updates:Partial<DepStaff>)=>{
     try{
       const{error}=await supabase.from("dep_staff").update(updates).eq("id",id);
@@ -429,8 +423,8 @@ export default function DeportivoApp(){
       {/* ════════ ENTRENAMIENTOS ════════ */}
       {tab==="training"&&<TrainingTab athletes={filteredAthletes} division={divF} canCreate={canCreateTraining} userId={user.id} mob={mob} showT={showT}/>}
 
-      {/* ════════ STAFF ════════ */}
-      {tab==="staff"&&canManageStaff&&<StaffTab staffList={staffList} allProfiles={allProfiles} onAdd={onAddStaff} onUpdate={onUpdStaff} onDel={onDelStaff} mob={mob}/>}
+      {/* ════════ PERFILES ════════ */}
+      {tab==="perfiles"&&canManageStaff&&<PerfilesTab staffList={staffList} onUpdate={onUpdStaff} onDel={onDelStaff} mob={mob} showT={showT} fetchAll={fetchAll}/>}
 
     </div>
     {toast&&<Toast msg={toast.msg} type={toast.type} onDone={()=>sToast(null)}/>}
@@ -1179,67 +1173,105 @@ function TrainingTab({athletes,division,canCreate,userId,mob,showT}:any){
 }
 
 /* ══════════════════════════ STAFF TAB ══════════════════════════ */
-function StaffTab({staffList,allProfiles,onAdd,onUpdate,onDel,mob}:any){
-  const [showAdd,sShowAdd]=useState(false);
-  const [newUid,sNewUid]=useState("");const [newRole,sNewRole]=useState("entrenador");const [newDivs,sNewDivs]=useState<string[]>([]);
-  const activeStaff=staffList.filter((s:DepStaff)=>s.active);
-  const usedIds=new Set(staffList.map((s:DepStaff)=>s.user_id));
-  const available=allProfiles.filter((p:any)=>!usedIds.has(p.id));
+function PerfilesTab({staffList,onUpdate,onDel,mob,showT,fetchAll}:any){
+  const{colors,isDark,cardBg}=useC();
+  const [showCreate,sShowCreate]=useState(false);
+  const [creating,sCreating]=useState(false);
+  const [creds,sCreds]=useState<{email:string;password:string}|null>(null);
+  const [nFirst,sNFirst]=useState("");const [nLast,sNLast]=useState("");const [nEmail,sNEmail]=useState("");const [nPass,sNPass]=useState("");
+  const [nRole,sNRole]=useState("entrenador");const [nDivs,sNDivs]=useState<string[]>([]);
 
   const [editId,sEditId]=useState<string|null>(null);
   const [editRole,sEditRole]=useState("");const [editDivs,sEditDivs]=useState<string[]>([]);
 
+  const activeStaff=staffList.filter((s:DepStaff)=>s.active);
+
+  const doCreate=async()=>{
+    if(!nFirst||!nLast||!nEmail){showT("Completá nombre, apellido y email","err");return;}
+    sCreating(true);
+    try{
+      const sess=await supabase.auth.getSession();
+      const token=sess.data.session?.access_token;
+      const res=await fetch("/api/deportivo/create-user",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},body:JSON.stringify({email:nEmail,password:nPass||undefined,first_name:nFirst,last_name:nLast,dep_role:nRole,divisions:nDivs})});
+      const data=await res.json();
+      if(!res.ok) throw new Error(data.error||"Error al crear usuario");
+      sCreds(data.credentials);
+      showT("Perfil creado exitosamente");
+      sNFirst("");sNLast("");sNEmail("");sNPass("");sNRole("entrenador");sNDivs([]);
+      fetchAll();
+    }catch(e:any){showT(e.message||"Error","err");}
+    sCreating(false);
+  };
+
   return <div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-      <h2 style={{margin:0,fontSize:18,color:T.nv}}>⚙️ Staff Deportivo ({activeStaff.length})</h2>
-      <Btn v="p" s="s" onClick={()=>sShowAdd(!showAdd)}>+ Agregar</Btn>
+      <h2 style={{margin:0,fontSize:18,color:colors.nv}}>👤 Perfiles Deportivos ({activeStaff.length})</h2>
+      <Btn v="p" s="s" onClick={()=>{sShowCreate(!showCreate);sCreds(null);}}>+ Crear perfil</Btn>
     </div>
 
-    {showAdd&&<Card style={{marginBottom:14,background:"#FFFBEB",border:"1px solid #FDE68A"}}>
-      <h3 style={{margin:"0 0 10px",fontSize:13,color:T.nv}}>Agregar staff</h3>
-      <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:10}}>
-        <div><label style={{fontSize:11,fontWeight:600,color:T.g5}}>Usuario</label><select value={newUid} onChange={e=>sNewUid(e.target.value)} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,marginTop:3}}><option value="">Seleccionar...</option>{available.map((p:any)=><option key={p.id} value={p.id}>{p.first_name} {p.last_name} ({p.email})</option>)}</select></div>
-        <div><label style={{fontSize:11,fontWeight:600,color:T.g5}}>Rol deportivo</label><select value={newRole} onChange={e=>sNewRole(e.target.value)} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,marginTop:3}}>{Object.entries(DEP_ROLES).map(([k,v])=><option key={k} value={k}>{v.i} {v.l}</option>)}</select></div>
+    {/* Credentials display (shown once after creation) */}
+    {creds&&<Card style={{marginBottom:14,background:isDark?"#064E3B":"#ECFDF5",border:"1px solid "+(isDark?"#065F46":"#A7F3D0")}}>
+      <h3 style={{margin:"0 0 8px",fontSize:13,color:colors.nv}}>✅ Usuario creado — copiá las credenciales</h3>
+      <div style={{background:isDark?"#0F172A":"#fff",borderRadius:8,padding:12,fontFamily:"monospace",fontSize:12,lineHeight:1.8,border:"1px solid "+colors.g3}}>
+        <div><strong>Email:</strong> {creds.email}</div>
+        <div><strong>Contraseña:</strong> {creds.password}</div>
       </div>
-      <div style={{marginTop:8}}><label style={{fontSize:11,fontWeight:600,color:T.g5}}>Divisiones asignadas</label>
-        <div style={{display:"flex",gap:4,flexWrap:"wrap" as const,marginTop:4}}>{DEP_DIV.map(d=><button key={d} onClick={()=>sNewDivs(prev=>prev.includes(d)?prev.filter(x=>x!==d):[...prev,d])} style={{padding:"4px 10px",borderRadius:16,fontSize:10,border:newDivs.includes(d)?"2px solid "+T.nv:"1px solid "+T.g3,background:newDivs.includes(d)?T.nv+"10":"#fff",color:newDivs.includes(d)?T.nv:T.g5,cursor:"pointer",fontWeight:600}}>{d}</button>)}</div>
+      <div style={{display:"flex",gap:8,marginTop:10}}>
+        <Btn v="p" s="s" onClick={()=>{navigator.clipboard.writeText("Email: "+creds.email+"\nContraseña: "+creds.password);showT("Copiado al portapapeles");}}>📋 Copiar</Btn>
+        <Btn v="g" s="s" onClick={()=>sCreds(null)}>Cerrar</Btn>
+      </div>
+    </Card>}
+
+    {/* Create form */}
+    {showCreate&&!creds&&<Card style={{marginBottom:14,background:isDark?colors.g2:"#FFFBEB",border:"1px solid "+(isDark?colors.g3:"#FDE68A")}}>
+      <h3 style={{margin:"0 0 10px",fontSize:13,color:colors.nv}}>Crear nuevo perfil deportivo</h3>
+      <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:10}}>
+        <div><label style={{fontSize:11,fontWeight:600,color:colors.g5}}>Nombre *</label><input value={nFirst} onChange={e=>sNFirst(e.target.value)} placeholder="Nombre" style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,marginTop:3,boxSizing:"border-box" as const,background:cardBg,color:colors.nv}}/></div>
+        <div><label style={{fontSize:11,fontWeight:600,color:colors.g5}}>Apellido *</label><input value={nLast} onChange={e=>sNLast(e.target.value)} placeholder="Apellido" style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,marginTop:3,boxSizing:"border-box" as const,background:cardBg,color:colors.nv}}/></div>
+        <div><label style={{fontSize:11,fontWeight:600,color:colors.g5}}>Email *</label><input value={nEmail} onChange={e=>sNEmail(e.target.value)} placeholder="email@ejemplo.com" type="email" style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,marginTop:3,boxSizing:"border-box" as const,background:cardBg,color:colors.nv}}/></div>
+        <div><label style={{fontSize:11,fontWeight:600,color:colors.g5}}>Contraseña <span style={{fontWeight:400,color:colors.g4}}>(opcional, se autogenera)</span></label><input value={nPass} onChange={e=>sNPass(e.target.value)} placeholder="Dejar vacío para autogenerar" type="text" style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,marginTop:3,boxSizing:"border-box" as const,background:cardBg,color:colors.nv}}/></div>
+        <div><label style={{fontSize:11,fontWeight:600,color:colors.g5}}>Rol deportivo *</label><select value={nRole} onChange={e=>sNRole(e.target.value)} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,marginTop:3,background:cardBg,color:colors.nv}}>{Object.entries(DEP_ROLES).map(([k,v])=><option key={k} value={k}>{v.i} {v.l}</option>)}</select></div>
+      </div>
+      <div style={{marginTop:8}}><label style={{fontSize:11,fontWeight:600,color:colors.g5}}>Divisiones asignadas</label>
+        <div style={{display:"flex",gap:4,flexWrap:"wrap" as const,marginTop:4}}>{DEP_DIV.map(d=><button key={d} onClick={()=>sNDivs(prev=>prev.includes(d)?prev.filter(x=>x!==d):[...prev,d])} style={{padding:"4px 10px",borderRadius:16,fontSize:10,border:nDivs.includes(d)?"2px solid "+colors.nv:"1px solid "+colors.g3,background:nDivs.includes(d)?colors.nv+"10":cardBg,color:nDivs.includes(d)?colors.nv:colors.g5,cursor:"pointer",fontWeight:600}}>{d}</button>)}</div>
       </div>
       <div style={{display:"flex",gap:8,marginTop:12}}>
-        <Btn v="p" onClick={()=>{if(newUid){onAdd(newUid,newRole,newDivs);sShowAdd(false);sNewUid("");sNewDivs([]);}}} disabled={!newUid}>Agregar</Btn>
-        <Btn v="g" onClick={()=>sShowAdd(false)}>Cancelar</Btn>
+        <Btn v="p" onClick={doCreate} disabled={creating||!nFirst||!nLast||!nEmail}>{creating?"Creando...":"Crear perfil"}</Btn>
+        <Btn v="g" onClick={()=>sShowCreate(false)}>Cancelar</Btn>
       </div>
     </Card>}
 
     {/* Staff list */}
     <div style={{display:"flex",flexDirection:"column" as const,gap:8}}>
-      {activeStaff.map((s:DepStaff)=>{
+      {activeStaff.map((s:any)=>{
         const r=DEP_ROLES[s.dep_role];
         const isEditing=editId===s.id;
         return <Card key={s.id}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"start"}}>
             <div style={{flex:1}}>
-              <div style={{fontSize:14,fontWeight:700,color:T.nv}}>{s.first_name} {s.last_name}</div>
-              <div style={{fontSize:12,color:T.g5}}>{r?.i} {r?.l||s.dep_role} · Nivel {r?.lv||0}</div>
-              {s.divisions.length>0&&<div style={{display:"flex",gap:4,flexWrap:"wrap" as const,marginTop:4}}>{s.divisions.map(d=><span key={d} style={{background:T.bl+"15",color:T.bl,padding:"1px 8px",borderRadius:10,fontSize:10,fontWeight:600}}>{d}</span>)}</div>}
-              {s.divisions.length===0&&<div style={{fontSize:10,color:T.g4,marginTop:4}}>Sin divisiones asignadas</div>}
+              <div style={{fontSize:14,fontWeight:700,color:colors.nv}}>{s.first_name} {s.last_name}</div>
+              <div style={{fontSize:11,color:colors.g5}}>{s.email}</div>
+              <div style={{fontSize:12,color:colors.g5,marginTop:2}}>{r?.i} {r?.l||s.dep_role} · Nivel {r?.lv||0}</div>
+              {s.divisions.length>0&&<div style={{display:"flex",gap:4,flexWrap:"wrap" as const,marginTop:4}}>{s.divisions.map((d:string)=><span key={d} style={{background:colors.bl+"15",color:colors.bl,padding:"1px 8px",borderRadius:10,fontSize:10,fontWeight:600}}>{d}</span>)}</div>}
+              {s.divisions.length===0&&<div style={{fontSize:10,color:colors.g4,marginTop:4}}>Sin divisiones asignadas</div>}
             </div>
             <div style={{display:"flex",gap:4}}>
               <Btn v="g" s="s" onClick={()=>{if(isEditing){sEditId(null);}else{sEditId(s.id);sEditRole(s.dep_role);sEditDivs([...s.divisions]);}}}>✏️</Btn>
-              <Btn v="g" s="s" onClick={()=>{if(confirm("¿Desactivar este staff?")){onDel(s.id);}}} style={{color:T.rd}}>✕</Btn>
+              <Btn v="g" s="s" onClick={()=>{if(confirm("¿Desactivar este perfil?")){onDel(s.id);}}} style={{color:colors.rd}}>✕</Btn>
             </div>
           </div>
-          {isEditing&&<div style={{marginTop:10,padding:10,background:T.g1,borderRadius:8}}>
+          {isEditing&&<div style={{marginTop:10,padding:10,background:colors.g1,borderRadius:8}}>
             <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8}}>
-              <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Rol</label><select value={editRole} onChange={e=>sEditRole(e.target.value)} style={{width:"100%",padding:6,borderRadius:6,border:"1px solid "+T.g3,fontSize:11,marginTop:2}}>{Object.entries(DEP_ROLES).map(([k,v])=><option key={k} value={k}>{v.i} {v.l}</option>)}</select></div>
+              <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Rol</label><select value={editRole} onChange={e=>sEditRole(e.target.value)} style={{width:"100%",padding:6,borderRadius:6,border:"1px solid "+colors.g3,fontSize:11,marginTop:2,background:cardBg,color:colors.nv}}>{Object.entries(DEP_ROLES).map(([k,v])=><option key={k} value={k}>{v.i} {v.l}</option>)}</select></div>
             </div>
-            <div style={{marginTop:6}}><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Divisiones</label>
-              <div style={{display:"flex",gap:4,flexWrap:"wrap" as const,marginTop:3}}>{DEP_DIV.map(d=><button key={d} onClick={()=>sEditDivs(prev=>prev.includes(d)?prev.filter(x=>x!==d):[...prev,d])} style={{padding:"3px 8px",borderRadius:12,fontSize:9,border:editDivs.includes(d)?"2px solid "+T.nv:"1px solid "+T.g3,background:editDivs.includes(d)?T.nv+"10":"#fff",color:editDivs.includes(d)?T.nv:T.g5,cursor:"pointer",fontWeight:600}}>{d}</button>)}</div>
+            <div style={{marginTop:6}}><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Divisiones</label>
+              <div style={{display:"flex",gap:4,flexWrap:"wrap" as const,marginTop:3}}>{DEP_DIV.map(d=><button key={d} onClick={()=>sEditDivs(prev=>prev.includes(d)?prev.filter(x=>x!==d):[...prev,d])} style={{padding:"3px 8px",borderRadius:12,fontSize:9,border:editDivs.includes(d)?"2px solid "+colors.nv:"1px solid "+colors.g3,background:editDivs.includes(d)?colors.nv+"10":cardBg,color:editDivs.includes(d)?colors.nv:colors.g5,cursor:"pointer",fontWeight:600}}>{d}</button>)}</div>
             </div>
             <Btn v="p" s="s" onClick={()=>{onUpdate(s.id,{dep_role:editRole,divisions:editDivs});sEditId(null);}} style={{marginTop:8}}>💾 Guardar</Btn>
           </div>}
         </Card>;
       })}
-      {activeStaff.length===0&&<Card style={{textAlign:"center",padding:24,color:T.g4}}><div style={{fontSize:32}}>⚙️</div><div style={{marginTop:8,fontSize:13}}>No hay staff deportivo. Agregá el primero.</div></Card>}
+      {activeStaff.length===0&&<Card style={{textAlign:"center",padding:24,color:colors.g4}}><div style={{fontSize:32}}>👤</div><div style={{marginTop:8,fontSize:13}}>No hay perfiles deportivos. Creá el primero.</div></Card>}
     </div>
   </div>;
 }
