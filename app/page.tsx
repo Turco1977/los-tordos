@@ -950,6 +950,9 @@ function PresView({presu,provs,peds,users,areas,deptos,user,onAddPresu,onUpdPres
   const [tab,sTab]=useState("todos");const [fSt,sFSt]=useState("all");const [fProv,sFProv]=useState("");const [fArea,sFArea]=useState("");const [search,sSr]=useState("");
   const [pvMode,sPvMode]=useState("list");const [pvF,sPvF]=useState({nombre:"",contacto:"",email:"",telefono:"",rubro:"",notas:""});
   const isSA=user.role==="superadmin";const canManage=isSA||user.role==="admin"||user.role==="embudo";
+  const [addMode,sAddMode]=useState(false);const [provSearch2,sProvSearch2]=useState("");
+  const [npf,sNpf]=useState({task_id:"",prov_id:"",prov_nombre:"",prov_contacto:"",descripcion:"",monto:"",moneda:"ARS",archivo_url:"",notas:""});
+  const resetNpf=()=>{sNpf({task_id:"",prov_id:"",prov_nombre:"",prov_contacto:"",descripcion:"",monto:"",moneda:"ARS",archivo_url:"",notas:""});sProvSearch2("");sAddMode(false);};
 
   /* TODOS */
   if(tab==="todos"){
@@ -959,9 +962,31 @@ function PresView({presu,provs,peds,users,areas,deptos,user,onAddPresu,onUpdPres
     if(search){const s=search.toLowerCase();vis=vis.filter((pr:any)=>(pr.proveedor_nombre+pr.descripcion+pr.notas+(pr.id+"")).toLowerCase().includes(s));}
     if(fArea){const ar=areas.find((a:any)=>a.id===Number(fArea));if(ar){const dIds=deptos.filter((d:any)=>d.aId===ar.id).map((d:any)=>d.id);const tIds=peds.filter((p:any)=>dIds.indexOf(p.dId)>=0).map((p:any)=>p.id);vis=vis.filter((pr:any)=>tIds.indexOf(pr.task_id)>=0);}}
     return(<div style={{maxWidth:800}}>
-      <h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:T.nv,fontWeight:800}}>💰 Presupuestos</h2>
-      <p style={{color:T.g4,fontSize:12,margin:"0 0 14px"}}>Repositorio de cotizaciones y comparación de proveedores</p>
-      <div style={{display:"flex",gap:4,marginBottom:12}}>{[{k:"todos",l:"📋 Todos"},{k:"provs",l:"🏢 Proveedores"},{k:"kpis",l:"📊 KPIs"}].map(t=><button key={t.k} onClick={()=>sTab(t.k)} style={{padding:"6px 14px",borderRadius:8,border:"none",background:tab===t.k?T.pr:"#fff",color:tab===t.k?"#fff":T.g5,fontSize:12,fontWeight:600,cursor:"pointer"}}>{t.l}</button>)}</div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"start",marginBottom:4}}>
+        <div><h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:T.nv,fontWeight:800}}>💰 Presupuestos</h2><p style={{color:T.g4,fontSize:12,margin:0}}>Repositorio de cotizaciones y comparación de proveedores</p></div>
+        {canManage&&!addMode&&<Btn v="pu" s="s" onClick={()=>sAddMode(true)}>+ Nuevo Presupuesto</Btn>}
+      </div>
+      <div style={{display:"flex",gap:4,marginBottom:12,marginTop:10}}>{[{k:"todos",l:"📋 Todos"},{k:"provs",l:"🏢 Proveedores"},{k:"kpis",l:"📊 KPIs"}].map(t=><button key={t.k} onClick={()=>sTab(t.k)} style={{padding:"6px 14px",borderRadius:8,border:"none",background:tab===t.k?T.pr:"#fff",color:tab===t.k?"#fff":T.g5,fontSize:12,fontWeight:600,cursor:"pointer"}}>{t.l}</button>)}</div>
+      {/* Add presupuesto form */}
+      {addMode&&canManage&&<Card style={{marginBottom:14,background:"#F5F3FF",border:"1px solid "+T.pr+"33"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><div style={{fontSize:12,fontWeight:700,color:T.pr}}>➕ Nuevo presupuesto</div><button onClick={resetNpf} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:T.g4}}>✕</button></div>
+        <div style={{marginBottom:8}}><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Tarea vinculada *</label><select value={npf.task_id} onChange={e=>sNpf(p=>({...p,task_id:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,marginTop:2}}><option value="">Seleccionar tarea...</option>{peds.filter((p:any)=>p.st!=="ok").map((p:any)=><option key={p.id} value={p.id}>#{p.id} – {p.tipo}: {p.desc.slice(0,50)}</option>)}</select></div>
+        <div style={{marginBottom:8}}><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Proveedor *</label>
+          <input value={provSearch2} onChange={e=>{sProvSearch2(e.target.value);sNpf(p=>({...p,prov_nombre:e.target.value,prov_id:""}));}} placeholder="Buscar o escribir proveedor..." style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/>
+          {provSearch2&&(provs||[]).filter((pv:any)=>pv.nombre.toLowerCase().includes(provSearch2.toLowerCase())).length>0&&<div style={{border:"1px solid "+T.g3,borderRadius:8,marginTop:2,maxHeight:100,overflowY:"auto" as const,background:"#fff"}}>
+            {(provs||[]).filter((pv:any)=>pv.nombre.toLowerCase().includes(provSearch2.toLowerCase())).map((pv:any)=><div key={pv.id} onClick={()=>{sNpf(p=>({...p,prov_id:String(pv.id),prov_nombre:pv.nombre,prov_contacto:pv.contacto||pv.telefono||pv.email}));sProvSearch2(pv.nombre);}} style={{padding:"6px 10px",fontSize:11,cursor:"pointer",borderBottom:"1px solid "+T.g1}}>{pv.nombre} <span style={{color:T.g4}}>({pv.rubro})</span></div>)}
+          </div>}
+        </div>
+        <div style={{marginBottom:8}}><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Contacto proveedor</label><input value={npf.prov_contacto} onChange={e=>sNpf(p=>({...p,prov_contacto:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+        <div style={{marginBottom:8}}><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Descripción</label><textarea value={npf.descripcion} onChange={e=>sNpf(p=>({...p,descripcion:e.target.value}))} rows={2} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,resize:"vertical" as const,boxSizing:"border-box" as const,marginTop:2}}/></div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 80px",gap:8,marginBottom:8}}>
+          <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Monto ($) *</label><input type="number" value={npf.monto} onChange={e=>sNpf(p=>({...p,monto:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+          <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Moneda</label><select value={npf.moneda} onChange={e=>sNpf(p=>({...p,moneda:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,marginTop:2}}>{MONEDAS.map(m=><option key={m} value={m}>{m}</option>)}</select></div>
+        </div>
+        <div style={{marginBottom:8}}><label style={{fontSize:10,fontWeight:600,color:T.g5}}>URL archivo/cotización</label><input value={npf.archivo_url} onChange={e=>sNpf(p=>({...p,archivo_url:e.target.value}))} placeholder="https://..." style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+        <div style={{marginBottom:8}}><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Notas</label><input value={npf.notas} onChange={e=>sNpf(p=>({...p,notas:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+        <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}><Btn v="g" s="s" onClick={resetNpf}>Cancelar</Btn><Btn v="pu" s="s" disabled={!npf.task_id||!npf.prov_nombre||!npf.monto} onClick={()=>{onAddPresu({task_id:Number(npf.task_id),proveedor_id:npf.prov_id?Number(npf.prov_id):null,proveedor_nombre:npf.prov_nombre,proveedor_contacto:npf.prov_contacto,descripcion:npf.descripcion,monto:Number(npf.monto),moneda:npf.moneda,archivo_url:npf.archivo_url,notas:npf.notas,status:PST.SOL,solicitado_por:fn(user),solicitado_at:TODAY});resetNpf();}}>💰 Cargar presupuesto</Btn></div>
+      </Card>}
       {/* Filters */}
       <div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap" as const,alignItems:"center"}}>
         <input value={search} onChange={e=>sSr(e.target.value)} placeholder="🔍 Buscar..." style={{padding:"5px 10px",borderRadius:8,border:"1px solid "+T.g3,fontSize:11,width:140}}/>
