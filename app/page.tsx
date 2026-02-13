@@ -1083,7 +1083,7 @@ function PresView({presu,provs,peds,users,areas,deptos,user,onAddPresu,onUpdPres
 }
 
 /* ── CALENDARIO / TIMELINE ── */
-function CalView({peds,agendas,minutas,presu,areas,deptos,users,user,onSel,mob}:any){
+function CalView({peds,agendas,minutas,presu,reminders,areas,deptos,users,user,onSel,onAddReminder,onDelReminder,mob}:any){
   const MESES=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
   const DIAS_SEM=["Lu","Ma","Mi","Ju","Vi","Sá","Do"];
   const daysInMonth=(y:number,m:number)=>new Date(y,m+1,0).getDate();
@@ -1092,14 +1092,19 @@ function CalView({peds,agendas,minutas,presu,areas,deptos,users,user,onSel,mob}:
   const getMonday=(dt:Date)=>{const d=new Date(dt);const day=d.getDay();const diff=d.getDate()-day+(day===0?-6:1);d.setDate(diff);return d;};
   const addDays=(dt:Date,n:number)=>{const d=new Date(dt);d.setDate(d.getDate()+n);return d;};
   const dateToISO=(dt:Date)=>dt.toISOString().slice(0,10);
+  const REMIND_COLORS=["#3B82F6","#10B981","#F59E0B","#EF4444","#8B5CF6","#EC4899"];
 
   const isPersonalUser=user.role==="enlace"||user.role==="manager"||user.role==="usuario";
   const [tab,sTab]=useState<"mes"|"sem"|"hoy">("mes");
   const [month,sMonth]=useState(()=>new Date());
   const [weekStart,sWeekStart]=useState(()=>getMonday(new Date()));
   const [selDay,sSelDay]=useState<string|null>(null);
-  const [fTypes,sFTypes]=useState<Record<string,boolean>>({task:true,agenda:true,minuta:true,presu:true});
+  const [fTypes,sFTypes]=useState<Record<string,boolean>>({task:true,agenda:true,minuta:true,presu:true,reminder:true});
   const [fArea,sFArea]=useState("");
+  /* reminder form */
+  const [showAddR,sShowAddR]=useState(false);
+  const [rForm,sRForm]=useState({title:"",date:TODAY,description:"",color:"#3B82F6"});
+  const resetR=()=>{sRForm({title:"",date:TODAY,description:"",color:"#3B82F6"});sShowAddR(false);};
 
   /* build events */
   const events:{date:string;type:string;icon:string;color:string;label:string;data:any}[]=[];
@@ -1110,6 +1115,8 @@ function CalView({peds,agendas,minutas,presu,areas,deptos,users,user,onSel,mob}:
     minutas.filter((m:any)=>m.date).forEach((m:any)=>events.push({date:m.date,type:"minuta",icon:"📝",color:AGT[m.type]?.color||T.gn,label:"Minuta "+(AGT[m.type]?.title||""),data:m}));
     presu.filter((pr:any)=>pr.solicitado_at).forEach((pr:any)=>events.push({date:pr.solicitado_at,type:"presu",icon:PSC[pr.status]?.i||"📤",color:PSC[pr.status]?.c||T.yl,label:pr.proveedor_nombre||"Presupuesto",data:pr}));
   }
+  /* reminders */
+  (reminders||[]).forEach((r:any)=>events.push({date:r.date,type:"reminder",icon:"🔔",color:r.color||T.bl,label:r.title,data:r}));
   /* filter events */
   let fEvts=events.filter(e=>fTypes[e.type]);
   if(fArea){const ar=areas.find((a:any)=>a.id===Number(fArea));if(ar){const dIds=deptos.filter((d:any)=>d.aId===ar.id).map((d:any)=>d.id);fEvts=fEvts.filter(e=>{if(e.type==="task")return dIds.indexOf(e.data.dId)>=0;return true;});}}
@@ -1119,21 +1126,23 @@ function CalView({peds,agendas,minutas,presu,areas,deptos,users,user,onSel,mob}:
 
   /* EVENT PILL */
   const EvtPill=({e,compact}:{e:any;compact?:boolean})=>(
-    <div onClick={(ev)=>{ev.stopPropagation();handleEvtClick(e);}} style={{display:"flex",alignItems:"center",gap:3,padding:compact?"1px 4px":"3px 8px",borderRadius:10,background:e.color+"18",cursor:e.type==="task"?"pointer":"default",overflow:"hidden",whiteSpace:"nowrap" as const}} title={e.label}>
+    <div onClick={(ev)=>{ev.stopPropagation();handleEvtClick(e);}} style={{display:"flex",alignItems:"center",gap:3,padding:compact?"1px 4px":"3px 8px",borderRadius:10,background:e.color+"18",cursor:e.type==="task"?"pointer":"default",overflow:"hidden",whiteSpace:"nowrap" as const}} title={e.type==="reminder"?(e.label+(e.data.description?" — "+e.data.description:"")+(e.data.user_name?" ("+e.data.user_name+")":"")):e.label}>
       <span style={{fontSize:compact?8:10,flexShrink:0}}>{e.icon}</span>
-      {!compact&&<span style={{fontSize:10,fontWeight:600,color:e.color,overflow:"hidden",textOverflow:"ellipsis"}}>{e.label}</span>}
+      {!compact&&<span style={{fontSize:10,fontWeight:600,color:e.color,overflow:"hidden",textOverflow:"ellipsis",flex:1}}>{e.label}</span>}
+      {!compact&&e.type==="reminder"&&onDelReminder&&<button onClick={(ev)=>{ev.stopPropagation();if(confirm("¿Eliminar recordatorio?"))onDelReminder(e.data.id);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:9,color:T.g4,padding:0,flexShrink:0}}>✕</button>}
     </div>
   );
 
   /* FILTER BAR */
   const FilterBar=()=>(
     <div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap" as const,alignItems:"center"}}>
-      {[{k:"task",l:"Tareas",i:"📋"},{k:"agenda",l:"Reuniones",i:"📅"},{k:"minuta",l:"Minutas",i:"📝"},{k:"presu",l:"Presupuestos",i:"📤"}].filter(x=>!isPersonalUser||x.k==="task").map(ft=>(
+      {[{k:"task",l:"Tareas",i:"📋"},{k:"agenda",l:"Reuniones",i:"📅"},{k:"minuta",l:"Minutas",i:"📝"},{k:"presu",l:"Presupuestos",i:"📤"},{k:"reminder",l:"Recordatorios",i:"🔔"}].filter(x=>!isPersonalUser||x.k==="task"||x.k==="reminder").map(ft=>(
         <button key={ft.k} onClick={()=>sFTypes(p=>({...p,[ft.k]:!p[ft.k]}))} style={{padding:"4px 10px",borderRadius:14,border:"1px solid "+(fTypes[ft.k]?T.nv:T.g3),background:fTypes[ft.k]?T.nv+"12":"#fff",color:fTypes[ft.k]?T.nv:T.g4,fontSize:10,fontWeight:600,cursor:"pointer"}}>{ft.i} {ft.l}</button>
       ))}
       {!isPersonalUser&&<select value={fArea} onChange={e=>sFArea(e.target.value)} style={{padding:"4px 8px",borderRadius:8,border:"1px solid "+T.g3,fontSize:10}}>
         <option value="">Todas las áreas</option>{areas.map((a:any)=><option key={a.id} value={a.id}>{a.icon} {a.name}</option>)}
       </select>}
+      {onAddReminder&&<button onClick={()=>sShowAddR(!showAddR)} style={{padding:"4px 10px",borderRadius:14,border:"1px solid "+T.gn,background:showAddR?T.gn:T.gn+"12",color:showAddR?"#fff":T.gn,fontSize:10,fontWeight:600,cursor:"pointer"}}>+ Recordatorio</button>}
     </div>
   );
 
@@ -1261,6 +1270,16 @@ function CalView({peds,agendas,minutas,presu,areas,deptos,users,user,onSel,mob}:
       {([["mes","📅 Mes"],["sem","📋 Semana"],["hoy","📌 Hoy"]] as const).map(([k,l])=><button key={k} onClick={()=>sTab(k)} style={{padding:"6px 14px",borderRadius:8,border:"none",background:tab===k?T.nv:"#fff",color:tab===k?"#fff":T.g5,fontSize:12,fontWeight:600,cursor:"pointer"}}>{l}</button>)}
     </div>
     <FilterBar/>
+    {showAddR&&onAddReminder&&<Card style={{marginBottom:14,background:"#F0FDF4",border:"1px solid #BBF7D0"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><div style={{fontSize:12,fontWeight:700,color:"#166534"}}>🔔 Nuevo recordatorio</div><button onClick={resetR} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:T.g4}}>✕</button></div>
+      <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8,marginBottom:8}}>
+        <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Título *</label><input value={rForm.title} onChange={e=>sRForm(p=>({...p,title:e.target.value}))} placeholder="Ej: Pago cuota de luz, Fichas médicas..." style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+        <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Fecha *</label><input type="date" value={rForm.date} onChange={e=>sRForm(p=>({...p,date:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+      </div>
+      <div style={{marginBottom:8}}><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Descripción</label><input value={rForm.description} onChange={e=>sRForm(p=>({...p,description:e.target.value}))} placeholder="Detalles opcionales..." style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Color:</label><div style={{display:"flex",gap:4}}>{REMIND_COLORS.map(c=><div key={c} onClick={()=>sRForm(p=>({...p,color:c}))} style={{width:22,height:22,borderRadius:11,background:c,cursor:"pointer",border:rForm.color===c?"3px solid "+T.nv:"2px solid transparent"}}/>)}</div></div>
+      <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}><Btn v="g" s="s" onClick={resetR}>Cancelar</Btn><Btn v="s" s="s" disabled={!rForm.title||!rForm.date} onClick={()=>{onAddReminder({title:rForm.title,date:rForm.date,description:rForm.description,color:rForm.color});resetR();}}>🔔 Crear recordatorio</Btn></div>
+    </Card>}
     {tab==="mes"&&<MonthView/>}
     {tab==="sem"&&<WeekView/>}
     {tab==="hoy"&&<TodayView/>}
@@ -1274,7 +1293,7 @@ function notifs(user:any,peds:any[]){const n:any[]=[];if(["coordinador","admin",
 export default function App(){
   const [areas]=useState(AREAS);const [deptos]=useState(DEPTOS);
   const [users,sUs]=useState<any[]>([]);const [om,sOm]=useState<any[]>([]);const [peds,sPd]=useState<any[]>([]);const [hitos,sHi]=useState<any[]>([]);const [agendas,sAgs]=useState<any[]>([]);const [minutas,sMins]=useState<any[]>([]);
-  const [presu,sPr]=useState<any[]>([]);const [provs,sPv]=useState<any[]>([]);
+  const [presu,sPr]=useState<any[]>([]);const [provs,sPv]=useState<any[]>([]);const [reminders,sRems]=useState<any[]>([]);
   const [user,sU]=useState<any>(null);const [authChecked,sAuthChecked]=useState(false);
   const [vw,sVw]=useState("dash");const [sel,sSl]=useState<any>(null);const [aA,sAA]=useState<number|null>(null);const [aD,sAD]=useState<number|null>(null);const [sbCol,sSbCol]=useState(false);const [search,sSr]=useState("");const [shNot,sShNot]=useState(false);const [preAT,sPreAT]=useState<any>(null);const [showPw,sShowPw]=useState(false);const [toast,sToast]=useState<{msg:string;type:"ok"|"err"}|null>(null);
   const mob=useMobile();const [sbOpen,sSbOpen]=useState(false);
@@ -1282,7 +1301,7 @@ export default function App(){
 
   /* ── Fetch all data from Supabase ── */
   const fetchAll = useCallback(async()=>{
-    const [pRes,mRes,omRes,msRes,agRes,miRes,prRes,pvRes]=await Promise.all([
+    const [pRes,mRes,omRes,msRes,agRes,miRes,prRes,pvRes,remRes]=await Promise.all([
       supabase.from("profiles").select("*"),
       supabase.from("tasks").select("*").order("id",{ascending:false}),
       supabase.from("org_members").select("*"),
@@ -1291,6 +1310,7 @@ export default function App(){
       supabase.from("minutas").select("*").order("id",{ascending:false}),
       supabase.from("presupuestos").select("*").order("id",{ascending:false}),
       supabase.from("proveedores").select("*").order("id",{ascending:false}),
+      supabase.from("reminders").select("*").order("date",{ascending:true}),
     ]);
     if(pRes.data) sUs(pRes.data.map((p:any)=>profileToUser(p)));
     if(omRes.data) sOm(omRes.data.map((m:any)=>({id:m.id,t:m.type,cargo:m.cargo,n:m.first_name,a:m.last_name,mail:m.email,tel:m.phone})));
@@ -1299,6 +1319,7 @@ export default function App(){
     if(miRes.data) sMins(miRes.data.map((m:any)=>({id:m.id,type:m.type,areaName:m.area_name,agendaId:m.agenda_id,date:m.date,horaInicio:m.hora_inicio,horaCierre:m.hora_cierre,lugar:m.lugar,presentes:m.presentes,ausentes:m.ausentes,sections:m.sections,tareas:m.tareas,status:m.status,createdAt:m.created_at})));
     if(prRes.data) sPr(prRes.data.map(presuFromDB));
     if(pvRes.data) sPv(pvRes.data.map(provFromDB));
+    if(remRes.data) sRems(remRes.data);
     // Tasks + messages
     if(mRes.data){
       const tmRes=await supabase.from("task_messages").select("*").order("created_at");
@@ -1325,7 +1346,7 @@ export default function App(){
   /* ── Fetch data when user logs in ── */
   useEffect(()=>{if(user) fetchAll();},[user,fetchAll]);
 
-  const out=async()=>{await supabase.auth.signOut();sU(null);sVw("dash");sSl(null);sAA(null);sAD(null);sSr("");sPd([]);sUs([]);sOm([]);sHi([]);sAgs([]);sMins([]);sPr([]);sPv([]);};
+  const out=async()=>{await supabase.auth.signOut();sU(null);sVw("dash");sSl(null);sAA(null);sAD(null);sSr("");sPd([]);sUs([]);sOm([]);sHi([]);sAgs([]);sMins([]);sPr([]);sPv([]);sRems([]);};
   const isAd=user&&(user.role==="admin"||user.role==="superadmin");
   const isSA=user&&user.role==="superadmin";
   const isPersonal=user&&(user.role==="enlace"||user.role==="manager"||user.role==="usuario");
@@ -1376,7 +1397,10 @@ export default function App(){
           {vw==="my"&&isPersonal&&<MyDash user={user} peds={peds} users={users} onSel={(p:any)=>sSl(p)} mob={mob} search={search}/>}
           {vw==="org"&&<Org areas={areas} deptos={deptos} users={users} om={om} onEditSave={async(id:string,d:any)=>{sOm(p=>p.map(m=>m.id===id?{...m,...d}:m));await supabase.from("org_members").update({first_name:d.n,last_name:d.a,email:d.mail||"",phone:d.tel||""}).eq("id",id);}} onDelOm={async(id:string)=>{sOm(p=>p.filter(m=>m.id!==id));await supabase.from("org_members").delete().eq("id",id);}} onDelUser={async(id:string)=>{sUs(p=>p.filter(u=>u.id!==id));await supabase.from("profiles").delete().eq("id",id);}} onEditUser={(u:any)=>{sVw("profs");}} isSA={isSA} onAssignTask={(u:any)=>{sPreAT(u);sVw("new");}} mob={mob}/>}
           {vw==="dept"&&<Depts areas={areas} deptos={deptos} pedidos={peds} users={users} onSel={(p:any)=>sSl(p)} mob={mob}/>}
-          {vw==="cal"&&<CalView peds={peds} agendas={agendas} minutas={minutas} presu={presu} areas={areas} deptos={deptos} users={users} user={user} onSel={(p:any)=>sSl(p)} mob={mob}/>}
+          {vw==="cal"&&<CalView peds={peds} agendas={agendas} minutas={minutas} presu={presu} reminders={reminders} areas={areas} deptos={deptos} users={users} user={user} onSel={(p:any)=>sSl(p)} mob={mob}
+            onAddReminder={async(r:any)=>{try{const row={user_id:user.id,user_name:fn(user),title:r.title,date:r.date,description:r.description||"",color:r.color||"#3B82F6"};const{data,error}=await supabase.from("reminders").insert(row).select().single();if(error)throw new Error(error.message);sRems(p=>[...(data?[data]:[]),...p]);showT("Recordatorio creado");}catch(e:any){showT(e.message||"Error","err");}}}
+            onDelReminder={async(id:number)=>{try{sRems(p=>p.filter(x=>x.id!==id));await supabase.from("reminders").delete().eq("id",id);showT("Recordatorio eliminado");}catch(e:any){showT(e.message||"Error","err");}}}
+          />}
           {vw==="presu"&&(isAd||user.role==="coordinador"||user.role==="embudo")&&<PresView presu={presu} provs={provs} peds={peds} users={users} areas={areas} deptos={deptos} user={user} mob={mob}
             onSel={(p:any)=>sSl(p)}
             onAddPresu={async(d:any)=>{try{const row=presuToDB(d);const{data,error}=await supabase.from("presupuestos").insert(row).select().single();if(error)throw new Error(error.message);sPr(p=>[presuFromDB(data),...p]);showT("Presupuesto agregado");}catch(e:any){showT(e.message||"Error","err");}}}
