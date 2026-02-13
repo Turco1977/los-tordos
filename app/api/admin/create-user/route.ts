@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
+import { randomBytes } from "crypto";
 
-export async function POST(req: NextRequest) {
-  // Verify caller is superadmin via their auth token
+const ADMIN_ROLES = ["superadmin", "admin"];
+
+function generatePassword(): string {
+  return randomBytes(12).toString("base64url");
+}
+
+async function verifyCaller(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   if (!authHeader?.startsWith("Bearer ")) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    return { error: "No autorizado", status: 401 };
   }
 
   const token = authHeader.slice(7);
@@ -16,10 +22,9 @@ export async function POST(req: NextRequest) {
   );
   const { data: { user: caller } } = await anonClient.auth.getUser(token);
   if (!caller) {
-    return NextResponse.json({ error: "Token inválido" }, { status: 401 });
+    return { error: "Token inválido", status: 401 };
   }
 
-  // Check caller's role in profiles
   const admin = createAdminClient();
   const { data: callerProfile } = await admin
     .from("profiles")
@@ -27,11 +32,20 @@ export async function POST(req: NextRequest) {
     .eq("id", caller.id)
     .single();
 
-  if (callerProfile?.role !== "superadmin") {
-    return NextResponse.json({ error: "Solo superadmin puede crear usuarios" }, { status: 403 });
+  if (!callerProfile || !ADMIN_ROLES.includes(callerProfile.role)) {
+    return { error: "Solo administradores pueden gestionar usuarios", status: 403 };
   }
 
-  // Parse body
+  return { caller, callerProfile, admin };
+}
+
+export async function POST(req: NextRequest) {
+  const auth = await verifyCaller(req);
+  if ("error" in auth) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+  const { admin } = auth;
+
   const body = await req.json();
   const { email, password, first_name, last_name, role, dept_id, division, phone } = body;
 
@@ -39,10 +53,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Faltan campos requeridos" }, { status: 400 });
   }
 
-  // Create auth user with metadata
   const { data, error } = await admin.auth.admin.createUser({
     email,
-    password: password || "lostordos2026",
+    password: password || generatePassword(),
     email_confirm: true,
     user_metadata: {
       first_name,
@@ -62,32 +75,11 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  // Verify caller is superadmin
-  const authHeader = req.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  const auth = await verifyCaller(req);
+  if ("error" in auth) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
-
-  const token = authHeader.slice(7);
-  const anonClient = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-  const { data: { user: caller } } = await anonClient.auth.getUser(token);
-  if (!caller) {
-    return NextResponse.json({ error: "Token inválido" }, { status: 401 });
-  }
-
-  const admin = createAdminClient();
-  const { data: callerProfile } = await admin
-    .from("profiles")
-    .select("role")
-    .eq("id", caller.id)
-    .single();
-
-  if (callerProfile?.role !== "superadmin") {
-    return NextResponse.json({ error: "Solo superadmin" }, { status: 403 });
-  }
+  const { admin } = auth;
 
   const { userId, email } = await req.json();
   if (!userId || !email) {

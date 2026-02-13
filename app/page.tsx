@@ -310,7 +310,7 @@ function Det({p,user,users,onX,onTk,onAs,onRe,onSE,onEO,onFi,onVa,onMsg,onMonto,
 }
 
 /* ── MY DASHBOARD ── */
-function MyDash({user,peds,users,onSel,mob,search}:any){
+function MyDash({user,peds,users,onSel,mob,search,presu}:any){
   const [tab,sTab]=useState("active");
   const isEnl=user.role==="enlace"||user.role==="manager";
   let myPeds=peds.filter((p:any)=>p.cId===user.id||p.asTo===user.id);
@@ -331,11 +331,11 @@ function MyDash({user,peds,users,onSel,mob,search}:any){
     </div>
     <div style={{display:"flex",flexDirection:"column" as const,gap:8}}>
       {vis.length===0&&<Card style={{textAlign:"center",padding:28,color:T.g4}}><span style={{fontSize:28}}>🎉</span><div style={{marginTop:6,fontSize:13}}>Sin tareas</div></Card>}
-      {vis.map((p:any)=>{const od2=p.st!==ST.OK&&isOD(p.fReq),msgs=(p.log||[]).filter((l:any)=>l.t==="msg").length;
+      {vis.map((p:any)=>{const od2=p.st!==ST.OK&&isOD(p.fReq),msgs=(p.log||[]).filter((l:any)=>l.t==="msg").length,nPr=(presu||[]).filter((pr:any)=>pr.task_id===p.id).length;
         return(<Card key={p.id} style={{padding:"14px 16px",cursor:"pointer",borderLeft:"4px solid "+SC[p.st].c,background:od2?"#FEF2F2":"#fff"}} onClick={()=>onSel(p)}>
-          <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}><Badge s={p.st} sm/>{od2&&<span style={{fontSize:9,color:"#DC2626",fontWeight:700}}>⏰</span>}{p.urg==="Urgente"&&<span style={{fontSize:9,color:T.rd,fontWeight:700}}>🔥</span>}<span style={{fontSize:10,color:T.g4}}>#{p.id}</span></div>
+          <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}><Badge s={p.st} sm/>{od2&&<span style={{fontSize:9,color:"#DC2626",fontWeight:700}}>⏰</span>}{p.urg==="Urgente"&&<span style={{fontSize:9,color:T.rd,fontWeight:700}}>🔥</span>}<span style={{fontSize:10,color:T.g4}}>#{p.id}</span>{nPr>0&&<span style={{background:T.pr+"20",color:T.pr,padding:"1px 6px",borderRadius:10,fontSize:9,fontWeight:700}}>💰 {nPr}</span>}</div>
           <div style={{fontSize:13,fontWeight:700,color:T.nv}}>{p.desc}</div>
-          <div style={{fontSize:11,color:T.g5,marginTop:3}}>{p.div&&<span>📍 {p.div} · </span>}{p.tipo} · 📅 {p.fReq} · 💬 {msgs}</div>
+          <div style={{fontSize:11,color:T.g5,marginTop:3}}>{p.div&&<span>📍 {p.div} · </span>}{p.tipo} · 📅 {p.fReq} · 💬 {msgs}{nPr===0&&<span> · <span style={{color:T.pr,fontWeight:600}}>💰 Agregar presupuesto</span></span>}</div>
         </Card>);})}
     </div>
   </div>);
@@ -954,10 +954,14 @@ function PresView({presu,provs,peds,users,areas,deptos,user,onAddPresu,onUpdPres
   const [addMode,sAddMode]=useState(false);const [provSearch2,sProvSearch2]=useState("");
   const [npf,sNpf]=useState({task_id:"",prov_id:"",prov_nombre:"",prov_contacto:"",descripcion:"",monto:"",moneda:"ARS",archivo_url:"",notas:""});
   const resetNpf=()=>{sNpf({task_id:"",prov_id:"",prov_nombre:"",prov_contacto:"",descripcion:"",monto:"",moneda:"ARS",archivo_url:"",notas:""});sProvSearch2("");sAddMode(false);};
+  const isPersonalRole=["enlace","manager","usuario"].indexOf(user.role)>=0;
+  const myTaskIds=isPersonalRole?peds.filter((p:any)=>p.cId===user.id||p.asTo===user.id).map((p:any)=>p.id):null;
+  const myPresu=myTaskIds?presu.filter((pr:any)=>myTaskIds.indexOf(pr.task_id)>=0):presu;
+  const myPeds=myTaskIds?peds.filter((p:any)=>myTaskIds.indexOf(p.id)>=0):peds;
 
   /* TODOS */
   if(tab==="todos"){
-    let vis=[...presu];
+    let vis=[...myPresu];
     if(fSt!=="all") vis=vis.filter((pr:any)=>pr.status===fSt);
     if(fProv) vis=vis.filter((pr:any)=>pr.proveedor_nombre.toLowerCase().includes(fProv.toLowerCase()));
     if(search){const s=search.toLowerCase();vis=vis.filter((pr:any)=>(pr.proveedor_nombre+pr.descripcion+pr.notas+(pr.id+"")).toLowerCase().includes(s));}
@@ -965,13 +969,13 @@ function PresView({presu,provs,peds,users,areas,deptos,user,onAddPresu,onUpdPres
     return(<div style={{maxWidth:800}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"start",marginBottom:4}}>
         <div><h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:T.nv,fontWeight:800}}>💰 Presupuestos</h2><p style={{color:T.g4,fontSize:12,margin:0}}>Repositorio de cotizaciones y comparación de proveedores</p></div>
-        {canManage&&!addMode&&<Btn v="pu" s="s" onClick={()=>sAddMode(true)}>+ Nuevo Presupuesto</Btn>}
+        {!addMode&&<Btn v="pu" s="s" onClick={()=>sAddMode(true)}>+ Nuevo Presupuesto</Btn>}
       </div>
       <div style={{display:"flex",gap:4,marginBottom:12,marginTop:10}}>{[{k:"todos",l:"📋 Todos"},{k:"provs",l:"🏢 Proveedores"},{k:"kpis",l:"📊 KPIs"}].map(t=><button key={t.k} onClick={()=>sTab(t.k)} style={{padding:"6px 14px",borderRadius:8,border:"none",background:tab===t.k?T.pr:"#fff",color:tab===t.k?"#fff":T.g5,fontSize:12,fontWeight:600,cursor:"pointer"}}>{t.l}</button>)}</div>
       {/* Add presupuesto form */}
-      {addMode&&canManage&&<Card style={{marginBottom:14,background:"#F5F3FF",border:"1px solid "+T.pr+"33"}}>
+      {addMode&&<Card style={{marginBottom:14,background:"#F5F3FF",border:"1px solid "+T.pr+"33"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><div style={{fontSize:12,fontWeight:700,color:T.pr}}>➕ Nuevo presupuesto</div><button onClick={resetNpf} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:T.g4}}>✕</button></div>
-        <div style={{marginBottom:8}}><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Tarea vinculada *</label><select value={npf.task_id} onChange={e=>sNpf(p=>({...p,task_id:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,marginTop:2}}><option value="">Seleccionar tarea...</option>{peds.filter((p:any)=>p.st!=="ok").map((p:any)=><option key={p.id} value={p.id}>#{p.id} – {p.tipo}: {p.desc.slice(0,50)}</option>)}</select></div>
+        <div style={{marginBottom:8}}><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Tarea vinculada *</label><select value={npf.task_id} onChange={e=>sNpf(p=>({...p,task_id:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,marginTop:2}}><option value="">Seleccionar tarea...</option>{myPeds.filter((p:any)=>p.st!=="ok").map((p:any)=><option key={p.id} value={p.id}>#{p.id} – {p.tipo}: {p.desc.slice(0,50)}</option>)}</select></div>
         <div style={{marginBottom:8}}><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Proveedor *</label>
           <input value={provSearch2} onChange={e=>{sProvSearch2(e.target.value);sNpf(p=>({...p,prov_nombre:e.target.value,prov_id:""}));}} placeholder="Buscar o escribir proveedor..." style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/>
           {provSearch2&&(provs||[]).filter((pv:any)=>pv.nombre.toLowerCase().includes(provSearch2.toLowerCase())).length>0&&<div style={{border:"1px solid "+T.g3,borderRadius:8,marginTop:2,maxHeight:100,overflowY:"auto" as const,background:"#fff"}}>
@@ -1104,8 +1108,40 @@ function CalView({peds,agendas,minutas,presu,reminders,areas,deptos,users,user,o
   const [fArea,sFArea]=useState("");
   /* reminder form */
   const [showAddR,sShowAddR]=useState(false);
-  const [rForm,sRForm]=useState({title:"",date:TODAY,description:"",color:"#3B82F6"});
-  const resetR=()=>{sRForm({title:"",date:TODAY,description:"",color:"#3B82F6"});sShowAddR(false);};
+  const [rForm,sRForm]=useState<any>({title:"",date:TODAY,description:"",color:"#3B82F6",recurrence:"none",assigned_to:"",assigned_name:""});
+  const resetR=()=>{sRForm({title:"",date:TODAY,description:"",color:"#3B82F6",recurrence:"none",assigned_to:"",assigned_name:""});sShowAddR(false);};
+  const RECUR_OPTS=[{k:"none",l:"Una vez"},{k:"weekly",l:"Semanal"},{k:"biweekly",l:"Quincenal"},{k:"monthly",l:"Mensual"},{k:"quarterly",l:"Trimestral"},{k:"yearly",l:"Anual"}];
+
+  /* expand recurring reminders into visible date range (current year ±1) */
+  const expandReminder=(r:any):{date:string;type:string;icon:string;color:string;label:string;data:any}[]=>{
+    const rec=r.recurrence||"none";
+    const base=new Date(r.date+"T12:00:00");
+    if(isNaN(base.getTime()))return[];
+    const results:{date:string;type:string;icon:string;color:string;label:string;data:any}[]=[];
+    const recLabel=rec!=="none"?" 🔁":"";
+    const makeEvt=(iso:string)=>({date:iso,type:"reminder",icon:"🔔",color:r.color||T.bl,label:r.title+recLabel,data:r});
+    if(rec==="none"){results.push(makeEvt(r.date));return results;}
+    const rangeStart=new Date();rangeStart.setFullYear(rangeStart.getFullYear()-1);
+    const rangeEnd=new Date();rangeEnd.setFullYear(rangeEnd.getFullYear()+1);
+    let cur=new Date(base);
+    /* go back to find occurrences before base that are in range */
+    const allDates:Date[]=[];
+    const step=(d:Date,forward:boolean)=>{const n=new Date(d);const dir=forward?1:-1;
+      if(rec==="weekly")n.setDate(n.getDate()+7*dir);
+      else if(rec==="biweekly")n.setDate(n.getDate()+14*dir);
+      else if(rec==="monthly")n.setMonth(n.getMonth()+1*dir);
+      else if(rec==="quarterly")n.setMonth(n.getMonth()+3*dir);
+      else if(rec==="yearly")n.setFullYear(n.getFullYear()+1*dir);
+      return n;};
+    /* forward from base */
+    cur=new Date(base);
+    while(cur<=rangeEnd){if(cur>=rangeStart)allDates.push(new Date(cur));cur=step(cur,true);if(allDates.length>200)break;}
+    /* backward from base */
+    cur=step(new Date(base),false);
+    while(cur>=rangeStart){allDates.push(new Date(cur));cur=step(cur,false);if(allDates.length>200)break;}
+    allDates.forEach(d=>{const iso=d.toISOString().slice(0,10);results.push(makeEvt(iso));});
+    return results;
+  };
 
   /* build events */
   const events:{date:string;type:string;icon:string;color:string;label:string;data:any}[]=[];
@@ -1116,8 +1152,8 @@ function CalView({peds,agendas,minutas,presu,reminders,areas,deptos,users,user,o
     minutas.filter((m:any)=>m.date).forEach((m:any)=>events.push({date:m.date,type:"minuta",icon:"📝",color:AGT[m.type]?.color||T.gn,label:"Minuta "+(AGT[m.type]?.title||""),data:m}));
     presu.filter((pr:any)=>pr.solicitado_at).forEach((pr:any)=>events.push({date:pr.solicitado_at,type:"presu",icon:PSC[pr.status]?.i||"📤",color:PSC[pr.status]?.c||T.yl,label:pr.proveedor_nombre||"Presupuesto",data:pr}));
   }
-  /* reminders */
-  (reminders||[]).forEach((r:any)=>events.push({date:r.date,type:"reminder",icon:"🔔",color:r.color||T.bl,label:r.title,data:r}));
+  /* reminders — expand recurring */
+  (reminders||[]).forEach((r:any)=>expandReminder(r).forEach(e=>events.push(e)));
   /* filter events */
   let fEvts=events.filter(e=>fTypes[e.type]);
   if(fArea){const ar=areas.find((a:any)=>a.id===Number(fArea));if(ar){const dIds=deptos.filter((d:any)=>d.aId===ar.id).map((d:any)=>d.id);fEvts=fEvts.filter(e=>{if(e.type==="task")return dIds.indexOf(e.data.dId)>=0;return true;});}}
@@ -1127,7 +1163,7 @@ function CalView({peds,agendas,minutas,presu,reminders,areas,deptos,users,user,o
 
   /* EVENT PILL */
   const EvtPill=({e,compact}:{e:any;compact?:boolean})=>(
-    <div onClick={(ev)=>{ev.stopPropagation();handleEvtClick(e);}} style={{display:"flex",alignItems:"center",gap:3,padding:compact?"1px 4px":"3px 8px",borderRadius:10,background:e.color+"18",cursor:e.type==="task"?"pointer":"default",overflow:"hidden",whiteSpace:"nowrap" as const}} title={e.type==="reminder"?(e.label+(e.data.description?" — "+e.data.description:"")+(e.data.user_name?" ("+e.data.user_name+")":"")):e.label}>
+    <div onClick={(ev)=>{ev.stopPropagation();handleEvtClick(e);}} style={{display:"flex",alignItems:"center",gap:3,padding:compact?"1px 4px":"3px 8px",borderRadius:10,background:e.color+"18",cursor:e.type==="task"?"pointer":"default",overflow:"hidden",whiteSpace:"nowrap" as const}} title={e.type==="reminder"?(e.label+(e.data.description?" — "+e.data.description:"")+(e.data.assigned_name?" → "+e.data.assigned_name:"")+(e.data.recurrence&&e.data.recurrence!=="none"?" (🔁 "+e.data.recurrence+")":"")+(e.data.user_name?" · por "+e.data.user_name:"")):e.label}>
       <span style={{fontSize:compact?8:10,flexShrink:0}}>{e.icon}</span>
       {!compact&&<span style={{fontSize:10,fontWeight:600,color:e.color,overflow:"hidden",textOverflow:"ellipsis",flex:1}}>{e.label}</span>}
       {!compact&&e.type==="reminder"&&onDelReminder&&<button onClick={(ev)=>{ev.stopPropagation();if(confirm("¿Eliminar recordatorio?"))onDelReminder(e.data.id);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:9,color:T.g4,padding:0,flexShrink:0}}>✕</button>}
@@ -1274,12 +1310,17 @@ function CalView({peds,agendas,minutas,presu,reminders,areas,deptos,users,user,o
     {showAddR&&onAddReminder&&<Card style={{marginBottom:14,background:"#F0FDF4",border:"1px solid #BBF7D0"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><div style={{fontSize:12,fontWeight:700,color:"#166534"}}>🔔 Nuevo recordatorio</div><button onClick={resetR} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:T.g4}}>✕</button></div>
       <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8,marginBottom:8}}>
-        <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Título *</label><input value={rForm.title} onChange={e=>sRForm(p=>({...p,title:e.target.value}))} placeholder="Ej: Pago cuota de luz, Fichas médicas..." style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
-        <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Fecha *</label><input type="date" value={rForm.date} onChange={e=>sRForm(p=>({...p,date:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+        <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Título *</label><input value={rForm.title} onChange={e=>sRForm((p:any)=>({...p,title:e.target.value}))} placeholder="Ej: Pago cuota de luz, Fichas médicas..." style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+        <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Fecha inicio *</label><input type="date" value={rForm.date} onChange={e=>sRForm((p:any)=>({...p,date:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
       </div>
-      <div style={{marginBottom:8}}><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Descripción</label><input value={rForm.description} onChange={e=>sRForm(p=>({...p,description:e.target.value}))} placeholder="Detalles opcionales..." style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
-      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Color:</label><div style={{display:"flex",gap:4}}>{REMIND_COLORS.map(c=><div key={c} onClick={()=>sRForm(p=>({...p,color:c}))} style={{width:22,height:22,borderRadius:11,background:c,cursor:"pointer",border:rForm.color===c?"3px solid "+T.nv:"2px solid transparent"}}/>)}</div></div>
-      <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}><Btn v="g" s="s" onClick={resetR}>Cancelar</Btn><Btn v="s" s="s" disabled={!rForm.title||!rForm.date} onClick={()=>{onAddReminder({title:rForm.title,date:rForm.date,description:rForm.description,color:rForm.color});resetR();}}>🔔 Crear recordatorio</Btn></div>
+      <div style={{marginBottom:8}}><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Descripción</label><input value={rForm.description} onChange={e=>sRForm((p:any)=>({...p,description:e.target.value}))} placeholder="Detalles opcionales..." style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+      <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8,marginBottom:8}}>
+        <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Repetir</label><div style={{display:"flex",flexWrap:"wrap" as const,gap:3,marginTop:3}}>{RECUR_OPTS.map(o=><button key={o.k} onClick={()=>sRForm((p:any)=>({...p,recurrence:o.k}))} style={{padding:"3px 8px",borderRadius:12,fontSize:10,fontWeight:600,border:rForm.recurrence===o.k?"2px solid "+T.nv:"1px solid "+T.g3,background:rForm.recurrence===o.k?T.nv+"12":"#fff",color:rForm.recurrence===o.k?T.nv:T.g4,cursor:"pointer"}}>{o.l}</button>)}</div></div>
+        <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Asignar a (opcional)</label><select value={rForm.assigned_to||""} onChange={e=>sRForm((p:any)=>({...p,assigned_to:e.target.value,assigned_name:e.target.value?users.find((u:any)=>u.id===e.target.value)?(fn(users.find((u:any)=>u.id===e.target.value))):""
+:""}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,marginTop:3}}><option value="">Yo mismo</option>{users.map((u:any)=><option key={u.id} value={u.id}>{fn(u)}</option>)}</select></div>
+      </div>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Color:</label><div style={{display:"flex",gap:4}}>{REMIND_COLORS.map(c=><div key={c} onClick={()=>sRForm((p:any)=>({...p,color:c}))} style={{width:22,height:22,borderRadius:11,background:c,cursor:"pointer",border:rForm.color===c?"3px solid "+T.nv:"2px solid transparent"}}/>)}</div></div>
+      <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}><Btn v="g" s="s" onClick={resetR}>Cancelar</Btn><Btn v="s" s="s" disabled={!rForm.title||!rForm.date} onClick={()=>{onAddReminder({title:rForm.title,date:rForm.date,description:rForm.description,color:rForm.color,recurrence:rForm.recurrence||"none",assigned_to:rForm.assigned_to||null,assigned_name:rForm.assigned_name||""});resetR();}}>🔔 Crear recordatorio</Btn></div>
     </Card>}
     {tab==="mes"&&<MonthView/>}
     {tab==="sem"&&<WeekView/>}
@@ -1364,7 +1405,7 @@ export default function App(){
   else if(aA){const aar2=areas.find(x=>x.id===aA),ids2=deptos.filter(d=>d.aId===aA).map(d=>d.id);vT=aar2?aar2.name:"";vI=aar2?aar2.icon:"";vC=aar2?aar2.color:T.nv;vP=peds.filter(p=>ids2.indexOf(p.dId)>=0);}
 
   let nav:any[]=[];
-  if(isPersonal){nav=[{k:"my",l:"Mis Tareas",sh:true},{k:"cal",l:"📅 Calendario",sh:true},{k:"new",l:"+ Tarea",sh:true},{k:"org",l:"Organigrama",sh:true},{k:"profs",l:"Perfiles",sh:true},{k:"proy",l:"Plan 2035",sh:true}];}
+  if(isPersonal){nav=[{k:"my",l:"Mis Tareas",sh:true},{k:"cal",l:"📅 Calendario",sh:true},{k:"presu",l:"💰 Presupuestos",sh:true},{k:"new",l:"+ Tarea",sh:true},{k:"org",l:"Organigrama",sh:true},{k:"profs",l:"Perfiles",sh:true},{k:"proy",l:"Plan 2035",sh:true}];}
   else{nav=[{k:"dash",l:"Dashboard",sh:true},{k:"org",l:"Organigrama",sh:true},{k:"dept",l:"Departamentos",sh:true},{k:"cal",l:"📅 Calendario",sh:true},...(isAd||user.role==="coordinador"||user.role==="embudo"?[{k:"presu",l:"💰 Presupuestos",sh:true}]:[]),...(isAd||user.role==="coordinador"?[{k:"reun",l:"📅 Reuniones",sh:true}]:[]),{k:"proy",l:"Plan 2035",sh:true},{k:"profs",l:"Perfiles",sh:true},{k:"new",l:"+ Tarea",sh:true}];}
 
   /* ── addLog: optimistic local + persist to Supabase ── */
@@ -1395,14 +1436,14 @@ export default function App(){
           </div>
         </div>
         <div style={{flex:1,padding:mob?"12px 8px":"20px 16px",overflowY:"auto" as const,marginTop:4}}>
-          {vw==="my"&&isPersonal&&<MyDash user={user} peds={peds} users={users} onSel={(p:any)=>sSl(p)} mob={mob} search={search}/>}
+          {vw==="my"&&isPersonal&&<MyDash user={user} peds={peds} users={users} onSel={(p:any)=>sSl(p)} mob={mob} search={search} presu={presu}/>}
           {vw==="org"&&<Org areas={areas} deptos={deptos} users={users} om={om} onEditSave={async(id:string,d:any)=>{sOm(p=>p.map(m=>m.id===id?{...m,...d}:m));await supabase.from("org_members").update({first_name:d.n,last_name:d.a,email:d.mail||"",phone:d.tel||""}).eq("id",id);}} onDelOm={async(id:string)=>{sOm(p=>p.filter(m=>m.id!==id));await supabase.from("org_members").delete().eq("id",id);}} onDelUser={async(id:string)=>{sUs(p=>p.filter(u=>u.id!==id));await supabase.from("profiles").delete().eq("id",id);}} onEditUser={(u:any)=>{sVw("profs");}} isSA={isSA} onAssignTask={(u:any)=>{sPreAT(u);sVw("new");}} mob={mob}/>}
           {vw==="dept"&&<Depts areas={areas} deptos={deptos} pedidos={peds} users={users} onSel={(p:any)=>sSl(p)} mob={mob}/>}
           {vw==="cal"&&<CalView peds={peds} agendas={agendas} minutas={minutas} presu={presu} reminders={reminders} areas={areas} deptos={deptos} users={users} user={user} onSel={(p:any)=>sSl(p)} mob={mob}
-            onAddReminder={async(r:any)=>{try{const row={user_id:user.id,user_name:fn(user),title:r.title,date:r.date,description:r.description||"",color:r.color||"#3B82F6"};const{data,error}=await supabase.from("reminders").insert(row).select().single();if(error)throw new Error(error.message);sRems(p=>[...(data?[data]:[]),...p]);showT("Recordatorio creado");}catch(e:any){showT(e.message||"Error","err");}}}
+            onAddReminder={async(r:any)=>{try{const row:any={user_id:user.id,user_name:fn(user),title:r.title,date:r.date,description:r.description||"",color:r.color||"#3B82F6",recurrence:r.recurrence||"none",assigned_to:r.assigned_to||null,assigned_name:r.assigned_name||""};const{data,error}=await supabase.from("reminders").insert(row).select().single();if(error)throw new Error(error.message);sRems(p=>[...(data?[data]:[]),...p]);showT("Recordatorio creado");}catch(e:any){showT(e.message||"Error","err");}}}
             onDelReminder={async(id:number)=>{try{sRems(p=>p.filter(x=>x.id!==id));await supabase.from("reminders").delete().eq("id",id);showT("Recordatorio eliminado");}catch(e:any){showT(e.message||"Error","err");}}}
           />}
-          {vw==="presu"&&(isAd||user.role==="coordinador"||user.role==="embudo")&&<PresView presu={presu} provs={provs} peds={peds} users={users} areas={areas} deptos={deptos} user={user} mob={mob}
+          {vw==="presu"&&<PresView presu={presu} provs={provs} peds={peds} users={users} areas={areas} deptos={deptos} user={user} mob={mob}
             onSel={(p:any)=>sSl(p)}
             onAddPresu={async(d:any)=>{try{const row=presuToDB(d);const{data,error}=await supabase.from("presupuestos").insert(row).select().single();if(error)throw new Error(error.message);sPr(p=>[presuFromDB(data),...p]);showT("Presupuesto agregado");}catch(e:any){showT(e.message||"Error","err");}}}
             onUpdPresu={async(id:number,d:any)=>{try{sPr(p=>p.map(x=>x.id===id?{...x,...d}:x));await supabase.from("presupuestos").update(d).eq("id",id);showT("Presupuesto actualizado");}catch(e:any){showT(e.message||"Error","err");}}}
