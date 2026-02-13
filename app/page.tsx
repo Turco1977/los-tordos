@@ -507,18 +507,20 @@ function OrgMember({m,isSA,onEdit,onDel,onAssign}:any){const ok=m.n&&m.a;return(
 
 function Org({areas,deptos,users,om,onEditSave,onDelOm,onDelUser,onEditUser,isSA,onAssignTask,mob,pedidos,onSel}:any){
   const [ex,sEx]=useState<any>({});const [ed,sEd]=useState<any>(null);const [ef,sEf]=useState({n:"",a:"",mail:"",tel:""});
-  const [tab,sTab]=useState("struct");const [selA,sSelA]=useState<number|null>(null);const [selD,sSelD]=useState<number|null>(null);
+  const [tab,sTab]=useState("struct");const [tA,sTa]=useState<number|null>(null);const [tD,sTd]=useState<number|null>(null);
   const tog=(k:string)=>sEx((p:any)=>({...p,[k]:!p[k]}));
   const findUser=(m:any)=>users.find((u:any)=>u.mail&&m.mail&&u.mail===m.mail)||users.find((u:any)=>u.n===m.n&&u.a===m.a);
   /* Depts sub-view */
-  const fDeptos=selA?deptos.filter((d:any)=>d.aId===selA):deptos;
-  const selDepto=selD?deptos.find((d:any)=>d.id===selD):null;
-  const selArea2=selDepto?areas.find((a:any)=>a.id===selDepto.aId):null;
-  const dPeds=selD?(pedidos||[]).filter((p:any)=>p.dId===selD):[];
+  const tArea=tA?areas.find((a:any)=>a.id===tA):null;
+  const tDepto=tD?deptos.find((d:any)=>d.id===tD):null;
+  const tDeptoArea=tDepto?areas.find((a:any)=>a.id===tDepto.aId):null;
+  const tPeds=tD?(pedidos||[]).filter((p:any)=>p.dId===tD):[];
+  const tAreaIds=tA?deptos.filter((d:any)=>d.aId===tA).map((d:any)=>d.id):[];
+  const tAreaPeds=tA?(pedidos||[]).filter((p:any)=>tAreaIds.indexOf(p.dId)>=0):[];
   return(<div style={{maxWidth:mob?undefined:720}}>
     <h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:T.nv,fontWeight:800}}>Organigrama</h2><p style={{color:T.g4,fontSize:12,margin:"0 0 12px"}}>Estructura institucional Los Tordos Rugby Club</p>
     <div style={{display:"flex",gap:4,marginBottom:14}}>
-      {[{k:"struct",l:"👥 Estructura"},{k:"tasks",l:"📋 Tareas x Depto"}].map(t=><button key={t.k} onClick={()=>{sTab(t.k);sSelD(null);}} style={{padding:"7px 16px",borderRadius:8,border:"none",background:tab===t.k?T.nv:"#fff",color:tab===t.k?"#fff":T.g5,fontSize:12,fontWeight:600,cursor:"pointer"}}>{t.l}</button>)}
+      {[{k:"struct",l:"👥 Estructura"},{k:"tasks",l:"📋 Tareas x Depto"}].map(t=><button key={t.k} onClick={()=>{sTab(t.k);sTa(null);sTd(null);}} style={{padding:"7px 16px",borderRadius:8,border:"none",background:tab===t.k?T.nv:"#fff",color:tab===t.k?"#fff":T.g5,fontSize:12,fontWeight:600,cursor:"pointer"}}>{t.l}</button>)}
     </div>
     {tab==="struct"&&<div style={{maxWidth:mob?undefined:680}}>
     {ed&&<Card style={{marginBottom:12,maxWidth:mob?undefined:400,background:"#FFFBEB",border:"1px solid #FDE68A"}}><div style={{fontSize:11,fontWeight:600,color:T.g5,marginBottom:6}}>Editando: {ed.cargo}</div><div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:4,marginBottom:4}}><input value={ef.n} onChange={e=>sEf(p=>({...p,n:e.target.value}))} placeholder="Nombre" style={{padding:"6px 8px",borderRadius:6,border:"1px solid "+T.g3,fontSize:12}}/><input value={ef.a} onChange={e=>sEf(p=>({...p,a:e.target.value}))} placeholder="Apellido" style={{padding:"6px 8px",borderRadius:6,border:"1px solid "+T.g3,fontSize:12}}/></div><div style={{display:"flex",gap:4}}><Btn s="s" onClick={()=>{onEditSave(ed.id,ef);sEd(null);}}>Guardar</Btn><Btn v="g" s="s" onClick={()=>sEd(null)}>✕</Btn></div></Card>}
@@ -532,28 +534,20 @@ function Org({areas,deptos,users,om,onEditSave,onDelOm,onDelUser,onEditUser,isSA
           </OrgNode>);})}</OrgNode>);})}
     </div>
     </div>}
-    {tab==="tasks"&&!selD&&<div>
-      <div style={{display:"flex",gap:4,marginBottom:14,flexWrap:"wrap" as const}}>
-        <Btn v={selA===null?"p":"g"} s="s" onClick={()=>sSelA(null)}>Todas las áreas</Btn>
-        {areas.map((a:any)=><Btn key={a.id} v={selA===a.id?"p":"g"} s="s" onClick={()=>sSelA(selA===a.id?null:a.id)}>{a.icon} {a.name}</Btn>)}
-      </div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:10}}>
-        {fDeptos.map((d:any)=>{const ar=areas.find((a:any)=>a.id===d.aId);const dp=(pedidos||[]).filter((p:any)=>p.dId===d.id);const pe=dp.filter((p:any)=>p.st===ST.P).length,cu=dp.filter((p:any)=>[ST.C,ST.E,ST.V].indexOf(p.st)>=0).length,ok=dp.filter((p:any)=>p.st===ST.OK).length;
-          return(<Card key={d.id} onClick={()=>sSelD(d.id)} style={{padding:"14px 16px",cursor:"pointer",borderLeft:"4px solid "+(ar?ar.color:T.nv)}}>
-            <div style={{fontSize:13,fontWeight:700,color:T.nv}}>{d.name}</div>
-            <div style={{fontSize:10,color:T.g4,marginTop:2}}>{ar?ar.icon+" "+ar.name:""}</div>
-            <div style={{display:"flex",gap:8,marginTop:8,fontSize:11}}>
-              {pe>0&&<span style={{color:T.rd}}>🔴 {pe}</span>}
-              {cu>0&&<span style={{color:T.yl}}>🟡 {cu}</span>}
-              {ok>0&&<span style={{color:T.gn}}>🟢 {ok}</span>}
-              {dp.length===0&&<span style={{color:T.g4}}>Sin tareas</span>}
-            </div>
-          </Card>);})}
-      </div>
+    {tab==="tasks"&&!tA&&!tD&&<div>
+      <KPIs peds={pedidos||[]} mob={mob}/>
+      <Circles areas={areas} deptos={deptos} pedidos={pedidos||[]} onAC={(id:number)=>{sTa(id);sTd(null);}} mob={mob}/>
     </div>}
-    {tab==="tasks"&&selD&&selDepto&&<div>
-      <Btn v="g" s="s" onClick={()=>sSelD(null)} style={{marginBottom:12}}>← Volver</Btn>
-      <TList title={selDepto.name} icon="📂" color={selArea2?selArea2.color:T.nv} peds={dPeds} users={users} onSel={onSel} search="" mob={mob}/>
+    {tab==="tasks"&&tA&&!tD&&<div>
+      <Bread parts={[{label:"Áreas",onClick:()=>{sTa(null);sTd(null);}},{label:tArea?.name||""}]} mob={mob}/>
+      <h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:T.nv,fontWeight:800}}>{tArea?.icon} {tArea?.name}</h2>
+      <p style={{color:T.g4,fontSize:12,margin:"0 0 14px"}}>{deptos.filter((d:any)=>d.aId===tA).length} departamentos · {tAreaPeds.length} tareas</p>
+      <KPIs peds={tAreaPeds} mob={mob}/>
+      <DeptCircles area={tArea} deptos={deptos} pedidos={pedidos||[]} onDC={(id:number)=>sTd(id)} mob={mob}/>
+    </div>}
+    {tab==="tasks"&&tD&&tDepto&&<div>
+      <Bread parts={[{label:"Áreas",onClick:()=>{sTa(null);sTd(null);}},{label:tDeptoArea?.name||"",onClick:()=>sTd(null)},{label:tDepto.name}]} mob={mob}/>
+      <TList title={tDepto.name} icon="📂" color={tDeptoArea?tDeptoArea.color:T.nv} peds={tPeds} users={users} onSel={onSel} search="" mob={mob}/>
     </div>}
   </div>);
 }
