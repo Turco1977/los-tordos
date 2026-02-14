@@ -96,6 +96,49 @@ CREATE POLICY dep_attendance_all ON dep_attendance FOR ALL USING (true) WITH CHE
     });
   }
 
+  // Check projects table
+  const { error: projErr } = await admin.from("projects").select("id").limit(1);
+  if (projErr && projErr.code === "42P01") {
+    missing.push({
+      table: "projects",
+      sql: `CREATE TABLE projects (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL DEFAULT 'Nuevo Proyecto',
+  description TEXT DEFAULT '',
+  created_by UUID NOT NULL,
+  created_by_name TEXT DEFAULT '',
+  status TEXT DEFAULT 'active',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
+CREATE POLICY projects_all ON projects FOR ALL USING (true) WITH CHECK (true);`,
+    });
+  }
+
+  // Check project_tasks table
+  const { error: ptErr } = await admin.from("project_tasks").select("id").limit(1);
+  if (ptErr && ptErr.code === "42P01") {
+    missing.push({
+      table: "project_tasks",
+      sql: `CREATE TABLE project_tasks (
+  id SERIAL PRIMARY KEY,
+  project_id INT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  description TEXT DEFAULT '',
+  status TEXT DEFAULT 'backlog',
+  priority TEXT DEFAULT 'medium',
+  assignee_id UUID,
+  assignee_name TEXT DEFAULT '',
+  due_date DATE,
+  requires_expense BOOLEAN DEFAULT false,
+  amount NUMERIC,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE project_tasks ENABLE ROW LEVEL SECURITY;
+CREATE POLICY project_tasks_all ON project_tasks FOR ALL USING (true) WITH CHECK (true);`,
+    });
+  }
+
   if (missing.length > 0) {
     return NextResponse.json({
       status: "missing",

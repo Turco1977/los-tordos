@@ -76,3 +76,18 @@ export const DEP_INJ_SEV: Record<string,{l:string;c:string;bg:string}>={leve:{l:
 export const DEP_WK={sleep:{l:"Sueño",i:"😴",labels:["Muy malo","Malo","Regular","Bueno","Excelente"]},fatigue:{l:"Fatiga",i:"🔋",labels:["Exhausto","Cansado","Normal","Descansado","Muy descansado"]},stress:{l:"Estrés",i:"🧠",labels:["Muy alto","Alto","Normal","Bajo","Muy bajo"]},soreness:{l:"Dolor muscular",i:"💢",labels:["Muy alto","Alto","Normal","Bajo","Ninguno"]},mood:{l:"Ánimo",i:"😊",labels:["Muy malo","Malo","Normal","Bueno","Muy bueno"]}};
 export const DEP_SEM={red:{max:2.5,l:"Alerta",c:"#C8102E",bg:"#FEE2E2"},yellow:{max:3.5,l:"Precaución",c:"#F59E0B",bg:"#FEF3C7"},green:{max:5,l:"Óptimo",c:"#10B981",bg:"#D1FAE5"}};
 export const DEP_DIV=["Plantel Superior","M19","M17"];
+
+// Proyectos module constants
+export const PJ_ST: Record<string,{l:string;c:string;bg:string;i:string}>={
+  backlog:{l:"Backlog",c:"#6B7280",bg:"#F3F4F6",i:"📋"},
+  todo:{l:"To Do",c:"#3B82F6",bg:"#DBEAFE",i:"📌"},
+  inprogress:{l:"In Progress",c:"#F59E0B",bg:"#FEF3C7",i:"🔄"},
+  review:{l:"Review",c:"#8B5CF6",bg:"#EDE9FE",i:"🔍"},
+  done:{l:"Done",c:"#10B981",bg:"#D1FAE5",i:"✅"}
+};
+export const PJ_PR: Record<string,{l:string;c:string;i:string}>={
+  low:{l:"Low",c:"#6B7280",i:"⬇️"},
+  medium:{l:"Medium",c:"#3B82F6",i:"➡️"},
+  high:{l:"High",c:"#F59E0B",i:"⬆️"},
+  critical:{l:"Critical",c:"#DC2626",i:"🔥"}
+};

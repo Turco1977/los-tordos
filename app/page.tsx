@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useRef, createContext, useContext } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { T, TD, AREAS, DEPTOS, ROLES, RK, DIV, TIPOS, ST, SC, AGT, MINSECS, PST, PSC, MONEDAS, RUBROS, fn, isOD, daysDiff } from "@/lib/constants";
+import { T, TD, AREAS, DEPTOS, ROLES, RK, DIV, TIPOS, ST, SC, AGT, MINSECS, PST, PSC, MONEDAS, RUBROS, fn, isOD, daysDiff, PJ_ST, PJ_PR } from "@/lib/constants";
 import type { Profile, Task, TaskMessage, OrgMember as OrgMemberType, Milestone, Agenda, Minuta, Presupuesto, Proveedor } from "@/lib/supabase/types";
 import { notify, fetchNotifications, markRead } from "@/lib/notifications";
 import { exportCSV, exportPDF, exportICal } from "@/lib/export";
@@ -1630,7 +1630,7 @@ function CalView({peds,agendas,minutas,presu,reminders,areas,deptos,users,user,o
 }
 
 /* ── DASHBOARD WIDGETS ── */
-function DashWidgets({peds,presu,agendas,minutas,users,areas,deptos,onSel,mob}:any){
+function DashWidgets({peds,presu,agendas,minutas,users,areas,deptos,onSel,mob,onNav}:any){
   const{colors,isDark,cardBg}=useC();
   const now=new Date();const weekAgo=new Date(now);weekAgo.setDate(weekAgo.getDate()-7);const waStr=weekAgo.toISOString().slice(0,10);
   const active=peds.filter((p:any)=>p.st!==ST.OK);
@@ -1649,7 +1649,7 @@ function DashWidgets({peds,presu,agendas,minutas,users,areas,deptos,onSel,mob}:a
   return(<div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:mob?8:14,marginBottom:mob?12:18}}>
     {/* Widget 1: Upcoming Deadlines */}
     <Card style={{padding:mob?"10px 12px":"14px 16px"}}>
-      <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:8}}>📅 Próximos Vencimientos</div>
+      <div onClick={()=>onNav&&onNav("cal")} style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:8,cursor:"pointer"}}>📅 Próximos Vencimientos <span style={{fontSize:10,color:colors.bl}}>→</span></div>
       {upcoming.length===0&&<div style={{fontSize:11,color:colors.g4,padding:8}}>Sin vencimientos próximos</div>}
       {upcoming.slice(0,5).map((p:any)=>{const d=daysDiff(TODAY,p.fReq);return(<div key={p.id} onClick={()=>onSel(p)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 0",borderBottom:"1px solid "+colors.g1,cursor:"pointer",fontSize:11}}>
         <div style={{flex:1,minWidth:0}}><span style={{color:colors.g4}}>#{p.id}</span> <span style={{fontWeight:600,color:colors.nv}}>{(p.desc||"").slice(0,30)}</span></div>
@@ -1658,18 +1658,18 @@ function DashWidgets({peds,presu,agendas,minutas,users,areas,deptos,onSel,mob}:a
     </Card>
     {/* Widget 2: Recent Activity */}
     <Card style={{padding:mob?"10px 12px":"14px 16px"}}>
-      <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:8}}>📰 Actividad Reciente</div>
+      <div onClick={()=>onNav&&onNav("feed")} style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:8,cursor:"pointer"}}>📰 Actividad Reciente <span style={{fontSize:10,color:colors.bl}}>→</span></div>
       {recentLogs.length===0&&<div style={{fontSize:11,color:colors.g4,padding:8}}>Sin actividad</div>}
-      {recentLogs.map((l:any,i:number)=><div key={i} style={{display:"flex",gap:6,padding:"3px 0",borderBottom:"1px solid "+colors.g1,fontSize:10}}>
+      {recentLogs.map((l:any,i:number)=><div key={i} onClick={()=>{const p=peds.find((p:any)=>p.id===l.pId);if(p)onSel(p);}} style={{display:"flex",gap:6,padding:"3px 0",borderBottom:"1px solid "+colors.g1,fontSize:10,cursor:"pointer"}}>
         <div style={{width:6,height:6,borderRadius:3,background:l.t==="sys"?colors.bl:colors.gn,marginTop:4,flexShrink:0}}/>
         <div style={{flex:1,minWidth:0}}><span style={{fontWeight:600,color:colors.nv}}>{l.by}</span> <span style={{color:colors.g5}}>{(l.act||"").slice(0,35)}</span><div style={{fontSize:9,color:colors.g4}}>#{l.pId} · {(l.dt||"").slice(5,16)}</div></div>
       </div>)}
     </Card>
     {/* Widget 3: Team Workload */}
     <Card style={{padding:mob?"10px 12px":"14px 16px"}}>
-      <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:8}}>👥 Carga de Trabajo</div>
+      <div onClick={()=>onNav&&onNav("kanban")} style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:8,cursor:"pointer"}}>👥 Carga de Trabajo <span style={{fontSize:10,color:colors.bl}}>→</span></div>
       {workload.length===0&&<div style={{fontSize:11,color:colors.g4,padding:8}}>Sin tareas asignadas</div>}
-      {workload.map((w:any)=><div key={w.id} style={{marginBottom:6}}>
+      {workload.map((w:any)=><div key={w.id} onClick={()=>{const ut=peds.filter((p:any)=>p.asTo===w.id&&p.st!==ST.OK);if(ut.length===1)onSel(ut[0]);else if(ut.length>0)onSel(ut[0]);}} style={{marginBottom:6,cursor:"pointer"}}>
         <div style={{display:"flex",justifyContent:"space-between",fontSize:10,marginBottom:2}}><span style={{fontWeight:600,color:colors.nv}}>{w.name}</span><span style={{color:colors.g4}}>{w.count} tareas{w.overdue>0?<span style={{color:"#DC2626"}}> ({w.overdue} ⏰)</span>:""}</span></div>
         <div style={{height:8,background:colors.g1,borderRadius:4,overflow:"hidden"}}><div style={{height:"100%",borderRadius:4,width:(w.count/maxWL*100)+"%",background:w.overdue>0?"#DC2626":w.count>5?colors.yl:colors.gn}}/></div>
       </div>)}
@@ -1678,12 +1678,188 @@ function DashWidgets({peds,presu,agendas,minutas,users,areas,deptos,onSel,mob}:a
     <Card style={{padding:mob?"10px 12px":"14px 16px"}}>
       <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:8}}>📊 Resumen Semanal</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-        <div style={{textAlign:"center" as const,padding:8,background:colors.gn+"10",borderRadius:8}}><div style={{fontSize:18,fontWeight:800,color:colors.gn}}>{completedThisWeek}</div><div style={{fontSize:9,color:colors.g5}}>Completadas</div></div>
-        <div style={{textAlign:"center" as const,padding:8,background:colors.bl+"10",borderRadius:8}}><div style={{fontSize:18,fontWeight:800,color:colors.bl}}>{createdThisWeek}</div><div style={{fontSize:9,color:colors.g5}}>Nuevas</div></div>
-        <div style={{textAlign:"center" as const,padding:8,background:"#DC262610",borderRadius:8}}><div style={{fontSize:18,fontWeight:800,color:"#DC2626"}}>{overdue.length}</div><div style={{fontSize:9,color:colors.g5}}>Vencidas</div></div>
-        <div style={{textAlign:"center" as const,padding:8,background:colors.pr+"10",borderRadius:8}}><div style={{fontSize:18,fontWeight:800,color:colors.pr}}>${budgetApproved.toLocaleString()}</div><div style={{fontSize:9,color:colors.g5}}>$ Aprobado</div></div>
+        <div onClick={()=>onNav&&onNav("filter","ok")} style={{textAlign:"center" as const,padding:8,background:colors.gn+"10",borderRadius:8,cursor:"pointer"}}><div style={{fontSize:18,fontWeight:800,color:colors.gn}}>{completedThisWeek}</div><div style={{fontSize:9,color:colors.g5}}>Completadas</div></div>
+        <div onClick={()=>onNav&&onNav("kanban")} style={{textAlign:"center" as const,padding:8,background:colors.bl+"10",borderRadius:8,cursor:"pointer"}}><div style={{fontSize:18,fontWeight:800,color:colors.bl}}>{createdThisWeek}</div><div style={{fontSize:9,color:colors.g5}}>Nuevas</div></div>
+        <div onClick={()=>onNav&&onNav("filter","venc")} style={{textAlign:"center" as const,padding:8,background:"#DC262610",borderRadius:8,cursor:"pointer"}}><div style={{fontSize:18,fontWeight:800,color:"#DC2626"}}>{overdue.length}</div><div style={{fontSize:9,color:colors.g5}}>Vencidas</div></div>
+        <div onClick={()=>onNav&&onNav("presu")} style={{textAlign:"center" as const,padding:8,background:colors.pr+"10",borderRadius:8,cursor:"pointer"}}><div style={{fontSize:18,fontWeight:800,color:colors.pr}}>${budgetApproved.toLocaleString()}</div><div style={{fontSize:9,color:colors.g5}}>$ Aprobado</div></div>
       </div>
     </Card>
+  </div>);
+}
+
+/* ── PROYECTOS VIEW (Modelo de Presentación) ── */
+const PJ_EJES=["Deportivo","Social","Institucional","Infraestructura"];
+const PJ_STATUS:{[k:string]:{l:string;c:string;bg:string}}={borrador:{l:"Borrador",c:"#6B7280",bg:"#F3F4F6"},enviado:{l:"Enviado",c:"#3B82F6",bg:"#DBEAFE"},aprobado:{l:"Aprobado",c:"#10B981",bg:"#D1FAE5"},rechazado:{l:"Rechazado",c:"#DC2626",bg:"#FEE2E2"}};
+const emptyForm=()=>({nombre:"",responsable:"",equipo:"",obj_lograr:"",obj_beneficio:"",eje:"",adn:"",descripcion:"",duracion:"",etapas:"",rec_eco:"",rec_hum:"",rec_infra:"",riesgo_mal:"",riesgo_clave:"",entregables:""});
+const parseFormData=(desc:string)=>{try{return JSON.parse(desc);}catch{return emptyForm();}};
+const wordCount=(t:string)=>t.trim().split(/\s+/).filter(Boolean).length;
+
+function ProyectosView({projects,users,user,mob,onAddProject,onUpdProject,onDelProject}:any){
+  const{colors,isDark,cardBg}=useC();
+  const [mode,sMode]=useState<"list"|"form"|"view">("list");
+  const [selProj,sSelProj]=useState<any>(null);
+  const [form,sForm]=useState(emptyForm());
+  const [editing,sEditing]=useState(false);
+  const upd=(k:string,v:string)=>sForm(f=>({...f,[k]:v}));
+  const iS:any={width:"100%",padding:"8px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,background:cardBg,color:colors.nv};
+  const tS:any={...iS,resize:"vertical" as const};
+  const secHdr=(n:string,title:string)=><div style={{background:colors.g2,borderRadius:8,padding:"8px 12px",marginBottom:10,marginTop:n==="1"?0:16}}><span style={{fontSize:13,fontWeight:800,color:colors.nv}}>{n} {title}</span></div>;
+  const field=(label:string,key:string,type?:"textarea"|"select")=><div style={{marginBottom:8}}>
+    <label style={{fontSize:11,fontWeight:700,color:colors.g5,display:"block",marginBottom:3}}>{label}</label>
+    {type==="textarea"?<textarea value={(form as any)[key]||""} onChange={e=>upd(key,e.target.value)} rows={3} style={tS}/>
+    :type==="select"?<select value={(form as any)[key]||""} onChange={e=>upd(key,e.target.value)} style={iS}><option value="">Seleccionar...</option>{PJ_EJES.map(e=><option key={e} value={e}>{e}</option>)}</select>
+    :<input value={(form as any)[key]||""} onChange={e=>upd(key,e.target.value)} style={iS}/>}
+  </div>;
+  const viewField=(label:string,val:string)=>val?<div style={{marginBottom:8}}><div style={{fontSize:10,fontWeight:700,color:colors.g4,textTransform:"uppercase" as const,marginBottom:2}}>{label}</div><div style={{fontSize:12,color:colors.nv,lineHeight:1.5,whiteSpace:"pre-wrap" as const}}>{val}</div></div>:null;
+
+  // ── List ──
+  if(mode==="list") return(<div style={{maxWidth:900}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+      <div><h2 style={{margin:0,fontSize:mob?16:19,fontWeight:800,color:colors.nv}}>📋 Proyectos</h2><p style={{color:colors.g4,fontSize:12,margin:"2px 0 0"}}>Modelo de Presentación de Proyectos · Plan 2035</p></div>
+      <button onClick={()=>{sForm(emptyForm());sEditing(false);sMode("form");}} style={{padding:"7px 14px",borderRadius:8,border:"none",background:colors.nv,color:isDark?"#0F172A":"#fff",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ Nuevo Proyecto</button>
+    </div>
+    {projects.length===0&&<div style={{background:cardBg,borderRadius:14,padding:32,textAlign:"center" as const,border:"1px solid "+colors.g2}}><div style={{fontSize:32,marginBottom:8}}>📋</div><div style={{fontSize:13,color:colors.g4,marginBottom:4}}>No hay proyectos presentados aún.</div><div style={{fontSize:11,color:colors.g4}}>Usá el botón "+ Nuevo Proyecto" para crear tu primera propuesta.</div></div>}
+    <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"repeat(auto-fill,minmax(320px,1fr))",gap:12}}>
+      {projects.map((p:any)=>{const fd=parseFormData(p.description);const st=PJ_STATUS[p.status]||PJ_STATUS.borrador;return(<div key={p.id} onClick={()=>{sSelProj(p);sMode("view");}} style={{background:cardBg,borderRadius:14,padding:16,border:"1px solid "+colors.g2,cursor:"pointer",boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"start",marginBottom:6}}>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:14,fontWeight:700,color:colors.nv,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{p.name||"Sin nombre"}</div>
+            {fd.responsable&&<div style={{fontSize:11,color:colors.g5,marginTop:2}}>👤 {fd.responsable}</div>}
+          </div>
+          <span style={{fontSize:9,fontWeight:700,padding:"2px 8px",borderRadius:10,background:st.bg,color:st.c,flexShrink:0,marginLeft:8}}>{st.l}</span>
+        </div>
+        <div style={{display:"flex",gap:4,flexWrap:"wrap" as const,marginBottom:6}}>
+          {fd.eje&&<span style={{fontSize:9,padding:"2px 7px",borderRadius:8,background:colors.g2,color:colors.nv,fontWeight:600}}>{fd.eje}</span>}
+        </div>
+        {fd.descripcion&&<div style={{fontSize:11,color:colors.g5,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical" as const}}>{fd.descripcion}</div>}
+        <div style={{fontSize:9,color:colors.g4,marginTop:6}}>Por {p.created_by_name||"—"} · {p.created_at?.slice(0,10)}</div>
+      </div>);})}
+    </div>
+  </div>);
+
+  // ── Form (create / edit) ──
+  if(mode==="form") return(<div style={{maxWidth:720}}>
+    <button onClick={()=>{sMode(selProj?"view":"list");if(!selProj)sSelProj(null);}} style={{background:"none",border:"1px solid "+colors.g3,borderRadius:6,cursor:"pointer",fontSize:12,padding:"4px 10px",color:colors.g5,marginBottom:10}}>← Volver</button>
+    <div style={{background:cardBg,borderRadius:14,padding:mob?16:24,border:"1px solid "+colors.g2}}>
+      <div style={{textAlign:"center" as const,marginBottom:16}}>
+        <div style={{fontSize:mob?16:20,fontWeight:800,color:colors.nv}}>📝 Modelo de Presentación de Proyectos</div>
+        <div style={{fontSize:12,color:colors.g4,marginTop:2}}>Los Tordos Rugby Club – Plan 2035</div>
+      </div>
+
+      {secHdr("1️⃣","Datos del Proyecto")}
+      {field("Nombre del proyecto","nombre")}
+      {field("Responsable (socio proponente)","responsable")}
+      {field("Equipo inicial","equipo","textarea")}
+
+      {secHdr("2️⃣","Objetivo Central")}
+      {field("¿Qué busca lograr?","obj_lograr","textarea")}
+      {field("¿Qué beneficio genera para el club?","obj_beneficio","textarea")}
+
+      {secHdr("3️⃣","Alineación Estratégica")}
+      {field("Eje","eje","select")}
+      {field("Alineación con ADN Tordos","adn","textarea")}
+
+      {secHdr("4️⃣","Descripción Breve")}
+      <div style={{marginBottom:8}}>
+        <label style={{fontSize:11,fontWeight:700,color:colors.g5,display:"block",marginBottom:3}}>Explicado simple, como pitch de 2 minutos (máx. 200 palabras)</label>
+        <textarea value={form.descripcion} onChange={e=>upd("descripcion",e.target.value)} rows={5} style={tS}/>
+        <div style={{fontSize:10,color:wordCount(form.descripcion)>200?"#DC2626":colors.g4,textAlign:"right" as const,marginTop:2}}>{wordCount(form.descripcion)}/200 palabras</div>
+      </div>
+
+      {secHdr("5️⃣","Cronograma Tentativo")}
+      {field("Duración estimada","duracion")}
+      {field("Etapas principales","etapas","textarea")}
+
+      {secHdr("6️⃣","Estimación Básica de Costos y Recursos")}
+      {field("Recursos económicos","rec_eco","textarea")}
+      {field("Recursos humanos","rec_hum","textarea")}
+      {field("Infraestructura / equipamiento","rec_infra","textarea")}
+
+      {secHdr("7️⃣","Riesgos y Condiciones Críticas")}
+      {field("¿Qué puede salir mal?","riesgo_mal","textarea")}
+      {field("¿Qué es clave para que funcione?","riesgo_clave","textarea")}
+
+      {secHdr("8️⃣","Entregables Esperados")}
+      {field("Resultado concreto y medible","entregables","textarea")}
+
+      <div style={{background:colors.g2,borderRadius:8,padding:"10px 12px",marginTop:16,marginBottom:16}}>
+        <div style={{fontSize:11,color:colors.g5}}>🎤 <strong>Formato de presentación:</strong> Pitch oral de 7 minutos en SE o CD.</div>
+      </div>
+
+      <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+        <button onClick={()=>{sMode(selProj?"view":"list");if(!selProj)sSelProj(null);}} style={{padding:"8px 16px",borderRadius:8,border:"1px solid "+colors.g3,background:"transparent",fontSize:12,cursor:"pointer",color:colors.g5}}>Cancelar</button>
+        <button onClick={()=>{if(!form.nombre.trim())return;const desc=JSON.stringify(form);if(editing&&selProj){onUpdProject(selProj.id,{name:form.nombre.trim(),description:desc});sSelProj({...selProj,name:form.nombre.trim(),description:desc});sMode("view");}else{onAddProject({name:form.nombre.trim(),description:desc,status:"borrador"});sMode("list");}}} style={{padding:"8px 16px",borderRadius:8,border:"none",background:colors.g4,color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer"}}>Guardar Borrador</button>
+        <button onClick={()=>{if(!form.nombre.trim())return;const desc=JSON.stringify(form);if(editing&&selProj){onUpdProject(selProj.id,{name:form.nombre.trim(),description:desc,status:"enviado"});sSelProj({...selProj,name:form.nombre.trim(),description:desc,status:"enviado"});sMode("view");}else{onAddProject({name:form.nombre.trim(),description:desc,status:"enviado"});sMode("list");}}} style={{padding:"8px 16px",borderRadius:8,border:"none",background:colors.nv,color:isDark?"#0F172A":"#fff",fontSize:12,fontWeight:700,cursor:"pointer"}}>Enviar Proyecto</button>
+      </div>
+    </div>
+  </div>);
+
+  // ── View ──
+  const p=selProj;
+  const fd=parseFormData(p.description);
+  const st=PJ_STATUS[p.status]||PJ_STATUS.borrador;
+  const isAdmin=user&&(user.role==="admin"||user.role==="superadmin"||user.role==="coordinador");
+  const isOwner=user&&p.created_by===user.id;
+
+  return(<div style={{maxWidth:720}}>
+    <button onClick={()=>{sMode("list");sSelProj(null);}} style={{background:"none",border:"1px solid "+colors.g3,borderRadius:6,cursor:"pointer",fontSize:12,padding:"4px 10px",color:colors.g5,marginBottom:10}}>← Volver a lista</button>
+    <div style={{background:cardBg,borderRadius:14,padding:mob?16:24,border:"1px solid "+colors.g2}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"start",marginBottom:12}}>
+        <div style={{flex:1}}>
+          <div style={{fontSize:mob?18:22,fontWeight:800,color:colors.nv}}>{p.name}</div>
+          <div style={{fontSize:11,color:colors.g4,marginTop:2}}>Presentado por {p.created_by_name||"—"} · {p.created_at?.slice(0,10)}</div>
+        </div>
+        <span style={{fontSize:10,fontWeight:700,padding:"3px 10px",borderRadius:10,background:st.bg,color:st.c}}>{st.l}</span>
+      </div>
+
+      {secHdr("1️⃣","Datos del Proyecto")}
+      {viewField("Nombre",fd.nombre)}
+      {viewField("Responsable",fd.responsable)}
+      {viewField("Equipo inicial",fd.equipo)}
+
+      {secHdr("2️⃣","Objetivo Central")}
+      {viewField("Qué busca lograr",fd.obj_lograr)}
+      {viewField("Beneficio para el club",fd.obj_beneficio)}
+
+      {secHdr("3️⃣","Alineación Estratégica")}
+      {fd.eje&&<div style={{marginBottom:8}}><span style={{fontSize:11,padding:"3px 10px",borderRadius:8,background:colors.g2,color:colors.nv,fontWeight:700}}>{fd.eje}</span></div>}
+      {viewField("Alineación con ADN Tordos",fd.adn)}
+
+      {secHdr("4️⃣","Descripción Breve")}
+      {viewField("",fd.descripcion)}
+
+      {secHdr("5️⃣","Cronograma Tentativo")}
+      {viewField("Duración",fd.duracion)}
+      {viewField("Etapas principales",fd.etapas)}
+
+      {secHdr("6️⃣","Estimación de Costos y Recursos")}
+      {viewField("Recursos económicos",fd.rec_eco)}
+      {viewField("Recursos humanos",fd.rec_hum)}
+      {viewField("Infraestructura / equipamiento",fd.rec_infra)}
+
+      {secHdr("7️⃣","Riesgos y Condiciones Críticas")}
+      {viewField("Qué puede salir mal",fd.riesgo_mal)}
+      {viewField("Clave para que funcione",fd.riesgo_clave)}
+
+      {secHdr("8️⃣","Entregables Esperados")}
+      {viewField("Resultado concreto y medible",fd.entregables)}
+
+      <div style={{background:colors.g2,borderRadius:8,padding:"10px 12px",marginTop:16}}>
+        <div style={{fontSize:11,color:colors.g5}}>🎤 <strong>Formato:</strong> Pitch oral de 7 minutos en SE o CD.</div>
+      </div>
+
+      {/* Actions */}
+      <div style={{display:"flex",gap:8,justifyContent:"space-between",marginTop:16,flexWrap:"wrap" as const}}>
+        <div style={{display:"flex",gap:6}}>
+          {(isOwner||isAdmin)&&<button onClick={()=>{sForm({...emptyForm(),...fd,nombre:fd.nombre||p.name});sEditing(true);sMode("form");}} style={{padding:"7px 14px",borderRadius:8,border:"1px solid "+colors.g3,background:"transparent",fontSize:11,cursor:"pointer",color:colors.nv,fontWeight:600}}>✏️ Editar</button>}
+          {(isOwner||isAdmin)&&<button onClick={()=>{if(confirm("¿Eliminar este proyecto?"))onDelProject(p.id);sMode("list");sSelProj(null);}} style={{padding:"7px 14px",borderRadius:8,border:"1px solid #FCA5A5",background:"transparent",fontSize:11,cursor:"pointer",color:"#DC2626",fontWeight:600}}>🗑 Eliminar</button>}
+        </div>
+        {isAdmin&&p.status==="enviado"&&<div style={{display:"flex",gap:6}}>
+          <button onClick={()=>{onUpdProject(p.id,{status:"aprobado"});sSelProj({...p,status:"aprobado"});}} style={{padding:"7px 14px",borderRadius:8,border:"none",background:"#10B981",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>✅ Aprobar</button>
+          <button onClick={()=>{onUpdProject(p.id,{status:"rechazado"});sSelProj({...p,status:"rechazado"});}} style={{padding:"7px 14px",borderRadius:8,border:"none",background:"#DC2626",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>❌ Rechazar</button>
+        </div>}
+      </div>
+    </div>
   </div>);
 }
 
@@ -1882,6 +2058,7 @@ export default function App(){
   const [areas]=useState(AREAS);const [deptos]=useState(DEPTOS);
   const [users,sUs]=useState<any[]>([]);const [om,sOm]=useState<any[]>([]);const [peds,sPd]=useState<any[]>([]);const [hitos,sHi]=useState<any[]>([]);const [agendas,sAgs]=useState<any[]>([]);const [minutas,sMins]=useState<any[]>([]);
   const [presu,sPr]=useState<any[]>([]);const [provs,sPv]=useState<any[]>([]);const [reminders,sRems]=useState<any[]>([]);
+  const [projects,sProjects]=useState<any[]>([]);const [projTasks,sProjTasks]=useState<any[]>([]);
   const [dbNotifs,sDbNotifs]=useState<any[]>([]);
   const [user,sU]=useState<any>(null);const [authChecked,sAuthChecked]=useState(false);
   const [vw,sVw]=useState("dash");const [sel,sSl]=useState<any>(null);const [aA,sAA]=useState<number|null>(null);const [aD,sAD]=useState<number|null>(null);const [sbCol,sSbCol]=useState(false);const [search,sSr]=useState("");const [shNot,sShNot]=useState(false);const [preAT,sPreAT]=useState<any>(null);const [showPw,sShowPw]=useState(false);const [toast,sToast]=useState<{msg:string;type:"ok"|"err"}|null>(null);const [kpiFilt,sKpiFilt]=useState<string|null>(null);
@@ -1894,7 +2071,7 @@ export default function App(){
 
   /* ── Fetch all data from Supabase ── */
   const fetchAll = useCallback(async()=>{
-    const [pRes,mRes,omRes,msRes,agRes,miRes,prRes,pvRes,remRes]=await Promise.all([
+    const [pRes,mRes,omRes,msRes,agRes,miRes,prRes,pvRes,remRes,projRes,ptRes]=await Promise.all([
       supabase.from("profiles").select("*"),
       supabase.from("tasks").select("*").order("id",{ascending:false}),
       supabase.from("org_members").select("*"),
@@ -1904,6 +2081,8 @@ export default function App(){
       supabase.from("presupuestos").select("*").order("id",{ascending:false}),
       supabase.from("proveedores").select("*").order("id",{ascending:false}),
       supabase.from("reminders").select("*").order("date",{ascending:true}),
+      supabase.from("projects").select("*").order("id",{ascending:false}),
+      supabase.from("project_tasks").select("*").order("id",{ascending:false}),
     ]);
     if(pRes.data) sUs(pRes.data.map((p:any)=>profileToUser(p)));
     if(omRes.data) sOm(omRes.data.map((m:any)=>({id:m.id,t:m.type,cargo:m.cargo,n:m.first_name,a:m.last_name,mail:m.email,tel:m.phone})));
@@ -1913,6 +2092,8 @@ export default function App(){
     if(prRes.data) sPr(prRes.data.map(presuFromDB));
     if(pvRes.data) sPv(pvRes.data.map(provFromDB));
     if(remRes.data) sRems(remRes.data);
+    if(projRes.data) sProjects(projRes.data);
+    if(ptRes.data) sProjTasks(ptRes.data);
     // Tasks + messages
     if(mRes.data){
       const tmRes=await supabase.from("task_messages").select("*").order("created_at");
@@ -1944,6 +2125,8 @@ export default function App(){
     {table:"tasks",onChange:()=>fetchAll()},
     {table:"task_messages",onChange:()=>fetchAll()},
     {table:"presupuestos",onChange:()=>fetchAll()},
+    {table:"projects",onChange:()=>fetchAll()},
+    {table:"project_tasks",onChange:()=>fetchAll()},
     {table:"notifications",onChange:()=>refreshNotifs()},
   ],!!user);
 
@@ -1963,7 +2146,7 @@ export default function App(){
     if(tok) await notify({token:tok,user_id:userId,title,message,type,link});
   };
 
-  const out=async()=>{await supabase.auth.signOut();sU(null);sVw("dash");sSl(null);sAA(null);sAD(null);sSr("");sPd([]);sUs([]);sOm([]);sHi([]);sAgs([]);sMins([]);sPr([]);sPv([]);sRems([]);sDbNotifs([]);};
+  const out=async()=>{await supabase.auth.signOut();sU(null);sVw("dash");sSl(null);sAA(null);sAD(null);sSr("");sPd([]);sUs([]);sOm([]);sHi([]);sAgs([]);sMins([]);sPr([]);sPv([]);sRems([]);sDbNotifs([]);sProjects([]);sProjTasks([]);};
   const isAd=user&&(user.role==="admin"||user.role==="superadmin");
   const isSA=user&&user.role==="superadmin";
   const isPersonal=user&&(user.role==="enlace"||user.role==="manager"||user.role==="usuario");
@@ -2035,6 +2218,7 @@ export default function App(){
           <div style={{display:"flex",gap:1,overflowX:"auto" as const,alignItems:"center"}}>
             {mob&&<button onClick={()=>sSbOpen(true)} style={{background:"none",border:"none",fontSize:18,cursor:"pointer",color:colors.nv,padding:"4px 6px",flexShrink:0}}>☰</button>}
             {nav.filter(n=>n.sh).map(n=><button key={n.k} onClick={()=>{sVw(n.k);if(n.k==="dash"||n.k==="my"){sAA(null);sAD(null);sKpiFilt(null);}}} style={{padding:mob?"5px 8px":"6px 11px",border:"none",borderRadius:7,background:vw===n.k?colors.nv:"transparent",color:vw===n.k?(isDark?"#0F172A":"#fff"):colors.g5,fontSize:mob?10:11,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap" as const}}>{n.l}</button>)}
+            <button onClick={()=>sVw("proyectos")} style={{padding:mob?"5px 8px":"6px 11px",border:"none",borderRadius:7,background:vw==="proyectos"?colors.nv:"transparent",color:vw==="proyectos"?(isDark?"#0F172A":"#fff"):colors.g5,fontSize:mob?10:11,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap" as const}}>📋 Proyectos</button>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:mob?4:8,flexShrink:0}}>
             <div ref={gsRef} style={{position:"relative" as const}}><input value={search} onChange={e=>{sSr(e.target.value);sGsOpen(true);}} onFocus={()=>{if(search.length>=2)sGsOpen(true);}} onKeyDown={e=>{if(e.key==="Escape")sGsOpen(false);}} placeholder="🔍 Buscar..." style={{padding:"5px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:11,width:mob?80:160}}/>
@@ -2059,6 +2243,12 @@ export default function App(){
           {vw==="feed"&&!isPersonal&&<ActivityFeed peds={peds} users={users} onSel={(p:any)=>sSl(p)} mob={mob}/>}
           {/* Communications (Feature 9) */}
           {vw==="comm"&&(isAd||user.role==="coordinador")&&<CommView peds={peds} presu={presu} agendas={agendas} minutas={minutas} users={users} areas={areas} deptos={deptos} user={user} mob={mob}/>}
+          {/* Proyectos */}
+          {vw==="proyectos"&&<ProyectosView projects={projects} users={users} user={user} mob={mob}
+            onAddProject={async(p:any)=>{try{const row={name:p.name,description:p.description||"",created_by:user.id,created_by_name:fn(user),status:p.status||"borrador"};const{data,error}=await supabase.from("projects").insert(row).select().single();if(error)throw new Error(error.message);if(data)sProjects(prev=>[data,...prev]);showT(p.status==="enviado"?"Proyecto enviado":"Borrador guardado");}catch(e:any){showT(e.message||"Error","err");}}}
+            onUpdProject={async(id:number,d:any)=>{try{sProjects(prev=>prev.map(p=>p.id===id?{...p,...d}:p));await supabase.from("projects").update(d).eq("id",id);showT("Proyecto actualizado");}catch(e:any){showT(e.message||"Error","err");}}}
+            onDelProject={async(id:number)=>{try{sProjects(prev=>prev.filter(p=>p.id!==id));await supabase.from("projects").delete().eq("id",id);showT("Proyecto eliminado");}catch(e:any){showT(e.message||"Error","err");}}}
+          />}
           {vw==="org"&&<Org areas={areas} deptos={deptos} users={users} om={om} pedidos={peds} onSel={(p:any)=>sSl(p)} onEditSave={async(id:string,d:any)=>{sOm(p=>p.map(m=>m.id===id?{...m,...d}:m));await supabase.from("org_members").update({first_name:d.n,last_name:d.a,email:d.mail||"",phone:d.tel||""}).eq("id",id);}} onDelOm={async(id:string)=>{sOm(p=>p.filter(m=>m.id!==id));await supabase.from("org_members").delete().eq("id",id);}} onDelUser={async(id:string)=>{sUs(p=>p.filter(u=>u.id!==id));await supabase.from("profiles").delete().eq("id",id);}} onEditUser={(u:any)=>{sVw("profs");}} isSA={isSA} onAssignTask={(u:any)=>{sPreAT(u);sVw("new");}} mob={mob}/>}
           {vw==="cal"&&<CalView peds={peds} agendas={agendas} minutas={minutas} presu={presu} reminders={reminders} areas={areas} deptos={deptos} users={users} user={user} onSel={(p:any)=>sSl(p)} mob={mob}
             onAddReminder={async(r:any)=>{try{const row:any={user_id:user.id,user_name:fn(user),title:r.title,date:r.date,description:r.description||"",color:r.color||"#3B82F6",recurrence:r.recurrence||"none",assigned_to:r.assigned_to||null,assigned_name:r.assigned_name||""};const{data,error}=await supabase.from("reminders").insert(row).select().single();if(error)throw new Error(error.message);sRems(p=>[...(data?[data]:[]),...p]);showT("Recordatorio creado");}catch(e:any){showT(e.message||"Error","err");}}}
@@ -2106,7 +2296,7 @@ export default function App(){
             sPreAT(null);sVw(isPersonal?"my":"dash");sAA(null);sAD(null);showT(p._presu?"Tarea creada con presupuesto":"Tarea creada");}catch(e:any){showT(e.message||"Error al crear tarea","err");}
           }} onX={()=>{sPreAT(null);sVw(isPersonal?"my":"dash");}}/>}
           {vw==="proy"&&<Proyecto hitos={hitos} setHitos={(updater:any)=>{sHi((prev:any)=>{const next=typeof updater==="function"?updater(prev):updater;next.forEach((h:any)=>{supabase.from("milestones").update({pct:h.pct}).eq("id",h.id);});return next;});}} isAd={isAd} mob={mob}/>}
-          {vw==="dash"&&!isPersonal&&!aA&&!aD&&!kpiFilt&&<><h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:colors.nv,fontWeight:800}}>Dashboard</h2><p style={{color:colors.g4,fontSize:12,margin:"0 0 16px"}}>KPIs institucionales · Manual Operativo 2035</p><KPIs peds={peds} mob={mob} presu={presu} onFilter={(k:string)=>sKpiFilt(k)}/><DashWidgets peds={peds} presu={presu} agendas={agendas} minutas={minutas} users={users} areas={areas} deptos={deptos} onSel={(p:any)=>sSl(p)} mob={mob}/><Circles areas={areas} deptos={deptos} pedidos={peds} onAC={hAC} mob={mob}/></>}
+          {vw==="dash"&&!isPersonal&&!aA&&!aD&&!kpiFilt&&<><h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:colors.nv,fontWeight:800}}>Dashboard</h2><p style={{color:colors.g4,fontSize:12,margin:"0 0 16px"}}>KPIs institucionales · Manual Operativo 2035</p><KPIs peds={peds} mob={mob} presu={presu} onFilter={(k:string)=>sKpiFilt(k)}/><DashWidgets peds={peds} presu={presu} agendas={agendas} minutas={minutas} users={users} areas={areas} deptos={deptos} onSel={(p:any)=>sSl(p)} mob={mob} onNav={(view:string,filt?:string)=>{if(view==="filter"&&filt){sKpiFilt(filt);}else{sVw(view);}}}/><Circles areas={areas} deptos={deptos} pedidos={peds} onAC={hAC} mob={mob}/></>}
           {vw==="dash"&&!isPersonal&&!aA&&!aD&&kpiFilt&&(()=>{const fl=KPIF[kpiFilt];const fp=kpiFilter(peds,kpiFilt);return <div><Bread parts={[{label:"Dashboard",onClick:()=>sKpiFilt(null)},{label:fl?.l||""}]} mob={mob}/><TList title={fl?.l||""} icon={fl?.i||""} color={fl?.c||T.bl} peds={fp} users={users} onSel={(p:any)=>sSl(p)} search={search} mob={mob} onBulk={handleBulk} onImport={handleImport} user={user}/></div>;})()}
           {vw==="dash"&&!isPersonal&&aA&&!aD&&(aA===100||aA===101)&&<div><Bread parts={[{label:"Dashboard",onClick:()=>{sAA(null);sKpiFilt(null);}},{label:vT}]} mob={mob}/><KPIs peds={vP} mob={mob} onFilter={(k:string)=>{sAA(null);sKpiFilt(k);}}/><TList title={vT} icon={vI} color={vC} peds={vP} users={users} onSel={(p:any)=>sSl(p)} search={search} mob={mob} onBulk={handleBulk} onImport={handleImport} user={user}/></div>}
           {vw==="dash"&&!isPersonal&&aA&&!aD&&aA!==100&&aA!==101&&(()=>{const selAr=areas.find((a:any)=>a.id===aA);return <div><Bread parts={[{label:"Dashboard",onClick:()=>{sAA(null);sKpiFilt(null);}},{label:selAr?.name||""}]} mob={mob}/><h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:colors.nv,fontWeight:800}}>{selAr?.icon} {selAr?.name}</h2><p style={{color:colors.g4,fontSize:12,margin:"0 0 16px"}}>{deptos.filter((d:any)=>d.aId===aA).length} departamentos</p><KPIs peds={vP} mob={mob} onFilter={(k:string)=>{sAA(null);sKpiFilt(k);}}/><DeptCircles area={selAr} deptos={deptos} pedidos={peds} onDC={(id:number)=>sAD(id)} mob={mob}/></div>;})()}
