@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { T, TD, AREAS, DEPTOS, ROLES, RK, DIV, TIPOS, ST, SC, AGT, MINSECS, PST, PSC, MONEDAS, RUBROS, fn, isOD, daysDiff, PJ_ST, PJ_PR } from "@/lib/constants";
 import type { Profile, Task, TaskMessage, OrgMember as OrgMemberType, Milestone, Agenda, Minuta, Presupuesto, Proveedor } from "@/lib/supabase/types";
 import { notify, fetchNotifications, markRead } from "@/lib/notifications";
-import { exportCSV, exportPDF, exportICal } from "@/lib/export";
+import { exportCSV, exportPDF, exportICal, exportMinutaPDF, exportMinutaWord } from "@/lib/export";
 import { useRealtime } from "@/lib/realtime";
 import { paginate } from "@/lib/pagination";
 import { uploadFile, getFileIcon, formatFileSize } from "@/lib/storage";
@@ -1136,8 +1136,10 @@ function Reuniones({agendas,minutas,om,users,areas,onAddAg,onUpdAg,onDelAg,onAdd
       <Card>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"start",marginBottom:4}}>
           <div/>
-          <div style={{display:"flex",gap:4}}>
+          <div style={{display:"flex",gap:4,flexWrap:"wrap" as const}}>
             {mi.status==="borrador"&&<Btn v="g" s="s" onClick={enterEditMin}>✏️ Editar</Btn>}
+            <Btn v="p" s="s" onClick={()=>{const d={type:mi.type,typeTitle:AGT[mi.type]?.title||"",areaName:mi.areaName,date:mi.date,horaInicio:mi.horaInicio,horaCierre:mi.horaCierre,lugar:mi.lugar,presentes:mi.presentes,ausentes:mi.ausentes,sections:mi.sections,tareas:(mi.tareas||[]).map((t:any)=>({desc:t.desc,resp:stf.find((u:any)=>u.id===t.respId)?fn(stf.find((u:any)=>u.id===t.respId)):"–",fecha:t.fecha||""})),status:mi.status};exportMinutaWord(d);}}>📄 Word</Btn>
+            <Btn v="r" s="s" onClick={()=>{const d={type:mi.type,typeTitle:AGT[mi.type]?.title||"",areaName:mi.areaName,date:mi.date,horaInicio:mi.horaInicio,horaCierre:mi.horaCierre,lugar:mi.lugar,presentes:mi.presentes,ausentes:mi.ausentes,sections:mi.sections,tareas:(mi.tareas||[]).map((t:any)=>({desc:t.desc,resp:stf.find((u:any)=>u.id===t.respId)?fn(stf.find((u:any)=>u.id===t.respId)):"–",fecha:t.fecha||""})),status:mi.status};exportMinutaPDF(d);}}>📋 PDF</Btn>
           </div>
         </div>
         <div style={{textAlign:"center" as const,borderBottom:"2px solid "+T.nv,paddingBottom:12,marginBottom:12}}>
