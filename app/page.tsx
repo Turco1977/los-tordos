@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useRef, createContext, useContext } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, createContext, useContext, Component, type ReactNode, type ErrorInfo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { T, TD, AREAS, DEPTOS, ROLES, RK, DIV, TIPOS, ST, SC, AGT, MINSECS, PST, PSC, MONEDAS, RUBROS, fn, isOD, daysDiff, PJ_ST, PJ_PR } from "@/lib/constants";
 import type { Profile, Task, TaskMessage, OrgMember as OrgMemberType, Milestone, Agenda, Minuta, Presupuesto, Proveedor } from "@/lib/supabase/types";
@@ -20,10 +20,22 @@ const TODAY = new Date().toISOString().slice(0,10);
 /* ── ROLE LEVEL HELPER ── */
 const rlv=(role:string)=>ROLES[role]?.lv||0;
 
+/* ── INPUT SANITIZER (XSS prevention) ── */
+const sanitize=(s:string)=>s.replace(/<\/?[^>]+(>|$)/g,"").replace(/javascript:/gi,"").replace(/on\w+\s*=/gi,"").trim();
+
+/* ── ERROR BOUNDARY ── */
+class ErrorBoundary extends Component<{children:ReactNode},{hasError:boolean;error:Error|null}>{
+  constructor(props:{children:ReactNode}){super(props);this.state={hasError:false,error:null};}
+  static getDerivedStateFromError(error:Error){return{hasError:true,error};}
+  componentDidCatch(error:Error,info:ErrorInfo){console.error("ErrorBoundary caught:",error,info);}
+  render(){if(this.state.hasError)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#F7F8FA",fontFamily:"-apple-system,sans-serif"}}><div style={{textAlign:"center",padding:32}}><div style={{fontSize:40,marginBottom:12}}>⚠️</div><h2 style={{margin:"0 0 8px",fontSize:18,color:"#0A1628"}}>Algo salió mal</h2><p style={{fontSize:13,color:"#5A6577",marginBottom:16}}>{this.state.error?.message||"Error inesperado"}</p><button onClick={()=>this.setState({hasError:false,error:null})} style={{padding:"8px 20px",borderRadius:8,border:"none",background:"#0A1628",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer"}}>Reintentar</button></div></div>);return this.props.children;}
+}
+
 /* ── TOAST ── */
 function Toast({msg,type,onDone}:{msg:string;type:"ok"|"err";onDone:()=>void}){
-  useEffect(()=>{const t=setTimeout(onDone,3500);return()=>clearTimeout(t);},[onDone]);
-  return <div style={{position:"fixed",bottom:24,left:"50%",transform:"translateX(-50%)",padding:"10px 20px",borderRadius:10,background:type==="ok"?"#065F46":"#991B1B",color:"#fff",fontSize:12,fontWeight:600,zIndex:9999,boxShadow:"0 4px 16px rgba(0,0,0,.2)",maxWidth:"90vw",textAlign:"center"}}>{type==="ok"?"✅":"❌"} {msg}</div>;
+  const dur=Math.max(3000,Math.min(msg.length*60,8000));
+  useEffect(()=>{const t=setTimeout(onDone,dur);return()=>clearTimeout(t);},[onDone,dur]);
+  return <div style={{position:"fixed",bottom:24,left:"50%",transform:"translateX(-50%)",padding:"10px 20px",borderRadius:10,background:type==="ok"?"#065F46":"#991B1B",color:"#fff",fontSize:12,fontWeight:600,zIndex:9999,boxShadow:"0 4px 16px rgba(0,0,0,.2)",maxWidth:"90vw",textAlign:"center",display:"flex",alignItems:"center",gap:8}}><span>{type==="ok"?"✅":"❌"} {msg}</span><button onClick={onDone} style={{background:"rgba(255,255,255,.3)",border:"none",borderRadius:4,color:"#fff",fontSize:10,cursor:"pointer",padding:"2px 6px",flexShrink:0}}>✕</button></div>;
 }
 
 function useMobile(bp=768){
@@ -1632,19 +1644,19 @@ function CalView({peds,agendas,minutas,presu,reminders,areas,deptos,users,user,o
 /* ── DASHBOARD WIDGETS ── */
 function DashWidgets({peds,presu,agendas,minutas,users,areas,deptos,onSel,mob,onNav}:any){
   const{colors,isDark,cardBg}=useC();
-  const now=new Date();const weekAgo=new Date(now);weekAgo.setDate(weekAgo.getDate()-7);const waStr=weekAgo.toISOString().slice(0,10);
-  const active=peds.filter((p:any)=>p.st!==ST.OK);
-  const overdue=active.filter((p:any)=>isOD(p.fReq));
-  const upcoming=active.filter((p:any)=>p.fReq&&p.fReq>=TODAY&&daysDiff(TODAY,p.fReq)<=7).sort((a:any,b:any)=>(a.fReq||"").localeCompare(b.fReq||""));
-  const recentLogs=peds.flatMap((p:any)=>(p.log||[]).map((l:any)=>({...l,pId:p.id,pDesc:p.desc}))).sort((a:any,b:any)=>(b.dt||"").localeCompare(a.dt||"")).slice(0,8);
+  const waStr=useMemo(()=>{const d=new Date();d.setDate(d.getDate()-7);return d.toISOString().slice(0,10);},[]);
+  const active=useMemo(()=>peds.filter((p:any)=>p.st!==ST.OK),[peds]);
+  const overdue=useMemo(()=>active.filter((p:any)=>isOD(p.fReq)),[active]);
+  const upcoming=useMemo(()=>active.filter((p:any)=>p.fReq&&p.fReq>=TODAY&&daysDiff(TODAY,p.fReq)<=7).sort((a:any,b:any)=>(a.fReq||"").localeCompare(b.fReq||"")),[active]);
+  const recentLogs=useMemo(()=>peds.flatMap((p:any)=>(p.log||[]).map((l:any)=>({...l,pId:p.id,pDesc:p.desc}))).sort((a:any,b:any)=>(b.dt||"").localeCompare(a.dt||"")).slice(0,8),[peds]);
   /* Workload by user */
-  const workload=users.filter((u:any)=>rlv(u.role)>=2).map((u:any)=>{const tasks=active.filter((p:any)=>p.asTo===u.id);return{id:u.id,name:fn(u),count:tasks.length,overdue:tasks.filter((p:any)=>isOD(p.fReq)).length};}).filter((w:any)=>w.count>0).sort((a:any,b:any)=>b.count-a.count).slice(0,8);
+  const workload=useMemo(()=>users.filter((u:any)=>rlv(u.role)>=2).map((u:any)=>{const tasks=active.filter((p:any)=>p.asTo===u.id);return{id:u.id,name:fn(u),count:tasks.length,overdue:tasks.filter((p:any)=>isOD(p.fReq)).length};}).filter((w:any)=>w.count>0).sort((a:any,b:any)=>b.count-a.count).slice(0,8),[users,active]);
   const maxWL=Math.max(...workload.map((w:any)=>w.count),1);
   /* Budget summary */
-  const budgetApproved=presu.filter((pr:any)=>pr.status==="aprobado").reduce((s:number,pr:any)=>s+Number(pr.monto||0),0);
+  const budgetApproved=useMemo(()=>presu.filter((pr:any)=>pr.status==="aprobado").reduce((s:number,pr:any)=>s+Number(pr.monto||0),0),[presu]);
   /* Tasks created this week */
-  const createdThisWeek=peds.filter((p:any)=>p.cAt>=waStr).length;
-  const completedThisWeek=peds.filter((p:any)=>p.st===ST.OK&&p.log?.some((l:any)=>l.dt>=waStr)).length;
+  const createdThisWeek=useMemo(()=>peds.filter((p:any)=>p.cAt>=waStr).length,[peds,waStr]);
+  const completedThisWeek=useMemo(()=>peds.filter((p:any)=>p.st===ST.OK&&p.log?.some((l:any)=>l.dt>=waStr)).length,[peds,waStr]);
 
   return(<div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:mob?8:14,marginBottom:mob?12:18}}>
     {/* Widget 1: Upcoming Deadlines */}
@@ -1900,7 +1912,7 @@ function KanbanView({peds,users,user,onSel,onStatusChange,mob}:any){
 /* ── ACTIVITY FEED (Feature 5) ── */
 function ActivityFeed({peds,users,onSel,mob}:any){
   const{colors,cardBg}=useC();
-  const allLogs=peds.flatMap((p:any)=>(p.log||[]).map((l:any)=>({...l,taskId:p.id,taskDesc:p.desc,taskTipo:p.tipo}))).sort((a:any,b:any)=>(b.dt||"").localeCompare(a.dt||"")).slice(0,50);
+  const allLogs=useMemo(()=>peds.flatMap((p:any)=>(p.log||[]).map((l:any)=>({...l,taskId:p.id,taskDesc:p.desc,taskTipo:p.tipo}))).sort((a:any,b:any)=>(b.dt||"").localeCompare(a.dt||"")).slice(0,50),[peds]);
   return(<div style={{maxWidth:720}}>
     <h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:colors.nv,fontWeight:800}}>Actividad Reciente</h2>
     <p style={{color:colors.g4,fontSize:12,margin:"0 0 14px"}}>Últimas 50 acciones en el sistema</p>
@@ -1957,7 +1969,7 @@ function CommView({peds,presu,agendas,minutas,users,areas,deptos,user,mob}:any){
   const sendWA=()=>{window.open("https://wa.me/?text="+encodeURIComponent(msg),"_blank");};
   const copyMsg=()=>{navigator.clipboard.writeText(msg);sCopied(true);setTimeout(()=>sCopied(false),2000);};
   /* File upload handler */
-  const handleFileUpload=async(accept:string)=>{const inp=document.createElement("input");inp.type="file";inp.accept=accept;inp.onchange=async()=>{const f=inp.files?.[0];if(!f)return;sUploading(true);try{const path=`comm/${Date.now()}-${f.name}`;const{error}=await supabase.storage.from("attachments").upload(path,f,{upsert:true});if(error)throw error;const{data:{publicUrl}}=supabase.storage.from("attachments").getPublicUrl(path);sMsg(prev=>prev+(prev?"\n\n":"")+"📎 "+f.name+"\n"+publicUrl);}catch(e:any){alert("Error al subir: "+(e.message||""));}sUploading(false);sShowPlus(false);sPlusPanel(null);};inp.click();};
+  const handleFileUpload=async(accept:string)=>{const inp=document.createElement("input");inp.type="file";inp.accept=accept;inp.onchange=async()=>{const f=inp.files?.[0];if(!f)return;sUploading(true);try{const path=`comm/${Date.now()}-${f.name}`;const{error}=await supabase.storage.from("attachments").upload(path,f,{upsert:true});if(error)throw error;const{data:{publicUrl}}=supabase.storage.from("attachments").getPublicUrl(path);sMsg(prev=>prev+(prev?"\n\n":"")+"📎 "+f.name+"\n"+publicUrl);}catch(e:any){sMsg("Error al subir: "+(e.message||""));}sUploading(false);sShowPlus(false);sPlusPanel(null);};inp.click();};
   /* Insert contact */
   const insertContact=(uid:string)=>{const u=users.find((x:any)=>x.id===uid);if(!u)return;const txt=`👤 *${fn(u)}*\n${u.mail?"📧 "+u.mail+"\n":""}${u.tel?"📱 "+u.tel:""}`;sMsg(prev=>prev+(prev?"\n\n":"")+txt);sShowPlus(false);sPlusPanel(null);sContactSel("");};
   /* Insert poll */
@@ -2068,18 +2080,19 @@ export default function App(){
   const {pushEnabled,requestPush,sendPush}=usePushNotifs(user,peds);
   const {mode:themeMode,toggle:toggleTheme,colors,isDark,cardBg,headerBg}=useTheme();
   const showT=(msg:string,type:"ok"|"err"="ok")=>sToast({msg,type});
+  const [dataLoading,sDataLoading]=useState(true);
 
   /* ── Fetch all data from Supabase ── */
   const fetchAll = useCallback(async()=>{
     const [pRes,mRes,omRes,msRes,agRes,miRes,prRes,pvRes,remRes,projRes,ptRes]=await Promise.all([
       supabase.from("profiles").select("*"),
-      supabase.from("tasks").select("*").order("id",{ascending:false}),
+      supabase.from("tasks").select("*").order("id",{ascending:false}).limit(500),
       supabase.from("org_members").select("*"),
       supabase.from("milestones").select("*").order("id"),
-      supabase.from("agendas").select("*").order("id",{ascending:false}),
-      supabase.from("minutas").select("*").order("id",{ascending:false}),
-      supabase.from("presupuestos").select("*").order("id",{ascending:false}),
-      supabase.from("proveedores").select("*").order("id",{ascending:false}),
+      supabase.from("agendas").select("*").order("id",{ascending:false}).limit(100),
+      supabase.from("minutas").select("*").order("id",{ascending:false}).limit(100),
+      supabase.from("presupuestos").select("*").order("id",{ascending:false}).limit(200),
+      supabase.from("proveedores").select("*").order("id",{ascending:false}).limit(200),
       supabase.from("reminders").select("*").order("date",{ascending:true}),
       supabase.from("projects").select("*").order("id",{ascending:false}),
       supabase.from("project_tasks").select("*").order("id",{ascending:false}),
@@ -2103,6 +2116,7 @@ export default function App(){
         return{id:t.id,div:t.division,cId:t.creator_id,cN:t.creator_name,dId:t.dept_id,tipo:t.tipo,desc:t.description,fReq:t.due_date,urg:t.urgency,st:t.status,asTo:t.assigned_to,rG:t.requires_expense,eOk:t.expense_ok,resp:t.resolution,cAt:t.created_at,monto:t.amount,log:tMsgs};
       }));
     }
+    sDataLoading(false);
   },[]);
 
   /* ── Check existing session on mount ── */
@@ -2209,6 +2223,7 @@ export default function App(){
   if(isPersonal&&vw==="dash") { setTimeout(()=>sVw("my"),0); return null; }
 
   return(
+    <ErrorBoundary>
     <ThemeCtx.Provider value={{colors,isDark,cardBg}}>
     <style dangerouslySetInnerHTML={{__html:darkCSS}}/>
     <div style={{display:"flex",minHeight:"100vh",background:colors.g1,fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",color:colors.nv}}>
@@ -2216,9 +2231,9 @@ export default function App(){
       <div style={{flex:1,display:"flex",flexDirection:"column" as const,minWidth:0}}>
         <div style={{background:headerBg,borderBottom:"1px solid "+colors.g2,padding:mob?"0 8px":"0 14px",display:"flex",justifyContent:"space-between",alignItems:"center",height:48}}>
           <div style={{display:"flex",gap:1,overflowX:"auto" as const,alignItems:"center"}}>
-            {mob&&<button onClick={()=>sSbOpen(true)} style={{background:"none",border:"none",fontSize:18,cursor:"pointer",color:colors.nv,padding:"4px 6px",flexShrink:0}}>☰</button>}
-            {nav.filter(n=>n.sh).map(n=><button key={n.k} onClick={()=>{sVw(n.k);if(n.k==="dash"||n.k==="my"){sAA(null);sAD(null);sKpiFilt(null);}}} style={{padding:mob?"5px 8px":"6px 11px",border:"none",borderRadius:7,background:vw===n.k?colors.nv:"transparent",color:vw===n.k?(isDark?"#0F172A":"#fff"):colors.g5,fontSize:mob?10:11,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap" as const}}>{n.l}</button>)}
-            <button onClick={()=>sVw("proyectos")} style={{padding:mob?"5px 8px":"6px 11px",border:"none",borderRadius:7,background:vw==="proyectos"?colors.nv:"transparent",color:vw==="proyectos"?(isDark?"#0F172A":"#fff"):colors.g5,fontSize:mob?10:11,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap" as const}}>📋 Proyectos</button>
+            {mob&&<button onClick={()=>sSbOpen(true)} style={{background:"none",border:"none",fontSize:18,cursor:"pointer",color:colors.nv,padding:"4px 6px",flexShrink:0,minHeight:44,minWidth:44}}>☰</button>}
+            {nav.filter(n=>n.sh).map(n=><button key={n.k} onClick={()=>{sVw(n.k);if(n.k==="dash"||n.k==="my"){sAA(null);sAD(null);sKpiFilt(null);}}} style={{padding:mob?"5px 8px":"6px 11px",border:"none",borderRadius:7,background:vw===n.k?colors.nv:"transparent",color:vw===n.k?(isDark?"#0F172A":"#fff"):colors.g5,fontSize:mob?10:11,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap" as const,minHeight:mob?44:undefined}}>{n.l}</button>)}
+            <button onClick={()=>sVw("proyectos")} style={{padding:mob?"5px 8px":"6px 11px",border:"none",borderRadius:7,background:vw==="proyectos"?colors.nv:"transparent",color:vw==="proyectos"?(isDark?"#0F172A":"#fff"):colors.g5,fontSize:mob?10:11,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap" as const,minHeight:mob?44:undefined}}>📋 Proyectos</button>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:mob?4:8,flexShrink:0}}>
             <div ref={gsRef} style={{position:"relative" as const}}><input value={search} onChange={e=>{sSr(e.target.value);sGsOpen(true);}} onFocus={()=>{if(search.length>=2)sGsOpen(true);}} onKeyDown={e=>{if(e.key==="Escape")sGsOpen(false);}} placeholder="🔍 Buscar..." style={{padding:"5px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:11,width:mob?80:160}}/>
@@ -2236,6 +2251,7 @@ export default function App(){
           </div>
         </div>
         <div style={{flex:1,padding:mob?"12px 8px":"20px 16px",overflowY:"auto" as const,marginTop:4}}>
+          {dataLoading?<div style={{display:"flex",flexDirection:"column" as const,gap:12,padding:16}}>{[1,2,3,4].map(i=><div key={i} style={{background:cardBg,borderRadius:14,padding:18,border:"1px solid "+colors.g2}}><div style={{height:12,width:i%2?"60%":"40%",background:colors.g2,borderRadius:6,marginBottom:10}}/><div style={{height:8,width:"80%",background:colors.g2,borderRadius:4,marginBottom:6}}/><div style={{height:8,width:"50%",background:colors.g2,borderRadius:4}}/></div>)}</div>:<>
           {vw==="my"&&isPersonal&&<MyDash user={user} peds={peds} users={users} onSel={(p:any)=>sSl(p)} mob={mob} search={search} presu={presu}/>}
           {/* Kanban View (Feature 4) */}
           {vw==="kanban"&&!isPersonal&&<KanbanView peds={peds} users={users} user={user} onSel={(p:any)=>sSl(p)} mob={mob} onStatusChange={async(id:number,newSt:string)=>{try{sPd(p=>p.map(x=>x.id===id?{...x,st:newSt}:x));await supabase.from("tasks").update({status:newSt}).eq("id",id);addLog(id,user.id,fn(user),"Cambió estado a "+SC[newSt]?.l,"sys");showT("Estado actualizado");}catch(e:any){showT(e.message||"Error","err");}}}/>}
@@ -2301,6 +2317,7 @@ export default function App(){
           {vw==="dash"&&!isPersonal&&aA&&!aD&&(aA===100||aA===101)&&<div><Bread parts={[{label:"Dashboard",onClick:()=>{sAA(null);sKpiFilt(null);}},{label:vT}]} mob={mob}/><KPIs peds={vP} mob={mob} onFilter={(k:string)=>{sAA(null);sKpiFilt(k);}}/><TList title={vT} icon={vI} color={vC} peds={vP} users={users} onSel={(p:any)=>sSl(p)} search={search} mob={mob} onBulk={handleBulk} onImport={handleImport} user={user}/></div>}
           {vw==="dash"&&!isPersonal&&aA&&!aD&&aA!==100&&aA!==101&&(()=>{const selAr=areas.find((a:any)=>a.id===aA);return <div><Bread parts={[{label:"Dashboard",onClick:()=>{sAA(null);sKpiFilt(null);}},{label:selAr?.name||""}]} mob={mob}/><h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:colors.nv,fontWeight:800}}>{selAr?.icon} {selAr?.name}</h2><p style={{color:colors.g4,fontSize:12,margin:"0 0 16px"}}>{deptos.filter((d:any)=>d.aId===aA).length} departamentos</p><KPIs peds={vP} mob={mob} onFilter={(k:string)=>{sAA(null);sKpiFilt(k);}}/><DeptCircles area={selAr} deptos={deptos} pedidos={peds} onDC={(id:number)=>sAD(id)} mob={mob}/></div>;})()}
           {vw==="dash"&&!isPersonal&&aD&&(()=>{const selAr=areas.find((a:any)=>a.id===aA);const selDp=deptos.find((d:any)=>d.id===aD);return <div><Bread parts={[{label:"Dashboard",onClick:()=>{sAA(null);sAD(null);sKpiFilt(null);}},{label:selAr?.name||"",onClick:()=>{sAD(null);sKpiFilt(null);}},{label:selDp?.name||""}]} mob={mob}/><TList title={vT} icon={vI} color={vC} peds={vP} users={users} onSel={(p:any)=>sSl(p)} search={search} mob={mob} onBulk={handleBulk} onImport={handleImport} user={user}/></div>;})()}
+          </>}
         </div>
       </div>
       {showPw&&<ChangePw onX={()=>sShowPw(false)}/>}
@@ -2312,18 +2329,19 @@ export default function App(){
         onDelPresu={async(id:number)=>{try{sPr(p=>p.filter(x=>x.id!==id));await supabase.from("presupuestos").delete().eq("id",id);showT("Presupuesto eliminado");}catch(e:any){showT(e.message||"Error","err");}}}
         onTk={async(id:number)=>{try{sPd(p=>p.map(x=>x.id===id?{...x,asTo:user.id,st:ST.C}:x));await supabase.from("tasks").update({assigned_to:user.id,status:ST.C}).eq("id",id);addLog(id,user.id,fn(user),"Tomó la tarea","sys");showT("Tarea tomada");}catch(e:any){showT(e.message||"Error","err");}}}
         onAs={async(id:number,uid:string)=>{try{const ag=users.find(u=>u.id===uid);const p2=peds.find(x=>x.id===id);const newSt=p2?.st===ST.P?ST.C:p2?.st;sPd(p=>p.map(x=>x.id===id?{...x,asTo:uid,st:x.st===ST.P?ST.C:x.st}:x));await supabase.from("tasks").update({assigned_to:uid,status:newSt}).eq("id",id);addLog(id,user.id,fn(user),"Asignó a "+(ag?fn(ag):""),"sys");sendNotif(uid,"Te asignaron una tarea",p2?.desc||"","task");showT("Tarea asignada");}catch(e:any){showT(e.message||"Error","err");}}}
-        onRe={async(id:number,r:string)=>{try{sPd(p=>p.map(x=>x.id===id?{...x,resp:r}:x));await supabase.from("tasks").update({resolution:r}).eq("id",id);showT("Resolución guardada");}catch(e:any){showT(e.message||"Error","err");}}}
+        onRe={async(id:number,r:string)=>{try{const sr=sanitize(r);sPd(p=>p.map(x=>x.id===id?{...x,resp:sr}:x));await supabase.from("tasks").update({resolution:sr}).eq("id",id);showT("Resolución guardada");}catch(e:any){showT(e.message||"Error","err");}}}
         onSE={async(id:number)=>{try{sPd(p=>p.map(x=>x.id===id?{...x,st:ST.E}:x));await supabase.from("tasks").update({status:ST.E}).eq("id",id);addLog(id,user.id,fn(user),"Envió a Compras","sys");users.filter(u=>u.role==="embudo").forEach(u=>sendNotif(u.id,"Nueva tarea en Compras",peds.find(x=>x.id===id)?.desc||"","budget"));showT("Enviado a Compras");sSl(null);}catch(e:any){showT(e.message||"Error","err");}}}
         onEO={async(id:number,ok:boolean)=>{try{const p2=peds.find(x=>x.id===id);sPd(p=>p.map(x=>x.id===id?{...x,st:ST.C,eOk:ok}:x));await supabase.from("tasks").update({status:ST.C,expense_ok:ok}).eq("id",id);addLog(id,user.id,fn(user),ok?"Compras aprobó":"Compras rechazó","sys");if(p2?.asTo)sendNotif(p2.asTo,ok?"Gasto aprobado":"Gasto rechazado",p2.desc||"","budget");if(p2?.cId&&p2.cId!==p2.asTo)sendNotif(p2.cId,ok?"Gasto aprobado":"Gasto rechazado",p2.desc||"","budget");showT(ok?"Gasto aprobado":"Gasto rechazado");sSl(null);}catch(e:any){showT(e.message||"Error","err");}}}
         onFi={async(id:number)=>{try{const p2=peds.find(x=>x.id===id);sPd(p=>p.map(x=>x.id===id?{...x,st:ST.V}:x));await supabase.from("tasks").update({status:ST.V}).eq("id",id);addLog(id,user.id,fn(user),"Envió a validación","sys");if(p2?.cId)sendNotif(p2.cId,"Tarea lista para validar",p2.desc||"","task");showT("Enviado a validación");sSl(null);}catch(e:any){showT(e.message||"Error","err");}}}
         onVa={async(id:number,ok:boolean)=>{try{const p2=peds.find(x=>x.id===id);const ns=ok?ST.OK:ST.C;sPd(p=>p.map(x=>x.id===id?{...x,st:ns}:x));await supabase.from("tasks").update({status:ns}).eq("id",id);addLog(id,user.id,fn(user),ok?"Validó OK ✅":"Rechazó","sys");if(p2?.asTo)sendNotif(p2.asTo,ok?"Tarea completada":"Tarea rechazada",p2.desc||"","task");showT(ok?"Tarea completada":"Tarea rechazada");sSl(null);}catch(e:any){showT(e.message||"Error","err");}}}
-        onMsg={async(id:number,txt:string)=>{try{await addLog(id,user.id,fn(user),txt,"msg");/* @mention notifications (Feature 7) */const mentionRx=/@([\w\s]+?)(?=\s@|$)/g;let match;while((match=mentionRx.exec(txt))!==null){const mName=match[1].trim();const mUser=users.find((u:any)=>(fn(u)).toLowerCase()===mName.toLowerCase());if(mUser&&mUser.id!==user.id){sendNotif(mUser.id,"Te mencionaron en tarea #"+id,txt.slice(0,80),"task");}}}catch(e:any){showT("Error al enviar mensaje","err");}}}
+        onMsg={async(id:number,txt:string)=>{try{const safe=sanitize(txt);if(!safe)return;await addLog(id,user.id,fn(user),safe,"msg");/* @mention notifications (Feature 7) */const mentionRx=/@([\w\s]+?)(?=\s@|$)/g;let match;while((match=mentionRx.exec(txt))!==null){const mName=match[1].trim();const mUser=users.find((u:any)=>(fn(u)).toLowerCase()===mName.toLowerCase());if(mUser&&mUser.id!==user.id){sendNotif(mUser.id,"Te mencionaron en tarea #"+id,txt.slice(0,80),"task");}}}catch(e:any){showT("Error al enviar mensaje","err");}}}
         onMonto={async(id:number,m:number)=>{try{sPd(p=>p.map(x=>x.id===id?{...x,monto:m}:x));await supabase.from("tasks").update({amount:m}).eq("id",id);}catch(e:any){showT(e.message||"Error","err");}}}
         onDel={async(id:number)=>{try{sPd(p=>p.filter(x=>x.id!==id));await supabase.from("tasks").delete().eq("id",id);showT("Tarea eliminada");sSl(null);}catch(e:any){showT(e.message||"Error","err");}}}
-        onEditSave={async(id:number,d:any)=>{try{sPd(p=>p.map(x=>x.id===id?{...x,...d}:x));await supabase.from("tasks").update({tipo:d.tipo,description:d.desc,due_date:d.fReq,urgency:d.urg,division:d.div||"",requires_expense:d.rG}).eq("id",id);addLog(id,user.id,fn(user),"Editó la tarea","sys");showT("Tarea actualizada");}catch(e:any){showT(e.message||"Error","err");}}}
+        onEditSave={async(id:number,d:any)=>{try{const sd={...d,desc:sanitize(d.desc||"")};sPd(p=>p.map(x=>x.id===id?{...x,...sd}:x));await supabase.from("tasks").update({tipo:sd.tipo,description:sd.desc,due_date:sd.fReq,urgency:sd.urg,division:sd.div||"",requires_expense:sd.rG}).eq("id",id);addLog(id,user.id,fn(user),"Editó la tarea","sys");showT("Tarea actualizada");}catch(e:any){showT(e.message||"Error","err");}}}
       />}
       {toast&&<Toast msg={toast.msg} type={toast.type} onDone={()=>sToast(null)}/>}
     </div>
     </ThemeCtx.Provider>
+    </ErrorBoundary>
   );
 }
