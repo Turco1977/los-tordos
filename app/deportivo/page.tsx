@@ -143,12 +143,14 @@ export default function DeportivoApp(){
       supabase.from("dep_injuries").select("*").order("id",{ascending:false}),
       supabase.from("dep_checkins").select("*").order("date",{ascending:false}),
     ]);
+    console.log("[dep] dep_staff query:",stRes.data?.length,"rows, error:",stRes.error?.message||"none");
     if(stRes.data){
       // Fetch only profiles that belong to dep_staff
       const staffUserIds=stRes.data.map((s:any)=>s.user_id);
-      const{data:profiles}=staffUserIds.length>0
+      const{data:profiles,error:prErr}=staffUserIds.length>0
         ?await supabase.from("profiles").select("id,first_name,last_name,role,email").in("id",staffUserIds)
-        :{data:[]};
+        :{data:[] as any[],error:null};
+      console.log("[dep] profiles query:",profiles?.length,"rows for",staffUserIds.length,"staff, error:",prErr?.message||"none");
       const pMap=new Map((profiles||[]).map((p:any)=>[p.id,p]));
       const staff=stRes.data.map((s:any)=>{
         const pr=pMap.get(s.user_id);
@@ -157,6 +159,8 @@ export default function DeportivoApp(){
       sStaffList(staff);
       const me=staff.find((s:any)=>s.user_id===user.id&&s.active);
       sMyStaff(me||null);
+    } else {
+      console.error("[dep] dep_staff query failed:",JSON.stringify(stRes.error),"status:",stRes.status,"statusText:",stRes.statusText);
     }
     if(athRes.data) sAthletes(athRes.data);
     if(injRes.data){
@@ -1187,18 +1191,19 @@ function PerfilesTab({staffList,onUpdate,onDel,mob,showT,fetchAll}:any){
   const activeStaff=staffList.filter((s:DepStaff)=>s.active);
 
   const doCreate=async()=>{
-    if(!nFirst||!nLast||!nEmail){showT("Completá nombre, apellido y email","err");return;}
+    if(!nFirst||!nLast){showT("Completá nombre y apellido","err");return;}
     sCreating(true);
     try{
       const sess=await supabase.auth.getSession();
       const token=sess.data.session?.access_token;
-      const res=await fetch("/api/deportivo/create-user",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},body:JSON.stringify({email:nEmail,password:nPass||undefined,first_name:nFirst,last_name:nLast,dep_role:nRole,divisions:nDivs})});
+      const res=await fetch("/api/deportivo/create-user",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},body:JSON.stringify({email:nEmail||undefined,password:nPass||undefined,first_name:nFirst,last_name:nLast,dep_role:nRole,divisions:nDivs})});
       const data=await res.json();
       if(!res.ok) throw new Error(data.error||"Error al crear usuario");
-      sCreds(data.credentials);
+      if(data.credentials) sCreds(data.credentials);
       showT("Perfil creado exitosamente");
       sNFirst("");sNLast("");sNEmail("");sNPass("");sNRole("entrenador");sNDivs([]);
-      fetchAll();
+      sShowCreate(false);
+      await fetchAll();
     }catch(e:any){showT(e.message||"Error","err");}
     sCreating(false);
   };
@@ -1228,7 +1233,7 @@ function PerfilesTab({staffList,onUpdate,onDel,mob,showT,fetchAll}:any){
       <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:10}}>
         <div><label style={{fontSize:11,fontWeight:600,color:colors.g5}}>Nombre *</label><input value={nFirst} onChange={e=>sNFirst(e.target.value)} placeholder="Nombre" style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,marginTop:3,boxSizing:"border-box" as const,background:cardBg,color:colors.nv}}/></div>
         <div><label style={{fontSize:11,fontWeight:600,color:colors.g5}}>Apellido *</label><input value={nLast} onChange={e=>sNLast(e.target.value)} placeholder="Apellido" style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,marginTop:3,boxSizing:"border-box" as const,background:cardBg,color:colors.nv}}/></div>
-        <div><label style={{fontSize:11,fontWeight:600,color:colors.g5}}>Email *</label><input value={nEmail} onChange={e=>sNEmail(e.target.value)} placeholder="email@ejemplo.com" type="email" style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,marginTop:3,boxSizing:"border-box" as const,background:cardBg,color:colors.nv}}/></div>
+        <div><label style={{fontSize:11,fontWeight:600,color:colors.g5}}>Email <span style={{fontWeight:400,color:colors.g4}}>(opcional, para login)</span></label><input value={nEmail} onChange={e=>sNEmail(e.target.value)} placeholder="email@ejemplo.com" type="email" style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,marginTop:3,boxSizing:"border-box" as const,background:cardBg,color:colors.nv}}/></div>
         <div><label style={{fontSize:11,fontWeight:600,color:colors.g5}}>Contraseña <span style={{fontWeight:400,color:colors.g4}}>(opcional, se autogenera)</span></label><input value={nPass} onChange={e=>sNPass(e.target.value)} placeholder="Dejar vacío para autogenerar" type="text" style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,marginTop:3,boxSizing:"border-box" as const,background:cardBg,color:colors.nv}}/></div>
         <div><label style={{fontSize:11,fontWeight:600,color:colors.g5}}>Rol deportivo *</label><select value={nRole} onChange={e=>sNRole(e.target.value)} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,marginTop:3,background:cardBg,color:colors.nv}}>{Object.entries(DEP_ROLES).map(([k,v])=><option key={k} value={k}>{v.i} {v.l}</option>)}</select></div>
       </div>
@@ -1236,7 +1241,7 @@ function PerfilesTab({staffList,onUpdate,onDel,mob,showT,fetchAll}:any){
         <div style={{display:"flex",gap:4,flexWrap:"wrap" as const,marginTop:4}}>{DEP_DIV.map(d=><button key={d} onClick={()=>sNDivs(prev=>prev.includes(d)?prev.filter(x=>x!==d):[...prev,d])} style={{padding:"4px 10px",borderRadius:16,fontSize:10,border:nDivs.includes(d)?"2px solid "+colors.nv:"1px solid "+colors.g3,background:nDivs.includes(d)?colors.nv+"10":cardBg,color:nDivs.includes(d)?colors.nv:colors.g5,cursor:"pointer",fontWeight:600}}>{d}</button>)}</div>
       </div>
       <div style={{display:"flex",gap:8,marginTop:12}}>
-        <Btn v="p" onClick={doCreate} disabled={creating||!nFirst||!nLast||!nEmail}>{creating?"Creando...":"Crear perfil"}</Btn>
+        <Btn v="p" onClick={doCreate} disabled={creating||!nFirst||!nLast}>{creating?"Creando...":"Crear perfil"}</Btn>
         <Btn v="g" onClick={()=>sShowCreate(false)}>Cancelar</Btn>
       </div>
     </Card>}

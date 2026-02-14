@@ -60,15 +60,17 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { email, password, first_name, last_name, dep_role, divisions } = body;
 
-  if (!email || !first_name || !last_name || !dep_role) {
-    return NextResponse.json({ error: "Faltan campos requeridos (email, nombre, apellido, rol)" }, { status: 400 });
+  if (!first_name || !last_name || !dep_role) {
+    return NextResponse.json({ error: "Faltan campos requeridos (nombre, apellido, rol)" }, { status: 400 });
   }
 
+  // If no email provided, generate a placeholder so Supabase auth can create the user
+  const finalEmail = email || `${first_name.toLowerCase().replace(/\s+/g,"")}.${last_name.toLowerCase().replace(/\s+/g,"")}.${randomBytes(4).toString("hex")}@deportivo.internal`;
   const finalPassword = password || generatePassword();
 
   // 1. Create auth user (trigger creates profiles row automatically)
   const { data, error } = await admin.auth.admin.createUser({
-    email,
+    email: finalEmail,
     password: finalPassword,
     email_confirm: true,
     user_metadata: {
@@ -94,12 +96,14 @@ export async function POST(req: NextRequest) {
   });
 
   if (staffErr) {
+    // Clean up the auth user if dep_staff insert fails
+    await admin.auth.admin.deleteUser(data.user.id);
     return NextResponse.json({ error: staffErr.message }, { status: 400 });
   }
 
-  // 3. Return credentials so admin can share them
+  // 3. Return credentials (only meaningful if real email was provided)
   return NextResponse.json({
-    user: { id: data.user.id, email },
-    credentials: { email, password: finalPassword },
+    user: { id: data.user.id, email: finalEmail },
+    credentials: email ? { email: finalEmail, password: finalPassword } : null,
   });
 }
