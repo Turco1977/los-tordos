@@ -1,57 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/server";
-import { createClient } from "@supabase/supabase-js";
+import { verifyDepStaff } from "@/lib/api/auth";
 import { randomBytes } from "crypto";
 
 function generatePassword(): string {
   return randomBytes(12).toString("base64url");
 }
 
-async function verifyDepCaller(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    return { error: "No autorizado", status: 401 };
-  }
-
-  const token = authHeader.slice(7);
-  const anonClient = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-  const { data: { user: caller } } = await anonClient.auth.getUser(token);
-  if (!caller) {
-    return { error: "Token inválido", status: 401 };
-  }
-
-  const admin = createAdminClient();
-
-  // Check dep_staff role (dd or dr) OR profiles admin/superadmin
-  const { data: depStaff } = await admin
-    .from("dep_staff")
-    .select("dep_role")
-    .eq("user_id", caller.id)
-    .eq("active", true)
-    .single();
-
-  if (depStaff && (depStaff.dep_role === "dd" || depStaff.dep_role === "dr")) {
-    return { caller, admin };
-  }
-
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("role")
-    .eq("id", caller.id)
-    .single();
-
-  if (profile && (profile.role === "superadmin" || profile.role === "admin")) {
-    return { caller, admin };
-  }
-
-  return { error: "Solo DD/DR pueden crear usuarios deportivos", status: 403 };
-}
-
 export async function POST(req: NextRequest) {
-  const auth = await verifyDepCaller(req);
+  const auth = await verifyDepStaff(req);
   if ("error" in auth) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
   }

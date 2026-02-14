@@ -1,15 +1,13 @@
 "use client";
-import { useState, useEffect, useCallback, createContext, useContext } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { T, TD, DEP_ROLES, DEP_POSITIONS, DEP_INJ_TYPES, DEP_INJ_ZONES, DEP_INJ_SEV, DEP_WK, DEP_SEM, DEP_DIV, fn } from "@/lib/constants";
 import type { DepStaff, DepAthlete, DepInjury, DepCheckin } from "@/lib/supabase/types";
 import { exportCSV, exportPDF } from "@/lib/export";
 import { useRealtime } from "@/lib/realtime";
 import { useTheme, darkCSS } from "@/lib/theme";
-
-/* ── THEME CONTEXT ── */
-const ThemeCtx = createContext<{colors:typeof T;isDark:boolean;cardBg:string}>({colors:T,isDark:false,cardBg:"#fff"});
-const useC = () => useContext(ThemeCtx);
+import { ThemeCtx, useC } from "@/lib/theme-context";
+import { Toast, useMobile, Btn, Card } from "@/components/ui";
 
 const supabase = createClient();
 const TODAY = new Date().toISOString().slice(0,10);
@@ -27,26 +25,6 @@ function semScore(c:DepCheckin):{score:number;color:string;bg:string;label:strin
   return{score:avg,color:DEP_SEM.green.c,bg:DEP_SEM.green.bg,label:DEP_SEM.green.l};
 }
 
-/* ── TOAST ── */
-function Toast({msg,type,onDone}:{msg:string;type:"ok"|"err";onDone:()=>void}){
-  useEffect(()=>{const t=setTimeout(onDone,3500);return()=>clearTimeout(t);},[onDone]);
-  return <div style={{position:"fixed",bottom:24,left:"50%",transform:"translateX(-50%)",padding:"10px 20px",borderRadius:10,background:type==="ok"?"#065F46":"#991B1B",color:"#fff",fontSize:12,fontWeight:600,zIndex:9999,boxShadow:"0 4px 16px rgba(0,0,0,.2)",maxWidth:"90vw",textAlign:"center"}}>{type==="ok"?"✅":"❌"} {msg}</div>;
-}
-
-function useMobile(bp=768){
-  const [mob,sMob]=useState(false);
-  useEffect(()=>{const mq=window.matchMedia(`(max-width:${bp}px)`);sMob(mq.matches);const h=(e:any)=>sMob(e.matches);mq.addEventListener("change",h);return()=>mq.removeEventListener("change",h);},[bp]);
-  return mob;
-}
-
-/* ── UI PRIMITIVES ── */
-function Btn({children,onClick,v,s,disabled,style:st}:{children:any;onClick?:any;v?:string;s?:string;disabled?:boolean;style?:any}){
-  const{colors,isDark}=useC();
-  const vs:any={p:{background:colors.nv,color:isDark?"#0F172A":"#fff"},r:{background:colors.rd,color:"#fff"},s:{background:colors.gn,color:"#fff"},w:{background:colors.yl,color:"#fff"},g:{background:"transparent",color:colors.nv,border:"1px solid "+colors.g3}};
-  const sz:any={s:{padding:"4px 10px",fontSize:11},m:{padding:"7px 16px",fontSize:13}};
-  return <button onClick={onClick} disabled={disabled} style={{border:"none",borderRadius:8,cursor:disabled?"not-allowed":"pointer",fontWeight:600,opacity:disabled?.5:1,...sz[s||"m"],...vs[v||"p"],...(st||{})}}>{children}</button>;
-}
-function Card({children,style:st,onClick}:{children:any;style?:any;onClick?:any}){const{cardBg,colors}=useC();return <div onClick={onClick} style={{background:cardBg,borderRadius:14,padding:18,boxShadow:"0 1px 4px rgba(0,0,0,.05)",border:"1px solid "+colors.g2,...(st||{})}}>{children}</div>;}
 
 /* ── LOGIN (inline) ── */
 function LoginPrompt({mob}:{mob:boolean}){

@@ -1,36 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const admin = () =>
-  createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  );
-
-async function verifyCaller(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer "))
-    return { error: "No autorizado", status: 401 };
-  const token = authHeader.slice(7);
-  const client = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-  const {
-    data: { user },
-  } = await client.auth.getUser(token);
-  if (!user) return { error: "Token inválido", status: 401 };
-  return { user };
-}
+import { verifyUser } from "@/lib/api/auth";
+import { createAdminClient } from "@/lib/supabase/server";
 
 /* GET — fetch unread notifications for the calling user */
 export async function GET(req: NextRequest) {
-  const auth = await verifyCaller(req);
+  const auth = await verifyUser(req);
   if ("error" in auth)
     return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-  const db = admin();
+  const db = createAdminClient();
   const { data, error } = await db
     .from("notifications")
     .select("*")
@@ -45,7 +23,7 @@ export async function GET(req: NextRequest) {
 
 /* POST — create a notification (and optionally send email) */
 export async function POST(req: NextRequest) {
-  const auth = await verifyCaller(req);
+  const auth = await verifyUser(req);
   if ("error" in auth)
     return NextResponse.json({ error: auth.error }, { status: auth.status });
 
@@ -58,7 +36,7 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
 
-  const db = admin();
+  const db = createAdminClient();
   const { data, error } = await db
     .from("notifications")
     .insert({
@@ -120,14 +98,14 @@ export async function POST(req: NextRequest) {
 
 /* PATCH — mark notifications as read */
 export async function PATCH(req: NextRequest) {
-  const auth = await verifyCaller(req);
+  const auth = await verifyUser(req);
   if ("error" in auth)
     return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const body = await req.json();
   const { ids, all } = body;
 
-  const db = admin();
+  const db = createAdminClient();
   if (all) {
     await db
       .from("notifications")

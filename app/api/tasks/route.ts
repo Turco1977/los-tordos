@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { verifyCallerWithRole } from "@/lib/api/auth";
 
 const VALID_STATUSES = ["pend", "curso", "emb", "valid", "ok"];
 const VALID_TIPOS = [
@@ -12,37 +12,9 @@ const VALID_TIPOS = [
 ];
 const ADMIN_ROLES = ["superadmin", "admin", "coordinador"];
 
-async function getCallerWithRole(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer "))
-    return { error: "No autorizado", status: 401 };
-  const token = authHeader.slice(7);
-  const client = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-  const {
-    data: { user },
-  } = await client.auth.getUser(token);
-  if (!user) return { error: "Token inválido", status: 401 };
-
-  const admin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  );
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  return { user, role: profile?.role || "usuario", admin };
-}
-
 /* POST — create task with server-side validation */
 export async function POST(req: NextRequest) {
-  const auth = await getCallerWithRole(req);
+  const auth = await verifyCallerWithRole(req);
   if ("error" in auth)
     return NextResponse.json({ error: auth.error }, { status: auth.status });
 
@@ -103,7 +75,7 @@ export async function POST(req: NextRequest) {
 
 /* PATCH — update task status with authorization checks */
 export async function PATCH(req: NextRequest) {
-  const auth = await getCallerWithRole(req);
+  const auth = await verifyCallerWithRole(req);
   if ("error" in auth)
     return NextResponse.json({ error: auth.error }, { status: auth.status });
 
@@ -166,7 +138,7 @@ export async function PATCH(req: NextRequest) {
 
 /* DELETE — only admin can delete */
 export async function DELETE(req: NextRequest) {
-  const auth = await getCallerWithRole(req);
+  const auth = await verifyCallerWithRole(req);
   if ("error" in auth)
     return NextResponse.json({ error: auth.error }, { status: auth.status });
 
