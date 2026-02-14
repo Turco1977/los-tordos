@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useRef, useMemo, createContext, useContext, Component, type ReactNode, type ErrorInfo } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, Component, type ReactNode, type ErrorInfo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { T, TD, AREAS, DEPTOS, ROLES, RK, DIV, TIPOS, ST, SC, AGT, MINSECS, PST, PSC, MONEDAS, RUBROS, fn, isOD, daysDiff, PJ_ST, PJ_PR } from "@/lib/constants";
 import type { Profile, Task, TaskMessage, OrgMember as OrgMemberType, Milestone, Agenda, Minuta, Presupuesto, Proveedor } from "@/lib/supabase/types";
@@ -9,10 +9,8 @@ import { useRealtime } from "@/lib/realtime";
 import { paginate } from "@/lib/pagination";
 import { uploadFile, getFileIcon, formatFileSize } from "@/lib/storage";
 import { useTheme, darkCSS } from "@/lib/theme";
-
-/* ── THEME CONTEXT ── */
-const ThemeCtx = createContext<{colors:typeof T;isDark:boolean;cardBg:string}>({colors:T,isDark:false,cardBg:"#fff"});
-const useC = () => useContext(ThemeCtx);
+import { ThemeCtx, useC } from "@/lib/theme-context";
+import { Toast, useMobile, Btn, Card, Ring, Pager, FileField, Bread } from "@/components/ui";
 
 const supabase = createClient();
 const TODAY = new Date().toISOString().slice(0,10);
@@ -31,23 +29,30 @@ class ErrorBoundary extends Component<{children:ReactNode},{hasError:boolean;err
   render(){if(this.state.hasError)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#F7F8FA",fontFamily:"-apple-system,sans-serif"}}><div style={{textAlign:"center",padding:32}}><div style={{fontSize:40,marginBottom:12}}>⚠️</div><h2 style={{margin:"0 0 8px",fontSize:18,color:"#0A1628"}}>Algo salió mal</h2><p style={{fontSize:13,color:"#5A6577",marginBottom:16}}>{this.state.error?.message||"Error inesperado"}</p><button onClick={()=>this.setState({hasError:false,error:null})} style={{padding:"8px 20px",borderRadius:8,border:"none",background:"#0A1628",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer"}}>Reintentar</button></div></div>);return this.props.children;}
 }
 
-/* ── TOAST ── */
-function Toast({msg,type,onDone}:{msg:string;type:"ok"|"err";onDone:()=>void}){
-  const dur=Math.max(3000,Math.min(msg.length*60,8000));
-  useEffect(()=>{const t=setTimeout(onDone,dur);return()=>clearTimeout(t);},[onDone,dur]);
-  return <div style={{position:"fixed",bottom:24,left:"50%",transform:"translateX(-50%)",padding:"10px 20px",borderRadius:10,background:type==="ok"?"#065F46":"#991B1B",color:"#fff",fontSize:12,fontWeight:600,zIndex:9999,boxShadow:"0 4px 16px rgba(0,0,0,.2)",maxWidth:"90vw",textAlign:"center",display:"flex",alignItems:"center",gap:8}}><span>{type==="ok"?"✅":"❌"} {msg}</span><button onClick={onDone} style={{background:"rgba(255,255,255,.3)",border:"none",borderRadius:4,color:"#fff",fontSize:10,cursor:"pointer",padding:"2px 6px",flexShrink:0}}>✕</button></div>;
-}
-
-function useMobile(bp=768){
-  const [mob,sMob]=useState(false);
-  useEffect(()=>{
-    const mq=window.matchMedia(`(max-width:${bp}px)`);
-    sMob(mq.matches);
-    const h=(e:any)=>sMob(e.matches);
-    mq.addEventListener("change",h);
-    return()=>mq.removeEventListener("change",h);
-  },[bp]);
-  return mob;
+/* ── SEARCHABLE USER PICKER ── */
+function UserPicker({users,value,onChange,placeholder,style,filterFn}:{users:any[];value:string;onChange:(id:string)=>void;placeholder?:string;style?:any;filterFn?:(u:any)=>boolean}){
+  const{colors,cardBg}=useC();
+  const [q,sQ]=useState("");
+  const [open,sOpen]=useState(false);
+  const ref=useRef<HTMLDivElement>(null);
+  const list=filterFn?users.filter(filterFn):users;
+  const filtered=q?list.filter((u:any)=>fn(u).toLowerCase().includes(q.toLowerCase())):list;
+  const sel=value?users.find((u:any)=>u.id===value):null;
+  useEffect(()=>{const h=(e:any)=>{if(ref.current&&!ref.current.contains(e.target))sOpen(false);};document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h);},[]);
+  return(<div ref={ref} style={{position:"relative" as const,...(style||{})}}>
+    <div onClick={()=>sOpen(!open)} style={{padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,cursor:"pointer",background:cardBg,color:sel?colors.nv:colors.g4,display:"flex",justifyContent:"space-between",alignItems:"center",minHeight:34}}>
+      <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{sel?fn(sel)+(ROLES[sel.role]?" · "+ROLES[sel.role].l:""):(placeholder||"Seleccionar...")}</span>
+      <span style={{fontSize:8,marginLeft:4}}>{open?"▲":"▼"}</span>
+    </div>
+    {open&&<div style={{position:"absolute" as const,top:"100%",left:0,right:0,zIndex:200,background:cardBg,border:"1px solid "+colors.g3,borderRadius:8,boxShadow:"0 4px 12px rgba(0,0,0,.1)",marginTop:2,maxHeight:220,display:"flex",flexDirection:"column" as const}}>
+      <input autoFocus value={q} onChange={e=>sQ(e.target.value)} placeholder="Buscar..." style={{padding:"6px 8px",border:"none",borderBottom:"1px solid "+colors.g2,fontSize:11,outline:"none",background:"transparent",color:colors.nv}}/>
+      <div style={{overflowY:"auto" as const,flex:1}}>
+        {value&&<div onClick={()=>{onChange("");sQ("");sOpen(false);}} style={{padding:"5px 8px",fontSize:11,cursor:"pointer",color:colors.g4,borderBottom:"1px solid "+colors.g1}}>✕ Quitar selección</div>}
+        {filtered.length===0&&<div style={{padding:8,fontSize:11,color:colors.g4,textAlign:"center" as const}}>Sin resultados</div>}
+        {filtered.map((u:any)=><div key={u.id} onClick={()=>{onChange(u.id);sQ("");sOpen(false);}} style={{padding:"5px 8px",fontSize:11,cursor:"pointer",fontWeight:u.id===value?700:400,color:u.id===value?colors.bl:colors.nv,background:u.id===value?colors.bl+"10":"transparent"}}>{fn(u)} <span style={{fontSize:9,color:colors.g4}}>{ROLES[u.role]?.l||""}</span></div>)}
+      </div>
+    </div>}
+  </div>);
 }
 
 /* ── PUSH NOTIFICATIONS HOOK ── */
@@ -92,56 +97,10 @@ const presuFromDB=(p:any)=>({id:p.id,task_id:p.task_id,proveedor_id:p.proveedor_
 const presuToDB=(p:any)=>({task_id:p.task_id,proveedor_id:p.proveedor_id||null,proveedor_nombre:p.proveedor_nombre||"",proveedor_contacto:p.proveedor_contacto||"",descripcion:p.descripcion||"",monto:p.monto||0,moneda:p.moneda||"ARS",archivo_url:p.archivo_url||"",notas:p.notas||"",status:p.status||"solicitado",solicitado_por:p.solicitado_por||"",solicitado_at:p.solicitado_at||"",recibido_at:p.recibido_at||"",resuelto_por:p.resuelto_por||"",resuelto_at:p.resuelto_at||""});
 const provFromDB=(p:any)=>({id:p.id,nombre:p.nombre||"",contacto:p.contacto||"",email:p.email||"",telefono:p.telefono||"",rubro:p.rubro||"",notas:p.notas||"",created_at:p.created_at});
 
-/* ── FILE UPLOAD FIELD ── */
-function FileField({value,onChange,folder}:{value:string;onChange:(url:string)=>void;folder?:string}){
-  const{colors,cardBg}=useC();
-  const [uploading,sUploading]=useState(false);
-  const doUpload=async(e:any)=>{
-    const file=e.target.files?.[0];if(!file)return;
-    sUploading(true);
-    const res=await uploadFile(file,folder||"presupuestos");
-    sUploading(false);
-    if("url" in res) onChange(res.url);
-  };
-  return <div>
-    <label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Archivo/cotización</label>
-    <div style={{display:"flex",gap:4,marginTop:3}}>
-      <input value={value} onChange={e=>onChange(e.target.value)} placeholder="URL o subir archivo..." style={{flex:1,padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const}}/>
-      <label style={{padding:"7px 12px",borderRadius:7,border:"1px solid "+colors.g3,background:cardBg,fontSize:11,fontWeight:600,color:colors.nv,cursor:uploading?"wait":"pointer",opacity:uploading?.5:1}}>
-        {uploading?"Subiendo...":"📎 Subir"}
-        <input type="file" onChange={doUpload} style={{display:"none"}} disabled={uploading}/>
-      </label>
-    </div>
-    {value&&<div style={{marginTop:4,fontSize:10}}><a href={value} target="_blank" rel="noopener noreferrer" style={{color:colors.bl}}>{getFileIcon(value)} Ver archivo</a></div>}
-  </div>;
-}
-
 /* ── UI PRIMITIVES ── */
 function Badge({s,sm}:{s:string;sm?:boolean}){const c=SC[s];return <span style={{background:c.bg,color:c.c,padding:sm?"1px 6px":"2px 9px",borderRadius:20,fontSize:sm?9:11,fontWeight:600,whiteSpace:"nowrap"}}>{c.i} {c.l}</span>;}
 function PBadge({s,sm}:{s:string;sm?:boolean}){const c=PSC[s];if(!c)return null;return <span style={{background:c.bg,color:c.c,padding:sm?"1px 6px":"2px 9px",borderRadius:20,fontSize:sm?9:11,fontWeight:600,whiteSpace:"nowrap"}}>{c.i} {c.l}</span>;}
 
-function Btn({children,onClick,v,s,disabled,style:st}:{children:any;onClick?:any;v?:string;s?:string;disabled?:boolean;style?:any}){
-  const{colors,isDark}=useC();
-  const vs:any={p:{background:colors.nv,color:isDark?"#0F172A":"#fff"},r:{background:colors.rd,color:"#fff"},s:{background:colors.gn,color:"#fff"},w:{background:colors.yl,color:"#fff"},g:{background:"transparent",color:colors.nv,border:"1px solid "+colors.g3},pu:{background:colors.pr,color:"#fff"}};
-  const sz:any={s:{padding:"4px 10px",fontSize:11},m:{padding:"7px 16px",fontSize:13}};
-  return <button onClick={onClick} disabled={disabled} style={{border:"none",borderRadius:8,cursor:disabled?"not-allowed":"pointer",fontWeight:600,opacity:disabled?.5:1,...sz[s||"m"],...vs[v||"p"],...(st||{})}}>{children}</button>;
-}
-
-function Card({children,style:st,onClick}:{children:any;style?:any;onClick?:any}){const{cardBg,colors}=useC();return <div onClick={onClick} style={{background:cardBg,borderRadius:14,padding:18,boxShadow:"0 1px 4px rgba(0,0,0,.05)",border:"1px solid "+colors.g2,...(st||{})}}>{children}</div>;}
-function Pager({page,totalPages,onPage}:{page:number;totalPages:number;onPage:(p:number)=>void}){
-  const{colors,cardBg}=useC();
-  if(totalPages<=1) return null;
-  return <div style={{display:"flex",gap:4,justifyContent:"center",alignItems:"center",marginTop:12}}>
-    <button onClick={()=>onPage(page-1)} disabled={page<=1} style={{padding:"4px 10px",borderRadius:6,border:"1px solid "+colors.g3,background:cardBg,cursor:page<=1?"not-allowed":"pointer",fontSize:11,fontWeight:600,opacity:page<=1?.4:1,color:colors.nv}}>←</button>
-    <span style={{fontSize:11,color:colors.g5,fontWeight:600}}>{page} / {totalPages}</span>
-    <button onClick={()=>onPage(page+1)} disabled={page>=totalPages} style={{padding:"4px 10px",borderRadius:6,border:"1px solid "+colors.g3,background:cardBg,cursor:page>=totalPages?"not-allowed":"pointer",fontSize:11,fontWeight:600,opacity:page>=totalPages?.4:1,color:colors.nv}}>→</button>
-  </div>;
-}
-function Ring({pct,color,size,icon}:{pct:number;color:string;size:number;icon?:string}){
-  const{colors}=useC();
-  const r=(size/2)-6,ci=2*Math.PI*r,of2=ci-(pct/100)*ci;
-  return(<div style={{position:"relative",width:size,height:size}}><svg width={size} height={size} style={{transform:"rotate(-90deg)"}}><circle cx={size/2} cy={size/2} r={r} fill="none" stroke={colors.g2} strokeWidth="5"/><circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth="5" strokeDasharray={ci} strokeDashoffset={of2} strokeLinecap="round"/></svg><div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>{icon&&<span style={{fontSize:size/4}}>{icon}</span>}<span style={{fontSize:size/6,fontWeight:800,color}}>{pct}%</span></div></div>);
-}
 
 /* ── CHANGE PASSWORD MODAL ── */
 function ChangePw({onX}:{onX:()=>void}){
@@ -313,7 +272,7 @@ function Det({p,user,users,onX,onTk,onAs,onRe,onSE,onEO,onFi,onVa,onMsg,onMonto,
         {tab==="acc"&&<div style={{display:"flex",flexDirection:"column" as const,gap:8}}>
           {p.st===ST.OK&&<div style={{padding:16,background:"#D1FAE5",borderRadius:10,textAlign:"center" as const}}><span style={{fontSize:24}}>✅</span><div style={{fontSize:14,fontWeight:700,color:"#065F46",marginTop:4}}>Tarea Completada</div></div>}
           {canT&&<Btn v="w" onClick={()=>{onTk(p.id);onX();}}>🙋 Tomar esta tarea</Btn>}
-          {isCo&&(p.st===ST.P||p.st===ST.C)&&<div><div style={{fontSize:11,fontWeight:600,color:T.g5,marginBottom:4}}>Asignar a:</div><div style={{display:"flex",gap:4}}><select value={at} onChange={(e:any)=>sAt(e.target.value)} style={{flex:1,padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12}}><option value="">Seleccionar...</option>{stf.map((u:any)=><option key={u.id} value={u.id}>{fn(u)} ({ROLES[u.role]?.l})</option>)}</select><Btn disabled={!at} onClick={()=>{onAs(p.id,at);onX();}}>Asignar</Btn></div></div>}
+          {isCo&&(p.st===ST.P||p.st===ST.C)&&<div><div style={{fontSize:11,fontWeight:600,color:T.g5,marginBottom:4}}>Asignar a:</div><div style={{display:"flex",gap:4}}><UserPicker users={stf} value={at} onChange={sAt} placeholder="Buscar persona..." style={{flex:1}}/><Btn disabled={!at} onClick={()=>{onAs(p.id,at);onX();}}>Asignar</Btn></div></div>}
           {(isM||isSA)&&p.st===ST.C&&<div style={{display:"flex",flexDirection:"column" as const,gap:6}}>
             <textarea value={rp} onChange={(e:any)=>sRp(e.target.value)} rows={2} placeholder="Resolución..." style={{padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,resize:"vertical" as const}}/>
             {p.rG&&!p.eOk&&<div><label style={{fontSize:11,color:T.g5}}>Monto ($)</label><input type="number" value={mt} onChange={(e:any)=>sMt(e.target.value)} style={{width:160,padding:"6px 8px",borderRadius:6,border:"1px solid "+T.g3,fontSize:12,marginLeft:6}}/></div>}
@@ -518,17 +477,6 @@ function DeptCircles({area,deptos,pedidos,onDC,mob}:any){
   </div>);
 }
 
-/* ── BREADCRUMB ── */
-function Bread({parts,mob}:{parts:{label:string;onClick?:()=>void}[];mob?:boolean}){
-  const{colors}=useC();
-  return(<div style={{display:"flex",alignItems:"center",gap:4,marginBottom:mob?10:14,flexWrap:"wrap" as const}}>
-    {parts.map((p,i)=><span key={i} style={{display:"flex",alignItems:"center",gap:4}}>
-      {i>0&&<span style={{color:colors.g4,fontSize:11}}>›</span>}
-      {p.onClick?<button onClick={p.onClick} style={{background:"none",border:"none",cursor:"pointer",fontSize:mob?12:13,fontWeight:i===parts.length-1?700:500,color:i===parts.length-1?colors.nv:colors.bl,padding:0,textDecoration:i<parts.length-1?"underline":"none"}}>{p.label}</button>
-      :<span style={{fontSize:mob?12:13,fontWeight:700,color:colors.nv}}>{p.label}</span>}
-    </span>)}
-  </div>);
-}
 
 /* ── TASK LIST ── */
 function TList({title,icon,color,peds,users,onSel,search,mob,onBulk,onImport,user}:any){
@@ -572,7 +520,7 @@ function TList({title,icon,color,peds,users,onSel,search,mob,onBulk,onImport,use
       <label style={{display:"flex",alignItems:"center",gap:4,fontSize:10,cursor:"pointer"}}><input type="checkbox" checked={allSelected} onChange={()=>{if(allSelected)sBulkSel([]);else sBulkSel(allVis);}}/><span style={{fontWeight:600}}>Todos</span></label>
       <span style={{fontSize:10,fontWeight:700,color:colors.nv}}>{bulkSel.length} seleccionados</span>
       <select onChange={e=>{if(e.target.value){onBulk(bulkSel,"status",e.target.value);sBulkSel([]);}}} style={{padding:"3px 6px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:10}} defaultValue=""><option value="">Cambiar estado...</option>{Object.keys(SC).map(k=><option key={k} value={k}>{SC[k].l}</option>)}</select>
-      <select onChange={e=>{if(e.target.value){onBulk(bulkSel,"assign",e.target.value);sBulkSel([]);}}} style={{padding:"3px 6px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:10}} defaultValue=""><option value="">Asignar a...</option>{users.filter((u:any)=>rlv(u.role)>=2).map((u:any)=><option key={u.id} value={u.id}>{fn(u)}</option>)}</select>
+      <UserPicker users={users} value="" onChange={(id)=>{if(id){onBulk(bulkSel,"assign",id);sBulkSel([]);}}} placeholder="Asignar a..." filterFn={(u:any)=>rlv(u.role)>=2} style={{minWidth:150}}/>
       <Btn v="g" s="s" onClick={()=>sBulkSel([])}>✕ Limpiar</Btn>
     </div>}
     {showImport&&onImport&&<CsvImport user={user} onImport={onImport} onX={()=>sShowImport(false)} mob={mob}/>}
@@ -588,7 +536,7 @@ function TList({title,icon,color,peds,users,onSel,search,mob,onBulk,onImport,use
     {showFilters&&<div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap" as const,padding:10,background:colors.g1,borderRadius:8}}>
       <select value={fTipo} onChange={e=>{sFTipo(e.target.value);sPg(1);}} style={{padding:"5px 8px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:10,background:cardBg,color:colors.nv}}><option value="">Tipo: Todos</option>{TIPOS.map(t=><option key={t} value={t}>{t}</option>)}</select>
       <select value={fUrg} onChange={e=>{sFUrg(e.target.value);sPg(1);}} style={{padding:"5px 8px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:10,background:cardBg,color:colors.nv}}><option value="">Urgencia: Todas</option><option value="Normal">Normal</option><option value="Urgente">Urgente</option></select>
-      <select value={fAsTo} onChange={e=>{sFAsTo(e.target.value);sPg(1);}} style={{padding:"5px 8px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:10,background:cardBg,color:colors.nv}}><option value="">Asignado: Todos</option>{users.filter((u:any)=>rlv(u.role)>=2).map((u:any)=><option key={u.id} value={u.id}>{fn(u)}</option>)}</select>
+      <UserPicker users={users} value={fAsTo} onChange={(id)=>{sFAsTo(id);sPg(1);}} placeholder="Asignado: Todos" filterFn={(u:any)=>rlv(u.role)>=2} style={{minWidth:150}}/>
       <input type="date" value={fDateFrom} onChange={e=>{sFDateFrom(e.target.value);sPg(1);}} style={{padding:"4px 6px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:10,background:cardBg,color:colors.nv}} title="Desde"/>
       <input type="date" value={fDateTo} onChange={e=>{sFDateTo(e.target.value);sPg(1);}} style={{padding:"4px 6px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:10,background:cardBg,color:colors.nv}} title="Hasta"/>
       {(fTipo||fUrg||fAsTo||fDateFrom||fDateTo)&&<button onClick={()=>{sFTipo("");sFUrg("");sFAsTo("");sFDateFrom("");sFDateTo("");sPg(1);}} style={{padding:"4px 8px",borderRadius:6,border:"none",background:colors.rd,color:"#fff",fontSize:10,fontWeight:600,cursor:"pointer"}}>✕ Limpiar</button>}
@@ -1103,7 +1051,7 @@ function Reuniones({agendas,minutas,om,users,areas,onAddAg,onUpdAg,onDelAg,onAdd
           {miTareas.length===0&&<div style={{fontSize:11,color:T.g4,textAlign:"center" as const,padding:8}}>Sin tareas. Se crearán automáticamente al finalizar la minuta.</div>}
           {miTareas.map((t:any,i:number)=><div key={i} style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr auto auto auto",gap:6,marginBottom:6,alignItems:"end"}}>
             <div><label style={{fontSize:9,color:T.g5}}>Tarea</label><input value={t.desc} onChange={e=>{const n=[...miTareas];n[i]={...n[i],desc:e.target.value};sMiTareas(n);}} placeholder="Descripción..." style={{width:"100%",padding:6,borderRadius:6,border:"1px solid "+T.g3,fontSize:11,boxSizing:"border-box" as const}}/></div>
-            <div><label style={{fontSize:9,color:T.g5}}>Responsable</label><select value={t.respId} onChange={e=>{const n=[...miTareas];n[i]={...n[i],respId:e.target.value};sMiTareas(n);}} style={{padding:6,borderRadius:6,border:"1px solid "+T.g3,fontSize:11}}><option value="">Seleccionar...</option>{stf.map((u:any)=><option key={u.id} value={u.id}>{fn(u)}</option>)}</select></div>
+            <div><label style={{fontSize:9,color:T.g5}}>Responsable</label><UserPicker users={stf} value={t.respId} onChange={id=>{const n=[...miTareas];n[i]={...n[i],respId:id};sMiTareas(n);}} placeholder="Buscar..." style={{minWidth:140}}/></div>
             <div><label style={{fontSize:9,color:T.g5}}>Fecha</label><input type="date" value={t.fecha} onChange={e=>{const n=[...miTareas];n[i]={...n[i],fecha:e.target.value};sMiTareas(n);}} style={{padding:6,borderRadius:6,border:"1px solid "+T.g3,fontSize:11}}/></div>
             <button onClick={()=>sMiTareas(p=>p.filter((_:any,j:number)=>j!==i))} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:T.rd,padding:"4px"}}>✕</button>
           </div>)}
@@ -1157,7 +1105,7 @@ function Reuniones({agendas,minutas,om,users,areas,onAddAg,onUpdAg,onDelAg,onAdd
           {miTareas.length===0&&<div style={{fontSize:11,color:T.g4,textAlign:"center" as const,padding:8}}>Sin tareas. Agregá tareas y finalizá para crearlas en el sistema.</div>}
           {miTareas.map((t:any,i:number)=><div key={i} style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr auto auto auto",gap:6,marginBottom:6,alignItems:"end"}}>
             <div><label style={{fontSize:9,color:T.g5}}>Tarea</label><input value={t.desc} onChange={e=>{const n=[...miTareas];n[i]={...n[i],desc:e.target.value};sMiTareas(n);}} placeholder="Descripción..." style={{width:"100%",padding:6,borderRadius:6,border:"1px solid "+T.g3,fontSize:11,boxSizing:"border-box" as const}}/></div>
-            <div><label style={{fontSize:9,color:T.g5}}>Responsable</label><select value={t.respId} onChange={e=>{const n=[...miTareas];n[i]={...n[i],respId:e.target.value};sMiTareas(n);}} style={{padding:6,borderRadius:6,border:"1px solid "+T.g3,fontSize:11}}><option value="">Seleccionar...</option>{stf.map((u:any)=><option key={u.id} value={u.id}>{fn(u)}</option>)}</select></div>
+            <div><label style={{fontSize:9,color:T.g5}}>Responsable</label><UserPicker users={stf} value={t.respId} onChange={id=>{const n=[...miTareas];n[i]={...n[i],respId:id};sMiTareas(n);}} placeholder="Buscar..." style={{minWidth:140}}/></div>
             <div><label style={{fontSize:9,color:T.g5}}>Fecha</label><input type="date" value={t.fecha} onChange={e=>{const n=[...miTareas];n[i]={...n[i],fecha:e.target.value};sMiTareas(n);}} style={{padding:6,borderRadius:6,border:"1px solid "+T.g3,fontSize:11}}/></div>
             <button onClick={()=>sMiTareas(p=>p.filter((_:any,j:number)=>j!==i))} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:T.rd,padding:"4px"}}>✕</button>
           </div>)}
