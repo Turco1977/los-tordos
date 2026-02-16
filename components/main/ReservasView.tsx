@@ -336,7 +336,7 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel}:any){
                 return(<div key={d} style={{padding:4,background:isToday?(isDark?"#1E3A5F10":"#EFF6FF50"):cardBg,border:"1px solid "+colors.g2,borderRadius:6,minHeight:38,cursor:"pointer",position:"relative" as const}} onClick={()=>{if(showAdd){sForm((p:any)=>({...p,facility:fk,date:d,title:p.title===BOOK_FAC[p.facility]?.l?BOOK_FAC[fk]?.l||"":p.title}));}else{openForm(fk,d);}}}>
                   {cb.length===0&&<div style={{fontSize:9,color:colors.g3,textAlign:"center" as const,paddingTop:6}}>—</div>}
                   {cb.map((b:any,j:number)=>{const st=BOOK_ST[b.status];const div=b.division||extractDiv(b.title);const dc=div?DIV_COL[div]:null;return(
-                    <div key={b.id||j} onClick={e=>{e.stopPropagation();startEdit(b);}} style={{padding:"2px 5px",borderRadius:6,background:dc?dc+"20":st.bg,marginBottom:1,cursor:"pointer",border:"1px solid "+(dc||st.c)+"40"}} title={(div?div+": ":"")+b.title+" ("+b.time_start+"-"+b.time_end+")"}>
+                    <div key={b.id||j} onClick={e=>{e.stopPropagation();startEdit(b);}} onTouchEnd={e=>{e.stopPropagation();e.preventDefault();startEdit(b);}} style={{padding:"5px 6px",borderRadius:6,background:dc?dc+"20":st.bg,marginBottom:2,cursor:"pointer",border:"1px solid "+(dc||st.c)+"40",position:"relative" as const,zIndex:2,minHeight:28,touchAction:"manipulation" as const}} title={(div?div+": ":"")+b.title+" ("+b.time_start+"-"+b.time_end+")"}>
                       <div style={{fontSize:10,fontWeight:800,color:dc||st.c,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const,lineHeight:1.3}}>{div||b.title}</div>
                       <div style={{fontSize:8,color:dc||colors.g5,fontWeight:600}}>{b.time_start}</div>
                     </div>);})}
@@ -383,6 +383,10 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel}:any){
             <div style={{display:"flex",flexDirection:"column" as const,alignItems:"flex-end",gap:4,flexShrink:0}}>
               <span style={{background:st.bg,color:st.c,padding:"1px 8px",borderRadius:12,fontSize:10,fontWeight:600,whiteSpace:"nowrap" as const}}>{st.i} {st.l}</span>
               {(b.booked_by||b.booked_by_name)&&<span style={{fontSize:9,color:colors.g4}}>por {b.booked_by_name||userName(b.booked_by)}</span>}
+              <div style={{display:"flex",gap:4,marginTop:2}}>
+                <button onClick={e=>{e.stopPropagation();startEdit(b);}} style={{padding:"3px 8px",borderRadius:6,border:"1px solid "+colors.bl,background:"none",fontSize:9,fontWeight:700,color:colors.bl,cursor:"pointer"}}>✏️ Editar</button>
+                {onDel&&<button onClick={e=>{e.stopPropagation();if(confirm("Eliminar este espacio?"))onDel(String(b.id));}} style={{padding:"3px 8px",borderRadius:6,border:"1px solid #DC2626",background:"none",fontSize:9,fontWeight:700,color:"#DC2626",cursor:"pointer"}}>🗑️</button>}
+              </div>
             </div>
           </div>
           {b.notes&&<div style={{fontSize:9,color:colors.g5,marginTop:4,fontStyle:"italic" as const}}>Notas: {b.notes}</div>}
