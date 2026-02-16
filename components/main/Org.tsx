@@ -97,8 +97,10 @@ function AcademiaOrg({mob,ex,tog}:any){
       {/* ── 4. EQUIPO MÉDICO ── */}
       <OrgNode mob={mob} icon="🩺" title="Equipo Médico" color={AC_C.med} ex={!!ex.acMed} onTog={()=>tog("acMed")} cnt="5">
         <P cargo="Médico" name="" color={AC_C.med}/>
-        <P cargo="Kinesiólogo Rugby" name="Martin Azcurra" color={AC_C.med}/>
-        <P cargo="Kinesiólogo Hockey" name="Carolina Armani" color={AC_C.med}/>
+        <OrgNode mob={mob} icon="🏥" title="Kinesiología" color={AC_C.med} ex={!!ex.acKin} onTog={()=>tog("acKin")} cnt="2">
+          <P cargo="Kinesiólogo Rugby" name="Martin Azcurra" color={AC_C.med}/>
+          <P cargo="Kinesiólogo Hockey" name="Carolina Armani" color={AC_C.med}/>
+        </OrgNode>
         <P cargo="Nutricionista" name="Matias Zanni" color={AC_C.med}/>
         <P cargo="Psicóloga" name="Veronica Gomez" color={AC_C.med}/>
       </OrgNode>
