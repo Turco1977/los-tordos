@@ -127,6 +127,7 @@ export const BOOK_FAC:Record<string,{l:string;i:string;c:string}>={
   cancha3:{l:"Cancha 3 Rugby",i:"🏈",c:"#F59E0B"},
   cancha4:{l:"Cancha 4 Rugby",i:"🏈",c:"#8B5CF6"},
   cancha5:{l:"Cancha 5 Rugby",i:"🏈",c:"#0EA5E9"},
+  cancha6:{l:"Cancha 6 Rugby",i:"🏈",c:"#EC4899"},
   hockey1:{l:"Hockey 1",i:"🏑",c:"#6B7280"},
   hockey2:{l:"Hockey 2",i:"🏑",c:"#9CA3AF"},
   pileta:{l:"Pileta",i:"🏊",c:"#0EA5E9"},
