@@ -28,7 +28,8 @@ const emptyForm=()=>({
 export function SponsorsView({sponsors,user,mob,onAdd,onUpd,onDel,canjeUsado}:any){
   const{colors,isDark,cardBg}=useC();
   const isSA=user?.role==="superadmin";
-  const canFullEdit=isSA||user?.role==="coordinador";
+  const isJH=user&&(user.n||user.first_name||"").toLowerCase().includes("jes")&&(user.a||user.last_name||"").toLowerCase().includes("herrera");
+  const canFullEdit=isSA||isJH;
   const [dolarRef,sDolarRef]=useState(()=>{if(typeof window!=="undefined"){const v=localStorage.getItem("lt_dolar_ref");if(v)return Number(v);}return DOLAR_REF;});
   const [editDolar,sEditDolar]=useState(false);
   const [dolarInput,sDolarInput]=useState(String(dolarRef));
