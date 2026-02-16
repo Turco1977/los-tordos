@@ -43,8 +43,60 @@ export function SponsorsView({sponsors,user,mob,onAdd,onUpd,onDel}:any){
   const [importPreview,sImportPreview]=useState<any[]|null>(null);
   const fileRef=useRef<HTMLInputElement>(null);
 
-  /* ── Excel import ── */
+  /* ── Import (Excel + Manual) ── */
   const [importErr,sImportErr]=useState<string|null>(null);
+  const [showManual,sShowManual]=useState(false);
+  const [manualText,sManualText]=useState("");
+
+  /* Column classification by keywords */
+  const classifyCol=(h:string):{field:string;type:"text"|"num"}=>{
+    const l=h.toLowerCase().trim();
+    if(["sponsor","nombre","name"].some(k=>l===k)||l.length<=2)return{field:"name",type:"text"};
+    if(l.includes("aporte")&&(l.includes("pro")||l.includes("ser")||l.includes("canje")))return{field:"amount_service",type:"num"};
+    if(l.includes("aporte")||l.includes("cash")||l.includes("efectivo"))return{field:"amount_cash",type:"num"};
+    if(l.includes("period")||l.includes("período")||l.includes("venc"))return{field:"end_date",type:"text"};
+    if(l.includes("expos")||l.includes("ropa")||l.includes("cartel"))return{field:"exposure",type:"text"};
+    if(l.includes("varios")||l.includes("observ")||l.includes("nota"))return{field:"notes",type:"text"};
+    if(l.includes("pago")||l.includes("tipo"))return{field:"payment_type",type:"text"};
+    return{field:"",type:"text"};
+  };
+
+  /* Parse rows (from Excel or manual text) into sponsor objects */
+  const parseRows=(headers:string[],dataRows:any[][])=>{
+    /* Classify each column */
+    const cols=headers.map((h,i)=>({i,h,...classifyCol(h)}));
+    /* If no column classified as "name", use the first column with text values */
+    if(!cols.some(c=>c.field==="name")){
+      const firstText=cols.find(c=>{
+        const vals=dataRows.map(r=>r[c.i]).filter(v=>typeof v==="string"&&v.trim().length>1);
+        return vals.length>=dataRows.length*0.3;
+      });
+      if(firstText)firstText.field="name";
+      else if(cols.length>0)cols[0].field="name";
+    }
+    const num=(v:any)=>{if(!v&&v!==0)return 0;const n=Number(String(v).replace(/[$.,%\s]/g,""));return isNaN(n)?0:n;};
+    return dataRows.map((r:any[])=>{
+      const sp:any={name:"",amount_cash:0,amount_service:0,end_date:null,exposure:"",notes:"",payment_type:"",status:"active"};
+      const extras:string[]=[];
+      cols.forEach(c=>{
+        const val=r[c.i];
+        if(val===undefined||val===null||String(val).trim()==="")return;
+        if(c.field==="name")sp.name=String(val).trim();
+        else if(c.field==="amount_cash")sp.amount_cash=num(val);
+        else if(c.field==="amount_service")sp.amount_service=num(val);
+        else if(c.field==="end_date")sp.end_date=String(val).trim()||null;
+        else if(c.field==="exposure")sp.exposure=String(val).trim();
+        else if(c.field==="notes")sp.notes=String(val).trim();
+        else if(c.field==="payment_type")sp.payment_type=String(val).trim();
+        else if(String(val).trim())extras.push(String(val).trim());
+      });
+      if(extras.length&&!sp.notes)sp.notes=extras.join("; ");
+      else if(extras.length)sp.notes=sp.notes+"; "+extras.join("; ");
+      return sp;
+    }).filter((s:any)=>s.name&&s.name.length>1);
+  };
+
+  /* Excel file handler */
   const handleFile=async(e:React.ChangeEvent<HTMLInputElement>)=>{
     const file=e.target.files?.[0];
     if(!file)return;
@@ -54,102 +106,61 @@ export function SponsorsView({sponsors,user,mob,onAdd,onUpd,onDel}:any){
       const data=new Uint8Array(await file.arrayBuffer());
       const wb=XLSX.read(data);
       const ws=wb.Sheets[wb.SheetNames[0]];
-      /* Read as raw arrays — handles merged cells, title rows, any format */
       const raw:any[][]=XLSX.utils.sheet_to_json(ws,{header:1,defval:"",blankrows:false});
-      if(!raw.length){sImportErr("v3: El archivo no tiene datos");return;}
-      /* Known header keywords to detect the header row */
-      const HKWS=["sponsor","nombre","name","aporte","cash","efectivo","canjes","servicio","exposicion","exposición","periodo","período","varios","notas","pago"];
-      /* Find header row: scan first 15 rows for one containing known keywords */
+      if(!raw.length){sImportErr("El archivo no tiene datos");return;}
+      /* Find header row by keyword matching */
+      const HKWS=["aporte","sponsor","nombre","exposic","periodo","período","varios","observ","pago","canjes","servicio"];
       let hIdx=-1;
       for(let i=0;i<Math.min(raw.length,15);i++){
         const cells=(raw[i]||[]).map((c:any)=>String(c||"").toLowerCase().trim());
-        const hits=cells.filter(c=>HKWS.some(kw=>c.includes(kw))).length;
-        if(hits>=2){hIdx=i;break;}
+        if(cells.filter(c=>HKWS.some(kw=>c.includes(kw))).length>=2){hIdx=i;break;}
       }
-      /* Fallback: first row with 3+ non-empty text cells */
+      /* Fallback: first row with 3+ non-empty cells */
       if(hIdx<0){
         for(let i=0;i<Math.min(raw.length,15);i++){
-          const filled=(raw[i]||[]).filter((c:any)=>c!==undefined&&c!=null&&String(c).trim()!=="");
-          const textCells=filled.filter((c:any)=>typeof c==="string"&&c.trim().length>1);
-          if(textCells.length>=3){hIdx=i;break;}
+          const filled=(raw[i]||[]).filter((c:any)=>String(c||"").trim()!=="");
+          if(filled.length>=3){hIdx=i;break;}
         }
       }
       if(hIdx<0)hIdx=0;
       const headers=(raw[hIdx]||[]).map((h:any)=>String(h||"").trim());
-      const dataRows=raw.slice(hIdx+1).filter((r:any[])=>{
-        const filled=(r||[]).filter((c:any)=>c!==undefined&&c!=null&&String(c).trim()!=="");
-        return filled.length>=1;
-      });
-      if(!dataRows.length){sImportErr("v3: Sin filas de datos. Headers en fila "+(hIdx+1)+": "+headers.filter(Boolean).join(" | "));return;}
-      /* Build objects from headers + data rows */
-      const rows=dataRows.map((r:any[])=>{
-        const obj:any={};
-        headers.forEach((h:string,i:number)=>{if(h)obj[h]=(r[i]!==undefined&&r[i]!==null)?r[i]:"";});
-        return obj;
-      });
-      /* Map columns flexibly — case-insensitive exact + partial matching */
-      const mapped=rows.map((r:any)=>{
-        const rKeys=Object.keys(r);
-        const get=(...keys:string[])=>{
-          /* Exact match (case-insensitive) */
-          for(const k of keys){
-            const found=rKeys.find(rk=>rk.toLowerCase().trim()===k.toLowerCase().trim());
-            if(found&&r[found]!==undefined&&r[found]!=="")return r[found];
-          }
-          /* Partial: header contains keyword or keyword contains header */
-          for(const k of keys){
-            const kl=k.toLowerCase().trim();
-            const found=rKeys.find(rk=>{const rl=rk.toLowerCase().trim();return(rl.includes(kl)||kl.includes(rl))&&rl.length>1;});
-            if(found&&r[found]!==undefined&&r[found]!=="")return r[found];
-          }
-          return "";
-        };
-        const num=(v:any)=>{if(!v&&v!==0)return 0;const n=Number(String(v).replace(/[$.,%\s]/g,""));return isNaN(n)?0:n;};
-        return{
-          name:get("Sponsor","Nombre","nombre","name","Name"),
-          amount_cash:num(get("Aporte $","Aporte","aporte","Efectivo","efectivo","Cash","cash")),
-          amount_service:num(get("Aporte Pro/Ser","Canjes","canjes","Servicio","servicio","Pro/Ser")),
-          end_date:get("Período","Periodo","periodo","Vencimiento","vencimiento")||null,
-          exposure:get("Exposición","Exposicion","exposicion","Ropa"),
-          notes:get("Varios","varios","Observaciones","observaciones","Notas","notas"),
-          payment_type:get("Tipo pago","tipo pago","Pago","pago"),
-          status:"active",
-        };
-      }).filter((s:any)=>s.name);
-      /* If no name column found, try using first text column as name */
-      if(!mapped.length&&rows.length>0){
-        const firstTextCol=(ks:string[])=>ks.find((k:string)=>{const vals=rows.map((r:any)=>r[k]).filter((v:any)=>typeof v==="string"&&v.trim().length>2);return vals.length>=rows.length*0.5;});
-        const nameCol=firstTextCol(Object.keys(rows[0]));
-        if(nameCol){
-          const fallback=rows.map((r:any)=>({...r,name:r[nameCol],status:"active"})).filter((s:any)=>s.name);
-          if(fallback.length){sImportPreview(fallback.map(r=>{const vals=Object.values(r).filter((v:any)=>typeof v==="number"||(typeof v==="string"&&!isNaN(Number(String(v).replace(/[$.,%\s]/g,"")))));return{name:r.name,amount_cash:0,amount_service:0,end_date:null,exposure:"",notes:Object.entries(r).filter(([k])=>k!=="name"&&k!=="status").map(([k,v])=>k+": "+v).join("; "),payment_type:"",status:"active"};}));return;}
-        }
-        sImportErr("v3: No se encontró columna de nombres. Headers: "+headers.filter(Boolean).join(" | ")+" — Fila ejemplo: "+Object.entries(rows[0]).map(([k,v])=>k+"="+v).join(", "));return;
-      }
-      if(!mapped.length){sImportErr("v3: Sin sponsors. Headers: "+headers.filter(Boolean).join(" | "));return;}
+      const dataRows=raw.slice(hIdx+1).filter((r:any[])=>r.some((c:any)=>String(c||"").trim()!==""));
+      if(!dataRows.length){sImportErr("Sin filas de datos. Headers: "+headers.join(" | "));return;}
+      const mapped=parseRows(headers,dataRows);
+      if(!mapped.length){sImportErr("Sin sponsors válidos. Headers: "+headers.join(" | "));return;}
       sImportPreview(mapped);
     }catch(err:any){
-      sImportErr("Error leyendo archivo: "+(err.message||"formato no reconocido"));
+      sImportErr("Error: "+(err.message||"formato no reconocido"));
     }
     if(fileRef.current)fileRef.current.value="";
   };
+
+  /* Manual text paste handler */
+  const handleManualPaste=()=>{
+    if(!manualText.trim())return;
+    sImportErr(null);
+    const lines=manualText.trim().split("\n").map(l=>l.split("\t").length>1?l.split("\t"):l.split(";").length>1?l.split(";"):l.split(","));
+    if(lines.length<2){sImportErr("Mínimo 2 filas (encabezados + datos)");return;}
+    const headers=lines[0].map(h=>h.trim());
+    const dataRows=lines.slice(1).filter(r=>r.some(c=>c.trim()!==""));
+    const mapped=parseRows(headers,dataRows);
+    if(!mapped.length){sImportErr("Sin sponsors válidos. Headers: "+headers.join(" | "));return;}
+    sImportPreview(mapped);sShowManual(false);sManualText("");
+  };
+
   const confirmImport=async()=>{
     if(!importPreview?.length)return;
     sImporting(true);sImportErr(null);
     let ok=0,fail=0;
-    try{
-      for(const sp of importPreview){
-        try{
-          const total=(sp.amount_cash||0)+(sp.amount_service||0);
-          await onAdd({...sp,amount:total});
-          ok++;
-        }catch{fail++;}
-      }
-    }catch{}
-    finally{
-      sImporting(false);sImportPreview(null);
-      if(fail>0)sImportErr(`Importados: ${ok}, Errores: ${fail}`);
+    for(const sp of importPreview){
+      try{
+        const total=(sp.amount_cash||0)+(sp.amount_service||0);
+        await onAdd({...sp,amount:total});
+        ok++;
+      }catch{fail++;}
     }
+    sImporting(false);sImportPreview(null);
+    if(fail>0)sImportErr(`Importados: ${ok}, Errores: ${fail}`);
   };
 
   /* ── Derived data ── */
@@ -260,12 +271,25 @@ export function SponsorsView({sponsors,user,mob,onAdd,onUpd,onDel}:any){
         </div>}
         <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleFile} style={{display:"none"}}/>
         <Btn v="g" s="s" onClick={()=>fileRef.current?.click()}>📥 Excel</Btn>
+        <Btn v="g" s="s" onClick={()=>{sShowManual(!showManual);sImportErr(null);}}>📋 Manual</Btn>
         <Btn v="pu" s="s" onClick={openAdd}>+ Sponsor</Btn>
       </div>
     </div>
 
     {/* ── Import Error ── */}
     {importErr&&<div style={{padding:"8px 14px",marginBottom:10,borderRadius:8,background:isDark?"rgba(220,38,38,.15)":"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",fontSize:12,fontWeight:600,display:"flex",justifyContent:"space-between",alignItems:"center"}}><span>{importErr}</span><button onClick={()=>sImportErr(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#DC2626"}}>✕</button></div>}
+
+    {/* ── Manual paste ── */}
+    {showManual&&<Card style={{marginBottom:14,background:isDark?"#0D1B2A":"#F0F4FF",border:"1px solid #93C5FD"}}>
+      <div style={{fontSize:13,fontWeight:700,color:isDark?"#60A5FA":"#1E40AF",marginBottom:8}}>📋 Carga manual — pegá datos del Excel</div>
+      <p style={{fontSize:11,color:colors.g5,margin:"0 0 8px"}}>Copiá las celdas del Excel (con encabezados) y pegalas acá. Se separan por tabs, punto y coma, o comas.</p>
+      <p style={{fontSize:10,color:colors.g4,margin:"0 0 8px",fontStyle:"italic"}}>Ejemplo: Sponsor{"\t"}Aporte ${"\t"}Aporte Pro/Ser{"\t"}Período{"\t"}Exposición{"\t"}Varios</p>
+      <textarea value={manualText} onChange={e=>sManualText(e.target.value)} rows={8} placeholder={"Sponsor\tAporte $\tAporte Pro/Ser\tPeríodo\tExposición\tVarios\nUroclínica\t2000000\t0\t2025\tRopa: frente camiseta\tPago mensual"} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:11,fontFamily:"monospace",background:cardBg,color:colors.nv,boxSizing:"border-box" as const,resize:"vertical" as const}}/>
+      <div style={{display:"flex",gap:6,justifyContent:"flex-end",marginTop:8}}>
+        <Btn v="g" s="s" onClick={()=>{sShowManual(false);sManualText("");}}>Cancelar</Btn>
+        <Btn v="s" s="s" disabled={!manualText.trim()} onClick={handleManualPaste}>Procesar</Btn>
+      </div>
+    </Card>}
 
     {/* ── Import Preview ── */}
     {importPreview&&<Card style={{marginBottom:14,background:isDark?"#0D2818":"#F0FDF4",border:"1px solid #BBF7D0"}}>
