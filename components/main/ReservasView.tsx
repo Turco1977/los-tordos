@@ -132,12 +132,12 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel,onDelMul
   const kPending=weekBookings.filter((b:any)=>b.status==="pendiente").length;
   const facCounts=useMemo(()=>{const m:Record<string,number>={};weekBookings.forEach((b:any)=>{m[b.facility]=(m[b.facility]||0)+1;});return m;},[weekBookings]);
 
-  /* ── conflict detection ── */
-  const hasConflict=(fac:string,date:string,ts:string,te:string,excludeId?:string)=>{
-    return (bookings||[]).some((b:any)=>b.facility===fac&&b.date===date&&b.status!=="cancelada"&&(excludeId?String(b.id)!==String(excludeId):true)&&overlap(ts,te,b.time_start,b.time_end));
+  /* ── overlap info (non-blocking) ── */
+  const getOverlapping=(fac:string,date:string,ts:string,te:string,excludeId?:string)=>{
+    return (bookings||[]).filter((b:any)=>b.facility===fac&&b.date===date&&b.status!=="cancelada"&&(excludeId?String(b.id)!==String(excludeId):true)&&overlap(ts,te,b.time_start,b.time_end));
   };
-  const formConflict=hasConflict(form.facility,form.date,form.time_start,form.time_end);
-  const editConflict=editForm?hasConflict(editForm.facility,editForm.date,editForm.time_start,editForm.time_end,editId||undefined):false;
+  const formOverlap=getOverlapping(form.facility,form.date,form.time_start,form.time_end);
+  const editOverlap=editForm?getOverlapping(editForm.facility,editForm.date,editForm.time_start,editForm.time_end,editId||undefined):[];
 
   /* ── helpers ── */
   const resetForm=()=>{sForm(emptyForm());sShowAdd(false);};
@@ -396,7 +396,7 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel,onDelMul
       </div>
       <div style={{marginBottom:8}}><label style={lblSt}>Descripción</label><textarea value={form.description} onChange={e=>sForm((p:any)=>({...p,description:e.target.value}))} rows={2} style={{...iSt,resize:"vertical" as const}} placeholder="Detalles de la reserva..."/></div>
       <div style={{marginBottom:8}}><label style={lblSt}>Notas</label><input value={form.notes} onChange={e=>sForm((p:any)=>({...p,notes:e.target.value}))} style={iSt} placeholder="Notas internas..."/></div>
-      {formConflict&&<div style={{padding:"8px 12px",borderRadius:8,background:isDark?"#7F1D1D":"#FEF2F2",border:"1px solid #FECACA",fontSize:11,fontWeight:600,color:"#DC2626",marginBottom:8}}>⚠️ Conflicto: ya existe una reserva en {BOOK_FAC[form.facility]?.l} el {fmtD(form.date)} que se superpone con el horario seleccionado.</div>}
+      {formOverlap.length>0&&<div style={{padding:"8px 12px",borderRadius:8,background:isDark?"#1E3A5F":"#EFF6FF",border:"1px solid #93C5FD",fontSize:11,fontWeight:600,color:isDark?"#93C5FD":"#1D4ED8",marginBottom:8}}>ℹ️ Ya hay {formOverlap.length} reserva(s) en {BOOK_FAC[form.facility]?.l} el {fmtD(form.date)} en ese horario: {formOverlap.map((b:any)=>b.division||b.title).join(", ")}</div>}
       <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}>
         <Btn v="g" s="s" onClick={resetForm}>Cancelar</Btn>
         <Btn v="s" s="s" disabled={saving||(form.recurrence==="semanal"&&(form.recDays||[]).length===0)} onClick={handleSave}>{saving?"⏳ Guardando...":"✅ Reservar Espacio"}{!saving&&form.recurrence&&form.recurrence!=="none"?` (${generateDates(form.date,form.recurrence,form.recDays).length})`:""}</Btn>
@@ -455,7 +455,7 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel,onDelMul
         </div>
         <div style={{marginBottom:8}}><label style={lblSt}>Descripción</label><textarea value={editForm.description} onChange={e=>sEditForm((p:any)=>({...p,description:e.target.value}))} rows={2} style={{...iSt,resize:"vertical" as const}}/></div>
         <div style={{marginBottom:8}}><label style={lblSt}>Notas</label><input value={editForm.notes} onChange={e=>sEditForm((p:any)=>({...p,notes:e.target.value}))} style={iSt}/></div>
-        {editConflict&&<div style={{padding:"8px 12px",borderRadius:8,background:isDark?"#7F1D1D":"#FEF2F2",border:"1px solid #FECACA",fontSize:11,fontWeight:600,color:"#DC2626",marginBottom:8}}>⚠️ Conflicto: se superpone con otra reserva en {BOOK_FAC[editForm.facility]?.l} el {fmtD(editForm.date)}.</div>}
+        {editOverlap.length>0&&<div style={{padding:"8px 12px",borderRadius:8,background:isDark?"#1E3A5F":"#EFF6FF",border:"1px solid #93C5FD",fontSize:11,fontWeight:600,color:isDark?"#93C5FD":"#1D4ED8",marginBottom:8}}>ℹ️ Comparte horario con: {editOverlap.map((b:any)=>b.division||b.title).join(", ")}</div>}
         <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}>
           <Btn v="g" s="s" onClick={cancelEdit}>Cancelar</Btn>
           <Btn v="p" s="s" onClick={handleSaveClick}>Guardar cambios</Btn>
