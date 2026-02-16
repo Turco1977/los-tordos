@@ -89,9 +89,50 @@ function AcademiaOrg({mob,ex,tog}:any){
       </OrgNode>
 
       {/* ── 3. COORDINADOR PREP. FÍSICA ── */}
-      <OrgNode mob={mob} icon="💪" title="Coordinador Preparación Física" sub="Matias Elias" color={AC_C.pf} ex={!!ex.acPF} onTog={()=>tog("acPF")}>
+      <OrgNode mob={mob} icon="💪" title="Coordinador Preparación Física" sub="Matias Elias" color={AC_C.pf} ex={!!ex.acPF} onTog={()=>tog("acPF")} cnt="16">
         <P cargo="Coordinador PF" name="Matias Elias" color={AC_C.pf} star/>
-        <div style={{fontSize:10,color:T.g4,padding:"4px 0"}}>Los PFs están asignados a cada división dentro de Director de Rugby</div>
+        <OrgNode mob={mob} icon="🔴" title="Plantel Superior" color={AC_C.sup} ex={!!ex.pfPS} onTog={()=>tog("pfPS")} cnt="3">
+          <P cargo="Prep. Física" name="Julieta Miranda" color={AC_C.sup}/>
+          <P cargo="Prep. Física" name="David Boullaude" color={AC_C.sup}/>
+          <P cargo="Prep. Física" name="Rodrigo Verger" color={AC_C.sup}/>
+        </OrgNode>
+        <OrgNode mob={mob} icon="🟡" title="M19" color={AC_C.juv} ex={!!ex.pfM19} onTog={()=>tog("pfM19")} cnt="1">
+          <P cargo="Prep. Física" name="Luis Puebla" color={AC_C.juv}/>
+        </OrgNode>
+        <OrgNode mob={mob} icon="🟡" title="M17" color={AC_C.juv} ex={!!ex.pfM17} onTog={()=>tog("pfM17")} cnt="1">
+          <P cargo="Prep. Física" name="Nicolas Hernandez" color={AC_C.juv}/>
+        </OrgNode>
+        <OrgNode mob={mob} icon="🟡" title="M16" color={AC_C.juv} ex={!!ex.pfM16} onTog={()=>tog("pfM16")} cnt="1">
+          <P cargo="Prep. Física" name="" color={AC_C.juv}/>
+        </OrgNode>
+        <OrgNode mob={mob} icon="🟡" title="M15" color={AC_C.juv} ex={!!ex.pfM15} onTog={()=>tog("pfM15")} cnt="1">
+          <P cargo="Prep. Física" name="" color={AC_C.juv}/>
+        </OrgNode>
+        <OrgNode mob={mob} icon="🔵" title="M14" color={AC_C.inf} ex={!!ex.pfM14} onTog={()=>tog("pfM14")} cnt="1">
+          <P cargo="Prep. Física" name="Nicolas Gaido" color={AC_C.inf}/>
+        </OrgNode>
+        <OrgNode mob={mob} icon="🔵" title="M13" color={AC_C.inf} ex={!!ex.pfM13} onTog={()=>tog("pfM13")} cnt="1">
+          <P cargo="Prep. Física" name="Franco Gomez" color={AC_C.inf}/>
+        </OrgNode>
+        <OrgNode mob={mob} icon="🔵" title="M12" color={AC_C.inf} ex={!!ex.pfM12} onTog={()=>tog("pfM12")} cnt="1">
+          <P cargo="Prep. Física" name="Matias Boero" color={AC_C.inf}/>
+        </OrgNode>
+        <OrgNode mob={mob} icon="🔵" title="M11" color={AC_C.inf} ex={!!ex.pfM11} onTog={()=>tog("pfM11")} cnt="1">
+          <P cargo="Prep. Física" name="Rodrigo Verger" color={AC_C.inf}/>
+        </OrgNode>
+        <OrgNode mob={mob} icon="🔵" title="M10" color={AC_C.inf} ex={!!ex.pfM10} onTog={()=>tog("pfM10")} cnt="1">
+          <P cargo="Prep. Física" name="Karen Carrion" color={AC_C.inf}/>
+        </OrgNode>
+        <OrgNode mob={mob} icon="🟢" title="M9" color={AC_C.esc} ex={!!ex.pfM9} onTog={()=>tog("pfM9")} cnt="1">
+          <P cargo="Prep. Física" name="Enzo Correa" color={AC_C.esc}/>
+        </OrgNode>
+        <OrgNode mob={mob} icon="🟢" title="M8" color={AC_C.esc} ex={!!ex.pfM8} onTog={()=>tog("pfM8")} cnt="1">
+          <P cargo="Prep. Física" name="Javier Badano" color={AC_C.esc}/>
+        </OrgNode>
+        <OrgNode mob={mob} icon="🟢" title="Escuelita" color={AC_C.esc} ex={!!ex.pfEsc} onTog={()=>tog("pfEsc")} cnt="2">
+          <P cargo="Prep. Física" name="Joel Aguero" color={AC_C.esc}/>
+          <P cargo="Prep. Física" name="Federica Castilla" color={AC_C.esc}/>
+        </OrgNode>
       </OrgNode>
 
       {/* ── 4. EQUIPO MÉDICO ── */}
