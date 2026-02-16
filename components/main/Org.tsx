@@ -7,98 +7,90 @@ function OrgNode({icon,title,sub,color,children,cnt,ex,onTog,mob}:any){return(<d
 
 function OrgMember({m,isSA,onEdit,onDel,onAssign,onUp,onDown,isFirst,isLast}:any){const ok=m.n&&m.a;return(<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",background:ok?"#FAFAFA":T.g1,borderRadius:7,border:"1px solid "+T.g2,marginBottom:3}}><div><div style={{fontSize:9,fontWeight:700,color:T.rd,textTransform:"uppercase" as const}}>{m.cargo}</div>{ok?<div style={{fontSize:12,fontWeight:700,color:T.nv}}>{m.n} {m.a}</div>:<div style={{fontSize:11,color:T.g3,fontStyle:"italic"}}>Sin asignar</div>}</div><div style={{display:"flex",gap:3,alignItems:"center"}}>{isSA&&onUp&&!isFirst&&<Btn v="g" s="s" onClick={()=>onUp(m.id)}>▲</Btn>}{isSA&&onDown&&!isLast&&<Btn v="g" s="s" onClick={()=>onDown(m.id)}>▼</Btn>}{ok&&onAssign&&<span title="Asignar tarea"><Btn v="g" s="s" onClick={()=>onAssign(m)}>📋</Btn></span>}{isSA&&<Btn v="g" s="s" onClick={()=>onEdit(m)}>✏️</Btn>}{isSA&&<Btn v="g" s="s" onClick={()=>onDel&&onDel(m.id)} style={{color:T.rd}}>🗑️</Btn>}</div></div>);}
 
-/* ── Academia data ── */
-function AcPerson({cargo,name,div,color,mob}:{cargo:string;name:string;div?:string;color:string;mob?:boolean}){
-  const vacant=!name;
-  return(<div style={{display:"flex",alignItems:"center",gap:6,padding:"5px 10px",background:vacant?T.g1:"#FAFAFA",borderRadius:7,border:"1px solid "+T.g2,marginBottom:3}}>
-    <span style={{fontSize:10}}>{vacant?"⬜":"👤"}</span>
-    <div style={{flex:1}}>
-      <div style={{fontSize:9,fontWeight:700,color:color,textTransform:"uppercase" as const}}>{cargo}{div?" · "+div:""}</div>
-      {vacant?<div style={{fontSize:11,color:T.g3,fontStyle:"italic"}}>Vacante</div>
-      :<div style={{fontSize:12,fontWeight:700,color:T.nv}}>{name}</div>}
-    </div>
-  </div>);
+/* ── Academia ── */
+const AC_C={dir:"#1E3A5F",rugby:"#DC2626",hockey:"#EC4899",pf:"#F59E0B",med:"#10B981",sup:"#DC2626",juv:"#F59E0B",inf:"#3B82F6",esc:"#10B981"};
+function P({cargo,name,color,star}:{cargo:string;name:string;color:string;star?:boolean}){
+  const v=!name;return(<div style={{display:"flex",alignItems:"center",gap:6,padding:"5px 10px",background:v?T.g1:star?"#FEE2E2":"#FAFAFA",borderRadius:7,border:"1px solid "+(star?"#FECACA":T.g2),marginBottom:3}}>
+  <span style={{fontSize:10}}>{v?"⬜":star?"⭐":"👤"}</span><div><div style={{fontSize:9,fontWeight:700,color,textTransform:"uppercase" as const}}>{cargo}</div>{v?<div style={{fontSize:11,color:T.g3,fontStyle:"italic"}}>Vacante</div>:<div style={{fontSize:12,fontWeight:700,color:T.nv}}>{name}</div>}</div></div>);
+}
+/* Each division node groups its entrenador + PF together */
+function DivNode({div,ent,pf,color,mob,ex,tog,k}:any){
+  const staff=[ent&&{cargo:"Entrenador",name:ent},pf&&{cargo:"Prep. Física",name:pf}].filter(Boolean);
+  return(<OrgNode mob={mob} icon="🏉" title={div} color={color} ex={!!ex[k]} onTog={()=>tog(k)} cnt={staff.filter((s:any)=>s.name).length+"/"+staff.length}>
+    {staff.map((s:any,i:number)=><P key={i} cargo={s.cargo} name={s.name||""} color={color}/>)}
+  </OrgNode>);
 }
 
 function AcademiaOrg({mob,ex,tog}:any){
-  const C={dir:"#1E3A5F",rugby:"#DC2626",hockey:"#EC4899",pf:"#F59E0B",med:"#10B981"};
   return(<div>
-    {/* Director Deportivo */}
-    <OrgNode mob={mob} icon="🎯" title="Director Deportivo" color={C.dir} ex={!!ex.acDD} onTog={()=>tog("acDD")} cnt="1">
-      <AcPerson cargo="Director Deportivo" name="Franco Lucchini" color={C.dir} mob={mob}/>
-    </OrgNode>
+    {/* Director Deportivo = nodo raíz, de él se desprenden las 4 ramas */}
+    <OrgNode mob={mob} icon="🎯" title="Director Deportivo" sub="Franco Lucchini" color={AC_C.dir} ex={!!ex.acDD} onTog={()=>tog("acDD")}>
+      <P cargo="Director Deportivo" name="Franco Lucchini" color={AC_C.dir} star/>
 
-    <div style={{marginLeft:mob?12:24,borderLeft:"2px solid "+C.dir+"22",paddingLeft:mob?8:14}}>
-      {/* Director de Rugby */}
-      <OrgNode mob={mob} icon="🏉" title="Director de Rugby" sub="Fernando Higgs" color={C.rugby} ex={!!ex.acDR} onTog={()=>tog("acDR")} cnt="18">
-        <AcPerson cargo="Director de Rugby" name="Fernando Higgs" color={C.rugby} mob={mob}/>
+      {/* ── 1. DIRECTOR DE RUGBY ── */}
+      <OrgNode mob={mob} icon="🏉" title="Director de Rugby" sub="Fernando Higgs" color={AC_C.rugby} ex={!!ex.acDR} onTog={()=>tog("acDR")} cnt="18">
+        <P cargo="Director de Rugby" name="Fernando Higgs" color={AC_C.rugby} star/>
 
-        <OrgNode mob={mob} icon="📋" title="Coordinadores" color={C.rugby} ex={!!ex.acCoord} onTog={()=>tog("acCoord")} cnt="4">
-          <AcPerson cargo="Coordinador Infantiles" name="Carlos Efimenco" color={C.rugby} mob={mob}/>
-          <AcPerson cargo="Coordinador Ataque" name="Ricardo Donna" color={C.rugby} mob={mob}/>
-          <AcPerson cargo="Coordinador LINE" name="Juan Ignacio Castillo" color={C.rugby} mob={mob}/>
-          <AcPerson cargo="Coordinador SCRUM" name="Martin Silva" color={C.rugby} mob={mob}/>
+        <OrgNode mob={mob} icon="📋" title="Coordinadores de Especialidad" color={AC_C.rugby} ex={!!ex.acCo} onTog={()=>tog("acCo")} cnt="4">
+          <P cargo="Coord. Infantiles" name="Carlos Efimenco" color={AC_C.rugby}/>
+          <P cargo="Coord. Ataque" name="Ricardo Donna" color={AC_C.rugby}/>
+          <P cargo="Coord. LINE" name="Juan Ignacio Castillo" color={AC_C.rugby}/>
+          <P cargo="Coord. SCRUM" name="Martin Silva" color={AC_C.rugby}/>
         </OrgNode>
 
-        <OrgNode mob={mob} icon="🎽" title="Entrenadores" color={C.rugby} ex={!!ex.acEnt} onTog={()=>tog("acEnt")} cnt="13">
-          <AcPerson cargo="Entrenador" name="Pedro Garcia" div="Plantel Superior" color={"#DC2626"} mob={mob}/>
-          <AcPerson cargo="Entrenador" name="Nicolas Ranieri" div="M19" color={"#F59E0B"} mob={mob}/>
-          <AcPerson cargo="Entrenador" name="Gonzalo Intzes" div="M17" color={"#F59E0B"} mob={mob}/>
-          <AcPerson cargo="Entrenador" name="Rodolfo Guerra" div="M16" color={"#F59E0B"} mob={mob}/>
-          <AcPerson cargo="Entrenador" name="Sebastian Salas" div="M15" color={"#F59E0B"} mob={mob}/>
-          <AcPerson cargo="Entrenador" name="Enrique Arroyo" div="M14" color={"#3B82F6"} mob={mob}/>
-          <AcPerson cargo="Entrenador" name="Ramiro Pontis Day" div="M13" color={"#3B82F6"} mob={mob}/>
-          <AcPerson cargo="Entrenador" name="Fabian Guzzo" div="M12" color={"#10B981"} mob={mob}/>
-          <AcPerson cargo="Entrenador" name="Maximiliano Ortega" div="M11" color={"#10B981"} mob={mob}/>
-          <AcPerson cargo="Entrenador" name="Martin Sanchez" div="M10" color={"#10B981"} mob={mob}/>
-          <AcPerson cargo="Entrenador" name="Daniel Pont Lezica" div="M9" color={"#10B981"} mob={mob}/>
-          <AcPerson cargo="Entrenador" name="Javier Badano" div="M8" color={"#10B981"} mob={mob}/>
-          <AcPerson cargo="Entrenador" name="Joel Aguero" div="Escuelita" color={"#10B981"} mob={mob}/>
+        <OrgNode mob={mob} icon="🔴" title="Plantel Superior" color={AC_C.sup} ex={!!ex.acPS} onTog={()=>tog("acPS")} cnt="4">
+          <P cargo="Entrenador" name="Pedro Garcia" color={AC_C.sup}/>
+          <P cargo="Prep. Física" name="Julieta Miranda" color={AC_C.sup}/>
+          <P cargo="Prep. Física" name="David Boullaude" color={AC_C.sup}/>
+          <P cargo="Prep. Física" name="Rodrigo Verger" color={AC_C.sup}/>
+        </OrgNode>
+
+        <OrgNode mob={mob} icon="🟡" title="Juveniles (M15–M19)" color={AC_C.juv} ex={!!ex.acJuv} onTog={()=>tog("acJuv")} cnt="10">
+          <DivNode div="M19" ent="Nicolas Ranieri" pf="Luis Puebla" color={AC_C.juv} mob={mob} ex={ex} tog={tog} k="acM19"/>
+          <DivNode div="M17" ent="Gonzalo Intzes" pf="Nicolas Hernandez" color={AC_C.juv} mob={mob} ex={ex} tog={tog} k="acM17"/>
+          <DivNode div="M16" ent="Rodolfo Guerra" pf="" color={AC_C.juv} mob={mob} ex={ex} tog={tog} k="acM16"/>
+          <DivNode div="M15" ent="Sebastian Salas" pf="" color={AC_C.juv} mob={mob} ex={ex} tog={tog} k="acM15"/>
+        </OrgNode>
+
+        <OrgNode mob={mob} icon="🔵" title="Infantiles (M8–M14)" color={AC_C.inf} ex={!!ex.acInf} onTog={()=>tog("acInf")} cnt="14">
+          <DivNode div="M14" ent="Enrique Arroyo" pf="Nicolas Gaido" color={AC_C.inf} mob={mob} ex={ex} tog={tog} k="acM14"/>
+          <DivNode div="M13" ent="Ramiro Pontis Day" pf="Franco Gomez" color={AC_C.inf} mob={mob} ex={ex} tog={tog} k="acM13"/>
+          <DivNode div="M12" ent="Fabian Guzzo" pf="Matias Boero" color={AC_C.inf} mob={mob} ex={ex} tog={tog} k="acM12"/>
+          <DivNode div="M11" ent="Maximiliano Ortega" pf="Rodrigo Verger" color={AC_C.inf} mob={mob} ex={ex} tog={tog} k="acM11"/>
+          <DivNode div="M10" ent="Martin Sanchez" pf="Karen Carrion" color={AC_C.inf} mob={mob} ex={ex} tog={tog} k="acM10"/>
+          <DivNode div="M9" ent="Daniel Pont Lezica" pf="Enzo Correa" color={AC_C.inf} mob={mob} ex={ex} tog={tog} k="acM9"/>
+          <DivNode div="M8" ent="Javier Badano" pf="Javier Badano" color={AC_C.inf} mob={mob} ex={ex} tog={tog} k="acM8"/>
+        </OrgNode>
+
+        <OrgNode mob={mob} icon="🟢" title="Escuelita" color={AC_C.esc} ex={!!ex.acEsc} onTog={()=>tog("acEsc")} cnt="3">
+          <P cargo="Entrenador" name="Joel Aguero" color={AC_C.esc}/>
+          <P cargo="Prep. Física" name="Joel Aguero" color={AC_C.esc}/>
+          <P cargo="Prep. Física" name="Federica Castilla" color={AC_C.esc}/>
         </OrgNode>
       </OrgNode>
 
-      {/* Director Hockey */}
-      <OrgNode mob={mob} icon="🏑" title="Director Hockey" sub="Florencia Marquez" color={C.hockey} ex={!!ex.acDH} onTog={()=>tog("acDH")} cnt="1">
-        <AcPerson cargo="Director Hockey" name="Florencia Marquez" color={C.hockey} mob={mob}/>
-        <AcPerson cargo="Coordinador" name="" color={C.hockey} mob={mob}/>
+      {/* ── 2. DIRECTOR DE HOCKEY ── */}
+      <OrgNode mob={mob} icon="🏑" title="Director de Hockey" sub="Florencia Marquez" color={AC_C.hockey} ex={!!ex.acDH} onTog={()=>tog("acDH")} cnt="1">
+        <P cargo="Director Hockey" name="Florencia Marquez" color={AC_C.hockey} star/>
+        <P cargo="Coordinador" name="" color={AC_C.hockey}/>
         <div style={{fontSize:10,color:T.g4,fontStyle:"italic",padding:4}}>Entrenadores por definir</div>
       </OrgNode>
 
-      {/* Coordinador PF */}
-      <OrgNode mob={mob} icon="💪" title="Preparación Física" sub="Matias Elias" color={C.pf} ex={!!ex.acPF} onTog={()=>tog("acPF")} cnt="16">
-        <AcPerson cargo="Coordinador PF" name="Matias Elias" color={C.pf} mob={mob}/>
-
-        <OrgNode mob={mob} icon="🏉" title="PF Rugby" color={C.pf} ex={!!ex.acPFR} onTog={()=>tog("acPFR")} cnt="14">
-          <AcPerson cargo="PF" name="Julieta Miranda" div="Plantel Superior" color={"#DC2626"} mob={mob}/>
-          <AcPerson cargo="PF" name="David Boullaude" div="Plantel Superior" color={"#DC2626"} mob={mob}/>
-          <AcPerson cargo="PF" name="Rodrigo Verger" div="Plantel Superior · M11" color={"#DC2626"} mob={mob}/>
-          <AcPerson cargo="PF" name="Luis Puebla" div="M19" color={"#F59E0B"} mob={mob}/>
-          <AcPerson cargo="PF" name="Nicolas Hernandez" div="M17" color={"#F59E0B"} mob={mob}/>
-          <AcPerson cargo="PF" name="" div="M16" color={"#F59E0B"} mob={mob}/>
-          <AcPerson cargo="PF" name="" div="M15" color={"#F59E0B"} mob={mob}/>
-          <AcPerson cargo="PF" name="Nicolas Gaido" div="M14" color={"#3B82F6"} mob={mob}/>
-          <AcPerson cargo="PF" name="Franco Gomez" div="M13" color={"#3B82F6"} mob={mob}/>
-          <AcPerson cargo="PF" name="Matias Boero" div="M12" color={"#10B981"} mob={mob}/>
-          <AcPerson cargo="PF" name="Karen Carrion" div="M10" color={"#10B981"} mob={mob}/>
-          <AcPerson cargo="PF" name="Enzo Correa" div="M9" color={"#10B981"} mob={mob}/>
-          <AcPerson cargo="PF" name="Javier Badano" div="M8" color={"#10B981"} mob={mob}/>
-          <AcPerson cargo="PF" name="Joel Aguero · Federica Castilla" div="Escuelita" color={"#10B981"} mob={mob}/>
-        </OrgNode>
-
-        <OrgNode mob={mob} icon="🏑" title="PF Hockey" color={C.hockey} ex={!!ex.acPFH} onTog={()=>tog("acPFH")} cnt="0">
-          <div style={{fontSize:10,color:T.g4,fontStyle:"italic",padding:4}}>Por definir</div>
-        </OrgNode>
+      {/* ── 3. COORDINADOR PREP. FÍSICA ── */}
+      <OrgNode mob={mob} icon="💪" title="Coordinador Preparación Física" sub="Matias Elias" color={AC_C.pf} ex={!!ex.acPF} onTog={()=>tog("acPF")}>
+        <P cargo="Coordinador PF" name="Matias Elias" color={AC_C.pf} star/>
+        <div style={{fontSize:10,color:T.g4,padding:"4px 0"}}>Los PFs están asignados a cada división dentro de Director de Rugby</div>
       </OrgNode>
 
-      {/* Médico */}
-      <OrgNode mob={mob} icon="🩺" title="Área Médica" color={C.med} ex={!!ex.acMed} onTog={()=>tog("acMed")} cnt="4">
-        <AcPerson cargo="Médico" name="" color={C.med} mob={mob}/>
-        <AcPerson cargo="Kinesiólogo Rugby" name="Martin Azcurra" color={C.med} mob={mob}/>
-        <AcPerson cargo="Kinesiólogo Hockey" name="Carolina Armani" color={C.med} mob={mob}/>
-        <AcPerson cargo="Nutricionista" name="Matias Zanni" color={C.med} mob={mob}/>
-        <AcPerson cargo="Psicóloga" name="Veronica Gomez" color={C.med} mob={mob}/>
+      {/* ── 4. EQUIPO MÉDICO ── */}
+      <OrgNode mob={mob} icon="🩺" title="Equipo Médico" color={AC_C.med} ex={!!ex.acMed} onTog={()=>tog("acMed")} cnt="5">
+        <P cargo="Médico" name="" color={AC_C.med}/>
+        <P cargo="Kinesiólogo Rugby" name="Martin Azcurra" color={AC_C.med}/>
+        <P cargo="Kinesiólogo Hockey" name="Carolina Armani" color={AC_C.med}/>
+        <P cargo="Nutricionista" name="Matias Zanni" color={AC_C.med}/>
+        <P cargo="Psicóloga" name="Veronica Gomez" color={AC_C.med}/>
       </OrgNode>
-    </div>
+    </OrgNode>
   </div>);
 }
 
@@ -115,7 +107,7 @@ export function Org({areas,deptos,users,om,onEditSave,onDelOm,onDelUser,onEditUs
   const tAreaIds=tA?deptos.filter((d:any)=>d.aId===tA).map((d:any)=>d.id):[];
   const tAreaPeds=tA?(pedidos||[]).filter((p:any)=>tAreaIds.indexOf(p.dId)>=0):[];
   return(<div style={{maxWidth:mob?undefined:720}}>
-    <h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:T.nv,fontWeight:800}}>Organigrama</h2><p style={{color:T.g4,fontSize:12,margin:"0 0 12px"}}>Estructura institucional Los Tordos Rugby Club</p>
+    <h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:T.nv,fontWeight:800}}>{tab==="academia"?"Academia Tordos":"Organigrama"}</h2><p style={{color:T.g4,fontSize:12,margin:"0 0 12px"}}>{tab==="academia"?"Estructura deportiva — Staff técnico y médico":"Estructura institucional Los Tordos Rugby Club"}</p>
     <div style={{display:"flex",gap:4,marginBottom:14}}>
       {[{k:"struct",l:"👥 Estructura"},{k:"academia",l:"🏉 Academia"},{k:"tasks",l:"📋 Departamentos"}].map(t=><button key={t.k} onClick={()=>{sTab(t.k);sTa(null);sTd(null);}} style={{padding:"7px 16px",borderRadius:8,border:"none",background:tab===t.k?T.nv:"#fff",color:tab===t.k?"#fff":T.g5,fontSize:12,fontWeight:600,cursor:"pointer"}}>{t.l}</button>)}
     </div>
