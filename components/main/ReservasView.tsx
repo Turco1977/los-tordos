@@ -106,7 +106,7 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel}:any){
     f.title=BOOK_FAC[f.facility]?.l||"";
     sForm(f);sShowAdd(true);
   };
-  const startEdit=(b:any)=>{sEditId(String(b.id));sEditForm({facility:b.facility,date:b.date,time_start:b.time_start,time_end:b.time_end,title:b.title,division:b.division||"",description:b.description||"",notes:b.notes||"",status:b.status});};
+  const startEdit=(b:any)=>{sShowAdd(false);sEditId(String(b.id));sEditForm({facility:b.facility,date:b.date,time_start:b.time_start,time_end:b.time_end,title:b.title,division:b.division||"",description:b.description||"",notes:b.notes||"",status:b.status});};
   const cancelEdit=()=>{sEditId(null);sEditForm(null);};
   const saveEdit=()=>{if(!editId||!editForm)return;onUpd(editId,editForm);cancelEdit();};
   const userName=(uid:string)=>{const u=(users||[]).find((u2:any)=>u2.id===uid);return u?fn(u):"";};
@@ -260,6 +260,47 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel}:any){
 
     {/* ═══════ TAB: CALENDARIO ═══════ */}
     {tab==="calendario"&&<>
+      {/* ═══════ EDIT BOOKING (above calendar) ═══════ */}
+      {editId&&editForm&&<Card style={{marginBottom:14,borderLeft:"4px solid "+BOOK_FAC[editForm.facility]?.c,background:isDark?"#1E293B":"#FAFAFA"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+          <div style={{fontSize:12,fontWeight:700,color:colors.nv}}>Editar Espacio #{editId}</div>
+          <div style={{display:"flex",gap:4,alignItems:"center"}}>
+            {onDel&&<button onClick={()=>{if(confirm("Eliminar este espacio?"))onDel(editId);cancelEdit();}} style={{background:"none",border:"1px solid #DC2626",borderRadius:6,padding:"3px 8px",fontSize:10,color:"#DC2626",cursor:"pointer",fontWeight:600}}>Eliminar</button>}
+            <button onClick={cancelEdit} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:colors.g4}}>✕</button>
+          </div>
+        </div>
+        <div style={{display:"flex",gap:4,marginBottom:10,flexWrap:"wrap" as const}}>
+          {SKEYS.map(k=>{const s=BOOK_ST[k];return(
+            <button key={k} onClick={()=>sEditForm((p:any)=>({...p,status:k}))} style={{padding:"4px 12px",borderRadius:14,border:editForm.status===k?"2px solid "+s.c:"1px solid "+colors.g3,background:editForm.status===k?s.bg:cardBg,color:s.c,fontSize:10,fontWeight:700,cursor:"pointer"}}>{s.i} {s.l}</button>
+          );})}
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8,marginBottom:8}}>
+          <div><label style={lblSt}>Instalación</label>
+            <select value={editForm.facility} onChange={e=>sEditForm((p:any)=>({...p,facility:e.target.value}))} style={iSt}>
+              {FKEYS.map(k=><option key={k} value={k}>{BOOK_FAC[k].i} {BOOK_FAC[k].l}</option>)}
+            </select>
+          </div>
+          <div><label style={lblSt}>Fecha</label><input type="date" value={editForm.date} onChange={e=>sEditForm((p:any)=>({...p,date:e.target.value}))} style={iSt}/></div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:mob?"1fr 1fr":"1fr 1fr 1fr 1fr",gap:8,marginBottom:8}}>
+          <div><label style={lblSt}>Hora inicio</label><input type="time" value={editForm.time_start} onChange={e=>sEditForm((p:any)=>({...p,time_start:e.target.value}))} style={iSt}/></div>
+          <div><label style={lblSt}>Hora fin</label><input type="time" value={editForm.time_end} onChange={e=>sEditForm((p:any)=>({...p,time_end:e.target.value}))} style={iSt}/></div>
+          <div><label style={lblSt}>Título</label><input value={editForm.title} onChange={e=>sEditForm((p:any)=>({...p,title:e.target.value}))} style={iSt}/></div>
+          <div><label style={lblSt}>División</label>
+            <select value={editForm.division||""} onChange={e=>sEditForm((p:any)=>({...p,division:e.target.value}))} style={iSt}>
+              {DIV_LIST.map(d=><option key={d} value={d}>{d||"— Sin división —"}</option>)}
+            </select>
+          </div>
+        </div>
+        <div style={{marginBottom:8}}><label style={lblSt}>Descripción</label><textarea value={editForm.description} onChange={e=>sEditForm((p:any)=>({...p,description:e.target.value}))} rows={2} style={{...iSt,resize:"vertical" as const}}/></div>
+        <div style={{marginBottom:8}}><label style={lblSt}>Notas</label><input value={editForm.notes} onChange={e=>sEditForm((p:any)=>({...p,notes:e.target.value}))} style={iSt}/></div>
+        {editConflict&&<div style={{padding:"8px 12px",borderRadius:8,background:isDark?"#7F1D1D":"#FEF2F2",border:"1px solid #FECACA",fontSize:11,fontWeight:600,color:"#DC2626",marginBottom:8}}>⚠️ Conflicto: se superpone con otra reserva en {BOOK_FAC[editForm.facility]?.l} el {fmtD(editForm.date)}.</div>}
+        <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}>
+          <Btn v="g" s="s" onClick={cancelEdit}>Cancelar</Btn>
+          <Btn v="p" s="s" onClick={saveEdit}>Guardar cambios</Btn>
+        </div>
+      </Card>}
+
       {/* ── WEEK VIEW ── */}
       <Card style={{padding:mob?10:14,marginBottom:18,overflow:"auto"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
@@ -305,47 +346,7 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel}:any){
         </div>
       </Card>
 
-      {/* ═══════ EDIT BOOKING INLINE ═══════ */}
-      {editId&&editForm&&<Card style={{marginBottom:14,borderLeft:"4px solid "+BOOK_FAC[editForm.facility]?.c,background:isDark?"#1E293B":"#FAFAFA"}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-          <div style={{fontSize:12,fontWeight:700,color:colors.nv}}>Editar Espacio #{editId}</div>
-          <div style={{display:"flex",gap:4,alignItems:"center"}}>
-            {onDel&&<button onClick={()=>{if(confirm("Eliminar este espacio?"))onDel(editId);cancelEdit();}} style={{background:"none",border:"1px solid #DC2626",borderRadius:6,padding:"3px 8px",fontSize:10,color:"#DC2626",cursor:"pointer",fontWeight:600}}>Eliminar</button>}
-            <button onClick={cancelEdit} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:colors.g4}}>✕</button>
-          </div>
-        </div>
-        {/* status quick actions */}
-        <div style={{display:"flex",gap:4,marginBottom:10,flexWrap:"wrap" as const}}>
-          {SKEYS.map(k=>{const s=BOOK_ST[k];return(
-            <button key={k} onClick={()=>sEditForm((p:any)=>({...p,status:k}))} style={{padding:"4px 12px",borderRadius:14,border:editForm.status===k?"2px solid "+s.c:"1px solid "+colors.g3,background:editForm.status===k?s.bg:cardBg,color:s.c,fontSize:10,fontWeight:700,cursor:"pointer"}}>{s.i} {s.l}</button>
-          );})}
-        </div>
-        <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8,marginBottom:8}}>
-          <div><label style={lblSt}>Instalación</label>
-            <select value={editForm.facility} onChange={e=>sEditForm((p:any)=>({...p,facility:e.target.value}))} style={iSt}>
-              {FKEYS.map(k=><option key={k} value={k}>{BOOK_FAC[k].i} {BOOK_FAC[k].l}</option>)}
-            </select>
-          </div>
-          <div><label style={lblSt}>Fecha</label><input type="date" value={editForm.date} onChange={e=>sEditForm((p:any)=>({...p,date:e.target.value}))} style={iSt}/></div>
-        </div>
-        <div style={{display:"grid",gridTemplateColumns:mob?"1fr 1fr":"1fr 1fr 1fr 1fr",gap:8,marginBottom:8}}>
-          <div><label style={lblSt}>Hora inicio</label><input type="time" value={editForm.time_start} onChange={e=>sEditForm((p:any)=>({...p,time_start:e.target.value}))} style={iSt}/></div>
-          <div><label style={lblSt}>Hora fin</label><input type="time" value={editForm.time_end} onChange={e=>sEditForm((p:any)=>({...p,time_end:e.target.value}))} style={iSt}/></div>
-          <div><label style={lblSt}>Título</label><input value={editForm.title} onChange={e=>sEditForm((p:any)=>({...p,title:e.target.value}))} style={iSt}/></div>
-          <div><label style={lblSt}>División</label>
-            <select value={editForm.division||""} onChange={e=>sEditForm((p:any)=>({...p,division:e.target.value}))} style={iSt}>
-              {DIV_LIST.map(d=><option key={d} value={d}>{d||"— Sin división —"}</option>)}
-            </select>
-          </div>
-        </div>
-        <div style={{marginBottom:8}}><label style={lblSt}>Descripción</label><textarea value={editForm.description} onChange={e=>sEditForm((p:any)=>({...p,description:e.target.value}))} rows={2} style={{...iSt,resize:"vertical" as const}}/></div>
-        <div style={{marginBottom:8}}><label style={lblSt}>Notas</label><input value={editForm.notes} onChange={e=>sEditForm((p:any)=>({...p,notes:e.target.value}))} style={iSt}/></div>
-        {editConflict&&<div style={{padding:"8px 12px",borderRadius:8,background:isDark?"#7F1D1D":"#FEF2F2",border:"1px solid #FECACA",fontSize:11,fontWeight:600,color:"#DC2626",marginBottom:8}}>⚠️ Conflicto: se superpone con otra reserva en {BOOK_FAC[editForm.facility]?.l} el {fmtD(editForm.date)}.</div>}
-        <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}>
-          <Btn v="g" s="s" onClick={cancelEdit}>Cancelar</Btn>
-          <Btn v="p" s="s" onClick={saveEdit}>Guardar cambios</Btn>
-        </div>
-      </Card>}
+      {/* old edit form removed — now rendered above calendar */}
 
       {/* ═══════ BOOKING LIST ═══════ */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
