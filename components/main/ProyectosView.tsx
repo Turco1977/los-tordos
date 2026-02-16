@@ -1,21 +1,28 @@
 "use client";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useC } from "@/lib/theme-context";
-import { PJ_ST } from "@/lib/constants";
+import { PJ_ST, PJ_PR } from "@/lib/constants";
 
 const PJ_EJES=["Deportivo","Social","Institucional","Infraestructura"];
 const PJ_STATUS:{[k:string]:{l:string;c:string;bg:string}}={borrador:{l:"Borrador",c:"#6B7280",bg:"#F3F4F6"},enviado:{l:"Enviado",c:"#3B82F6",bg:"#DBEAFE"},aprobado:{l:"Aprobado",c:"#10B981",bg:"#D1FAE5"},rechazado:{l:"Rechazado",c:"#DC2626",bg:"#FEE2E2"}};
 const emptyForm=()=>({nombre:"",responsable:"",equipo:"",obj_lograr:"",obj_beneficio:"",eje:"",adn:"",descripcion:"",duracion:"",etapas:"",rec_eco:"",rec_hum:"",rec_infra:"",riesgo_mal:"",riesgo_clave:"",entregables:""});
 const parseFormData=(desc:string)=>{try{return JSON.parse(desc);}catch{return emptyForm();}};
 const wordCount=(t:string)=>t.trim().split(/\s+/).filter(Boolean).length;
+const COLS=Object.keys(PJ_ST) as string[];
 
-export function ProyectosView({projects,users,user,mob,onAddProject,onUpdProject,onDelProject}:any){
+export function ProyectosView({projects,projTasks,users,user,mob,onAddProject,onUpdProject,onDelProject,onAddTask,onUpdTask,onDelTask}:any){
   const{colors,isDark,cardBg}=useC();
   const [mode,sMode]=useState<"list"|"form"|"view">("list");
   const [selProj,sSelProj]=useState<any>(null);
   const [form,sForm]=useState(emptyForm());
   const [editing,sEditing]=useState(false);
   const [formErr,sFormErr]=useState("");
+  const [viewTab,sViewTab]=useState<"propuesta"|"tareas">("tareas");
+  const [taskForm,sTaskForm]=useState<any>(null);
+  const [editTask,sEditTask]=useState<any>(null);
+  const [taskSearch,sTaskSearch]=useState("");
+  const [taskPriFilter,sTaskPriFilter]=useState<string>("all");
+
   const upd=(k:string,v:string)=>{sForm(f=>({...f,[k]:v}));if(k==="nombre"&&v.trim())sFormErr("");};
   const iS:any={width:"100%",padding:"8px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,background:cardBg,color:colors.nv};
   const tS:any={...iS,resize:"vertical" as const};
@@ -28,6 +35,10 @@ export function ProyectosView({projects,users,user,mob,onAddProject,onUpdProject
   </div>;
   const viewField=(label:string,val:string)=>val?<div style={{marginBottom:8}}><div style={{fontSize:10,fontWeight:700,color:colors.g4,textTransform:"uppercase" as const,marginBottom:2}}>{label}</div><div style={{fontSize:12,color:colors.nv,lineHeight:1.5,whiteSpace:"pre-wrap" as const}}>{val}</div></div>:null;
 
+  /* Task helpers */
+  const projTasksFor=(pid:number)=>(projTasks||[]).filter((t:any)=>t.project_id===pid);
+  const taskProgress=(pid:number)=>{const ts=projTasksFor(pid);const total=ts.length;const done=ts.filter((t:any)=>t.status==="done").length;return{total,done,pct:total?Math.round(done/total*100):0};};
+
   // ── List ──
   if(mode==="list") return(<div style={{maxWidth:900}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
@@ -36,18 +47,34 @@ export function ProyectosView({projects,users,user,mob,onAddProject,onUpdProject
     </div>
     {projects.length===0&&<div style={{background:cardBg,borderRadius:14,padding:32,textAlign:"center" as const,border:"1px solid "+colors.g2}}><div style={{fontSize:32,marginBottom:8}}>📋</div><div style={{fontSize:13,color:colors.g4,marginBottom:4}}>No hay proyectos presentados aún.</div><div style={{fontSize:11,color:colors.g4}}>Usá el botón "+ Nuevo Proyecto" para crear tu primera propuesta.</div></div>}
     <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"repeat(auto-fill,minmax(320px,1fr))",gap:12}}>
-      {projects.map((p:any)=>{const fd=parseFormData(p.description);const st=PJ_STATUS[p.status]||PJ_STATUS.borrador;return(<div key={p.id} onClick={()=>{sSelProj(p);sMode("view");}} style={{background:cardBg,borderRadius:14,padding:16,border:"1px solid "+colors.g2,cursor:"pointer",boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}>
+      {projects.map((p:any)=>{const fd=parseFormData(p.description);const st=PJ_STATUS[p.status]||PJ_STATUS.borrador;const prog=taskProgress(p.id);return(<div key={p.id} onClick={()=>{sSelProj(p);sViewTab("tareas");sMode("view");}} style={{background:cardBg,borderRadius:14,padding:16,border:"1px solid "+colors.g2,cursor:"pointer",boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"start",marginBottom:6}}>
           <div style={{flex:1,minWidth:0}}>
             <div style={{fontSize:14,fontWeight:700,color:colors.nv,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{p.name||"Sin nombre"}</div>
             {fd.responsable&&<div style={{fontSize:11,color:colors.g5,marginTop:2}}>👤 {fd.responsable}</div>}
           </div>
-          <span style={{fontSize:9,fontWeight:700,padding:"2px 8px",borderRadius:10,background:st.bg,color:st.c,flexShrink:0,marginLeft:8}}>{st.l}</span>
+          <div style={{display:"flex",flexDirection:"column" as const,alignItems:"flex-end",gap:4,flexShrink:0,marginLeft:8}}>
+            <span style={{fontSize:9,fontWeight:700,padding:"2px 8px",borderRadius:10,background:st.bg,color:st.c}}>{st.l}</span>
+            {prog.pct===100&&prog.total>0&&<span style={{fontSize:8,fontWeight:700,padding:"2px 6px",borderRadius:8,background:"#D1FAE5",color:"#059669"}}>COMPLETE</span>}
+          </div>
         </div>
         <div style={{display:"flex",gap:4,flexWrap:"wrap" as const,marginBottom:6}}>
           {fd.eje&&<span style={{fontSize:9,padding:"2px 7px",borderRadius:8,background:colors.g2,color:colors.nv,fontWeight:600}}>{fd.eje}</span>}
         </div>
-        {fd.descripcion&&<div style={{fontSize:11,color:colors.g5,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical" as const}}>{fd.descripcion}</div>}
+        {fd.descripcion&&<div style={{fontSize:11,color:colors.g5,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical" as const,marginBottom:6}}>{fd.descripcion}</div>}
+        {/* Progress bar */}
+        {prog.total>0&&<div style={{marginBottom:4}}>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:9,color:colors.g4,marginBottom:2}}>
+            <span>{prog.done}/{prog.total} tareas</span><span>{prog.pct}%</span>
+          </div>
+          <div style={{height:4,borderRadius:2,background:colors.g2,overflow:"hidden"}}>
+            <div style={{height:"100%",width:prog.pct+"%",borderRadius:2,background:prog.pct===100?"#10B981":"#3B82F6",transition:"width .3s"}}/>
+          </div>
+        </div>}
+        {/* Status summary pills */}
+        {prog.total>0&&<div style={{display:"flex",gap:3,flexWrap:"wrap" as const,marginTop:4}}>
+          {COLS.map(col=>{const cnt=projTasksFor(p.id).filter((t:any)=>t.status===col).length;return cnt>0?<span key={col} style={{fontSize:8,padding:"1px 5px",borderRadius:6,background:PJ_ST[col].bg,color:PJ_ST[col].c,fontWeight:600}}>{PJ_ST[col].i} {cnt}</span>:null;})}
+        </div>}
         <div style={{fontSize:9,color:colors.g4,marginTop:6}}>Por {p.created_by_name||"\u2014"} · {p.created_at?.slice(0,10)}</div>
       </div>);})}
     </div>
@@ -114,24 +141,183 @@ export function ProyectosView({projects,users,user,mob,onAddProject,onUpdProject
     </div>
   </div>);
 
-  // ── View ──
+  // ── View (detail with tabs) ──
   const p=selProj;
   const fd=parseFormData(p.description);
   const st=PJ_STATUS[p.status]||PJ_STATUS.borrador;
   const isAdmin=user&&(user.role==="admin"||user.role==="superadmin"||user.role==="coordinador");
   const isOwner=user&&p.created_by===user.id;
+  const tasks=projTasksFor(p.id);
+  const prog=taskProgress(p.id);
 
-  return(<div style={{maxWidth:720}}>
-    <button onClick={()=>{sMode("list");sSelProj(null);}} style={{background:"none",border:"1px solid "+colors.g3,borderRadius:6,cursor:"pointer",fontSize:12,padding:"4px 10px",color:colors.g5,marginBottom:10}}>← Volver a lista</button>
-    <div style={{background:cardBg,borderRadius:14,padding:mob?16:24,border:"1px solid "+colors.g2}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"start",marginBottom:12}}>
+  /* Filtered tasks for board */
+  const filteredTasks=useMemo(()=>{
+    let ts=tasks;
+    if(taskSearch){const s=taskSearch.toLowerCase();ts=ts.filter((t:any)=>(t.title+t.description+t.assignee_name).toLowerCase().includes(s));}
+    if(taskPriFilter!=="all")ts=ts.filter((t:any)=>t.priority===taskPriFilter);
+    return ts;
+  },[tasks,taskSearch,taskPriFilter]);
+
+  return(<div style={{maxWidth:mob?undefined:1100}}>
+    <button onClick={()=>{sMode("list");sSelProj(null);sEditTask(null);sTaskForm(null);}} style={{background:"none",border:"1px solid "+colors.g3,borderRadius:6,cursor:"pointer",fontSize:12,padding:"4px 10px",color:colors.g5,marginBottom:10}}>← Volver a lista</button>
+
+    {/* Project header */}
+    <div style={{background:cardBg,borderRadius:14,padding:mob?"12px 14px":"14px 20px",border:"1px solid "+colors.g2,marginBottom:12}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"start",marginBottom:8}}>
         <div style={{flex:1}}>
-          <div style={{fontSize:mob?18:22,fontWeight:800,color:colors.nv}}>{p.name}</div>
-          <div style={{fontSize:11,color:colors.g4,marginTop:2}}>Presentado por {p.created_by_name||"\u2014"} · {p.created_at?.slice(0,10)}</div>
+          <div style={{fontSize:mob?16:20,fontWeight:800,color:colors.nv}}>{p.name}</div>
+          <div style={{fontSize:11,color:colors.g4,marginTop:2}}>Por {p.created_by_name||"\u2014"} · {p.created_at?.slice(0,10)}</div>
         </div>
-        <span style={{fontSize:10,fontWeight:700,padding:"3px 10px",borderRadius:10,background:st.bg,color:st.c}}>{st.l}</span>
+        <div style={{display:"flex",alignItems:"center",gap:6}}>
+          <span style={{fontSize:10,fontWeight:700,padding:"3px 10px",borderRadius:10,background:st.bg,color:st.c}}>{st.l}</span>
+          {prog.pct===100&&prog.total>0&&<span style={{fontSize:9,fontWeight:700,padding:"3px 8px",borderRadius:8,background:"#D1FAE5",color:"#059669"}}>COMPLETE</span>}
+        </div>
+      </div>
+      {/* Progress bar */}
+      {prog.total>0&&<div>
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:colors.g4,marginBottom:3}}>
+          <span>{prog.done} de {prog.total} tareas completadas</span><span style={{fontWeight:700,color:prog.pct===100?"#10B981":colors.nv}}>{prog.pct}%</span>
+        </div>
+        <div style={{height:6,borderRadius:3,background:colors.g2,overflow:"hidden"}}>
+          <div style={{height:"100%",width:prog.pct+"%",borderRadius:3,background:prog.pct===100?"#10B981":"#3B82F6",transition:"width .3s"}}/>
+        </div>
+      </div>}
+      {/* Actions */}
+      <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap" as const}}>
+        {(isOwner||isAdmin)&&<button onClick={()=>{sForm({...emptyForm(),...fd,nombre:fd.nombre||p.name});sEditing(true);sMode("form");}} style={{padding:"5px 10px",borderRadius:6,border:"1px solid "+colors.g3,background:"transparent",fontSize:10,cursor:"pointer",color:colors.nv,fontWeight:600}}>✏️ Editar</button>}
+        {(isOwner||isAdmin)&&<button onClick={()=>{if(confirm("¿Eliminar este proyecto y todas sus tareas?"))onDelProject(p.id);sMode("list");sSelProj(null);}} style={{padding:"5px 10px",borderRadius:6,border:"1px solid #FCA5A5",background:"transparent",fontSize:10,cursor:"pointer",color:"#DC2626",fontWeight:600}}>🗑 Eliminar</button>}
+        {isAdmin&&p.status==="enviado"&&<>
+          <button onClick={()=>{if(confirm("¿Aprobar este proyecto?")){onUpdProject(p.id,{status:"aprobado"});sSelProj({...p,status:"aprobado"});}}} style={{padding:"5px 10px",borderRadius:6,border:"none",background:"#10B981",color:"#fff",fontSize:10,fontWeight:700,cursor:"pointer"}}>✅ Aprobar</button>
+          <button onClick={()=>{if(confirm("¿Rechazar este proyecto?")){onUpdProject(p.id,{status:"rechazado"});sSelProj({...p,status:"rechazado"});}}} style={{padding:"5px 10px",borderRadius:6,border:"none",background:"#DC2626",color:"#fff",fontSize:10,fontWeight:700,cursor:"pointer"}}>❌ Rechazar</button>
+        </>}
+      </div>
+    </div>
+
+    {/* Tabs */}
+    <div style={{display:"flex",gap:2,marginBottom:12}}>
+      {(["tareas","propuesta"] as const).map(tab=><button key={tab} onClick={()=>sViewTab(tab)} style={{padding:"7px 16px",borderRadius:"8px 8px 0 0",border:"1px solid "+colors.g2,borderBottom:viewTab===tab?"2px solid "+colors.nv:"1px solid "+colors.g2,background:viewTab===tab?cardBg:"transparent",fontSize:12,fontWeight:viewTab===tab?700:500,color:viewTab===tab?colors.nv:colors.g4,cursor:"pointer"}}>{tab==="tareas"?"📊 Tablero de Tareas"+(prog.total>0?" ("+prog.total+")":""):"📝 Propuesta"}</button>)}
+    </div>
+
+    {/* ── TAREAS TAB ── */}
+    {viewTab==="tareas"&&<div>
+      {/* Toolbar */}
+      <div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap" as const,alignItems:"center"}}>
+        <button onClick={()=>sTaskForm({title:"",description:"",status:"backlog",priority:"medium",assignee_id:"",due_date:""})} style={{padding:"6px 12px",borderRadius:8,border:"none",background:colors.nv,color:isDark?"#0F172A":"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>+ Tarea</button>
+        <input value={taskSearch} onChange={e=>sTaskSearch(e.target.value)} placeholder="Buscar tarea..." style={{padding:"6px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:11,width:mob?120:180,background:cardBg,color:colors.nv}}/>
+        <select value={taskPriFilter} onChange={e=>sTaskPriFilter(e.target.value)} style={{padding:"6px 8px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:11,background:cardBg,color:colors.nv}}>
+          <option value="all">Todas las prioridades</option>
+          {Object.keys(PJ_PR).map(k=><option key={k} value={k}>{PJ_PR[k].i} {PJ_PR[k].l}</option>)}
+        </select>
+        {/* Status summary */}
+        <div style={{display:"flex",gap:4,marginLeft:"auto"}}>
+          {COLS.map(col=>{const cnt=tasks.filter((t:any)=>t.status===col).length;return <span key={col} style={{fontSize:9,padding:"2px 6px",borderRadius:6,background:PJ_ST[col].bg,color:PJ_ST[col].c,fontWeight:600}}>{PJ_ST[col].i} {cnt}</span>;})}
+        </div>
       </div>
 
+      {/* New task form */}
+      {taskForm&&!editTask&&<div style={{background:cardBg,borderRadius:12,padding:14,border:"1px solid "+colors.g2,marginBottom:12}}>
+        <div style={{fontSize:12,fontWeight:700,color:colors.nv,marginBottom:8}}>Nueva Tarea</div>
+        <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8}}>
+          <div style={{gridColumn:mob?"1":"1/3"}}>
+            <input value={taskForm.title} onChange={e=>sTaskForm({...taskForm,title:e.target.value})} placeholder="Título de la tarea *" style={iS}/>
+          </div>
+          <div style={{gridColumn:mob?"1":"1/3"}}>
+            <textarea value={taskForm.description} onChange={e=>sTaskForm({...taskForm,description:e.target.value})} placeholder="Descripción (opcional)" rows={2} style={tS}/>
+          </div>
+          <select value={taskForm.status} onChange={e=>sTaskForm({...taskForm,status:e.target.value})} style={iS}>
+            {COLS.map(k=><option key={k} value={k}>{PJ_ST[k].i} {PJ_ST[k].l}</option>)}
+          </select>
+          <select value={taskForm.priority} onChange={e=>sTaskForm({...taskForm,priority:e.target.value})} style={iS}>
+            {Object.keys(PJ_PR).map(k=><option key={k} value={k}>{PJ_PR[k].i} {PJ_PR[k].l}</option>)}
+          </select>
+          <select value={taskForm.assignee_id} onChange={e=>{const u=users.find((u:any)=>u.id===e.target.value);sTaskForm({...taskForm,assignee_id:e.target.value,assignee_name:u?(u.n+" "+u.a).trim():""});}} style={iS}>
+            <option value="">Sin asignar</option>
+            {users.map((u:any)=><option key={u.id} value={u.id}>{(u.n+" "+u.a).trim()}</option>)}
+          </select>
+          <input type="date" value={taskForm.due_date||""} onChange={e=>sTaskForm({...taskForm,due_date:e.target.value})} style={iS}/>
+        </div>
+        <div style={{display:"flex",gap:6,justifyContent:"flex-end",marginTop:8}}>
+          <button onClick={()=>sTaskForm(null)} style={{padding:"6px 12px",borderRadius:6,border:"1px solid "+colors.g3,background:"transparent",fontSize:11,cursor:"pointer",color:colors.g5}}>Cancelar</button>
+          <button onClick={()=>{if(!taskForm.title.trim())return;onAddTask({project_id:p.id,title:taskForm.title.trim(),description:taskForm.description||"",status:taskForm.status,priority:taskForm.priority,assignee_id:taskForm.assignee_id||null,assignee_name:taskForm.assignee_name||"",due_date:taskForm.due_date||null});sTaskForm(null);}} style={{padding:"6px 12px",borderRadius:6,border:"none",background:colors.nv,color:isDark?"#0F172A":"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>Crear Tarea</button>
+        </div>
+      </div>}
+
+      {/* Kanban Board */}
+      {tasks.length===0&&!taskForm?<div style={{background:cardBg,borderRadius:14,padding:32,textAlign:"center" as const,border:"1px solid "+colors.g2}}>
+        <div style={{fontSize:28,marginBottom:8}}>📊</div>
+        <div style={{fontSize:13,color:colors.g4,marginBottom:4}}>Este proyecto no tiene tareas aún.</div>
+        <div style={{fontSize:11,color:colors.g4}}>Usá el botón "+ Tarea" para agregar la primera.</div>
+      </div>:
+      <div style={{display:"flex",gap:8,overflowX:"auto" as const,paddingBottom:8,...(mob?{flexDirection:"column" as const}:{})}}>
+        {COLS.map(col=>{const colTasks=filteredTasks.filter((t:any)=>t.status===col);return(
+          <div key={col} style={{minWidth:mob?"100%":200,flex:1,background:isDark?"rgba(255,255,255,.03)":"rgba(0,0,0,.02)",borderRadius:10,padding:8}}>
+            {/* Column header */}
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8,padding:"0 4px"}}>
+              <div style={{display:"flex",alignItems:"center",gap:4}}>
+                <span style={{fontSize:11}}>{PJ_ST[col].i}</span>
+                <span style={{fontSize:11,fontWeight:700,color:PJ_ST[col].c}}>{PJ_ST[col].l}</span>
+              </div>
+              <span style={{fontSize:10,fontWeight:700,color:colors.g4,background:colors.g2,borderRadius:8,padding:"1px 6px"}}>{colTasks.length}</span>
+            </div>
+            {/* Cards */}
+            <div style={{display:"flex",flexDirection:"column" as const,gap:6,minHeight:40}}>
+              {colTasks.map((t:any)=>{
+                const pri=PJ_PR[t.priority]||PJ_PR.medium;
+                const isEditing=editTask?.id===t.id;
+                const isOverdue=t.due_date&&t.status!=="done"&&t.due_date<new Date().toISOString().slice(0,10);
+
+                if(isEditing) return(<div key={t.id} style={{background:cardBg,borderRadius:10,padding:10,border:"2px solid "+colors.nv}}>
+                  <input value={editTask.title} onChange={e=>sEditTask({...editTask,title:e.target.value})} style={{...iS,marginBottom:6,fontWeight:700}}/>
+                  <textarea value={editTask.description||""} onChange={e=>sEditTask({...editTask,description:e.target.value})} rows={2} placeholder="Descripción" style={{...tS,marginBottom:6}}/>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:6}}>
+                    <select value={editTask.status} onChange={e=>sEditTask({...editTask,status:e.target.value})} style={iS}>
+                      {COLS.map(k=><option key={k} value={k}>{PJ_ST[k].l}</option>)}
+                    </select>
+                    <select value={editTask.priority} onChange={e=>sEditTask({...editTask,priority:e.target.value})} style={iS}>
+                      {Object.keys(PJ_PR).map(k=><option key={k} value={k}>{PJ_PR[k].i} {PJ_PR[k].l}</option>)}
+                    </select>
+                    <select value={editTask.assignee_id||""} onChange={e=>{const u=users.find((u:any)=>u.id===e.target.value);sEditTask({...editTask,assignee_id:e.target.value||null,assignee_name:u?(u.n+" "+u.a).trim():""});}} style={iS}>
+                      <option value="">Sin asignar</option>
+                      {users.map((u:any)=><option key={u.id} value={u.id}>{(u.n+" "+u.a).trim()}</option>)}
+                    </select>
+                    <input type="date" value={editTask.due_date||""} onChange={e=>sEditTask({...editTask,due_date:e.target.value||null})} style={iS}/>
+                  </div>
+                  <div style={{display:"flex",gap:4,justifyContent:"space-between"}}>
+                    <button onClick={()=>{if(confirm("¿Eliminar esta tarea?")){onDelTask(t.id);sEditTask(null);}}} style={{padding:"4px 8px",borderRadius:6,border:"1px solid #FCA5A5",background:"transparent",fontSize:10,cursor:"pointer",color:"#DC2626"}}>🗑</button>
+                    <div style={{display:"flex",gap:4}}>
+                      <button onClick={()=>sEditTask(null)} style={{padding:"4px 10px",borderRadius:6,border:"1px solid "+colors.g3,background:"transparent",fontSize:10,cursor:"pointer",color:colors.g5}}>Cancelar</button>
+                      <button onClick={()=>{if(!editTask.title.trim())return;onUpdTask(t.id,{title:editTask.title.trim(),description:editTask.description||"",status:editTask.status,priority:editTask.priority,assignee_id:editTask.assignee_id||null,assignee_name:editTask.assignee_name||"",due_date:editTask.due_date||null});sEditTask(null);}} style={{padding:"4px 10px",borderRadius:6,border:"none",background:colors.nv,color:isDark?"#0F172A":"#fff",fontSize:10,fontWeight:700,cursor:"pointer"}}>Guardar</button>
+                    </div>
+                  </div>
+                </div>);
+
+                return(<div key={t.id} onClick={()=>sEditTask({...t})} style={{background:cardBg,borderRadius:10,padding:"8px 10px",border:"1px solid "+colors.g2,cursor:"pointer",borderLeft:"3px solid "+pri.c}}>
+                  <div style={{fontSize:11,fontWeight:600,color:colors.nv,marginBottom:4,lineHeight:1.3}}>{t.title}</div>
+                  {t.description&&<div style={{fontSize:10,color:colors.g5,marginBottom:4,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical" as const}}>{t.description}</div>}
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap" as const,gap:3}}>
+                    <div style={{display:"flex",gap:3,alignItems:"center"}}>
+                      <span style={{fontSize:8,padding:"1px 5px",borderRadius:4,background:pri.c+"15",color:pri.c,fontWeight:600}}>{pri.i} {pri.l}</span>
+                      {isOverdue&&<span style={{fontSize:8,padding:"1px 5px",borderRadius:4,background:"#FEE2E2",color:"#DC2626",fontWeight:600}}>Vencida</span>}
+                    </div>
+                    <div style={{display:"flex",gap:3,alignItems:"center"}}>
+                      {t.due_date&&<span style={{fontSize:9,color:isOverdue?"#DC2626":colors.g4}}>{t.due_date.slice(5).replace("-","/")}</span>}
+                      {t.assignee_name&&<span style={{fontSize:9,color:colors.g4,maxWidth:60,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>👤 {t.assignee_name.split(" ")[0]}</span>}
+                    </div>
+                  </div>
+                  {/* Quick status change buttons */}
+                  <div style={{display:"flex",gap:2,marginTop:6}} onClick={e=>e.stopPropagation()}>
+                    {COLS.filter(c=>c!==t.status).slice(0,3).map(c=><button key={c} onClick={()=>onUpdTask(t.id,{status:c})} title={"Mover a "+PJ_ST[c].l} style={{fontSize:8,padding:"2px 5px",borderRadius:4,border:"1px solid "+PJ_ST[c].c+"30",background:PJ_ST[c].bg,color:PJ_ST[c].c,cursor:"pointer",fontWeight:600}}>{PJ_ST[c].i}</button>)}
+                  </div>
+                </div>);
+              })}
+            </div>
+          </div>
+        );})}
+      </div>}
+    </div>}
+
+    {/* ── PROPUESTA TAB ── */}
+    {viewTab==="propuesta"&&<div style={{background:cardBg,borderRadius:14,padding:mob?16:24,border:"1px solid "+colors.g2}}>
       {secHdr("1️⃣","Datos del Proyecto")}
       {viewField("Nombre",fd.nombre)}
       {viewField("Responsable",fd.responsable)}
@@ -167,18 +353,6 @@ export function ProyectosView({projects,users,user,mob,onAddProject,onUpdProject
       <div style={{background:colors.g2,borderRadius:8,padding:"10px 12px",marginTop:16}}>
         <div style={{fontSize:11,color:colors.g5}}>🎤 <strong>Formato:</strong> Pitch oral de 7 minutos en SE o CD.</div>
       </div>
-
-      {/* Actions */}
-      <div style={{display:"flex",gap:8,justifyContent:"space-between",marginTop:16,flexWrap:"wrap" as const}}>
-        <div style={{display:"flex",gap:6}}>
-          {(isOwner||isAdmin)&&<button onClick={()=>{sForm({...emptyForm(),...fd,nombre:fd.nombre||p.name});sEditing(true);sMode("form");}} style={{padding:"7px 14px",borderRadius:8,border:"1px solid "+colors.g3,background:"transparent",fontSize:11,cursor:"pointer",color:colors.nv,fontWeight:600}}>✏️ Editar</button>}
-          {(isOwner||isAdmin)&&<button onClick={()=>{if(confirm("¿Eliminar este proyecto?"))onDelProject(p.id);sMode("list");sSelProj(null);}} style={{padding:"7px 14px",borderRadius:8,border:"1px solid #FCA5A5",background:"transparent",fontSize:11,cursor:"pointer",color:"#DC2626",fontWeight:600}}>🗑 Eliminar</button>}
-        </div>
-        {isAdmin&&p.status==="enviado"&&<div style={{display:"flex",gap:6}}>
-          <button onClick={()=>{if(confirm("¿Aprobar este proyecto? Esta acción no se puede deshacer.")){onUpdProject(p.id,{status:"aprobado"});sSelProj({...p,status:"aprobado"});}}} style={{padding:"7px 14px",borderRadius:8,border:"none",background:"#10B981",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>✅ Aprobar</button>
-          <button onClick={()=>{if(confirm("¿Rechazar este proyecto? Esta acción no se puede deshacer.")){onUpdProject(p.id,{status:"rechazado"});sSelProj({...p,status:"rechazado"});}}} style={{padding:"7px 14px",borderRadius:8,border:"none",background:"#DC2626",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>❌ Rechazar</button>
-        </div>}
-      </div>
-    </div>
+    </div>}
   </div>);
 }
