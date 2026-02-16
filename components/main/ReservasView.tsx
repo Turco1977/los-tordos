@@ -38,6 +38,15 @@ const generateDates=(startDate:string,rec:string)=>{
   return dates;
 };
 
+/* ── Division color groups for calendar cells ── */
+const DIV_COL:Record<string,string>={};
+["Escuelita","M5","M6","M7","M8","M9","M10","M11","M12"].forEach(d=>{DIV_COL[d]="#10B981";});
+["M13","M14"].forEach(d=>{DIV_COL[d]="#3B82F6";});
+["M15","M16","M17","M18","M19"].forEach(d=>{DIV_COL[d]="#F59E0B";});
+["Plantel Superior","Intermedia","Primera"].forEach(d=>{DIV_COL[d]="#DC2626";});
+const DIV_KEYS=Object.keys(DIV_COL).sort((a,b)=>b.length-a.length);// longest first for matching
+const extractDiv=(title:string)=>{if(!title)return null;const t=title.trim();for(const d of DIV_KEYS){if(t.includes(d))return d;}const m=t.match(/M\d+/i);if(m)return m[0].toUpperCase();return null;};
+
 const emptyForm=()=>({facility:"cancha1",date:TODAY,time_start:"09:00",time_end:"10:00",title:"",description:"",notes:"",status:"pendiente",recurrence:"none"});
 
 export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel}:any){
@@ -279,10 +288,10 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel}:any){
                 const isToday=d===TODAY;
                 return(<div key={d} style={{padding:4,background:isToday?(isDark?"#1E3A5F10":"#EFF6FF50"):cardBg,border:"1px solid "+colors.g2,borderRadius:6,minHeight:38,cursor:"pointer",position:"relative" as const}} onClick={()=>{if(showAdd){sForm((p:any)=>({...p,facility:fk,date:d,title:p.title===BOOK_FAC[p.facility]?.l?BOOK_FAC[fk]?.l||"":p.title}));}else{openForm(fk,d);}}}>
                   {cb.length===0&&<div style={{fontSize:9,color:colors.g3,textAlign:"center" as const,paddingTop:6}}>—</div>}
-                  {cb.map((b:any,j:number)=>{const st=BOOK_ST[b.status];return(
-                    <div key={b.id||j} onClick={e=>{e.stopPropagation();startEdit(b);}} style={{padding:"2px 5px",borderRadius:6,background:st.bg,marginBottom:1,cursor:"pointer",border:"1px solid "+st.c+"40"}} title={b.title+" ("+b.time_start+"-"+b.time_end+")"}>
-                      <div style={{fontSize:9,fontWeight:700,color:st.c,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{st.i} {b.time_start}-{b.time_end}</div>
-                      <div style={{fontSize:8,color:fac.c,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{b.title}</div>
+                  {cb.map((b:any,j:number)=>{const st=BOOK_ST[b.status];const div=extractDiv(b.title);const dc=div?DIV_COL[div]:null;return(
+                    <div key={b.id||j} onClick={e=>{e.stopPropagation();startEdit(b);}} style={{padding:"2px 5px",borderRadius:6,background:dc?dc+"20":st.bg,marginBottom:1,cursor:"pointer",border:"1px solid "+(dc||st.c)+"40"}} title={b.title+" ("+b.time_start+"-"+b.time_end+")"}>
+                      <div style={{fontSize:10,fontWeight:800,color:dc||st.c,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const,lineHeight:1.3}}>{div||b.title}</div>
+                      <div style={{fontSize:8,color:dc||colors.g5,fontWeight:600}}>{b.time_start}</div>
                     </div>);})}
                 </div>);
               })}
