@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { T, ST, AGT, DIV, fn, isOD } from "@/lib/constants";
+import { ST, AGT, DIV, fn, isOD } from "@/lib/constants";
 import { fmtD } from "@/lib/mappers";
 import { useC } from "@/lib/theme-context";
 import { Btn, Card } from "@/components/ui";
@@ -67,26 +67,26 @@ export function CommView({peds,presu,agendas,minutas,users,areas,deptos,user,mob
         {/* + Button for attachments */}
         <div style={{position:"relative" as const}}>
           <button onClick={()=>{sShowPlus(!showPlus);sPlusPanel(null);}} style={{width:32,height:32,borderRadius:"50%",background:colors.nv,color:"#fff",border:"none",fontSize:18,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>{showPlus?"\u00D7":"+"}</button>
-          {showPlus&&!plusPanel&&<div style={{position:"absolute" as const,right:0,top:36,background:"#fff",borderRadius:12,boxShadow:"0 4px 20px rgba(0,0,0,.15)",border:"1px solid "+colors.g2,zIndex:50,minWidth:220,overflow:"hidden"}}>
-            <div onClick={()=>handleFileUpload("*/*")} style={{padding:"12px 16px",cursor:"pointer",display:"flex",alignItems:"center",gap:10,borderBottom:"1px solid #f0f0f0",fontSize:14}}><span style={{fontSize:20}}>📁</span><span style={{fontWeight:600}}>Archivo</span></div>
-            <div onClick={()=>handleFileUpload("image/*,video/*")} style={{padding:"12px 16px",cursor:"pointer",display:"flex",alignItems:"center",gap:10,borderBottom:"1px solid #f0f0f0",fontSize:14}}><span style={{fontSize:20}}>🖼️</span><span style={{fontWeight:600}}>Fotos y videos</span></div>
-            <div onClick={()=>sPlusPanel("contacto")} style={{padding:"12px 16px",cursor:"pointer",display:"flex",alignItems:"center",gap:10,borderBottom:"1px solid #f0f0f0",fontSize:14}}><span style={{fontSize:20}}>👤</span><span style={{fontWeight:600}}>Contacto</span></div>
-            <div onClick={()=>sPlusPanel("encuesta")} style={{padding:"12px 16px",cursor:"pointer",display:"flex",alignItems:"center",gap:10,borderBottom:"1px solid #f0f0f0",fontSize:14}}><span style={{fontSize:20}}>📊</span><span style={{fontWeight:600}}>Encuesta</span></div>
+          {showPlus&&!plusPanel&&<div style={{position:"absolute" as const,right:0,top:36,background:cardBg,borderRadius:12,boxShadow:"0 4px 20px rgba(0,0,0,.15)",border:"1px solid "+colors.g2,zIndex:50,minWidth:220,overflow:"hidden"}}>
+            <div onClick={()=>handleFileUpload("*/*")} style={{padding:"12px 16px",cursor:"pointer",display:"flex",alignItems:"center",gap:10,borderBottom:"1px solid "+colors.g2,fontSize:14}}><span style={{fontSize:20}}>📁</span><span style={{fontWeight:600}}>Archivo</span></div>
+            <div onClick={()=>handleFileUpload("image/*,video/*")} style={{padding:"12px 16px",cursor:"pointer",display:"flex",alignItems:"center",gap:10,borderBottom:"1px solid "+colors.g2,fontSize:14}}><span style={{fontSize:20}}>🖼️</span><span style={{fontWeight:600}}>Fotos y videos</span></div>
+            <div onClick={()=>sPlusPanel("contacto")} style={{padding:"12px 16px",cursor:"pointer",display:"flex",alignItems:"center",gap:10,borderBottom:"1px solid "+colors.g2,fontSize:14}}><span style={{fontSize:20}}>👤</span><span style={{fontWeight:600}}>Contacto</span></div>
+            <div onClick={()=>sPlusPanel("encuesta")} style={{padding:"12px 16px",cursor:"pointer",display:"flex",alignItems:"center",gap:10,borderBottom:"1px solid "+colors.g2,fontSize:14}}><span style={{fontSize:20}}>📊</span><span style={{fontWeight:600}}>Encuesta</span></div>
             <div onClick={()=>sPlusPanel("evento")} style={{padding:"12px 16px",cursor:"pointer",display:"flex",alignItems:"center",gap:10,fontSize:14}}><span style={{fontSize:20}}>📅</span><span style={{fontWeight:600}}>Evento</span></div>
           </div>}
-          {showPlus&&plusPanel==="contacto"&&<div style={{position:"absolute" as const,right:0,top:36,background:"#fff",borderRadius:12,boxShadow:"0 4px 20px rgba(0,0,0,.15)",border:"1px solid "+colors.g2,zIndex:50,minWidth:260,padding:12}}>
+          {showPlus&&plusPanel==="contacto"&&<div style={{position:"absolute" as const,right:0,top:36,background:cardBg,borderRadius:12,boxShadow:"0 4px 20px rgba(0,0,0,.15)",border:"1px solid "+colors.g2,zIndex:50,minWidth:260,padding:12}}>
             <div style={{fontSize:12,fontWeight:700,color:colors.nv,marginBottom:8}}>👤 Seleccionar contacto</div>
             <select value={contactSel} onChange={e=>sContactSel(e.target.value)} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,marginBottom:8}}><option value="">Elegir...</option>{users.map((u:any)=><option key={u.id} value={u.id}>{fn(u)}</option>)}</select>
             <div style={{display:"flex",gap:6}}><Btn v="g" s="s" onClick={()=>{sPlusPanel(null);}}>Cancelar</Btn><Btn v="s" s="s" disabled={!contactSel} onClick={()=>insertContact(contactSel)}>Insertar</Btn></div>
           </div>}
-          {showPlus&&plusPanel==="encuesta"&&<div style={{position:"absolute" as const,right:0,top:36,background:"#fff",borderRadius:12,boxShadow:"0 4px 20px rgba(0,0,0,.15)",border:"1px solid "+colors.g2,zIndex:50,minWidth:280,padding:12}}>
+          {showPlus&&plusPanel==="encuesta"&&<div style={{position:"absolute" as const,right:0,top:36,background:cardBg,borderRadius:12,boxShadow:"0 4px 20px rgba(0,0,0,.15)",border:"1px solid "+colors.g2,zIndex:50,minWidth:280,padding:12}}>
             <div style={{fontSize:12,fontWeight:700,color:colors.nv,marginBottom:8}}>📊 Crear encuesta</div>
             <input value={pollQ} onChange={e=>sPollQ(e.target.value)} placeholder="Pregunta..." style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,marginBottom:6,boxSizing:"border-box" as const}}/>
             {pollOpts.map((o,i)=><input key={i} value={o} onChange={e=>{const n=[...pollOpts];n[i]=e.target.value;sPollOpts(n);}} placeholder={`Opción ${i+1}`} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:11,marginBottom:4,boxSizing:"border-box" as const}}/>)}
             <button onClick={()=>sPollOpts([...pollOpts,""])} style={{border:"none",background:"none",color:colors.bl,fontSize:11,cursor:"pointer",marginBottom:6}}>+ Agregar opción</button>
             <div style={{display:"flex",gap:6}}><Btn v="g" s="s" onClick={()=>sPlusPanel(null)}>Cancelar</Btn><Btn v="s" s="s" onClick={insertPoll}>Insertar</Btn></div>
           </div>}
-          {showPlus&&plusPanel==="evento"&&<div style={{position:"absolute" as const,right:0,top:36,background:"#fff",borderRadius:12,boxShadow:"0 4px 20px rgba(0,0,0,.15)",border:"1px solid "+colors.g2,zIndex:50,minWidth:280,padding:12}}>
+          {showPlus&&plusPanel==="evento"&&<div style={{position:"absolute" as const,right:0,top:36,background:cardBg,borderRadius:12,boxShadow:"0 4px 20px rgba(0,0,0,.15)",border:"1px solid "+colors.g2,zIndex:50,minWidth:280,padding:12}}>
             <div style={{fontSize:12,fontWeight:700,color:colors.nv,marginBottom:8}}>📅 Crear evento</div>
             <input value={evTitle} onChange={e=>sEvTitle(e.target.value)} placeholder="Título del evento" style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,marginBottom:6,boxSizing:"border-box" as const}}/>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:6}}><input type="date" value={evDate} onChange={e=>sEvDate(e.target.value)} style={{padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:11}}/><input type="time" value={evTime} onChange={e=>sEvTime(e.target.value)} style={{padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:11}}/></div>

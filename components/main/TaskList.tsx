@@ -84,6 +84,6 @@ export function TList({title,icon,color,peds,users,onSel,search,mob,onBulk,onImp
       {v.length===0&&<tr><td colSpan={onBulk?7:6} style={{padding:28,textAlign:"center" as const,color:colors.g4}}>Sin tareas</td></tr>}
       {v.map((p:any)=>{const ag=users.find((u:any)=>u.id===p.asTo),od=p.st!==ST.OK&&isOD(p.fReq);return(<tr key={p.id} onClick={()=>onSel(p)} style={{borderBottom:"1px solid "+colors.g1,cursor:"pointer",background:od?odBg:"transparent"}}>{onBulk&&<td style={{padding:"7px 4px"}} onClick={e=>e.stopPropagation()}><input type="checkbox" checked={bulkSel.includes(p.id)} onChange={()=>toggleBulk(p.id)} style={{width:14,height:14}}/></td>}<td style={{padding:"7px 8px",fontWeight:600,color:colors.nv}}>{p.id}</td><td style={{padding:"7px 8px"}}>{p.tipo}</td><td style={{padding:"7px 8px",fontSize:11}}>{p.cN}</td><td style={{padding:"7px 8px",fontSize:11}}>{p.fReq}{od&&<span style={{marginLeft:4,fontSize:9,color:"#DC2626"}}>⏰</span>}</td><td style={{padding:"7px 8px"}}><Badge s={p.st} sm/></td><td style={{padding:"7px 8px",fontSize:11,color:colors.g4}}>{ag?fn(ag):"–"}</td></tr>);})}
     </tbody></table></Card>}
-    <Pager page={pgData.page} totalPages={pgData.totalPages} onPage={sPg}/>
+    <Pager page={pgData.page} totalPages={pgData.totalPages} onPage={(p:number)=>{sPg(p);window.scrollTo({top:0,behavior:"smooth"});}}/>
   </div>);
 }

@@ -4,10 +4,12 @@ import { T, SC, PSC, AGT, ST, isOD, daysDiff, fn } from "@/lib/constants";
 import { fmtD } from "@/lib/mappers";
 import { Btn, Card } from "@/components/ui";
 import { exportICal } from "@/lib/export";
+import { useC } from "@/lib/theme-context";
 
 const TODAY = new Date().toISOString().slice(0,10);
 
 export default function CalView({peds,agendas,minutas,presu,reminders,areas,deptos,users,user,onSel,onAddReminder,onDelReminder,onNav,onDateChange,mob}:any){
+  const {colors,isDark,cardBg}=useC();
   const MESES=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
   const DIAS_SEM=["Lu","Ma","Mi","Ju","Vi","Sá","Do"];
   const daysInMonth=(y:number,m:number)=>new Date(y,m+1,0).getDate();
@@ -103,9 +105,9 @@ export default function CalView({peds,agendas,minutas,presu,reminders,areas,dept
       <div style={{display:"flex",alignItems:"center",gap:3}}>
         <span style={{fontSize:compact?8:10,flexShrink:0}}>{e.icon}</span>
         {!compact&&<span style={{fontSize:10,fontWeight:600,color:e.color,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const,flex:1}}>{e.label}</span>}
-        {!compact&&e.type==="reminder"&&onDelReminder&&<button onClick={(ev)=>{ev.stopPropagation();if(confirm("¿Eliminar recordatorio?"))onDelReminder(e.data.id);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:9,color:T.g4,padding:0,flexShrink:0}}>✕</button>}
+        {!compact&&e.type==="reminder"&&onDelReminder&&<button onClick={(ev)=>{ev.stopPropagation();if(confirm("¿Eliminar recordatorio?"))onDelReminder(e.data.id);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:9,color:colors.g4,padding:0,flexShrink:0}}>✕</button>}
       </div>
-      {!compact&&e.sub&&<div style={{fontSize:9,color:T.g5,marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>👤 {e.sub}</div>}
+      {!compact&&e.sub&&<div style={{fontSize:9,color:colors.g5,marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>👤 {e.sub}</div>}
     </div>
   );
 
@@ -113,13 +115,13 @@ export default function CalView({peds,agendas,minutas,presu,reminders,areas,dept
   const FilterBar=()=>(
     <div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap" as const,alignItems:"center"}}>
       {[{k:"task",l:"Tareas",i:"📋"},{k:"agenda",l:"Reuniones",i:"📅"},{k:"minuta",l:"Minutas",i:"📝"},{k:"presu",l:"Presupuestos",i:"📤"},{k:"reminder",l:"Recordatorios",i:"🔔"}].filter(x=>!isPersonalUser||x.k==="task"||x.k==="reminder").map(ft=>(
-        <button key={ft.k} onClick={()=>sFTypes(p=>({...p,[ft.k]:!p[ft.k]}))} style={{padding:"4px 10px",borderRadius:14,border:"1px solid "+(fTypes[ft.k]?T.nv:T.g3),background:fTypes[ft.k]?T.nv+"12":"#fff",color:fTypes[ft.k]?T.nv:T.g4,fontSize:10,fontWeight:600,cursor:"pointer"}}>{ft.i} {ft.l}</button>
+        <button key={ft.k} onClick={()=>sFTypes(p=>({...p,[ft.k]:!p[ft.k]}))} style={{padding:"4px 10px",borderRadius:14,border:"1px solid "+(fTypes[ft.k]?colors.nv:colors.g3),background:fTypes[ft.k]?colors.nv+"12":cardBg,color:fTypes[ft.k]?colors.nv:colors.g4,fontSize:10,fontWeight:600,cursor:"pointer"}}>{ft.i} {ft.l}</button>
       ))}
-      {!isPersonalUser&&<select value={fArea} onChange={e=>sFArea(e.target.value)} style={{padding:"4px 8px",borderRadius:8,border:"1px solid "+T.g3,fontSize:10}}>
+      {!isPersonalUser&&<select value={fArea} onChange={e=>sFArea(e.target.value)} style={{padding:"4px 8px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:10}}>
         <option value="">Todas las áreas</option>{areas.map((a:any)=><option key={a.id} value={a.id}>{a.icon} {a.name}</option>)}
       </select>}
-      {onAddReminder&&<button onClick={()=>sShowAddR(!showAddR)} style={{padding:"4px 10px",borderRadius:14,border:"1px solid "+T.gn,background:showAddR?T.gn:T.gn+"12",color:showAddR?"#fff":T.gn,fontSize:10,fontWeight:600,cursor:"pointer"}}>+ Recordatorio</button>}
-      <button onClick={()=>exportICal("los-tordos-calendario",events.map(e=>({title:e.label,date:e.date,description:e.type,type:e.type})))} style={{padding:"4px 10px",borderRadius:14,border:"1px solid "+T.bl,background:T.bl+"12",color:T.bl,fontSize:10,fontWeight:600,cursor:"pointer"}}>📅 iCal</button>
+      {onAddReminder&&<button onClick={()=>sShowAddR(!showAddR)} style={{padding:"4px 10px",borderRadius:14,border:"1px solid "+colors.gn,background:showAddR?colors.gn:colors.gn+"12",color:showAddR?"#fff":colors.gn,fontSize:10,fontWeight:600,cursor:"pointer"}}>+ Recordatorio</button>}
+      <button onClick={()=>exportICal("los-tordos-calendario",events.map(e=>({title:e.label,date:e.date,description:e.type,type:e.type})))} style={{padding:"4px 10px",borderRadius:14,border:"1px solid "+colors.bl,background:colors.bl+"12",color:colors.bl,fontSize:10,fontWeight:600,cursor:"pointer"}}>📅 iCal</button>
     </div>
   );
 
@@ -135,33 +137,33 @@ export default function CalView({peds,agendas,minutas,presu,reminders,areas,dept
 
     return(<div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-        <button onClick={()=>sMonth(new Date(y,m-1,1))} style={{background:"none",border:"1px solid "+T.g3,borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:14,color:T.nv}}>◀</button>
-        <div style={{fontSize:mob?14:16,fontWeight:800,color:T.nv}}>{MESES[m]} {y}</div>
-        <button onClick={()=>sMonth(new Date(y,m+1,1))} style={{background:"none",border:"1px solid "+T.g3,borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:14,color:T.nv}}>▶</button>
+        <button onClick={()=>sMonth(new Date(y,m-1,1))} style={{background:"none",border:"1px solid "+colors.g3,borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:14,color:colors.nv}}>◀</button>
+        <div style={{fontSize:mob?14:16,fontWeight:800,color:colors.nv}}>{MESES[m]} {y}</div>
+        <button onClick={()=>sMonth(new Date(y,m+1,1))} style={{background:"none",border:"1px solid "+colors.g3,borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:14,color:colors.nv}}>▶</button>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:1}}>
-        {DIAS_SEM.map(d=><div key={d} style={{textAlign:"center" as const,fontSize:10,fontWeight:700,color:T.g4,padding:"4px 0"}}>{d}</div>)}
+        {DIAS_SEM.map(d=><div key={d} style={{textAlign:"center" as const,fontSize:10,fontWeight:700,color:colors.g4,padding:"4px 0"}}>{d}</div>)}
         {cells.map((c,i)=>{
           const dayEvts=c.cur?evtsByDate(c.iso):[];
           const isToday=c.iso===TODAY;
           const hasOverdue=dayEvts.some(e=>e.type==="task"&&e.data.st!=="ok"&&isOD(e.data.fReq));
           const isDragOver=dragOverDate===c.iso;
-          return(<div key={i} data-date={c.iso} onClick={()=>{if(c.cur){sSelDay(selDay===c.iso?null:c.iso);}}} onDragOver={c.cur?(ev)=>handleDragOver(ev,c.iso):undefined} onDragLeave={c.cur?handleDragLeave:undefined} onDrop={c.cur?(ev)=>handleDrop(ev,c.iso):undefined} style={{minHeight:mob?44:80,padding:mob?"2px":"4px 6px",background:isDragOver?"#DBEAFE":(isToday?"#EFF6FF":(hasOverdue&&c.cur?"#FEF2F2":"#fff")),border:isDragOver?"2px dashed "+T.bl:(isToday?"2px solid "+T.bl:"1px solid "+T.g2),borderRadius:6,cursor:c.cur?"pointer":"default",overflow:"hidden",transition:"background .15s,border .15s"}}>
-            <div style={{fontSize:mob?10:12,fontWeight:isToday?800:c.cur?600:400,color:c.cur?(isToday?T.bl:T.nv):T.g3,marginBottom:2}}>{c.d}</div>
+          return(<div key={i} data-date={c.iso} onClick={()=>{if(c.cur){sSelDay(selDay===c.iso?null:c.iso);}}} onDragOver={c.cur?(ev)=>handleDragOver(ev,c.iso):undefined} onDragLeave={c.cur?handleDragLeave:undefined} onDrop={c.cur?(ev)=>handleDrop(ev,c.iso):undefined} style={{minHeight:mob?44:80,padding:mob?"2px":"4px 6px",background:isDragOver?"#DBEAFE":(isToday?(isDark?"#1E3A5F":"#EFF6FF"):(hasOverdue&&c.cur?(isDark?"#451A1A":"#FEF2F2"):cardBg)),border:isDragOver?"2px dashed "+colors.bl:(isToday?"2px solid "+colors.bl:"1px solid "+colors.g2),borderRadius:6,cursor:c.cur?"pointer":"default",overflow:"hidden",transition:"background .15s,border .15s"}}>
+            <div style={{fontSize:mob?10:12,fontWeight:isToday?800:c.cur?600:400,color:c.cur?(isToday?colors.bl:colors.nv):colors.g3,marginBottom:2}}>{c.d}</div>
             {c.cur&&!mob&&dayEvts.slice(0,3).map((e,j)=><div key={j} style={{marginBottom:1}}><EvtPill e={e}/></div>)}
             {c.cur&&mob&&dayEvts.length>0&&<div style={{display:"flex",gap:2,flexWrap:"wrap" as const}}>{dayEvts.slice(0,4).map((e,j)=><div key={j} style={{width:6,height:6,borderRadius:3,background:e.color}}/>)}</div>}
-            {c.cur&&!mob&&dayEvts.length>3&&<div style={{fontSize:9,color:T.g4,fontWeight:600}}>+{dayEvts.length-3} más</div>}
-            {c.cur&&mob&&dayEvts.length>4&&<div style={{fontSize:8,color:T.g4}}>+{dayEvts.length-4}</div>}
+            {c.cur&&!mob&&dayEvts.length>3&&<div style={{fontSize:9,color:colors.g4,fontWeight:600}}>+{dayEvts.length-3} más</div>}
+            {c.cur&&mob&&dayEvts.length>4&&<div style={{fontSize:8,color:colors.g4}}>+{dayEvts.length-4}</div>}
           </div>);
         })}
       </div>
       {/* Day detail panel */}
-      {selDay&&<Card style={{marginTop:12,borderLeft:"4px solid "+T.bl}}>
+      {selDay&&<Card style={{marginTop:12,borderLeft:"4px solid "+colors.bl}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-          <div style={{fontSize:14,fontWeight:800,color:T.nv}}>{selDay===TODAY?"Hoy — ":""}{fmtD(selDay)}</div>
-          <button onClick={()=>sSelDay(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:T.g4}}>✕</button>
+          <div style={{fontSize:14,fontWeight:800,color:colors.nv}}>{selDay===TODAY?"Hoy — ":""}{fmtD(selDay)}</div>
+          <button onClick={()=>sSelDay(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:colors.g4}}>✕</button>
         </div>
-        {evtsByDate(selDay).length===0&&<div style={{fontSize:12,color:T.g4,textAlign:"center" as const,padding:12}}>Sin eventos este día</div>}
+        {evtsByDate(selDay).length===0&&<div style={{fontSize:12,color:colors.g4,textAlign:"center" as const,padding:12}}>Sin eventos este día</div>}
         {evtsByDate(selDay).map((e,i)=><div key={i} style={{marginBottom:4}}><EvtPill e={e}/></div>)}
       </Card>}
     </div>);
@@ -173,25 +175,25 @@ export default function CalView({peds,agendas,minutas,presu,reminders,areas,dept
     for(let i=0;i<7;i++) days.push(dateToISO(addDays(weekStart,i)));
     return(<div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-        <button onClick={()=>sWeekStart(addDays(weekStart,-7))} style={{background:"none",border:"1px solid "+T.g3,borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:14,color:T.nv}}>◀</button>
-        <div style={{fontSize:mob?12:14,fontWeight:800,color:T.nv}}>Semana del {fmtD(days[0])} al {fmtD(days[6])}</div>
-        <button onClick={()=>sWeekStart(addDays(weekStart,7))} style={{background:"none",border:"1px solid "+T.g3,borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:14,color:T.nv}}>▶</button>
+        <button onClick={()=>sWeekStart(addDays(weekStart,-7))} style={{background:"none",border:"1px solid "+colors.g3,borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:14,color:colors.nv}}>◀</button>
+        <div style={{fontSize:mob?12:14,fontWeight:800,color:colors.nv}}>Semana del {fmtD(days[0])} al {fmtD(days[6])}</div>
+        <button onClick={()=>sWeekStart(addDays(weekStart,7))} style={{background:"none",border:"1px solid "+colors.g3,borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:14,color:colors.nv}}>▶</button>
       </div>
       <div style={{display:mob?"flex":"grid",gridTemplateColumns:"repeat(7,1fr)",flexDirection:mob?"column" as const:undefined,gap:mob?6:4}}>
         {days.map((d,i)=>{
           const dayEvts=evtsByDate(d);
           const isToday=d===TODAY;
           const isDO=dragOverDate===d;
-          return(<div key={i} data-date={d} onDragOver={(ev)=>handleDragOver(ev,d)} onDragLeave={handleDragLeave} onDrop={(ev)=>handleDrop(ev,d)} style={{background:isDO?"#DBEAFE":(isToday?"#EFF6FF":"#fff"),border:isDO?"2px dashed "+T.bl:(isToday?"2px solid "+T.bl:"1px solid "+T.g2),borderRadius:10,padding:mob?"10px 12px":"8px",minHeight:mob?undefined:120,transition:"background .15s,border .15s"}}>
-            <div style={{fontSize:11,fontWeight:isToday?800:600,color:isToday?T.bl:T.nv,marginBottom:6}}>{DIAS_SEM[i]} {d.slice(8)}{isToday?" (Hoy)":""}</div>
-            {dayEvts.length===0&&<div style={{fontSize:10,color:T.g3}}>—</div>}
+          return(<div key={i} data-date={d} onDragOver={(ev)=>handleDragOver(ev,d)} onDragLeave={handleDragLeave} onDrop={(ev)=>handleDrop(ev,d)} style={{background:isDO?"#DBEAFE":(isToday?(isDark?"#1E3A5F":"#EFF6FF"):cardBg),border:isDO?"2px dashed "+colors.bl:(isToday?"2px solid "+colors.bl:"1px solid "+colors.g2),borderRadius:10,padding:mob?"10px 12px":"8px",minHeight:mob?undefined:120,transition:"background .15s,border .15s"}}>
+            <div style={{fontSize:11,fontWeight:isToday?800:600,color:isToday?colors.bl:colors.nv,marginBottom:6}}>{DIAS_SEM[i]} {d.slice(8)}{isToday?" (Hoy)":""}</div>
+            {dayEvts.length===0&&<div style={{fontSize:10,color:colors.g3}}>—</div>}
             {dayEvts.map((e,j)=><div key={j} draggable={e.type==="task"} onDragStart={(ev)=>handleDragStart(ev,e)} onTouchStart={(ev)=>handleTouchStart(ev,e)} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd} style={{marginBottom:3,cursor:"pointer"}} onClick={()=>handleEvtClick(e)}>
               <div style={{padding:"4px 8px",background:e.color+"12",borderRadius:8,border:"1px solid "+e.color+"30"}}>
                 <div style={{display:"flex",alignItems:"center",gap:4}}>
                   <span style={{fontSize:10}}>{e.icon}</span>
                   <span style={{fontSize:10,fontWeight:600,color:e.color,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{e.label}</span>
                 </div>
-                {e.sub&&<div style={{fontSize:9,color:T.g5,marginTop:1}}>👤 {e.sub}</div>}
+                {e.sub&&<div style={{fontSize:9,color:colors.g5,marginTop:1}}>👤 {e.sub}</div>}
               </div>
             </div>)}
           </div>);
@@ -210,19 +212,19 @@ export default function CalView({peds,agendas,minutas,presu,reminders,areas,dept
       {overdueEvts.length>0&&<div style={{marginBottom:14}}>
         <div style={{fontSize:13,fontWeight:700,color:"#DC2626",marginBottom:6}}>⏰ Tareas vencidas ({overdueEvts.length})</div>
         {overdueEvts.map((e,i)=><div key={i} style={{marginBottom:4,cursor:"pointer"}} onClick={()=>handleEvtClick(e)}>
-          <div style={{padding:"6px 10px",background:"#FEF2F2",borderRadius:8,border:"1px solid #FECACA"}}>
+          <div style={{padding:"6px 10px",background:isDark?"#451A1A":"#FEF2F2",borderRadius:8,border:"1px solid #FECACA"}}>
             <div style={{display:"flex",alignItems:"center",gap:6}}>
               <span style={{fontSize:11}}>{e.icon}</span>
               <span style={{fontSize:11,fontWeight:600,color:"#DC2626",flex:1}}>{e.label}</span>
-              <span style={{fontSize:9,color:T.g4,flexShrink:0}}>{fmtD(e.date)}</span>
+              <span style={{fontSize:9,color:colors.g4,flexShrink:0}}>{fmtD(e.date)}</span>
             </div>
-            {e.sub&&<div style={{fontSize:9,color:T.g5,marginTop:2,paddingLeft:20}}>👤 {e.sub}</div>}
+            {e.sub&&<div style={{fontSize:9,color:colors.g5,marginTop:2,paddingLeft:20}}>👤 {e.sub}</div>}
           </div>
         </div>)}
       </div>}
       <div style={{marginBottom:14}}>
-        <div style={{fontSize:13,fontWeight:700,color:T.nv,marginBottom:6}}>Hoy — {fmtD(TODAY)}</div>
-        {todayEvts.length===0&&<Card style={{textAlign:"center" as const,padding:20,color:T.g4}}><span style={{fontSize:20}}>📭</span><div style={{marginTop:4,fontSize:12}}>Sin eventos hoy</div></Card>}
+        <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:6}}>Hoy — {fmtD(TODAY)}</div>
+        {todayEvts.length===0&&<Card style={{textAlign:"center" as const,padding:20,color:colors.g4}}><span style={{fontSize:20}}>📭</span><div style={{marginTop:4,fontSize:12}}>Sin eventos hoy</div></Card>}
         {todayEvts.map((e,i)=><div key={i} style={{marginBottom:4,cursor:"pointer"}} onClick={()=>handleEvtClick(e)}>
           <div style={{padding:"6px 10px",background:e.color+"12",borderRadius:8,border:"1px solid "+e.color+"30"}}>
             <div style={{display:"flex",alignItems:"center",gap:6}}>
@@ -230,21 +232,21 @@ export default function CalView({peds,agendas,minutas,presu,reminders,areas,dept
               <span style={{fontSize:11,fontWeight:600,color:e.color,flex:1}}>{e.label}</span>
               <span style={{fontSize:9,padding:"1px 6px",borderRadius:10,background:e.color+"20",color:e.color,fontWeight:600,flexShrink:0}}>{e.type}</span>
             </div>
-            {e.sub&&<div style={{fontSize:9,color:T.g5,marginTop:2,paddingLeft:20}}>👤 {e.sub}</div>}
+            {e.sub&&<div style={{fontSize:9,color:colors.g5,marginTop:2,paddingLeft:20}}>👤 {e.sub}</div>}
           </div>
         </div>)}
       </div>
       <div>
-        <div style={{fontSize:13,fontWeight:700,color:T.nv,marginBottom:6}}>Próximos 7 días</div>
-        {upcomingEvts.length===0&&<Card style={{textAlign:"center" as const,padding:20,color:T.g4}}><span style={{fontSize:20}}>✨</span><div style={{marginTop:4,fontSize:12}}>Sin eventos próximos</div></Card>}
+        <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:6}}>Próximos 7 días</div>
+        {upcomingEvts.length===0&&<Card style={{textAlign:"center" as const,padding:20,color:colors.g4}}><span style={{fontSize:20}}>✨</span><div style={{marginTop:4,fontSize:12}}>Sin eventos próximos</div></Card>}
         {upcomingEvts.map((e,i)=><div key={i} style={{marginBottom:4,cursor:"pointer"}} onClick={()=>handleEvtClick(e)}>
-          <div style={{padding:"6px 10px",background:"#fff",borderRadius:8,border:"1px solid "+T.g2}}>
+          <div style={{padding:"6px 10px",background:cardBg,borderRadius:8,border:"1px solid "+colors.g2}}>
             <div style={{display:"flex",alignItems:"center",gap:6}}>
               <span style={{fontSize:11}}>{e.icon}</span>
               <span style={{fontSize:11,fontWeight:600,color:e.color,flex:1}}>{e.label}</span>
-              <span style={{fontSize:9,color:T.g4,flexShrink:0}}>{(e as any).dateLabel}</span>
+              <span style={{fontSize:9,color:colors.g4,flexShrink:0}}>{(e as any).dateLabel}</span>
             </div>
-            {e.sub&&<div style={{fontSize:9,color:T.g5,marginTop:2,paddingLeft:20}}>👤 {e.sub}</div>}
+            {e.sub&&<div style={{fontSize:9,color:colors.g5,marginTop:2,paddingLeft:20}}>👤 {e.sub}</div>}
           </div>
         </div>)}
       </div>
@@ -252,25 +254,25 @@ export default function CalView({peds,agendas,minutas,presu,reminders,areas,dept
   };
 
   return(<div style={{maxWidth:mob?undefined:900}}>
-    <h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:T.nv,fontWeight:800}}>📅 Calendario</h2>
-    <p style={{color:T.g4,fontSize:12,margin:"0 0 14px"}}>Vista unificada de eventos, tareas y reuniones</p>
+    <h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:colors.nv,fontWeight:800}}>📅 Calendario</h2>
+    <p style={{color:colors.g4,fontSize:12,margin:"0 0 14px"}}>Vista unificada de eventos, tareas y reuniones</p>
     <div style={{display:"flex",gap:4,marginBottom:14}}>
-      {([["mes","📅 Mes"],["sem","📋 Semana"],["hoy","📌 Hoy"]] as const).map(([k,l])=><button key={k} onClick={()=>sTab(k)} style={{padding:"6px 14px",borderRadius:8,border:"none",background:tab===k?T.nv:"#fff",color:tab===k?"#fff":T.g5,fontSize:12,fontWeight:600,cursor:"pointer"}}>{l}</button>)}
+      {([["mes","📅 Mes"],["sem","📋 Semana"],["hoy","📌 Hoy"]] as const).map(([k,l])=><button key={k} onClick={()=>sTab(k)} style={{padding:"6px 14px",borderRadius:8,border:"none",background:tab===k?colors.nv:cardBg,color:tab===k?"#fff":colors.g5,fontSize:12,fontWeight:600,cursor:"pointer"}}>{l}</button>)}
     </div>
     <FilterBar/>
     {showAddR&&onAddReminder&&<Card style={{marginBottom:14,background:"#F0FDF4",border:"1px solid #BBF7D0"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><div style={{fontSize:12,fontWeight:700,color:"#166534"}}>🔔 Nuevo recordatorio</div><button onClick={resetR} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:T.g4}}>✕</button></div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><div style={{fontSize:12,fontWeight:700,color:"#166534"}}>🔔 Nuevo recordatorio</div><button onClick={resetR} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:colors.g4}}>✕</button></div>
       <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8,marginBottom:8}}>
-        <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Título *</label><input value={rForm.title} onChange={e=>sRForm((p:any)=>({...p,title:e.target.value}))} placeholder="Ej: Pago cuota de luz, Fichas médicas..." style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
-        <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Fecha inicio *</label><input type="date" value={rForm.date} onChange={e=>sRForm((p:any)=>({...p,date:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+        <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Título *</label><input value={rForm.title} onChange={e=>sRForm((p:any)=>({...p,title:e.target.value}))} placeholder="Ej: Pago cuota de luz, Fichas médicas..." style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+        <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Fecha inicio *</label><input type="date" value={rForm.date} onChange={e=>sRForm((p:any)=>({...p,date:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
       </div>
-      <div style={{marginBottom:8}}><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Descripción</label><input value={rForm.description} onChange={e=>sRForm((p:any)=>({...p,description:e.target.value}))} placeholder="Detalles opcionales..." style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+      <div style={{marginBottom:8}}><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Descripción</label><input value={rForm.description} onChange={e=>sRForm((p:any)=>({...p,description:e.target.value}))} placeholder="Detalles opcionales..." style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
       <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8,marginBottom:8}}>
-        <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Repetir</label><div style={{display:"flex",flexWrap:"wrap" as const,gap:3,marginTop:3}}>{RECUR_OPTS.map(o=><button key={o.k} onClick={()=>sRForm((p:any)=>({...p,recurrence:o.k}))} style={{padding:"3px 8px",borderRadius:12,fontSize:10,fontWeight:600,border:rForm.recurrence===o.k?"2px solid "+T.nv:"1px solid "+T.g3,background:rForm.recurrence===o.k?T.nv+"12":"#fff",color:rForm.recurrence===o.k?T.nv:T.g4,cursor:"pointer"}}>{o.l}</button>)}</div></div>
-        <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Asignar a (opcional)</label><select value={rForm.assigned_to||""} onChange={e=>sRForm((p:any)=>({...p,assigned_to:e.target.value,assigned_name:e.target.value?users.find((u:any)=>u.id===e.target.value)?(fn(users.find((u:any)=>u.id===e.target.value))):""
-:""}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,marginTop:3}}><option value="">Yo mismo</option>{users.map((u:any)=><option key={u.id} value={u.id}>{fn(u)}</option>)}</select></div>
+        <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Repetir</label><div style={{display:"flex",flexWrap:"wrap" as const,gap:3,marginTop:3}}>{RECUR_OPTS.map(o=><button key={o.k} onClick={()=>sRForm((p:any)=>({...p,recurrence:o.k}))} style={{padding:"3px 8px",borderRadius:12,fontSize:10,fontWeight:600,border:rForm.recurrence===o.k?"2px solid "+colors.nv:"1px solid "+colors.g3,background:rForm.recurrence===o.k?colors.nv+"12":cardBg,color:rForm.recurrence===o.k?colors.nv:colors.g4,cursor:"pointer"}}>{o.l}</button>)}</div></div>
+        <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Asignar a (opcional)</label><select value={rForm.assigned_to||""} onChange={e=>sRForm((p:any)=>({...p,assigned_to:e.target.value,assigned_name:e.target.value?users.find((u:any)=>u.id===e.target.value)?(fn(users.find((u:any)=>u.id===e.target.value))):""
+:""}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,marginTop:3}}><option value="">Yo mismo</option>{users.map((u:any)=><option key={u.id} value={u.id}>{fn(u)}</option>)}</select></div>
       </div>
-      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Color:</label><div style={{display:"flex",gap:4}}>{REMIND_COLORS.map(c=><div key={c} onClick={()=>sRForm((p:any)=>({...p,color:c}))} style={{width:22,height:22,borderRadius:11,background:c,cursor:"pointer",border:rForm.color===c?"3px solid "+T.nv:"2px solid transparent"}}/>)}</div></div>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Color:</label><div style={{display:"flex",gap:4}}>{REMIND_COLORS.map(c=><div key={c} onClick={()=>sRForm((p:any)=>({...p,color:c}))} style={{width:22,height:22,borderRadius:11,background:c,cursor:"pointer",border:rForm.color===c?"3px solid "+colors.nv:"2px solid transparent"}}/>)}</div></div>
       <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}><Btn v="g" s="s" onClick={resetR}>Cancelar</Btn><Btn v="s" s="s" disabled={!rForm.title||!rForm.date} onClick={()=>{onAddReminder({title:rForm.title,date:rForm.date,description:rForm.description,color:rForm.color,recurrence:rForm.recurrence||"none",assigned_to:rForm.assigned_to||null,assigned_name:rForm.assigned_name||""});resetR();}}>🔔 Crear recordatorio</Btn></div>
     </Card>}
     {tab==="mes"&&<MonthView/>}

@@ -14,9 +14,9 @@ export function Toast({ msg, type, onDone }: { msg: string; type: "ok" | "err"; 
   const dur=Math.max(3000,Math.min(msg.length*60,8000));
   useEffect(() => { const t = setTimeout(onDone, dur); return () => clearTimeout(t); }, [onDone, dur]);
   return (
-    <div style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", padding: "10px 20px", borderRadius: 10, background: type === "ok" ? "#065F46" : "#991B1B", color: "#fff", fontSize: 12, fontWeight: 600, zIndex: 9999, boxShadow: "0 4px 16px rgba(0,0,0,.2)", maxWidth: "90vw", textAlign: "center", display: "flex", alignItems: "center", gap: 8 }}>
+    <div role="alert" aria-live="polite" style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", padding: "10px 20px", borderRadius: 10, background: type === "ok" ? "#065F46" : "#991B1B", color: "#fff", fontSize: 12, fontWeight: 600, zIndex: 9999, boxShadow: "0 4px 16px rgba(0,0,0,.2)", maxWidth: "90vw", textAlign: "center", display: "flex", alignItems: "center", gap: 8 }}>
       <span>{type === "ok" ? "✅" : "❌"} {msg}</span>
-      <button onClick={onDone} style={{ background: "rgba(255,255,255,.3)", border: "none", borderRadius: 4, color: "#fff", fontSize: 10, cursor: "pointer", padding: "2px 6px", flexShrink: 0 }}>✕</button>
+      <button onClick={onDone} style={{ background: "rgba(255,255,255,.3)", border: "none", borderRadius: 4, color: "#fff", fontSize: 12, cursor: "pointer", padding: "4px 10px", flexShrink: 0 }}>✕</button>
     </div>
   );
 }
@@ -51,12 +51,12 @@ export function Btn({ children, onClick, v, s, disabled, style: st }: BtnProps) 
     p: { background: colors.nv, color: isDark ? "#0F172A" : "#fff" },
     r: { background: colors.rd, color: "#fff" },
     s: { background: colors.gn, color: "#fff" },
-    w: { background: colors.yl, color: "#fff" },
+    w: { background: colors.yl, color: "#422006" },
     g: { background: "transparent", color: colors.nv, border: "1px solid " + colors.g3 },
     pu: { background: colors.pr, color: "#fff" },
   };
   const sz: Record<string, React.CSSProperties> = {
-    s: { padding: "4px 10px", fontSize: 11 },
+    s: { padding: "8px 14px", fontSize: 11, minHeight: 36 },
     m: { padding: "7px 16px", fontSize: 13 },
   };
   return (
@@ -116,9 +116,9 @@ export function Pager({ page, totalPages, onPage }: PagerProps) {
   if (totalPages <= 1) return null;
   return (
     <div style={{ display: "flex", gap: 4, justifyContent: "center", alignItems: "center", marginTop: 12 }}>
-      <button onClick={() => onPage(page - 1)} disabled={page <= 1} style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid " + colors.g3, background: cardBg, cursor: page <= 1 ? "not-allowed" : "pointer", fontSize: 11, fontWeight: 600, opacity: page <= 1 ? .4 : 1, color: colors.nv }}>←</button>
+      <button onClick={() => onPage(page - 1)} disabled={page <= 1} style={{ padding: "8px 12px", minHeight: 36, borderRadius: 6, border: "1px solid " + colors.g3, background: cardBg, cursor: page <= 1 ? "not-allowed" : "pointer", fontSize: 11, fontWeight: 600, opacity: page <= 1 ? .4 : 1, color: colors.nv }}>←</button>
       <span style={{ fontSize: 11, color: colors.g5, fontWeight: 600 }}>{page} / {totalPages}</span>
-      <button onClick={() => onPage(page + 1)} disabled={page >= totalPages} style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid " + colors.g3, background: cardBg, cursor: page >= totalPages ? "not-allowed" : "pointer", fontSize: 11, fontWeight: 600, opacity: page >= totalPages ? .4 : 1, color: colors.nv }}>→</button>
+      <button onClick={() => onPage(page + 1)} disabled={page >= totalPages} style={{ padding: "8px 12px", minHeight: 36, borderRadius: 6, border: "1px solid " + colors.g3, background: cardBg, cursor: page >= totalPages ? "not-allowed" : "pointer", fontSize: 11, fontWeight: 600, opacity: page >= totalPages ? .4 : 1, color: colors.nv }}>→</button>
     </div>
   );
 }

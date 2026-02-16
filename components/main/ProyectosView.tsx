@@ -15,7 +15,8 @@ export function ProyectosView({projects,users,user,mob,onAddProject,onUpdProject
   const [selProj,sSelProj]=useState<any>(null);
   const [form,sForm]=useState(emptyForm());
   const [editing,sEditing]=useState(false);
-  const upd=(k:string,v:string)=>sForm(f=>({...f,[k]:v}));
+  const [formErr,sFormErr]=useState("");
+  const upd=(k:string,v:string)=>{sForm(f=>({...f,[k]:v}));if(k==="nombre"&&v.trim())sFormErr("");};
   const iS:any={width:"100%",padding:"8px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,background:cardBg,color:colors.nv};
   const tS:any={...iS,resize:"vertical" as const};
   const secHdr=(n:string,title:string)=><div style={{background:colors.g2,borderRadius:8,padding:"8px 12px",marginBottom:10,marginTop:n==="1"?0:16}}><span style={{fontSize:13,fontWeight:800,color:colors.nv}}>{n} {title}</span></div>;
@@ -61,8 +62,12 @@ export function ProyectosView({projects,users,user,mob,onAddProject,onUpdProject
         <div style={{fontSize:12,color:colors.g4,marginTop:2}}>Los Tordos Rugby Club – Plan 2035</div>
       </div>
 
+      {formErr&&<div style={{padding:"8px 12px",borderRadius:8,background:"#FEE2E2",border:"1px solid #FCA5A5",color:"#DC2626",fontSize:11,fontWeight:600,marginBottom:10}}>{formErr}</div>}
       {secHdr("1️⃣","Datos del Proyecto")}
-      {field("Nombre del proyecto","nombre")}
+      <div style={{marginBottom:8}}>
+        <label style={{fontSize:11,fontWeight:700,color:colors.g5,display:"block",marginBottom:3}}>Nombre del proyecto *</label>
+        <input value={form.nombre} onChange={e=>upd("nombre",e.target.value)} style={{...iS,border:"1px solid "+(formErr&&!form.nombre.trim()?"#DC2626":colors.g3)}}/>
+      </div>
       {field("Responsable (socio proponente)","responsable")}
       {field("Equipo inicial","equipo","textarea")}
 
@@ -103,8 +108,8 @@ export function ProyectosView({projects,users,user,mob,onAddProject,onUpdProject
 
       <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
         <button onClick={()=>{sMode(selProj?"view":"list");if(!selProj)sSelProj(null);}} style={{padding:"8px 16px",borderRadius:8,border:"1px solid "+colors.g3,background:"transparent",fontSize:12,cursor:"pointer",color:colors.g5}}>Cancelar</button>
-        <button onClick={()=>{if(!form.nombre.trim())return;const desc=JSON.stringify(form);if(editing&&selProj){onUpdProject(selProj.id,{name:form.nombre.trim(),description:desc});sSelProj({...selProj,name:form.nombre.trim(),description:desc});sMode("view");}else{onAddProject({name:form.nombre.trim(),description:desc,status:"borrador"});sMode("list");}}} style={{padding:"8px 16px",borderRadius:8,border:"none",background:colors.g4,color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer"}}>Guardar Borrador</button>
-        <button onClick={()=>{if(!form.nombre.trim())return;const desc=JSON.stringify(form);if(editing&&selProj){onUpdProject(selProj.id,{name:form.nombre.trim(),description:desc,status:"enviado"});sSelProj({...selProj,name:form.nombre.trim(),description:desc,status:"enviado"});sMode("view");}else{onAddProject({name:form.nombre.trim(),description:desc,status:"enviado"});sMode("list");}}} style={{padding:"8px 16px",borderRadius:8,border:"none",background:colors.nv,color:isDark?"#0F172A":"#fff",fontSize:12,fontWeight:700,cursor:"pointer"}}>Enviar Proyecto</button>
+        <button onClick={()=>{if(!form.nombre.trim()){sFormErr("El nombre del proyecto es obligatorio");return;}const desc=JSON.stringify(form);if(editing&&selProj){onUpdProject(selProj.id,{name:form.nombre.trim(),description:desc});sSelProj({...selProj,name:form.nombre.trim(),description:desc});sMode("view");}else{onAddProject({name:form.nombre.trim(),description:desc,status:"borrador"});sMode("list");}}} style={{padding:"8px 16px",borderRadius:8,border:"none",background:colors.g4,color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer"}}>Guardar Borrador</button>
+        <button onClick={()=>{if(!form.nombre.trim()){sFormErr("El nombre del proyecto es obligatorio");return;}const desc=JSON.stringify(form);if(editing&&selProj){onUpdProject(selProj.id,{name:form.nombre.trim(),description:desc,status:"enviado"});sSelProj({...selProj,name:form.nombre.trim(),description:desc,status:"enviado"});sMode("view");}else{onAddProject({name:form.nombre.trim(),description:desc,status:"enviado"});sMode("list");}}} style={{padding:"8px 16px",borderRadius:8,border:"none",background:colors.nv,color:isDark?"#0F172A":"#fff",fontSize:12,fontWeight:700,cursor:"pointer"}}>Enviar Proyecto</button>
       </div>
     </div>
   </div>);
@@ -170,8 +175,8 @@ export function ProyectosView({projects,users,user,mob,onAddProject,onUpdProject
           {(isOwner||isAdmin)&&<button onClick={()=>{if(confirm("¿Eliminar este proyecto?"))onDelProject(p.id);sMode("list");sSelProj(null);}} style={{padding:"7px 14px",borderRadius:8,border:"1px solid #FCA5A5",background:"transparent",fontSize:11,cursor:"pointer",color:"#DC2626",fontWeight:600}}>🗑 Eliminar</button>}
         </div>
         {isAdmin&&p.status==="enviado"&&<div style={{display:"flex",gap:6}}>
-          <button onClick={()=>{onUpdProject(p.id,{status:"aprobado"});sSelProj({...p,status:"aprobado"});}} style={{padding:"7px 14px",borderRadius:8,border:"none",background:"#10B981",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>✅ Aprobar</button>
-          <button onClick={()=>{onUpdProject(p.id,{status:"rechazado"});sSelProj({...p,status:"rechazado"});}} style={{padding:"7px 14px",borderRadius:8,border:"none",background:"#DC2626",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>❌ Rechazar</button>
+          <button onClick={()=>{if(confirm("¿Aprobar este proyecto? Esta acción no se puede deshacer.")){onUpdProject(p.id,{status:"aprobado"});sSelProj({...p,status:"aprobado"});}}} style={{padding:"7px 14px",borderRadius:8,border:"none",background:"#10B981",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>✅ Aprobar</button>
+          <button onClick={()=>{if(confirm("¿Rechazar este proyecto? Esta acción no se puede deshacer.")){onUpdProject(p.id,{status:"rechazado"});sSelProj({...p,status:"rechazado"});}}} style={{padding:"7px 14px",borderRadius:8,border:"none",background:"#DC2626",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>❌ Rechazar</button>
         </div>}
       </div>
     </div>
