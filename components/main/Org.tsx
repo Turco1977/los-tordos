@@ -38,34 +38,46 @@ function AcademiaOrg({mob,ex,tog}:any){
           <P cargo="Coord. SCRUM" name="Martin Silva" color={AC_C.rugby}/>
         </OrgNode>
 
-        <OrgNode mob={mob} icon="🔴" title="Plantel Superior" color={AC_C.sup} ex={!!ex.acPS} onTog={()=>tog("acPS")} cnt="4">
-          <P cargo="Entrenador" name="Pedro Garcia" color={AC_C.sup}/>
-          <P cargo="Prep. Física" name="Julieta Miranda" color={AC_C.sup}/>
-          <P cargo="Prep. Física" name="David Boullaude" color={AC_C.sup}/>
-          <P cargo="Prep. Física" name="Rodrigo Verger" color={AC_C.sup}/>
-        </OrgNode>
-
-        <OrgNode mob={mob} icon="🟡" title="Juveniles (M15–M19)" color={AC_C.juv} ex={!!ex.acJuv} onTog={()=>tog("acJuv")} cnt="10">
-          <DivNode div="M19" ent="Nicolas Ranieri" pf="Luis Puebla" color={AC_C.juv} mob={mob} ex={ex} tog={tog} k="acM19"/>
-          <DivNode div="M17" ent="Gonzalo Intzes" pf="Nicolas Hernandez" color={AC_C.juv} mob={mob} ex={ex} tog={tog} k="acM17"/>
-          <DivNode div="M16" ent="Rodolfo Guerra" pf="" color={AC_C.juv} mob={mob} ex={ex} tog={tog} k="acM16"/>
-          <DivNode div="M15" ent="Sebastian Salas" pf="" color={AC_C.juv} mob={mob} ex={ex} tog={tog} k="acM15"/>
-        </OrgNode>
-
-        <OrgNode mob={mob} icon="🔵" title="Infantiles (M8–M14)" color={AC_C.inf} ex={!!ex.acInf} onTog={()=>tog("acInf")} cnt="14">
-          <DivNode div="M14" ent="Enrique Arroyo" pf="Nicolas Gaido" color={AC_C.inf} mob={mob} ex={ex} tog={tog} k="acM14"/>
-          <DivNode div="M13" ent="Ramiro Pontis Day" pf="Franco Gomez" color={AC_C.inf} mob={mob} ex={ex} tog={tog} k="acM13"/>
-          <DivNode div="M12" ent="Fabian Guzzo" pf="Matias Boero" color={AC_C.inf} mob={mob} ex={ex} tog={tog} k="acM12"/>
-          <DivNode div="M11" ent="Maximiliano Ortega" pf="Rodrigo Verger" color={AC_C.inf} mob={mob} ex={ex} tog={tog} k="acM11"/>
-          <DivNode div="M10" ent="Martin Sanchez" pf="Karen Carrion" color={AC_C.inf} mob={mob} ex={ex} tog={tog} k="acM10"/>
-          <DivNode div="M9" ent="Daniel Pont Lezica" pf="Enzo Correa" color={AC_C.inf} mob={mob} ex={ex} tog={tog} k="acM9"/>
-          <DivNode div="M8" ent="Javier Badano" pf="Javier Badano" color={AC_C.inf} mob={mob} ex={ex} tog={tog} k="acM8"/>
-        </OrgNode>
-
-        <OrgNode mob={mob} icon="🟢" title="Escuelita" color={AC_C.esc} ex={!!ex.acEsc} onTog={()=>tog("acEsc")} cnt="3">
-          <P cargo="Entrenador" name="Joel Aguero" color={AC_C.esc}/>
-          <P cargo="Prep. Física" name="Joel Aguero" color={AC_C.esc}/>
-          <P cargo="Prep. Física" name="Federica Castilla" color={AC_C.esc}/>
+        <OrgNode mob={mob} icon="🎽" title="Entrenadores" color={AC_C.rugby} ex={!!ex.acEnt} onTog={()=>tog("acEnt")} cnt="13">
+          <OrgNode mob={mob} icon="🔴" title="Plantel Superior" color={AC_C.sup} ex={!!ex.acPS} onTog={()=>tog("acPS")} cnt="1">
+            <P cargo="Entrenador" name="Pedro Garcia" color={AC_C.sup}/>
+          </OrgNode>
+          <OrgNode mob={mob} icon="🟡" title="M19" color={AC_C.juv} ex={!!ex.acM19} onTog={()=>tog("acM19")} cnt="1">
+            <P cargo="Entrenador" name="Nicolas Ranieri" color={AC_C.juv}/>
+          </OrgNode>
+          <OrgNode mob={mob} icon="🟡" title="M17" color={AC_C.juv} ex={!!ex.acM17} onTog={()=>tog("acM17")} cnt="1">
+            <P cargo="Entrenador" name="Gonzalo Intzes" color={AC_C.juv}/>
+          </OrgNode>
+          <OrgNode mob={mob} icon="🟡" title="M16" color={AC_C.juv} ex={!!ex.acM16} onTog={()=>tog("acM16")} cnt="1">
+            <P cargo="Entrenador" name="Rodolfo Guerra" color={AC_C.juv}/>
+          </OrgNode>
+          <OrgNode mob={mob} icon="🟡" title="M15" color={AC_C.juv} ex={!!ex.acM15} onTog={()=>tog("acM15")} cnt="1">
+            <P cargo="Entrenador" name="Sebastian Salas" color={AC_C.juv}/>
+          </OrgNode>
+          <OrgNode mob={mob} icon="🔵" title="M14" color={AC_C.inf} ex={!!ex.acM14} onTog={()=>tog("acM14")} cnt="1">
+            <P cargo="Entrenador" name="Enrique Arroyo" color={AC_C.inf}/>
+          </OrgNode>
+          <OrgNode mob={mob} icon="🔵" title="M13" color={AC_C.inf} ex={!!ex.acM13} onTog={()=>tog("acM13")} cnt="1">
+            <P cargo="Entrenador" name="Ramiro Pontis Day" color={AC_C.inf}/>
+          </OrgNode>
+          <OrgNode mob={mob} icon="🔵" title="M12" color={AC_C.inf} ex={!!ex.acM12} onTog={()=>tog("acM12")} cnt="1">
+            <P cargo="Entrenador" name="Fabian Guzzo" color={AC_C.inf}/>
+          </OrgNode>
+          <OrgNode mob={mob} icon="🔵" title="M11" color={AC_C.inf} ex={!!ex.acM11} onTog={()=>tog("acM11")} cnt="1">
+            <P cargo="Entrenador" name="Maximiliano Ortega" color={AC_C.inf}/>
+          </OrgNode>
+          <OrgNode mob={mob} icon="🔵" title="M10" color={AC_C.inf} ex={!!ex.acM10} onTog={()=>tog("acM10")} cnt="1">
+            <P cargo="Entrenador" name="Martin Sanchez" color={AC_C.inf}/>
+          </OrgNode>
+          <OrgNode mob={mob} icon="🟢" title="M9" color={AC_C.esc} ex={!!ex.acM9} onTog={()=>tog("acM9")} cnt="1">
+            <P cargo="Entrenador" name="Daniel Pont Lezica" color={AC_C.esc}/>
+          </OrgNode>
+          <OrgNode mob={mob} icon="🟢" title="M8" color={AC_C.esc} ex={!!ex.acM8} onTog={()=>tog("acM8")} cnt="1">
+            <P cargo="Entrenador" name="Javier Badano" color={AC_C.esc}/>
+          </OrgNode>
+          <OrgNode mob={mob} icon="🟢" title="Escuelita" color={AC_C.esc} ex={!!ex.acEsc} onTog={()=>tog("acEsc")} cnt="1">
+            <P cargo="Entrenador" name="Joel Aguero" color={AC_C.esc}/>
+          </OrgNode>
         </OrgNode>
       </OrgNode>
 
