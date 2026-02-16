@@ -81,14 +81,14 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel}:any){
 
   /* ═══════ RENDER ═══════ */
   return(<div style={{maxWidth:mob?undefined:1000}}>
-    <h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:colors.nv,fontWeight:800}}>📅 Reservas</h2>
-    <p style={{color:colors.g4,fontSize:12,margin:"0 0 14px"}}>Gestione canchas, gimnasio, salones y otras instalaciones del club</p>
+    <h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:colors.nv,fontWeight:800}}>🏟️ Espacios</h2>
+    <p style={{color:colors.g4,fontSize:12,margin:"0 0 14px"}}>Gestión de canchas, espacios e instalaciones del club</p>
 
     {/* ── KPI CARDS ── */}
     <div style={{display:"grid",gridTemplateColumns:mob?"repeat(2,1fr)":"repeat(4,1fr)",gap:10,marginBottom:18}}>
       <Card style={{padding:"10px 12px",borderTop:"3px solid "+colors.nv}}>
         <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:16}}>📋</span><span style={{fontSize:17,fontWeight:800,color:colors.nv}}>{weekBookings.length}</span></div>
-        <div style={{fontSize:10,color:colors.g4,marginTop:3}}>Reservas esta semana</div>
+        <div style={{fontSize:10,color:colors.g4,marginTop:3}}>Espacios esta semana</div>
       </Card>
       <Card style={{padding:"10px 12px",borderTop:"3px solid #10B981"}}>
         <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:16}}>✅</span><span style={{fontSize:17,fontWeight:800,color:"#10B981"}}>{kConfirmed}</span></div>
@@ -119,13 +119,13 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel}:any){
       <input type="date" value={fDateTo} onChange={e=>sFDateTo(e.target.value)} style={{padding:"5px 8px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:11}} title="Hasta"/>
       {(fFac||fSearch||fDateFrom||fDateTo)&&<button onClick={()=>{sFFac("");sFSearch("");sFDateFrom("");sFDateTo("");}} style={{padding:"5px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:11,background:cardBg,cursor:"pointer",color:colors.g4}}>Limpiar</button>}
       <div style={{flex:1}}/>
-      {onAdd&&<Btn v="s" s="s" onClick={()=>sShowAdd(!showAdd)}>{showAdd?"✕ Cancelar":"+ Nueva Reserva"}</Btn>}
+      {onAdd&&<Btn v="s" s="s" onClick={()=>sShowAdd(!showAdd)}>{showAdd?"✕ Cancelar":"+ Nuevo Espacio"}</Btn>}
     </div>
 
     {/* ── ADD BOOKING MODAL ── */}
     {showAdd&&onAdd&&<Card style={{marginBottom:14,background:isDark?"#0D2818":"#F0FDF4",border:"1px solid #BBF7D0"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-        <div style={{fontSize:12,fontWeight:700,color:"#166534"}}>📅 Nueva Reserva</div>
+        <div style={{fontSize:12,fontWeight:700,color:"#166534"}}>🏟️ Reservar Espacio</div>
         <button onClick={resetForm} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:colors.g4}}>✕</button>
       </div>
       <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8,marginBottom:8}}>
@@ -159,7 +159,7 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel}:any){
       {formConflict&&<div style={{padding:"8px 12px",borderRadius:8,background:"#FEF2F2",border:"1px solid #FECACA",fontSize:11,fontWeight:600,color:"#DC2626",marginBottom:8}}>⚠️ Conflicto: ya existe una reserva en {BOOK_FAC[form.facility]?.l} el {fmtD(form.date)} que se superpone con el horario seleccionado.</div>}
       <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}>
         <Btn v="g" s="s" onClick={resetForm}>Cancelar</Btn>
-        <Btn v="s" s="s" disabled={!form.title||!form.date||!form.time_start||!form.time_end} onClick={()=>{onAdd({...form,booked_by:user.id,booked_by_name:fn(user)});resetForm();}}>📅 Reservar</Btn>
+        <Btn v="s" s="s" disabled={!form.title||!form.date||!form.time_start||!form.time_end} onClick={()=>{onAdd({...form,booked_by:user.id,booked_by_name:fn(user)});resetForm();}}>✅ Reservar Espacio</Btn>
       </div>
     </Card>}
 
@@ -211,9 +211,9 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel}:any){
     {/* ═══════ EDIT BOOKING INLINE ═══════ */}
     {editId&&editForm&&<Card style={{marginBottom:14,borderLeft:"4px solid "+BOOK_FAC[editForm.facility]?.c,background:isDark?"#1E293B":"#FAFAFA"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-        <div style={{fontSize:12,fontWeight:700,color:colors.nv}}>Editar Reserva #{editId}</div>
+        <div style={{fontSize:12,fontWeight:700,color:colors.nv}}>Editar Espacio #{editId}</div>
         <div style={{display:"flex",gap:4,alignItems:"center"}}>
-          {onDel&&<button onClick={()=>{if(confirm("Eliminar esta reserva?"))onDel(editId);cancelEdit();}} style={{background:"none",border:"1px solid #DC2626",borderRadius:6,padding:"3px 8px",fontSize:10,color:"#DC2626",cursor:"pointer",fontWeight:600}}>Eliminar</button>}
+          {onDel&&<button onClick={()=>{if(confirm("Eliminar este espacio?"))onDel(editId);cancelEdit();}} style={{background:"none",border:"1px solid #DC2626",borderRadius:6,padding:"3px 8px",fontSize:10,color:"#DC2626",cursor:"pointer",fontWeight:600}}>Eliminar</button>}
           <button onClick={cancelEdit} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:colors.g4}}>✕</button>
         </div>
       </div>
@@ -247,7 +247,7 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel}:any){
 
     {/* ═══════ BOOKING LIST ═══════ */}
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-      <div style={{fontSize:13,fontWeight:700,color:colors.nv}}>Listado de Reservas ({filtered.length})</div>
+      <div style={{fontSize:13,fontWeight:700,color:colors.nv}}>Listado de Espacios ({filtered.length})</div>
       <button onClick={()=>sSortAsc(!sortAsc)} style={{padding:"4px 10px",borderRadius:8,border:"1px solid "+colors.g3,background:cardBg,fontSize:10,fontWeight:600,color:colors.g5,cursor:"pointer"}}>{sortAsc?"▲ Fecha asc":"▼ Fecha desc"}</button>
     </div>
 
@@ -260,7 +260,7 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel}:any){
 
     {sortedFiltered.length===0&&<Card style={{textAlign:"center" as const,padding:24,color:colors.g4}}>
       <span style={{fontSize:24}}>📭</span>
-      <div style={{marginTop:6,fontSize:12}}>Sin reservas{fFac||fSearch||fDateFrom||fDateTo?" con los filtros seleccionados":""}</div>
+      <div style={{marginTop:6,fontSize:12}}>Sin espacios reservados{fFac||fSearch||fDateFrom||fDateTo?" con los filtros seleccionados":""}</div>
     </Card>}
 
     {sortedFiltered.map((b:any)=>{

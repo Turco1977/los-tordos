@@ -27,7 +27,7 @@ export function SB({areas,deptos,pedidos,aA,aD,onAC,onDC,col,onCol,isPersonal,mo
         {k:"recurrentes",l:"Recurrentes",icon:"🔁",show:!isPersonal&&user&&(user.role==="admin"||user.role==="superadmin"||user.role==="coordinador")},
         {k:"comm",l:"Comunicar",icon:"📢",show:!isPersonal&&user&&(user.role==="admin"||user.role==="superadmin"||user.role==="coordinador")},
         {k:"inventario",l:"Inventario",icon:"📦",show:!isPersonal&&user&&(user.role==="admin"||user.role==="superadmin"||user.role==="coordinador")},
-        {k:"reservas",l:"Reservas",icon:"🏟️",show:true},
+        {k:"reservas",l:"Espacios",icon:"🏟️",show:true},
         {k:"sponsors",l:"Sponsors",icon:"🥇",show:!isPersonal&&user&&(user.role==="admin"||user.role==="superadmin"||user.role==="coordinador"||user.role==="embudo")},
       ].filter(n=>n.show).map(n=><div key={n.k} onClick={()=>{onNav(n.k);if(mob)onClose();}} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:7,cursor:"pointer",background:vw===n.k?"rgba(255,255,255,.1)":"transparent",fontSize:11,fontWeight:vw===n.k?700:500,color:vw===n.k?"#fff":"rgba(255,255,255,.55)",marginBottom:1}}><span style={{fontSize:13}}>{n.icon}</span>{n.l}</div>)}
     </div>}

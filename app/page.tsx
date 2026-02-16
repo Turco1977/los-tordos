@@ -322,7 +322,7 @@ export default function App(){
       {id:"nav-recur",label:"Recurrentes",icon:"🔁",keywords:"template,automatica,repetir",action:()=>sVw("recurrentes")},
       {id:"nav-plan",label:"Plan 2035",icon:"🎯",keywords:"hitos,roadmap",action:()=>sVw("proy")},
       {id:"nav-inv",label:"Inventario",icon:"📦",keywords:"equipo,stock,material",action:()=>sVw("inventario")},
-      {id:"nav-res",label:"Reservas",icon:"🏟️",keywords:"cancha,booking,reserva",action:()=>sVw("reservas")},
+      {id:"nav-res",label:"Espacios",icon:"🏟️",keywords:"cancha,booking,reserva,espacio",action:()=>sVw("reservas")},
       {id:"nav-spon",label:"Sponsors",icon:"🥇",keywords:"sponsor,patrocinador,crm",action:()=>sVw("sponsors")},
     ];
     navItems.forEach(n=>items.push({...n,category:"nav"}));
@@ -412,9 +412,9 @@ export default function App(){
           />}
           {/* Reservas */}
           {vw==="reservas"&&<ReservasView bookings={bookings} users={users} user={user} mob={mob}
-            onAdd={async(d:any)=>{try{const{data,error}=await supabase.from("bookings").insert(d).select().single();if(error)throw new Error(error.message);if(data)sBookings(prev=>[data,...prev]);showT("Reserva creada");}catch(e:any){showT(e.message||"Error","err");}}}
-            onUpd={async(id:number,d:any)=>{try{sBookings(prev=>prev.map(x=>x.id===id?{...x,...d}:x));await supabase.from("bookings").update(d).eq("id",id);showT("Reserva actualizada");}catch(e:any){showT(e.message||"Error","err");}}}
-            onDel={async(id:number)=>{try{sBookings(prev=>prev.filter(x=>x.id!==id));await supabase.from("bookings").delete().eq("id",id);showT("Reserva eliminada");}catch(e:any){showT(e.message||"Error","err");}}}
+            onAdd={async(d:any)=>{try{const{data,error}=await supabase.from("bookings").insert(d).select().single();if(error)throw new Error(error.message);if(data)sBookings(prev=>[data,...prev]);showT("Espacio reservado");}catch(e:any){showT(e.message||"Error","err");}}}
+            onUpd={async(id:number,d:any)=>{try{sBookings(prev=>prev.map(x=>x.id===id?{...x,...d}:x));await supabase.from("bookings").update(d).eq("id",id);showT("Espacio actualizado");}catch(e:any){showT(e.message||"Error","err");}}}
+            onDel={async(id:number)=>{try{sBookings(prev=>prev.filter(x=>x.id!==id));await supabase.from("bookings").delete().eq("id",id);showT("Espacio eliminado");}catch(e:any){showT(e.message||"Error","err");}}}
           />}
           {/* Sponsors */}
           {vw==="sponsors"&&(isAd||user.role==="coordinador"||user.role==="embudo")&&<SponsorsView sponsors={sponsors} user={user} mob={mob}

@@ -126,10 +126,12 @@ export const BOOK_FAC:Record<string,{l:string;i:string;c:string}>={
   cancha2:{l:"Cancha 2",i:"🏟️",c:"#3B82F6"},
   cancha3:{l:"Cancha 3",i:"🏟️",c:"#F59E0B"},
   cancha4:{l:"Cancha 4",i:"🏟️",c:"#8B5CF6"},
+  cancha5:{l:"Cancha 5",i:"🏟️",c:"#0EA5E9"},
   gimnasio:{l:"Gimnasio",i:"🏋️",c:"#DC2626"},
   salon:{l:"Salón",i:"🏠",c:"#6B7280"},
   cantina:{l:"Cantina",i:"🍽️",c:"#C8102E"},
-  anexo:{l:"Anexo",i:"🏗️",c:"#0A1628"}
+  pajarera:{l:"Pajarera",i:"🏡",c:"#059669"},
+  pergola:{l:"Pérgola",i:"⛱️",c:"#7C3AED"}
 };
 export const BOOK_ST:Record<string,{l:string;c:string;bg:string;i:string}>={
   pendiente:{l:"Pendiente",c:"#F59E0B",bg:"#FEF3C7",i:"⏳"},
