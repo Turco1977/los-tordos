@@ -54,15 +54,37 @@ export function SponsorsView({sponsors,user,mob,onAdd,onUpd,onDel}:any){
       const data=new Uint8Array(await file.arrayBuffer());
       const wb=XLSX.read(data);
       const ws=wb.Sheets[wb.SheetNames[0]];
-      const rows:any[]=XLSX.utils.sheet_to_json(ws,{defval:""});
-      if(!rows.length){sImportErr("El archivo no tiene datos");return;}
-      /* Map columns flexibly — try common header names, also check all keys case-insensitively */
+      /* Read as raw arrays to auto-detect header row (skip title/empty rows) */
+      const raw:any[][]=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
+      if(!raw.length){sImportErr("El archivo no tiene datos");return;}
+      /* Find header row: first row with 3+ non-empty cells */
+      let hIdx=0;
+      for(let i=0;i<Math.min(raw.length,10);i++){
+        const filled=raw[i].filter((c:any)=>c!==undefined&&c!=null&&String(c).trim()!=="").length;
+        if(filled>=3){hIdx=i;break;}
+      }
+      const headers=raw[hIdx].map((h:any)=>String(h||"").trim());
+      const dataRows=raw.slice(hIdx+1).filter((r:any[])=>r.some((c:any)=>c!==undefined&&c!=null&&String(c).trim()!==""));
+      if(!dataRows.length){sImportErr("No se encontraron filas de datos. Headers: "+headers.filter(Boolean).join(", "));return;}
+      /* Build objects from headers + data rows */
+      const rows=dataRows.map((r:any[])=>{
+        const obj:any={};
+        headers.forEach((h:string,i:number)=>{if(h)obj[h]=r[i]!==undefined?r[i]:"";});
+        return obj;
+      });
+      /* Map columns flexibly — try common header names, case-insensitive */
       const mapped=rows.map((r:any)=>{
         const rKeys=Object.keys(r);
         const get=(...keys:string[])=>{
           for(const k of keys){
             if(r[k]!==undefined&&r[k]!=="")return r[k];
             const found=rKeys.find(rk=>rk.toLowerCase().trim()===k.toLowerCase().trim());
+            if(found&&r[found]!==undefined&&r[found]!=="")return r[found];
+          }
+          /* Fallback: partial match */
+          for(const k of keys){
+            const kl=k.toLowerCase();
+            const found=rKeys.find(rk=>rk.toLowerCase().includes(kl)||kl.includes(rk.toLowerCase()));
             if(found&&r[found]!==undefined&&r[found]!=="")return r[found];
           }
           return "";
@@ -73,13 +95,13 @@ export function SponsorsView({sponsors,user,mob,onAdd,onUpd,onDel}:any){
           amount_cash:num(get("Aporte $","aporte $","Aporte","aporte","amount_cash","Efectivo","efectivo","Cash","cash","APORTE $")),
           amount_service:num(get("Aporte Pro/Ser","aporte pro/ser","Canjes","canjes","amount_service","Servicio","servicio","APORTE PRO/SER")),
           end_date:get("Período","periodo","Periodo","end_date","Vencimiento","vencimiento","PERIODO")||null,
-          exposure:get("Exposición","exposicion","Exposicion","exposure","EXPOSICION"),
+          exposure:get("Exposición","exposicion","Exposicion","exposure","EXPOSICION","Ropa","ropa"),
           notes:get("Varios","varios","Observaciones","observaciones","notes","Notes","Notas","notas","VARIOS"),
           payment_type:get("Tipo pago","tipo pago","payment_type","Pago","pago","TIPO PAGO"),
           status:"active",
         };
       }).filter((s:any)=>s.name);
-      if(!mapped.length){sImportErr("No se encontraron sponsors con nombre. Columnas detectadas: "+Object.keys(rows[0]).join(", "));return;}
+      if(!mapped.length){sImportErr("No se encontraron sponsors. Headers detectados: "+headers.filter(Boolean).join(", "));return;}
       sImportPreview(mapped);
     }catch(err:any){
       sImportErr("Error leyendo archivo: "+(err.message||"formato no reconocido"));
