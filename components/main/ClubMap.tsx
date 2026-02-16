@@ -172,7 +172,7 @@ export function ClubMap({ bookings, date, mob, onSelectFacility, onSelectBooking
     const statusInfo = firstBooking ? BOOK_ST[firstBooking.status] : null;
     const isSmall = z.w < 8 || z.h < 8;
     const fontSize = mob
-      ? (isSmall ? 5 : z.type === "building" ? 6 : 7)
+      ? (isSmall ? 7 : z.type === "building" ? 8 : 9)
       : (isSmall ? 7 : z.type === "building" ? 9 : 10);
 
     return (
@@ -256,14 +256,14 @@ export function ClubMap({ bookings, date, mob, onSelectFacility, onSelectBooking
           {/* Booking info (if booked) */}
           {booked && firstBooking && !isSmall && (
             <div style={{
-              marginTop: mob ? 1 : 3,
+              marginTop: mob ? 2 : 3,
               background: "rgba(0,0,0,0.45)",
               borderRadius: 4,
-              padding: mob ? "1px 3px" : "2px 6px",
+              padding: mob ? "2px 4px" : "2px 6px",
               maxWidth: "92%"
             }}>
               <div style={{
-                fontSize: mob ? 5 : 8,
+                fontSize: mob ? 7 : 8,
                 fontWeight: 700,
                 color: statusInfo?.c || "#fff",
                 overflow: "hidden",
@@ -273,14 +273,14 @@ export function ClubMap({ bookings, date, mob, onSelectFacility, onSelectBooking
                 {statusInfo?.i} {firstBooking.title}
               </div>
               <div style={{
-                fontSize: mob ? 4 : 7,
+                fontSize: mob ? 6 : 7,
                 color: "#CBD5E1",
                 fontWeight: 500
               }}>
                 {firstBooking.time_start} - {firstBooking.time_end}
               </div>
               {zoneBookings.length > 1 && (
-                <div style={{ fontSize: mob ? 4 : 6, color: "#94A3B8", fontWeight: 600 }}>
+                <div style={{ fontSize: mob ? 6 : 6, color: "#94A3B8", fontWeight: 600 }}>
                   +{zoneBookings.length - 1} mas
                 </div>
               )}
@@ -291,8 +291,8 @@ export function ClubMap({ bookings, date, mob, onSelectFacility, onSelectBooking
           {booked && isSmall && statusInfo && (
             <div style={{
               marginTop: 1,
-              width: mob ? 4 : 6,
-              height: mob ? 4 : 6,
+              width: mob ? 8 : 6,
+              height: mob ? 8 : 6,
               borderRadius: "50%",
               background: statusInfo.c,
               border: "1px solid rgba(255,255,255,0.5)"
@@ -302,8 +302,8 @@ export function ClubMap({ bookings, date, mob, onSelectFacility, onSelectBooking
           {/* "Libre" indicator for empty bookable zones */}
           {!booked && isBookable && !isSmall && (
             <div style={{
-              marginTop: mob ? 1 : 3,
-              fontSize: mob ? 5 : 7,
+              marginTop: mob ? 2 : 3,
+              fontSize: mob ? 7 : 7,
               color: "rgba(255,255,255,0.7)",
               fontWeight: 600,
               fontStyle: "italic" as const
@@ -402,7 +402,7 @@ export function ClubMap({ bookings, date, mob, onSelectFacility, onSelectBooking
               position: "absolute" as const,
               top: "0.5%",
               left: "55%",
-              fontSize: mob ? 5 : 7,
+              fontSize: mob ? 7 : 7,
               color: isDark ? "#64748B" : "#475569",
               fontWeight: 700,
               letterSpacing: 0.8,
@@ -415,7 +415,7 @@ export function ClubMap({ bookings, date, mob, onSelectFacility, onSelectBooking
               position: "absolute" as const,
               bottom: "0.5%",
               left: "2%",
-              fontSize: mob ? 5 : 7,
+              fontSize: mob ? 7 : 7,
               color: isDark ? "#64748B" : "#475569",
               fontWeight: 700,
               letterSpacing: 0.8,
@@ -432,7 +432,7 @@ export function ClubMap({ bookings, date, mob, onSelectFacility, onSelectBooking
             top: "1.5%",
             left: "50%",
             transform: "translateX(-50%)",
-            fontSize: mob ? 5 : 7,
+            fontSize: mob ? 7 : 7,
             color: isDark ? "#64748B" : "#475569",
             fontWeight: 700,
             letterSpacing: 0.8,
@@ -499,7 +499,7 @@ export function ClubMap({ bookings, date, mob, onSelectFacility, onSelectBooking
                   key={b.id || i}
                   onClick={() => onSelectBooking?.(b)}
                   style={{
-                    padding: mob ? "3px 6px" : "4px 10px",
+                    padding: mob ? "8px 10px" : "4px 10px",
                     borderRadius: 6,
                     background: st.bg,
                     border: `1px solid ${st.c}40`,
@@ -507,19 +507,20 @@ export function ClubMap({ bookings, date, mob, onSelectFacility, onSelectBooking
                     display: "flex",
                     alignItems: "center",
                     gap: 4,
-                    transition: "transform 0.1s"
+                    transition: "transform 0.1s",
+                    minHeight: mob ? 40 : undefined
                   }}
                   onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.transform = "scale(1.03)"; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = "scale(1)"; }}
                 >
-                  <span style={{ fontSize: mob ? 8 : 10, fontWeight: 700, color: st.c }}>
+                  <span style={{ fontSize: mob ? 11 : 10, fontWeight: 700, color: st.c }}>
                     {st.i} {fac?.l || b.facility}
                   </span>
-                  <span style={{ fontSize: mob ? 7 : 9, color: colors.g5, fontWeight: 500 }}>
+                  <span style={{ fontSize: mob ? 10 : 9, color: colors.g5, fontWeight: 500 }}>
                     {b.time_start}-{b.time_end}
                   </span>
                   <span style={{
-                    fontSize: mob ? 7 : 9,
+                    fontSize: mob ? 10 : 9,
                     color: colors.nv,
                     fontWeight: 600,
                     overflow: "hidden",

@@ -44,15 +44,15 @@ export function Det({p,user,users,onX,onTk,onAs,onRe,onSE,onEO,onFi,onVa,onMsg,o
         <div style={{display:"flex",gap:12,marginTop:8,flexWrap:"wrap" as const,fontSize:11,color:colors.g5}}>
           <span>📍 {p.div||"General"}</span><span>👤 {p.cN}</span>{ag&&<span>⚙️ {fn(ag)}</span>}<span>📅 {p.fReq}</span>{p.monto&&<span style={{color:colors.pr,fontWeight:700}}>💰 ${p.monto.toLocaleString()}</span>}
         </div>
-        <div style={{display:"flex",gap:4,marginTop:10}}>
-          {[{k:"chat",l:"💬 Chat ("+msgs+")"},{k:"info",l:"📋 Detalle"},{k:"acc",l:"⚡ Acciones"},{k:"check",l:"☑️ ("+(chkItems.filter(c=>c.done).length)+"/"+chkItems.length+")"},{k:"presu",l:"💰 Presu ("+tPresu.length+")"},...(editing?[{k:"edit",l:"✏️ Editar"}]:[])].map(t=><button key={t.k} onClick={()=>sTab(t.k)} style={{padding:"5px 12px",borderRadius:6,border:"none",background:tab===t.k?colors.nv:"transparent",color:tab===t.k?"#fff":colors.g5,fontSize:11,fontWeight:600,cursor:"pointer"}}>{t.l}</button>)}
+        <div style={{display:"flex",gap:mob?2:4,marginTop:10,flexWrap:"wrap" as const}}>
+          {[{k:"chat",l:"💬 Chat ("+msgs+")"},{k:"info",l:"📋 Detalle"},{k:"acc",l:"⚡ Acciones"},{k:"check",l:"☑️ ("+(chkItems.filter(c=>c.done).length)+"/"+chkItems.length+")"},{k:"presu",l:"💰 Presu ("+tPresu.length+")"},...(editing?[{k:"edit",l:"✏️ Editar"}]:[])].map(t=><button key={t.k} onClick={()=>sTab(t.k)} style={{padding:mob?"8px 10px":"5px 12px",borderRadius:6,border:"none",background:tab===t.k?colors.nv:"transparent",color:tab===t.k?"#fff":colors.g5,fontSize:mob?12:11,fontWeight:600,cursor:"pointer",minHeight:mob?40:undefined}}>{t.l}</button>)}
         </div>
       </div>
       <div style={{flex:1,padding:"12px 20px",overflow:"auto",display:"flex",flexDirection:"column" as const}}>
         {tab==="chat"&&<Thread log={p.log} userId={user.id} onSend={(txt:string)=>onMsg(p.id,txt)} users={users}/>}
         {tab==="edit"&&rlv(user.role)>=4&&<div style={{display:"flex",flexDirection:"column" as const,gap:10}}>
           <div style={{padding:10,background:"#FFFBEB",borderRadius:8,border:"1px solid #FDE68A"}}><span style={{fontSize:11,fontWeight:700,color:"#92400E"}}>👑 Edición Administrativa</span></div>
-          <div><label style={{fontSize:11,fontWeight:600,color:colors.g5}}>Tipo</label><div style={{display:"flex",flexWrap:"wrap" as const,gap:4,marginTop:3}}>{TIPOS.map(t=><button key={t} onClick={()=>sEf(prev=>({...prev,tipo:t}))} style={{padding:"4px 10px",borderRadius:16,fontSize:10,border:ef.tipo===t?"2px solid "+colors.nv:"1px solid "+colors.g3,background:ef.tipo===t?colors.nv:"#fff",color:ef.tipo===t?"#fff":colors.g5,cursor:"pointer"}}>{t}</button>)}</div></div>
+          <div><label style={{fontSize:11,fontWeight:600,color:colors.g5}}>Tipo</label><div style={{display:"flex",flexWrap:"wrap" as const,gap:mob?6:4,marginTop:3}}>{TIPOS.map(t=><button key={t} onClick={()=>sEf(prev=>({...prev,tipo:t}))} style={{padding:mob?"8px 14px":"4px 10px",borderRadius:16,fontSize:mob?12:10,border:ef.tipo===t?"2px solid "+colors.nv:"1px solid "+colors.g3,background:ef.tipo===t?colors.nv:(isDark?"#1E293B":"#fff"),color:ef.tipo===t?"#fff":colors.g5,cursor:"pointer",minHeight:mob?40:undefined}}>{t}</button>)}</div></div>
           <div><label style={{fontSize:11,fontWeight:600,color:colors.g5}}>Descripción</label><textarea value={ef.desc} onChange={e=>sEf(prev=>({...prev,desc:e.target.value}))} rows={3} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,resize:"vertical" as const,boxSizing:"border-box" as const,marginTop:3}}/></div>
           <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8}}>
             <div><label style={{fontSize:11,fontWeight:600,color:colors.g5}}>División</label><input value={ef.div} onChange={e=>sEf(prev=>({...prev,div:e.target.value}))} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:3}}/></div>
@@ -77,7 +77,7 @@ export function Det({p,user,users,onX,onTk,onAs,onRe,onSE,onEO,onFi,onVa,onMsg,o
           {isCo&&(p.st===ST.P||p.st===ST.C)&&<div><div style={{fontSize:11,fontWeight:600,color:colors.g5,marginBottom:4}}>Asignar a:</div><div style={{display:"flex",gap:4}}><select value={at} onChange={(e:any)=>sAt(e.target.value)} style={{flex:1,padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12}}><option value="">Seleccionar...</option>{stf.map((u:any)=><option key={u.id} value={u.id}>{fn(u)} ({ROLES[u.role]?.l})</option>)}</select><Btn disabled={!at} onClick={()=>{onAs(p.id,at);onX();}}>Asignar</Btn></div></div>}
           {(isM||isSA)&&p.st===ST.C&&<div style={{display:"flex",flexDirection:"column" as const,gap:6}}>
             <textarea value={rp} onChange={(e:any)=>sRp(e.target.value)} rows={2} placeholder="Resolución..." style={{padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,resize:"vertical" as const}}/>
-            {p.rG&&!p.eOk&&<div><label style={{fontSize:11,color:colors.g5}}>Monto ($)</label><input type="number" value={mt} onChange={(e:any)=>sMt(e.target.value)} style={{width:160,padding:"6px 8px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:12,marginLeft:6}}/></div>}
+            {p.rG&&!p.eOk&&<div><label style={{fontSize:11,color:colors.g5}}>Monto ($)</label><input type="number" value={mt} onChange={(e:any)=>sMt(e.target.value)} style={{width:mob?"100%":160,padding:mob?"10px 10px":"6px 8px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:mob?14:12,marginLeft:mob?0:6,marginTop:mob?4:0,boxSizing:"border-box" as const,minHeight:mob?44:undefined}}/></div>}
             <div style={{display:"flex",gap:4,flexWrap:"wrap" as const}}>
               <Btn v="g" s="s" onClick={()=>onRe(p.id,rp)}>💾 Guardar</Btn>
               {p.rG&&!p.eOk&&<Btn v="pu" s="s" onClick={()=>{if(mt)onMonto(p.id,Number(mt));onRe(p.id,rp);onSE(p.id);}}>💰 Enviar a Compras</Btn>}
@@ -111,7 +111,7 @@ export function Det({p,user,users,onX,onTk,onAs,onRe,onSE,onEO,onFi,onVa,onMsg,o
         {tab==="presu"&&<div style={{display:"flex",flexDirection:"column" as const,gap:8}}>
           {/* Sub-tabs: list, add, compare */}
           <div style={{display:"flex",gap:4,marginBottom:4}}>
-            {[{k:"list",l:"📋 Lista"},{k:"add",l:"➕ Agregar"},...(prSel.length>=2?[{k:"cmp",l:"⚖️ Comparar ("+prSel.length+")"}]:[])].map(st=><button key={st.k} onClick={()=>sPrSub(st.k)} style={{padding:"4px 10px",borderRadius:6,border:"none",background:prSub===st.k?colors.pr:"transparent",color:prSub===st.k?"#fff":colors.g5,fontSize:10,fontWeight:600,cursor:"pointer"}}>{st.l}</button>)}
+            {[{k:"list",l:"📋 Lista"},{k:"add",l:"➕ Agregar"},...(prSel.length>=2?[{k:"cmp",l:"⚖️ Comparar ("+prSel.length+")"}]:[])].map(st=><button key={st.k} onClick={()=>sPrSub(st.k)} style={{padding:mob?"8px 12px":"4px 10px",borderRadius:6,border:"none",background:prSub===st.k?colors.pr:"transparent",color:prSub===st.k?"#fff":colors.g5,fontSize:mob?12:10,fontWeight:600,cursor:"pointer",minHeight:mob?40:undefined}}>{st.l}</button>)}
           </div>
           {/* LIST */}
           {prSub==="list"&&<div style={{display:"flex",flexDirection:"column" as const,gap:6}}>

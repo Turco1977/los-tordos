@@ -314,23 +314,23 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel,onDelMul
 
     {/* ── per-facility mini badges ── */}
     {Object.keys(facCounts).length>0&&<div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap" as const}}>
-      {FKEYS.filter(k=>facCounts[k]).map(k=><span key={k} style={{padding:"3px 10px",borderRadius:14,background:BOOK_FAC[k].c+"18",border:"1px solid "+BOOK_FAC[k].c+"40",fontSize:10,fontWeight:600,color:BOOK_FAC[k].c}}>{BOOK_FAC[k].i} {BOOK_FAC[k].l}: {facCounts[k]}</span>)}
+      {FKEYS.filter(k=>facCounts[k]).map(k=><span key={k} style={{padding:mob?"6px 12px":"3px 10px",borderRadius:14,background:BOOK_FAC[k].c+"18",border:"1px solid "+BOOK_FAC[k].c+"40",fontSize:mob?11:10,fontWeight:600,color:BOOK_FAC[k].c,minHeight:mob?32:undefined,display:"inline-flex",alignItems:"center"}}>{BOOK_FAC[k].i} {BOOK_FAC[k].l}: {facCounts[k]}</span>)}
     </div>}
 
     {/* ── TABS ── */}
     <div style={{display:"flex",gap:4,marginBottom:14}}>
-      {(["calendario","mapa"] as const).map(t=><button key={t} onClick={()=>sTab(t)} style={{padding:"7px 18px",borderRadius:8,border:tab===t?"2px solid "+colors.bl:"1px solid "+colors.g3,background:tab===t?(isDark?"#1E3A5F":"#EFF6FF"):cardBg,color:tab===t?colors.bl:colors.g5,fontSize:12,fontWeight:tab===t?700:500,cursor:"pointer"}}>{t==="calendario"?"📅 Calendario":"🗺️ Mapa"}</button>)}
+      {(["calendario","mapa"] as const).map(t=><button key={t} onClick={()=>sTab(t)} style={{padding:mob?"10px 20px":"7px 18px",borderRadius:8,border:tab===t?"2px solid "+colors.bl:"1px solid "+colors.g3,background:tab===t?(isDark?"#1E3A5F":"#EFF6FF"):cardBg,color:tab===t?colors.bl:colors.g5,fontSize:mob?13:12,fontWeight:tab===t?700:500,cursor:"pointer",minHeight:mob?44:undefined}}>{t==="calendario"?"📅 Calendario":"🗺️ Mapa"}</button>)}
     </div>
 
     {/* ── FILTERS + ADD ── */}
     <div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap" as const,alignItems:"center"}}>
-      <input value={fSearch} onChange={e=>sFSearch(e.target.value)} placeholder="Buscar titulo..." style={{padding:"5px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:11,width:140,background:cardBg,color:isDark?"#E2E8F0":undefined}}/>
-      <select value={fFac} onChange={e=>sFFac(e.target.value)} style={{padding:"5px 8px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:11,background:cardBg,color:isDark?"#E2E8F0":undefined}}>
+      <input value={fSearch} onChange={e=>sFSearch(e.target.value)} placeholder="Buscar titulo..." style={{padding:mob?"10px 12px":"5px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:mob?13:11,width:mob?150:140,background:cardBg,color:isDark?"#E2E8F0":undefined,minHeight:mob?44:undefined}}/>
+      <select value={fFac} onChange={e=>sFFac(e.target.value)} style={{padding:mob?"10px 8px":"5px 8px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:mob?13:11,background:cardBg,color:isDark?"#E2E8F0":undefined,minHeight:mob?44:undefined}}>
         <option value="">Todas las instalaciones</option>{FKEYS.map(k=><option key={k} value={k}>{BOOK_FAC[k].i} {BOOK_FAC[k].l}</option>)}
       </select>
       {tab==="calendario"&&<>
-        <input type="date" value={fDateFrom} onChange={e=>sFDateFrom(e.target.value)} style={{padding:"5px 8px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:11,background:cardBg,color:isDark?"#E2E8F0":undefined}} title="Desde"/>
-        <input type="date" value={fDateTo} onChange={e=>sFDateTo(e.target.value)} style={{padding:"5px 8px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:11,background:cardBg,color:isDark?"#E2E8F0":undefined}} title="Hasta"/>
+        <input type="date" value={fDateFrom} onChange={e=>sFDateFrom(e.target.value)} style={{padding:mob?"10px 8px":"5px 8px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:mob?13:11,background:cardBg,color:isDark?"#E2E8F0":undefined,minHeight:mob?44:undefined}} title="Desde"/>
+        <input type="date" value={fDateTo} onChange={e=>sFDateTo(e.target.value)} style={{padding:mob?"10px 8px":"5px 8px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:mob?13:11,background:cardBg,color:isDark?"#E2E8F0":undefined,minHeight:mob?44:undefined}} title="Hasta"/>
       </>}
       {(fFac||fSearch||fDateFrom||fDateTo)&&<button onClick={()=>{sFFac("");sFSearch("");sFDateFrom("");sFDateTo("");}} style={{padding:"5px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:11,background:cardBg,cursor:"pointer",color:colors.g4}}>Limpiar</button>}
       <div style={{flex:1}}/>

@@ -257,7 +257,7 @@ export function SponsorsView({sponsors,user,mob,onAdd,onUpd,onDel,canjeUsado}:an
 
   /* ── Styles ── */
   const lbl:React.CSSProperties={fontSize:10,fontWeight:600,color:colors.g5,marginBottom:2,display:"block"};
-  const inp:React.CSSProperties={width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2,background:cardBg,color:colors.nv};
+  const inp:React.CSSProperties={width:"100%",padding:mob?10:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:mob?14:12,boxSizing:"border-box" as const,marginTop:2,background:cardBg,color:colors.nv,minHeight:mob?44:undefined};
 
   return(<div style={{maxWidth:900}}>
     {/* ── Header ── */}
@@ -354,15 +354,15 @@ export function SponsorsView({sponsors,user,mob,onAdd,onUpd,onDel,canjeUsado}:an
 
     {/* ── Filter bar ── */}
     <div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap" as const,alignItems:"center"}}>
-      <input value={search} onChange={e=>sSr(e.target.value)} placeholder="Buscar sponsor..." style={{padding:"5px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:11,width:mob?120:180,background:cardBg,color:colors.nv}}/>
-      <select value={fSt} onChange={e=>sFSt(e.target.value)} style={{padding:"5px 8px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:11,background:cardBg,color:colors.nv}}>
+      <input value={search} onChange={e=>sSr(e.target.value)} placeholder="Buscar sponsor..." style={{padding:mob?"10px 12px":"5px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:mob?13:11,width:mob?140:180,background:cardBg,color:colors.nv,minHeight:mob?44:undefined}}/>
+      <select value={fSt} onChange={e=>sFSt(e.target.value)} style={{padding:mob?"10px 8px":"5px 8px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:mob?13:11,background:cardBg,color:colors.nv,minHeight:mob?44:undefined}}>
         <option value="all">Todos los estados</option>{Object.keys(SPON_ST).map(k=><option key={k} value={k}>{SPON_ST[k].l}</option>)}
       </select>
     </div>
 
     {/* ── Status summary chips ── */}
     <div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap" as const}}>
-      {Object.keys(SPON_ST).map(k=>{const cnt=all.filter((s:any)=>s.status===k).length;return <span key={k} onClick={()=>sFSt(fSt===k?"all":k)} style={{padding:"3px 10px",borderRadius:14,background:fSt===k?SPON_ST[k].bg:cardBg,border:"1px solid "+(fSt===k?SPON_ST[k].c:colors.g3),fontSize:10,fontWeight:600,color:SPON_ST[k].c,cursor:"pointer"}}>{SPON_ST[k].l} {cnt}</span>;})}
+      {Object.keys(SPON_ST).map(k=>{const cnt=all.filter((s:any)=>s.status===k).length;return <span key={k} onClick={()=>sFSt(fSt===k?"all":k)} style={{padding:mob?"8px 12px":"3px 10px",borderRadius:14,background:fSt===k?SPON_ST[k].bg:cardBg,border:"1px solid "+(fSt===k?SPON_ST[k].c:colors.g3),fontSize:mob?12:10,fontWeight:600,color:SPON_ST[k].c,cursor:"pointer",minHeight:mob?36:undefined,display:"inline-flex",alignItems:"center"}}>{SPON_ST[k].l} {cnt}</span>;})}
     </div>
 
     {/* ── Modal overlay – Add/Edit form ── */}

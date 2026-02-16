@@ -125,20 +125,20 @@ export function CustomDash({peds,presu,agendas,minutas,users,areas,deptos,user,m
   const renderWidget=(id:string)=>{
     switch(id){
       case "kpis": return(<div style={{display:"grid",gridTemplateColumns:mob?"1fr 1fr":"repeat(4,1fr)",gap:8}}>
-        {kpiData.map(k=><div key={k.k} onClick={()=>onFilter(k.k)} style={{background:cardBg,borderRadius:12,padding:"12px 14px",border:"1px solid "+colors.g2,cursor:"pointer",textAlign:"center" as const,transition:"transform .1s,box-shadow .1s"}}>
-          <div style={{fontSize:22,fontWeight:800,color:k.c}}>{k.v}</div>
-          <div style={{fontSize:10,color:colors.g5,marginTop:2}}>{k.i} {k.l}</div>
-          <div style={{fontSize:9,color:colors.bl,marginTop:4,fontWeight:600}}>Ver →</div>
+        {kpiData.map(k=><div key={k.k} onClick={()=>onFilter(k.k)} style={{background:cardBg,borderRadius:12,padding:mob?"14px 12px":"12px 14px",border:"1px solid "+colors.g2,cursor:"pointer",textAlign:"center" as const,transition:"transform .1s,box-shadow .1s",minHeight:mob?80:undefined}}>
+          <div style={{fontSize:mob?24:22,fontWeight:800,color:k.c}}>{k.v}</div>
+          <div style={{fontSize:mob?11:10,color:colors.g5,marginTop:2}}>{k.i} {k.l}</div>
+          <div style={{fontSize:mob?10:9,color:colors.bl,marginTop:4,fontWeight:600}}>Ver →</div>
         </div>)}
       </div>);
 
       case "deadlines": return(<Card style={{padding:mob?"10px 12px":"14px 16px"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
           <div style={{fontSize:13,fontWeight:700,color:colors.nv}}>📅 Próximos Vencimientos</div>
-          <button onClick={()=>onFilter("venc")} style={{padding:"3px 10px",borderRadius:6,border:"1px solid "+colors.bl,background:"none",fontSize:10,fontWeight:700,color:colors.bl,cursor:"pointer"}}>Ver todos →</button>
+          <button onClick={()=>onFilter("venc")} style={{padding:mob?"8px 14px":"3px 10px",borderRadius:6,border:"1px solid "+colors.bl,background:"none",fontSize:mob?12:10,fontWeight:700,color:colors.bl,cursor:"pointer",minHeight:mob?40:undefined}}>Ver todos →</button>
         </div>
         {upcoming.length===0&&<div style={{fontSize:11,color:colors.g4,padding:8}}>Sin vencimientos próximos</div>}
-        {upcoming.slice(0,5).map((p:any)=>{const d=daysDiff(TODAY,p.fReq);return(<div key={p.id} onClick={()=>onSel(p)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 4px",borderBottom:"1px solid "+colors.g1,cursor:"pointer",fontSize:11,borderRadius:6,background:"transparent",transition:"background .15s"}}>
+        {upcoming.slice(0,5).map((p:any)=>{const d=daysDiff(TODAY,p.fReq);return(<div key={p.id} onClick={()=>onSel(p)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:mob?"10px 6px":"6px 4px",borderBottom:"1px solid "+colors.g1,cursor:"pointer",fontSize:mob?12:11,borderRadius:6,background:"transparent",transition:"background .15s",minHeight:mob?44:undefined}}>
           <div style={{flex:1,minWidth:0}}><span style={{color:colors.g4}}>#{p.id}</span> <span style={{fontWeight:600,color:colors.bl,textDecoration:"underline" as const}}>{(p.desc||"").slice(0,30)}</span></div>
           <span style={{fontSize:10,fontWeight:600,padding:"1px 6px",borderRadius:8,background:d<=1?"#FEE2E2":d<=3?"#FEF3C7":"#D1FAE5",color:d<=1?"#DC2626":d<=3?"#92400E":"#065F46",flexShrink:0}}>{d===0?"Hoy":d===1?"Mañana":d+" días"}</span>
         </div>);})}
@@ -197,14 +197,14 @@ export function CustomDash({peds,presu,agendas,minutas,users,areas,deptos,user,m
         return(<Card style={{padding:mob?"10px 12px":"14px 16px"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
           <div onClick={()=>onNav("reservas")} style={{fontSize:13,fontWeight:700,color:colors.nv,cursor:"pointer"}}>🏟️ Espacios <span style={{fontSize:10,color:colors.bl}}>→</span></div>
-          {dayView&&<button onClick={()=>sSelDay(null)} style={{padding:"3px 10px",borderRadius:6,border:"1px solid "+colors.g3,background:cardBg,fontSize:10,fontWeight:600,color:colors.bl,cursor:"pointer"}}>← Semana</button>}
+          {dayView&&<button onClick={()=>sSelDay(null)} style={{padding:mob?"8px 14px":"3px 10px",borderRadius:6,border:"1px solid "+colors.g3,background:cardBg,fontSize:mob?12:10,fontWeight:600,color:colors.bl,cursor:"pointer",minHeight:mob?40:undefined}}>← Semana</button>}
         </div>
         {/* Day selector tabs */}
         <div style={{display:"flex",gap:3,marginBottom:8,overflowX:"auto" as const}}>
           {weekDays.map((d,i)=>{const isToday=d===TODAY;const isSel=dayView===d;const dayCount=(bookings||[]).filter((b:any)=>b.date===d&&b.status!=="cancelada").length;return(
-            <button key={d} onClick={()=>sSelDay(isSel?null:d)} style={{padding:"6px 8px",borderRadius:8,border:isSel?"2px solid "+colors.bl:isToday?"2px solid "+colors.bl+"60":"1px solid "+colors.g3,background:isSel?(isDark?"#1E3A5F":"#DBEAFE"):cardBg,cursor:"pointer",textAlign:"center" as const,minWidth:mob?44:54,flexShrink:0}}>
-              <div style={{fontSize:10,fontWeight:isSel||isToday?800:600,color:isSel?colors.bl:isToday?colors.bl:colors.nv}}>{DIAS_SEM[i]}</div>
-              <div style={{fontSize:9,color:isSel?colors.bl:colors.g4}}>{d.slice(8)}/{d.slice(5,7)}</div>
+            <button key={d} onClick={()=>sSelDay(isSel?null:d)} style={{padding:mob?"8px 6px":"6px 8px",borderRadius:8,border:isSel?"2px solid "+colors.bl:isToday?"2px solid "+colors.bl+"60":"1px solid "+colors.g3,background:isSel?(isDark?"#1E3A5F":"#DBEAFE"):cardBg,cursor:"pointer",textAlign:"center" as const,minWidth:mob?46:54,flexShrink:0,minHeight:mob?48:undefined}}>
+              <div style={{fontSize:mob?11:10,fontWeight:isSel||isToday?800:600,color:isSel?colors.bl:isToday?colors.bl:colors.nv}}>{DIAS_SEM[i]}</div>
+              <div style={{fontSize:mob?10:9,color:isSel?colors.bl:colors.g4}}>{d.slice(8)}/{d.slice(5,7)}</div>
               {dayCount>0&&<div style={{fontSize:8,fontWeight:700,color:isSel?"#fff":colors.bl,background:isSel?colors.bl:colors.bl+"20",borderRadius:8,padding:"0 4px",marginTop:2}}>{dayCount}</div>}
             </button>);
           })}
@@ -253,8 +253,8 @@ export function CustomDash({peds,presu,agendas,minutas,users,areas,deptos,user,m
         })()}
 
         {/* Week grid (when no day selected) */}
-        {!dayView&&<div style={{overflowX:"auto" as const}}>
-          <div style={{minWidth:mob?500:undefined}}>
+        {!dayView&&<div style={{overflowX:"auto" as const,WebkitOverflowScrolling:"touch" as any}}>
+          <div style={{minWidth:mob?360:undefined}}>
             {FKEYS.map(fk=>{const fac=BOOK_FAC[fk];
               const hasAny=weekDays.some(d=>cellBookings(fk,d).length>0);
               if(!hasAny)return null;
@@ -303,7 +303,7 @@ export function CustomDash({peds,presu,agendas,minutas,users,areas,deptos,user,m
         <h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:colors.nv,fontWeight:800}}>Dashboard</h2>
         <p style={{color:colors.g4,fontSize:12,margin:0}}>KPIs institucionales · Manual Operativo 2035</p>
       </div>
-      <button onClick={()=>sEditing(!editing)} style={{padding:"6px 12px",borderRadius:8,border:editing?"2px solid "+colors.bl:"1px solid "+colors.g3,background:editing?colors.bl+"10":cardBg,color:editing?colors.bl:colors.g5,fontSize:11,fontWeight:600,cursor:"pointer"}}>{editing?"✓ Listo":"⚙️ Personalizar"}</button>
+      <button onClick={()=>sEditing(!editing)} style={{padding:mob?"10px 14px":"6px 12px",borderRadius:8,border:editing?"2px solid "+colors.bl:"1px solid "+colors.g3,background:editing?colors.bl+"10":cardBg,color:editing?colors.bl:colors.g5,fontSize:mob?12:11,fontWeight:600,cursor:"pointer",minHeight:mob?44:undefined}}>{editing?"✓ Listo":"⚙️ Personalizar"}</button>
     </div>
 
     {/* Edit panel */}
