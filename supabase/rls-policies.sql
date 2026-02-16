@@ -132,9 +132,22 @@ CREATE POLICY notifications_own ON notifications FOR SELECT USING (user_id = aut
 ALTER TABLE dep_staff ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS dep_staff_select ON dep_staff;
 DROP POLICY IF EXISTS dep_staff_manage ON dep_staff;
+DROP POLICY IF EXISTS dep_staff_insert ON dep_staff;
+DROP POLICY IF EXISTS dep_staff_update ON dep_staff;
+DROP POLICY IF EXISTS dep_staff_delete ON dep_staff;
 
 CREATE POLICY dep_staff_select ON dep_staff FOR SELECT USING (true);
-CREATE POLICY dep_staff_manage ON dep_staff FOR ALL USING (
+CREATE POLICY dep_staff_insert ON dep_staff FOR INSERT WITH CHECK (
+  is_admin() OR EXISTS (
+    SELECT 1 FROM dep_staff WHERE user_id = auth.uid() AND dep_role IN ('dd', 'dr') AND active
+  )
+);
+CREATE POLICY dep_staff_update ON dep_staff FOR UPDATE USING (
+  is_admin() OR EXISTS (
+    SELECT 1 FROM dep_staff WHERE user_id = auth.uid() AND dep_role IN ('dd', 'dr') AND active
+  )
+);
+CREATE POLICY dep_staff_delete ON dep_staff FOR DELETE USING (
   is_admin() OR EXISTS (
     SELECT 1 FROM dep_staff WHERE user_id = auth.uid() AND dep_role IN ('dd', 'dr') AND active
   )
@@ -199,6 +212,36 @@ CREATE POLICY dep_attendance_manage ON dep_attendance FOR ALL USING (
     SELECT 1 FROM dep_staff WHERE user_id = auth.uid() AND active
   )
 );
+
+-- ─── BOOKINGS ───
+ALTER TABLE bookings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS bookings_all ON bookings;
+CREATE POLICY bookings_all ON bookings FOR ALL USING (true) WITH CHECK (true);
+
+-- ─── INVENTORY ───
+ALTER TABLE inventory ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS inventory_all ON inventory;
+CREATE POLICY inventory_all ON inventory FOR ALL USING (true) WITH CHECK (true);
+
+-- ─── SPONSORS ───
+ALTER TABLE sponsors ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS sponsors_all ON sponsors;
+CREATE POLICY sponsors_all ON sponsors FOR ALL USING (true) WITH CHECK (true);
+
+-- ─── PROJECTS ───
+ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS projects_all ON projects;
+CREATE POLICY projects_all ON projects FOR ALL USING (true) WITH CHECK (true);
+
+-- ─── PROJECT_TASKS ───
+ALTER TABLE project_tasks ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS project_tasks_all ON project_tasks;
+CREATE POLICY project_tasks_all ON project_tasks FOR ALL USING (true) WITH CHECK (true);
+
+-- ─── TASK_TEMPLATES ───
+ALTER TABLE task_templates ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS task_templates_all ON task_templates;
+CREATE POLICY task_templates_all ON task_templates FOR ALL USING (true) WITH CHECK (true);
 
 -- ─── STORAGE BUCKET (run separately) ───
 -- INSERT INTO storage.buckets (id, name, public) VALUES ('attachments', 'attachments', true);

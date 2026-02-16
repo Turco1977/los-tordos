@@ -101,12 +101,18 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel}:any){
   const saveEdit=()=>{if(!editId||!editForm)return;onUpd(editId,editForm);cancelEdit();};
   const userName=(uid:string)=>{const u=(users||[]).find((u2:any)=>u2.id===uid);return u?fn(u):"";};
 
-  const handleSave=()=>{
-    const title=form.title||BOOK_FAC[form.facility]?.l||"Reserva";
-    const dates=generateDates(form.date,form.recurrence||"none");
-    const items=dates.map((d:string)=>({facility:form.facility,date:d,time_start:form.time_start,time_end:form.time_end,title,description:form.description,notes:form.notes,status:form.status,booked_by:user.id,booked_by_name:fn(user)}));
-    onAdd(items.length===1?items[0]:items);
-    resetForm();
+  const [saving,sSaving]=useState(false);
+  const handleSave=async()=>{
+    if(saving) return;
+    sSaving(true);
+    try{
+      const title=form.title||BOOK_FAC[form.facility]?.l||"Reserva";
+      const dates=generateDates(form.date,form.recurrence||"none");
+      const items=dates.map((d:string)=>({facility:form.facility,date:d,time_start:form.time_start,time_end:form.time_end,title,description:form.description,notes:form.notes,status:form.status,booked_by:user.id,booked_by_name:fn(user)}));
+      await onAdd(items.length===1?items[0]:items);
+      resetForm();
+    }catch(e){/* error handled by parent */}
+    finally{sSaving(false);}
   };
 
   /* ── sorted list ── */
@@ -217,7 +223,7 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel}:any){
       {formConflict&&<div style={{padding:"8px 12px",borderRadius:8,background:isDark?"#7F1D1D":"#FEF2F2",border:"1px solid #FECACA",fontSize:11,fontWeight:600,color:"#DC2626",marginBottom:8}}>⚠️ Conflicto: ya existe una reserva en {BOOK_FAC[form.facility]?.l} el {fmtD(form.date)} que se superpone con el horario seleccionado.</div>}
       <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}>
         <Btn v="g" s="s" onClick={resetForm}>Cancelar</Btn>
-        <Btn v="s" s="s" disabled={!form.date||!form.time_start||!form.time_end} onClick={handleSave}>✅ Reservar Espacio{form.recurrence&&form.recurrence!=="none"?` (${REC_OPTS.find(r=>r.k===form.recurrence)?.count||1})`:""}</Btn>
+        <Btn v="s" s="s" disabled={saving} onClick={handleSave}>{saving?"⏳ Guardando...":"✅ Reservar Espacio"}{!saving&&form.recurrence&&form.recurrence!=="none"?` (${REC_OPTS.find(r=>r.k===form.recurrence)?.count||1})`:""}</Btn>
       </div>
     </Card>}
 
@@ -265,13 +271,13 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel}:any){
           {/* facility rows */}
           {FKEYS.map(fk=>{const fac=BOOK_FAC[fk];return(
             <div key={fk} style={{display:"grid",gridTemplateColumns:"120px repeat(7,1fr)",gap:2,marginBottom:2}}>
-              <div style={{padding:"6px 8px",fontSize:11,fontWeight:700,color:fac.c,background:fac.c+"10",borderRadius:6,display:"flex",alignItems:"center",gap:4,borderLeft:"3px solid "+fac.c}}>
-                <span style={{fontSize:13}}>{fac.i}</span><span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{fac.l}</span>
+              <div style={{padding:"4px 6px",fontSize:10,fontWeight:700,color:fac.c,background:fac.c+"10",borderRadius:6,display:"flex",alignItems:"center",gap:3,borderLeft:"3px solid "+fac.c,lineHeight:1.2}}>
+                <span style={{fontSize:12}}>{fac.i}</span><span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"normal" as const,wordBreak:"break-word" as const}}>{fac.l}</span>
               </div>
               {weekDays.map(d=>{
                 const cb=cellBookings(fk,d);
                 const isToday=d===TODAY;
-                return(<div key={d} style={{padding:4,background:isToday?(isDark?"#1E3A5F10":"#EFF6FF50"):cardBg,border:"1px solid "+colors.g2,borderRadius:6,minHeight:38,cursor:"pointer",position:"relative" as const}} onClick={()=>{if(!showAdd)openForm(fk,d);}}>
+                return(<div key={d} style={{padding:4,background:isToday?(isDark?"#1E3A5F10":"#EFF6FF50"):cardBg,border:"1px solid "+colors.g2,borderRadius:6,minHeight:38,cursor:"pointer",position:"relative" as const}} onClick={()=>{if(showAdd){sForm((p:any)=>({...p,facility:fk,date:d,title:p.title===BOOK_FAC[p.facility]?.l?BOOK_FAC[fk]?.l||"":p.title}));}else{openForm(fk,d);}}}>
                   {cb.length===0&&<div style={{fontSize:9,color:colors.g3,textAlign:"center" as const,paddingTop:6}}>—</div>}
                   {cb.map((b:any,j:number)=>{const st=BOOK_ST[b.status];return(
                     <div key={b.id||j} onClick={e=>{e.stopPropagation();startEdit(b);}} style={{padding:"2px 5px",borderRadius:6,background:st.bg,marginBottom:1,cursor:"pointer",border:"1px solid "+st.c+"40"}} title={b.title+" ("+b.time_start+"-"+b.time_end+")"}>

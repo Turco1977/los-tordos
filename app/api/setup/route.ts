@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+const isMissing = (err: any) => err && (err.code === "42P01" || err.code === "PGRST205");
+
 export async function GET() {
   const admin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -11,8 +13,8 @@ export async function GET() {
   const missing: { table: string; sql: string }[] = [];
 
   // Check reminders table
-  const { error: remErr } = await admin.from("reminders").select("id").limit(1);
-  if (remErr && remErr.code === "42P01") {
+  const { error: e1 } = await admin.from("reminders").select("id").limit(1);
+  if (isMissing(e1)) {
     missing.push({
       table: "reminders",
       sql: `CREATE TABLE reminders (
@@ -34,8 +36,8 @@ CREATE POLICY reminders_all ON reminders FOR ALL USING (true) WITH CHECK (true);
   }
 
   // Check notifications table
-  const { error: notErr } = await admin.from("notifications").select("id").limit(1);
-  if (notErr && notErr.code === "42P01") {
+  const { error: e2 } = await admin.from("notifications").select("id").limit(1);
+  if (isMissing(e2)) {
     missing.push({
       table: "notifications",
       sql: `CREATE TABLE notifications (
@@ -55,8 +57,8 @@ CREATE POLICY notifications_all ON notifications FOR ALL USING (true) WITH CHECK
   }
 
   // Check dep_training_sessions table
-  const { error: tsErr } = await admin.from("dep_training_sessions").select("id").limit(1);
-  if (tsErr && tsErr.code === "42P01") {
+  const { error: e3 } = await admin.from("dep_training_sessions").select("id").limit(1);
+  if (isMissing(e3)) {
     missing.push({
       table: "dep_training_sessions",
       sql: `CREATE TABLE dep_training_sessions (
@@ -77,8 +79,8 @@ CREATE POLICY dep_training_sessions_all ON dep_training_sessions FOR ALL USING (
   }
 
   // Check dep_attendance table
-  const { error: attErr } = await admin.from("dep_attendance").select("id").limit(1);
-  if (attErr && attErr.code === "42P01") {
+  const { error: e4 } = await admin.from("dep_attendance").select("id").limit(1);
+  if (isMissing(e4)) {
     missing.push({
       table: "dep_attendance",
       sql: `CREATE TABLE dep_attendance (
@@ -97,8 +99,8 @@ CREATE POLICY dep_attendance_all ON dep_attendance FOR ALL USING (true) WITH CHE
   }
 
   // Check projects table
-  const { error: projErr } = await admin.from("projects").select("id").limit(1);
-  if (projErr && projErr.code === "42P01") {
+  const { error: e5 } = await admin.from("projects").select("id").limit(1);
+  if (isMissing(e5)) {
     missing.push({
       table: "projects",
       sql: `CREATE TABLE projects (
@@ -116,8 +118,8 @@ CREATE POLICY projects_all ON projects FOR ALL USING (true) WITH CHECK (true);`,
   }
 
   // Check project_tasks table
-  const { error: ptErr } = await admin.from("project_tasks").select("id").limit(1);
-  if (ptErr && ptErr.code === "42P01") {
+  const { error: e6 } = await admin.from("project_tasks").select("id").limit(1);
+  if (isMissing(e6)) {
     missing.push({
       table: "project_tasks",
       sql: `CREATE TABLE project_tasks (
@@ -140,8 +142,8 @@ CREATE POLICY project_tasks_all ON project_tasks FOR ALL USING (true) WITH CHECK
   }
 
   // Check task_templates table
-  const { error: ttErr } = await admin.from("task_templates").select("id").limit(1);
-  if (ttErr && ttErr.code === "42P01") {
+  const { error: e7 } = await admin.from("task_templates").select("id").limit(1);
+  if (isMissing(e7)) {
     missing.push({
       table: "task_templates",
       sql: `CREATE TABLE task_templates (
@@ -168,8 +170,8 @@ CREATE POLICY task_templates_all ON task_templates FOR ALL USING (true) WITH CHE
   }
 
   // Check inventory table
-  const { error: invErr } = await admin.from("inventory").select("id").limit(1);
-  if (invErr && invErr.code === "42P01") {
+  const { error: e8 } = await admin.from("inventory").select("id").limit(1);
+  if (isMissing(e8)) {
     missing.push({
       table: "inventory",
       sql: `CREATE TABLE inventory (
@@ -191,8 +193,8 @@ CREATE POLICY inventory_all ON inventory FOR ALL USING (true) WITH CHECK (true);
   }
 
   // Check bookings table
-  const { error: bookErr } = await admin.from("bookings").select("id").limit(1);
-  if (bookErr && bookErr.code === "42P01") {
+  const { error: e9 } = await admin.from("bookings").select("id").limit(1);
+  if (isMissing(e9)) {
     missing.push({
       table: "bookings",
       sql: `CREATE TABLE bookings (
@@ -215,8 +217,8 @@ CREATE POLICY bookings_all ON bookings FOR ALL USING (true) WITH CHECK (true);`,
   }
 
   // Check sponsors table
-  const { error: sponErr } = await admin.from("sponsors").select("id").limit(1);
-  if (sponErr && sponErr.code === "42P01") {
+  const { error: e10 } = await admin.from("sponsors").select("id").limit(1);
+  if (isMissing(e10)) {
     missing.push({
       table: "sponsors",
       sql: `CREATE TABLE sponsors (
