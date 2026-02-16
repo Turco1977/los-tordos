@@ -29,7 +29,8 @@ const ZONES_URQUIZA: Zone[] = [
   { k: "gym",      l: "GYM",             x: 20, y: 42, w: 20, h: 5,  type: "building", facKey: "gimnasio" },
   { k: "secre",    l: "SECRETARIA",      x: 2,  y: 49, w: 4,  h: 10, type: "label" },
   { k: "shop",     l: "TORDOS\nSHOP",    x: 7,  y: 49, w: 5,  h: 7,  type: "label" },
-  { k: "cancha3",  l: "CANCHA 3",        x: 14, y: 50, w: 28, h: 26, type: "cancha",   facKey: "cancha3" },
+  { k: "cancha3",  l: "CANCHA 3",        x: 14, y: 50, w: 28, h: 16, type: "cancha",   facKey: "cancha3" },
+  { k: "cancha4",  l: "CANCHA 4",        x: 14, y: 68, w: 28, h: 16, type: "cancha",   facKey: "cancha4" },
   { k: "hockey2",  l: "HOCKEY 2",        x: 48, y: 52, w: 22, h: 18, type: "hockey",   facKey: "hockey2" },
   { k: "salon",    l: "SALON\nBLANCO",   x: 42, y: 42, w: 12, h: 5,  type: "building", facKey: "salon" },
   { k: "pergola",  l: "PÉRGOLA",         x: 52, y: 30, w: 8,  h: 8,  type: "building", facKey: "pergola" },
@@ -37,8 +38,8 @@ const ZONES_URQUIZA: Zone[] = [
 
 /* ── Zone definitions: Mapa Anexo (separate area) ── */
 const ZONES_ANEXO: Zone[] = [
-  { k: "cancha4",  l: "CANCHA 4",          x: 5,  y: 8,  w: 42, h: 50, type: "cancha",  facKey: "cancha4" },
-  { k: "cancha5",  l: "CANCHA 5",          x: 53, y: 8,  w: 42, h: 50, type: "cancha",  facKey: "cancha5" },
+  { k: "cancha5",  l: "CANCHA 5",          x: 5,  y: 8,  w: 42, h: 50, type: "cancha",  facKey: "cancha5" },
+  { k: "cancha6",  l: "CANCHA 6",          x: 53, y: 8,  w: 42, h: 50, type: "cancha",  facKey: "cancha6" },
   { k: "estMad",   l: "EST.\nMADRESELVA",  x: 5,  y: 66, w: 90, h: 22, type: "parking" },
 ];
 
