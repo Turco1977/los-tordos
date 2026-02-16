@@ -494,13 +494,24 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel,onDelMul
               {weekDays.map(d=>{
                 const cb=cellBookings(fk,d);
                 const isToday=d===TODAY;
-                return(<div key={d} style={{padding:4,background:isToday?(isDark?"#1E3A5F10":"#EFF6FF50"):cardBg,border:"1px solid "+colors.g2,borderRadius:6,minHeight:38,cursor:"pointer",position:"relative" as const}} onClick={()=>{if(showAdd){sForm((p:any)=>({...p,facility:fk,date:d,title:p.title===BOOK_FAC[p.facility]?.l?BOOK_FAC[fk]?.l||"":p.title}));}else{openForm(fk,d);}}}>
-                  {cb.length===0&&<div style={{fontSize:9,color:colors.g3,textAlign:"center" as const,paddingTop:6}}>—</div>}
-                  {cb.map((b:any,j:number)=>{const st=BOOK_ST[b.status];const div=b.division||extractDiv(b.title);const dc=div?DIV_COL[div]:null;return(
-                    <div key={b.id||j} onClick={e=>{e.stopPropagation();startEdit(b);}} onTouchEnd={e=>{e.stopPropagation();e.preventDefault();startEdit(b);}} style={{padding:"5px 6px",borderRadius:6,background:dc?dc+"20":st.bg,marginBottom:2,cursor:"pointer",border:"1px solid "+(dc||st.c)+"40",position:"relative" as const,zIndex:2,minHeight:28,touchAction:"manipulation" as const}} title={(div?div+": ":"")+b.title+" ("+b.time_start+"-"+b.time_end+")"}>
-                      <div style={{fontSize:10,fontWeight:800,color:dc||st.c,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const,lineHeight:1.3}}>{div||b.title}</div>
-                      <div style={{fontSize:8,color:dc||colors.g5,fontWeight:600}}>{b.time_start}</div>
-                    </div>);})}
+                // Group by time_start, sorted by time
+                const sorted=[...cb].sort((a:any,b:any)=>timeToMin(a.time_start)-timeToMin(b.time_start));
+                const groups:any[][]=[];
+                sorted.forEach((b:any)=>{
+                  const last=groups[groups.length-1];
+                  if(last&&last[0].time_start===b.time_start) last.push(b);
+                  else groups.push([b]);
+                });
+                return(<div key={d} style={{padding:3,background:isToday?(isDark?"#1E3A5F10":"#EFF6FF50"):cardBg,border:"1px solid "+colors.g2,borderRadius:6,minHeight:38,cursor:"pointer",position:"relative" as const,display:"flex",flexDirection:"column" as const,gap:2,justifyContent:"flex-start"}} onClick={()=>{if(showAdd){sForm((p:any)=>({...p,facility:fk,date:d,title:p.title===BOOK_FAC[p.facility]?.l?BOOK_FAC[fk]?.l||"":p.title}));}else{openForm(fk,d);}}}>
+                  {cb.length===0&&<div style={{fontSize:9,color:colors.g3,textAlign:"center" as const,paddingTop:6,flex:1}}>—</div>}
+                  {groups.map((grp,gi)=>(
+                    <div key={gi} style={{display:"flex",gap:2}}>
+                      {grp.map((b:any)=>{const st=BOOK_ST[b.status];const div=b.division||extractDiv(b.title);const dc=div?DIV_COL[div]:null;return(
+                        <div key={b.id} onClick={e=>{e.stopPropagation();startEdit(b);}} onTouchEnd={e=>{e.stopPropagation();e.preventDefault();startEdit(b);}} style={{padding:"3px 4px",borderRadius:5,background:dc?dc+"20":st.bg,cursor:"pointer",border:"1px solid "+(dc||st.c)+"40",position:"relative" as const,zIndex:2,minHeight:24,touchAction:"manipulation" as const,flex:1,minWidth:0}} title={(div?div+": ":"")+b.title+" ("+b.time_start+"-"+b.time_end+")"}>
+                          <div style={{fontSize:9,fontWeight:800,color:dc||st.c,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const,lineHeight:1.2}}>{div||b.title}</div>
+                          <div style={{fontSize:7,color:dc||colors.g5,fontWeight:600}}>{b.time_start}</div>
+                        </div>);})}
+                    </div>))}
                 </div>);
               })}
             </div>);})}
