@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { T, SC, PSC, AGT, ST, isOD, daysDiff, fn } from "@/lib/constants";
 import { fmtD } from "@/lib/mappers";
 import { Btn, Card } from "@/components/ui";
@@ -7,7 +7,7 @@ import { exportICal } from "@/lib/export";
 
 const TODAY = new Date().toISOString().slice(0,10);
 
-export default function CalView({peds,agendas,minutas,presu,reminders,areas,deptos,users,user,onSel,onAddReminder,onDelReminder,mob}:any){
+export default function CalView({peds,agendas,minutas,presu,reminders,areas,deptos,users,user,onSel,onAddReminder,onDelReminder,onNav,onDateChange,mob}:any){
   const MESES=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
   const DIAS_SEM=["Lu","Ma","Mi","Ju","Vi","Sá","Do"];
   const daysInMonth=(y:number,m:number)=>new Date(y,m+1,0).getDate();
@@ -77,11 +77,29 @@ export default function CalView({peds,agendas,minutas,presu,reminders,areas,dept
   if(fArea){const ar=areas.find((a:any)=>a.id===Number(fArea));if(ar){const dIds=deptos.filter((d:any)=>d.aId===ar.id).map((d:any)=>d.id);fEvts=fEvts.filter(e=>{if(e.type==="task")return dIds.indexOf(e.data.dId)>=0;return true;});}}
   const evtsByDate=(d:string)=>fEvts.filter(e=>e.date===d);
 
-  const handleEvtClick=(e:any)=>{if(e.type==="task"&&onSel)onSel(e.data);};
+  const handleEvtClick=(e:any)=>{
+    if(e.type==="task"&&onSel) onSel(e.data);
+    else if((e.type==="agenda"||e.type==="minuta")&&onNav) onNav("reun");
+    else if(e.type==="presu"&&onNav) onNav("presu");
+  };
+
+  /* drag & drop state */
+  const dragRef=useRef<{evt:any;fromDate:string}|null>(null);
+  const [dragOverDate,sDragOverDate]=useState<string|null>(null);
+  const handleDragStart=(e:any,evt:any)=>{if(evt.type!=="task")return;e.dataTransfer.effectAllowed="move";dragRef.current={evt,fromDate:evt.date};};
+  const handleDragOver=(e:any,iso:string)=>{e.preventDefault();e.dataTransfer.dropEffect="move";if(dragOverDate!==iso)sDragOverDate(iso);};
+  const handleDragLeave=()=>{sDragOverDate(null);};
+  const handleDrop=useCallback((e:any,iso:string)=>{e.preventDefault();sDragOverDate(null);const d=dragRef.current;if(!d||!d.evt||d.fromDate===iso)return;if(d.evt.type==="task"&&onDateChange){onDateChange(d.evt.data.id,iso);}dragRef.current=null;},[onDateChange]);
+
+  /* touch drag state for mobile */
+  const touchRef=useRef<{evt:any;el:HTMLDivElement|null;clone:HTMLDivElement|null;startX:number;startY:number}|null>(null);
+  const handleTouchStart=(te:any,evt:any)=>{if(evt.type!=="task")return;const t=te.touches[0];touchRef.current={evt,el:te.currentTarget,clone:null,startX:t.clientX,startY:t.clientY};};
+  const handleTouchMove=useCallback((te:any)=>{const tr=touchRef.current;if(!tr)return;te.preventDefault();const t=te.touches[0];if(!tr.clone){const dx=Math.abs(t.clientX-tr.startX),dy=Math.abs(t.clientY-tr.startY);if(dx<8&&dy<8)return;const c=document.createElement("div");c.textContent=tr.evt.label;c.style.cssText="position:fixed;z-index:999;padding:4px 10px;border-radius:10px;background:"+tr.evt.color+"30;color:"+tr.evt.color+";font-size:11px;font-weight:700;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,.15);";document.body.appendChild(c);tr.clone=c;}tr.clone.style.left=t.clientX-40+"px";tr.clone.style.top=t.clientY-20+"px";},[]);
+  const handleTouchEnd=useCallback((te:any)=>{const tr=touchRef.current;if(!tr)return;if(tr.clone){tr.clone.remove();const t=te.changedTouches[0];const el=document.elementFromPoint(t.clientX,t.clientY);const dateCell=el?.closest?.("[data-date]") as HTMLElement|null;if(dateCell){const iso=dateCell.dataset.date;if(iso&&iso!==tr.evt.date&&tr.evt.type==="task"&&onDateChange){onDateChange(tr.evt.data.id,iso);}}};touchRef.current=null;},[onDateChange]);
 
   /* EVENT PILL */
   const EvtPill=({e,compact}:{e:any;compact?:boolean})=>(
-    <div onClick={(ev)=>{ev.stopPropagation();handleEvtClick(e);}} style={{display:"flex",alignItems:"center",gap:3,padding:compact?"1px 4px":"3px 8px",borderRadius:10,background:e.color+"18",cursor:e.type==="task"?"pointer":"default",overflow:"hidden",whiteSpace:"nowrap" as const}} title={e.type==="reminder"?(e.label+(e.data.description?" — "+e.data.description:"")+(e.data.assigned_name?" → "+e.data.assigned_name:"")+(e.data.recurrence&&e.data.recurrence!=="none"?" (🔁 "+e.data.recurrence+")":"")+(e.data.user_name?" · por "+e.data.user_name:"")):e.label}>
+    <div draggable={e.type==="task"} onDragStart={(ev)=>handleDragStart(ev,e)} onTouchStart={(ev)=>handleTouchStart(ev,e)} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd} onClick={(ev)=>{ev.stopPropagation();handleEvtClick(e);}} style={{display:"flex",alignItems:"center",gap:3,padding:compact?"1px 4px":"3px 8px",borderRadius:10,background:e.color+"18",cursor:"pointer",overflow:"hidden",whiteSpace:"nowrap" as const}} title={e.type==="reminder"?(e.label+(e.data.description?" — "+e.data.description:"")+(e.data.assigned_name?" → "+e.data.assigned_name:"")+(e.data.recurrence&&e.data.recurrence!=="none"?" (🔁 "+e.data.recurrence+")":"")+(e.data.user_name?" · por "+e.data.user_name:"")):e.label}>
       <span style={{fontSize:compact?8:10,flexShrink:0}}>{e.icon}</span>
       {!compact&&<span style={{fontSize:10,fontWeight:600,color:e.color,overflow:"hidden",textOverflow:"ellipsis",flex:1}}>{e.label}</span>}
       {!compact&&e.type==="reminder"&&onDelReminder&&<button onClick={(ev)=>{ev.stopPropagation();if(confirm("¿Eliminar recordatorio?"))onDelReminder(e.data.id);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:9,color:T.g4,padding:0,flexShrink:0}}>✕</button>}
@@ -124,7 +142,8 @@ export default function CalView({peds,agendas,minutas,presu,reminders,areas,dept
           const dayEvts=c.cur?evtsByDate(c.iso):[];
           const isToday=c.iso===TODAY;
           const hasOverdue=dayEvts.some(e=>e.type==="task"&&e.data.st!=="ok"&&isOD(e.data.fReq));
-          return(<div key={i} onClick={()=>{if(c.cur){sSelDay(selDay===c.iso?null:c.iso);}}} style={{minHeight:mob?44:80,padding:mob?"2px":"4px 6px",background:isToday?"#EFF6FF":(hasOverdue&&c.cur?"#FEF2F2":"#fff"),border:isToday?"2px solid "+T.bl:"1px solid "+T.g2,borderRadius:6,cursor:c.cur?"pointer":"default",overflow:"hidden"}}>
+          const isDragOver=dragOverDate===c.iso;
+          return(<div key={i} data-date={c.iso} onClick={()=>{if(c.cur){sSelDay(selDay===c.iso?null:c.iso);}}} onDragOver={c.cur?(ev)=>handleDragOver(ev,c.iso):undefined} onDragLeave={c.cur?handleDragLeave:undefined} onDrop={c.cur?(ev)=>handleDrop(ev,c.iso):undefined} style={{minHeight:mob?44:80,padding:mob?"2px":"4px 6px",background:isDragOver?"#DBEAFE":(isToday?"#EFF6FF":(hasOverdue&&c.cur?"#FEF2F2":"#fff")),border:isDragOver?"2px dashed "+T.bl:(isToday?"2px solid "+T.bl:"1px solid "+T.g2),borderRadius:6,cursor:c.cur?"pointer":"default",overflow:"hidden",transition:"background .15s,border .15s"}}>
             <div style={{fontSize:mob?10:12,fontWeight:isToday?800:c.cur?600:400,color:c.cur?(isToday?T.bl:T.nv):T.g3,marginBottom:2}}>{c.d}</div>
             {c.cur&&!mob&&dayEvts.slice(0,3).map((e,j)=><div key={j} style={{marginBottom:1}}><EvtPill e={e}/></div>)}
             {c.cur&&mob&&dayEvts.length>0&&<div style={{display:"flex",gap:2,flexWrap:"wrap" as const}}>{dayEvts.slice(0,4).map((e,j)=><div key={j} style={{width:6,height:6,borderRadius:3,background:e.color}}/>)}</div>}
@@ -159,10 +178,11 @@ export default function CalView({peds,agendas,minutas,presu,reminders,areas,dept
         {days.map((d,i)=>{
           const dayEvts=evtsByDate(d);
           const isToday=d===TODAY;
-          return(<div key={i} style={{background:isToday?"#EFF6FF":"#fff",border:isToday?"2px solid "+T.bl:"1px solid "+T.g2,borderRadius:10,padding:mob?"10px 12px":"8px",minHeight:mob?undefined:120}}>
+          const isDO=dragOverDate===d;
+          return(<div key={i} data-date={d} onDragOver={(ev)=>handleDragOver(ev,d)} onDragLeave={handleDragLeave} onDrop={(ev)=>handleDrop(ev,d)} style={{background:isDO?"#DBEAFE":(isToday?"#EFF6FF":"#fff"),border:isDO?"2px dashed "+T.bl:(isToday?"2px solid "+T.bl:"1px solid "+T.g2),borderRadius:10,padding:mob?"10px 12px":"8px",minHeight:mob?undefined:120,transition:"background .15s,border .15s"}}>
             <div style={{fontSize:11,fontWeight:isToday?800:600,color:isToday?T.bl:T.nv,marginBottom:6}}>{DIAS_SEM[i]} {d.slice(8)}{isToday?" (Hoy)":""}</div>
             {dayEvts.length===0&&<div style={{fontSize:10,color:T.g3}}>—</div>}
-            {dayEvts.map((e,j)=><div key={j} style={{marginBottom:3,cursor:e.type==="task"?"pointer":"default"}} onClick={()=>handleEvtClick(e)}>
+            {dayEvts.map((e,j)=><div key={j} draggable={e.type==="task"} onDragStart={(ev)=>handleDragStart(ev,e)} onTouchStart={(ev)=>handleTouchStart(ev,e)} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd} style={{marginBottom:3,cursor:"pointer"}} onClick={()=>handleEvtClick(e)}>
               <div style={{display:"flex",alignItems:"center",gap:4,padding:"4px 8px",background:e.color+"12",borderRadius:8,border:"1px solid "+e.color+"30"}}>
                 <span style={{fontSize:10}}>{e.icon}</span>
                 <span style={{fontSize:10,fontWeight:600,color:e.color,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{e.label}</span>
@@ -194,7 +214,7 @@ export default function CalView({peds,agendas,minutas,presu,reminders,areas,dept
       <div style={{marginBottom:14}}>
         <div style={{fontSize:13,fontWeight:700,color:T.nv,marginBottom:6}}>Hoy — {fmtD(TODAY)}</div>
         {todayEvts.length===0&&<Card style={{textAlign:"center" as const,padding:20,color:T.g4}}><span style={{fontSize:20}}>📭</span><div style={{marginTop:4,fontSize:12}}>Sin eventos hoy</div></Card>}
-        {todayEvts.map((e,i)=><div key={i} style={{marginBottom:4,cursor:e.type==="task"?"pointer":"default"}} onClick={()=>handleEvtClick(e)}>
+        {todayEvts.map((e,i)=><div key={i} style={{marginBottom:4,cursor:"pointer"}} onClick={()=>handleEvtClick(e)}>
           <div style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",background:e.color+"12",borderRadius:8,border:"1px solid "+e.color+"30"}}>
             <span style={{fontSize:11}}>{e.icon}</span>
             <span style={{fontSize:11,fontWeight:600,color:e.color,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{e.label}</span>
@@ -205,7 +225,7 @@ export default function CalView({peds,agendas,minutas,presu,reminders,areas,dept
       <div>
         <div style={{fontSize:13,fontWeight:700,color:T.nv,marginBottom:6}}>Próximos 7 días</div>
         {upcomingEvts.length===0&&<Card style={{textAlign:"center" as const,padding:20,color:T.g4}}><span style={{fontSize:20}}>✨</span><div style={{marginTop:4,fontSize:12}}>Sin eventos próximos</div></Card>}
-        {upcomingEvts.map((e,i)=><div key={i} style={{marginBottom:4,cursor:e.type==="task"?"pointer":"default"}} onClick={()=>handleEvtClick(e)}>
+        {upcomingEvts.map((e,i)=><div key={i} style={{marginBottom:4,cursor:"pointer"}} onClick={()=>handleEvtClick(e)}>
           <div style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",background:"#fff",borderRadius:8,border:"1px solid "+T.g2}}>
             <span style={{fontSize:11}}>{e.icon}</span>
             <span style={{fontSize:11,fontWeight:600,color:e.color,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{e.label}</span>

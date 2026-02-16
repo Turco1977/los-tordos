@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useRef, useMemo, Component, type ReactNode, type ErrorInfo } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { T, TD, AREAS, DEPTOS, ROLES, RK, DIV, TIPOS, ST, SC, AGT, MINSECS, PST, PSC, MONEDAS, RUBROS, fn, isOD, daysDiff, PJ_ST, PJ_PR } from "@/lib/constants";
 import type { Profile, Task, TaskMessage, OrgMember as OrgMemberType, Milestone, Agenda, Minuta, Presupuesto, Proveedor } from "@/lib/supabase/types";
@@ -34,6 +34,7 @@ import { ProyectosView } from "@/components/main/ProyectosView";
 import { KanbanView } from "@/components/main/KanbanView";
 import { ActivityFeed } from "@/components/main/ActivityFeed";
 import { CommView } from "@/components/main/CommView";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const supabase = createClient();
 const TODAY = new Date().toISOString().slice(0,10);
@@ -43,14 +44,6 @@ const rlv=(role:string)=>ROLES[role]?.lv||0;
 
 /* ── INPUT SANITIZER (XSS prevention) ── */
 const sanitize=(s:string)=>s.replace(/<\/?[^>]+(>|$)/g,"").replace(/javascript:/gi,"").replace(/on\w+\s*=/gi,"").trim();
-
-/* ── ERROR BOUNDARY ── */
-class ErrorBoundary extends Component<{children:ReactNode},{hasError:boolean;error:Error|null}>{
-  constructor(props:{children:ReactNode}){super(props);this.state={hasError:false,error:null};}
-  static getDerivedStateFromError(error:Error){return{hasError:true,error};}
-  componentDidCatch(error:Error,info:ErrorInfo){console.error("ErrorBoundary caught:",error,info);}
-  render(){if(this.state.hasError)return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#F7F8FA",fontFamily:"-apple-system,sans-serif"}}><div style={{textAlign:"center",padding:32}}><div style={{fontSize:40,marginBottom:12}}>⚠️</div><h2 style={{margin:"0 0 8px",fontSize:18,color:"#0A1628"}}>Algo salió mal</h2><p style={{fontSize:13,color:"#5A6577",marginBottom:16}}>{this.state.error?.message||"Error inesperado"}</p><button onClick={()=>this.setState({hasError:false,error:null})} style={{padding:"8px 20px",borderRadius:8,border:"none",background:"#0A1628",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer"}}>Reintentar</button></div></div>);return this.props.children;}
-}
 
 /* ── PUSH NOTIFICATIONS HOOK ── */
 function usePushNotifs(user:any,peds:any[]){
@@ -122,6 +115,12 @@ export default function App(){
       supabase.from("projects").select("*").order("id",{ascending:false}),
       supabase.from("project_tasks").select("*").order("id",{ascending:false}),
     ]);
+    const errors:string[]=[];
+    if(pRes.error) errors.push("Perfiles: "+pRes.error.message);
+    if(mRes.error) errors.push("Tareas: "+mRes.error.message);
+    if(omRes.error) errors.push("Organigrama: "+omRes.error.message);
+    if(prRes.error) errors.push("Presupuestos: "+prRes.error.message);
+    if(errors.length) showT(errors.join("; "),"err");
     if(pRes.data) sUs(pRes.data.map((p:any)=>profileToUser(p)));
     if(omRes.data) sOm(omRes.data.map((m:any)=>({id:m.id,t:m.type,cargo:m.cargo,n:m.first_name,a:m.last_name,mail:m.email,tel:m.phone})));
     if(msRes.data) sHi(msRes.data.map((h:any)=>({id:h.id,fase:h.phase,name:h.name,periodo:h.period,pct:h.pct,color:h.color})));
@@ -292,6 +291,8 @@ export default function App(){
           />}
           {vw==="org"&&<Org areas={areas} deptos={deptos} users={users} om={om} pedidos={peds} onSel={(p:any)=>sSl(p)} onEditSave={async(id:string,d:any)=>{sOm(p=>p.map(m=>m.id===id?{...m,...d}:m));await supabase.from("org_members").update({first_name:d.n,last_name:d.a,email:d.mail||"",phone:d.tel||""}).eq("id",id);}} onDelOm={async(id:string)=>{sOm(p=>p.filter(m=>m.id!==id));await supabase.from("org_members").delete().eq("id",id);}} onDelUser={async(id:string)=>{sUs(p=>p.filter(u=>u.id!==id));await supabase.from("profiles").delete().eq("id",id);}} onEditUser={(u:any)=>{sVw("profs");}} isSA={isSA} onAssignTask={(u:any)=>{sPreAT(u);sVw("new");}} mob={mob}/>}
           {vw==="cal"&&<CalView peds={peds} agendas={agendas} minutas={minutas} presu={presu} reminders={reminders} areas={areas} deptos={deptos} users={users} user={user} onSel={(p:any)=>sSl(p)} mob={mob}
+            onNav={(v:string)=>sVw(v)}
+            onDateChange={async(id:number,newDate:string)=>{try{sPd(p=>p.map(x=>x.id===id?{...x,fReq:newDate}:x));await supabase.from("tasks").update({due_date:newDate}).eq("id",id);addLog(id,user.id,fn(user),"Cambió fecha límite a "+newDate.split("-").reverse().join("/"),"sys");showT("Fecha actualizada");}catch(e:any){showT(e.message||"Error","err");}}}
             onAddReminder={async(r:any)=>{try{const row:any={user_id:user.id,user_name:fn(user),title:r.title,date:r.date,description:r.description||"",color:r.color||"#3B82F6",recurrence:r.recurrence||"none",assigned_to:r.assigned_to||null,assigned_name:r.assigned_name||""};const{data,error}=await supabase.from("reminders").insert(row).select().single();if(error)throw new Error(error.message);sRems(p=>[...(data?[data]:[]),...p]);showT("Recordatorio creado");}catch(e:any){showT(e.message||"Error","err");}}}
             onDelReminder={async(id:number)=>{try{sRems(p=>p.filter(x=>x.id!==id));await supabase.from("reminders").delete().eq("id",id);showT("Recordatorio eliminado");}catch(e:any){showT(e.message||"Error","err");}}}
           />}
