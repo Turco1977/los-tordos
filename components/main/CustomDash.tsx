@@ -1,9 +1,24 @@
 "use client";
 import { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import { useC } from "@/lib/theme-context";
-import { ST, SC, fn, isOD, daysDiff } from "@/lib/constants";
+import { ST, SC, fn, isOD, daysDiff, BOOK_FAC, BOOK_ST } from "@/lib/constants";
 import { rlv } from "@/lib/mappers";
 import { Card, Btn } from "@/components/ui";
+
+/* Division color map (mirrors ReservasView) */
+const DIV_COL:Record<string,string>={};
+["Escuelita","M5","M6","M7","M8","M9","M10","M11","M12"].forEach(d=>{DIV_COL[d]="#10B981";});
+["M13","M14"].forEach(d=>{DIV_COL[d]="#3B82F6";});
+["M15","M16","M17","M18","M19"].forEach(d=>{DIV_COL[d]="#F59E0B";});
+["Plantel Superior","Intermedia","Primera"].forEach(d=>{DIV_COL[d]="#DC2626";});
+const DIV_KEYS=Object.keys(DIV_COL).sort((a,b)=>b.length-a.length);
+const extractDiv=(title:string)=>{if(!title)return null;const t=title.trim();for(const d of DIV_KEYS){if(t.includes(d))return d;}const m=t.match(/M\d+/i);if(m)return m[0].toUpperCase();return null;};
+const timeToMin=(t:string)=>{const [h,m]=t.split(":").map(Number);return h*60+(m||0);};
+const getMonday=(dt:Date)=>{const d=new Date(dt);const day=d.getDay();const diff=d.getDate()-day+(day===0?-6:1);d.setDate(diff);return d;};
+const addDays=(dt:Date,n:number)=>{const d=new Date(dt);d.setDate(d.getDate()+n);return d;};
+const dateISO=(dt:Date)=>dt.toISOString().slice(0,10);
+const DIAS_SEM=["Lu","Ma","Mi","Ju","Vi","Sa","Do"];
+const FKEYS=Object.keys(BOOK_FAC);
 
 const TODAY=new Date().toISOString().slice(0,10);
 
@@ -16,8 +31,9 @@ const WIDGET_META:Record<string,{title:string;icon:string;cols?:number}>={
   weekly:{title:"Resumen Semanal",icon:"📊"},
   areas:{title:"Áreas",icon:"🏉",cols:2},
   reports:{title:"Reportes",icon:"📄",cols:2},
+  espacios:{title:"Espacios",icon:"🏟️",cols:2},
 };
-const DEFAULT_ORDER=["kpis","deadlines","activity","workload","weekly","areas","reports"];
+const DEFAULT_ORDER=["kpis","deadlines","activity","workload","weekly","areas","espacios","reports"];
 
 type Layout={order:string[];hidden:string[]};
 
@@ -29,7 +45,7 @@ function saveLayout(userId:string,layout:Layout){
   try{localStorage.setItem("dash-layout-"+userId,JSON.stringify(layout));}catch{}
 }
 
-export function CustomDash({peds,presu,agendas,minutas,users,areas,deptos,user,mob,onSel,onFilter,onNav,onExportWeekly,onExportMonthly,onAC}:any){
+export function CustomDash({peds,presu,agendas,minutas,users,areas,deptos,user,mob,bookings,onSel,onFilter,onNav,onExportWeekly,onExportMonthly,onAC}:any){
   const{colors,isDark,cardBg}=useC();
   const [layout,sLayout]=useState<Layout>(()=>loadLayout(user?.id||""));
   const [editing,sEditing]=useState(false);
@@ -97,6 +113,11 @@ export function CustomDash({peds,presu,agendas,minutas,users,areas,deptos,user,m
     return{...a,total:ap.length,ok,pct};
   }),[areas,deptos,peds]);
 
+  /* Espacios weekly calendar data */
+  const weekStart=useMemo(()=>getMonday(new Date()),[]);
+  const weekDays=useMemo(()=>Array.from({length:7},(_,i)=>dateISO(addDays(weekStart,i))),[weekStart]);
+  const cellBookings=useCallback((fk:string,d:string)=>(bookings||[]).filter((b:any)=>b.facility===fk&&b.date===d&&b.status!=="cancelada"),[bookings]);
+
   /* Widget renderers */
   const renderWidget=(id:string)=>{
     switch(id){
@@ -162,6 +183,58 @@ export function CustomDash({peds,presu,agendas,minutas,users,areas,deptos,user,m
         <Btn v="g" s="s" onClick={onExportWeekly}>Reporte Semanal</Btn>
         <Btn v="g" s="s" onClick={onExportMonthly}>Reporte Mensual</Btn>
       </div>);
+
+      case "espacios": return(<Card style={{padding:mob?"10px 12px":"14px 16px"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+          <div onClick={()=>onNav("reservas")} style={{fontSize:13,fontWeight:700,color:colors.nv,cursor:"pointer"}}>🏟️ Espacios - Semana Actual <span style={{fontSize:10,color:colors.bl}}>→</span></div>
+        </div>
+        <div style={{overflowX:"auto" as const}}>
+          <div style={{minWidth:600}}>
+            {/* Header row */}
+            <div style={{display:"grid",gridTemplateColumns:"90px repeat(7,1fr)",gap:2,marginBottom:2}}>
+              <div style={{padding:"4px 6px",fontSize:9,fontWeight:700,color:colors.g4,background:isDark?"#1E293B":"#F8FAFC",borderRadius:4}}></div>
+              {weekDays.map((d,i)=>{const isToday=d===TODAY;return(
+                <div key={d} style={{padding:"4px 2px",textAlign:"center" as const,fontSize:9,fontWeight:isToday?800:600,color:isToday?colors.bl:colors.nv,background:isToday?(isDark?"#1E3A5F":"#EFF6FF"):(isDark?"#1E293B":"#F8FAFC"),borderRadius:4,border:isToday?"1px solid "+colors.bl:"none"}}>
+                  {DIAS_SEM[i]} {d.slice(8)}/{d.slice(5,7)}
+                </div>);
+              })}
+            </div>
+            {/* Facility rows */}
+            {FKEYS.map(fk=>{const fac=BOOK_FAC[fk];
+              // Check if this facility has any bookings this week
+              const hasAny=weekDays.some(d=>cellBookings(fk,d).length>0);
+              if(!hasAny)return null;
+              return(
+              <div key={fk} style={{display:"grid",gridTemplateColumns:"90px repeat(7,1fr)",gap:2,marginBottom:2}}>
+                <div style={{padding:"3px 4px",fontSize:8,fontWeight:700,color:fac.c,background:fac.c+"10",borderRadius:4,display:"flex",alignItems:"center",gap:2,borderLeft:"2px solid "+fac.c,lineHeight:1.1}}>
+                  <span style={{fontSize:10}}>{fac.i}</span><span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{fac.l}</span>
+                </div>
+                {weekDays.map(d=>{
+                  const cb=cellBookings(fk,d);
+                  const isToday=d===TODAY;
+                  const sorted=[...cb].sort((a:any,b:any)=>timeToMin(a.time_start)-timeToMin(b.time_start));
+                  const groups:any[][]=[];
+                  sorted.forEach((b:any)=>{
+                    const last=groups[groups.length-1];
+                    if(last&&last[0].time_start===b.time_start) last.push(b);
+                    else groups.push([b]);
+                  });
+                  return(<div key={d} style={{padding:2,background:isToday?(isDark?"#1E3A5F10":"#EFF6FF50"):cardBg,border:"1px solid "+colors.g2,borderRadius:4,minHeight:28,display:"flex",flexDirection:"column" as const,gap:1,justifyContent:"flex-start"}}>
+                    {cb.length===0&&<div style={{fontSize:8,color:colors.g3,textAlign:"center" as const,paddingTop:4}}>—</div>}
+                    {groups.map((grp,gi)=>(
+                      <div key={gi} style={{display:"flex",gap:1}}>
+                        {grp.map((b:any)=>{const div=b.division||extractDiv(b.title);const dc=div?DIV_COL[div]:null;const st=BOOK_ST[b.status];return(
+                          <div key={b.id} style={{padding:"2px 3px",borderRadius:3,background:dc?dc+"20":st?.bg||colors.g1,border:"1px solid "+(dc||st?.c||colors.g3)+"40",flex:1,minWidth:0}} title={(div?div+": ":"")+b.title+" ("+b.time_start+"-"+b.time_end+")"}>
+                            <div style={{fontSize:8,fontWeight:800,color:dc||st?.c||colors.g5,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const,lineHeight:1.1}}>{div||b.title}</div>
+                            <div style={{fontSize:7,color:dc||colors.g5,fontWeight:600}}>{b.time_start}</div>
+                          </div>);})}
+                      </div>))}
+                  </div>);
+                })}
+              </div>);})}
+          </div>
+        </div>
+      </Card>);
 
       default: return null;
     }
