@@ -204,6 +204,7 @@ CREATE POLICY inventory_all ON inventory FOR ALL USING (true) WITH CHECK (true);
   time_start TEXT DEFAULT '08:00',
   time_end TEXT DEFAULT '10:00',
   title TEXT DEFAULT '',
+  division TEXT DEFAULT '',
   description TEXT DEFAULT '',
   booked_by UUID NOT NULL,
   booked_by_name TEXT DEFAULT '',

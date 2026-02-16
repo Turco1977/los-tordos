@@ -47,7 +47,8 @@ const DIV_COL:Record<string,string>={};
 const DIV_KEYS=Object.keys(DIV_COL).sort((a,b)=>b.length-a.length);// longest first for matching
 const extractDiv=(title:string)=>{if(!title)return null;const t=title.trim();for(const d of DIV_KEYS){if(t.includes(d))return d;}const m=t.match(/M\d+/i);if(m)return m[0].toUpperCase();return null;};
 
-const emptyForm=()=>({facility:"cancha1",date:TODAY,time_start:"09:00",time_end:"10:00",title:"",description:"",notes:"",status:"pendiente",recurrence:"none"});
+const DIV_LIST=["","Escuelita","M5","M6","M7","M8","M9","M10","M11","M12","M13","M14","M15","M16","M17","M18","M19","Intermedia","Plantel Superior","Primera","Hockey"];
+const emptyForm=()=>({facility:"cancha1",date:TODAY,time_start:"09:00",time_end:"10:00",title:"",division:"",description:"",notes:"",status:"pendiente",recurrence:"none"});
 
 export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel}:any){
   const {colors,isDark,cardBg}=useC();
@@ -105,7 +106,7 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel}:any){
     f.title=BOOK_FAC[f.facility]?.l||"";
     sForm(f);sShowAdd(true);
   };
-  const startEdit=(b:any)=>{sEditId(String(b.id));sEditForm({facility:b.facility,date:b.date,time_start:b.time_start,time_end:b.time_end,title:b.title,description:b.description||"",notes:b.notes||"",status:b.status});};
+  const startEdit=(b:any)=>{sEditId(String(b.id));sEditForm({facility:b.facility,date:b.date,time_start:b.time_start,time_end:b.time_end,title:b.title,division:b.division||"",description:b.description||"",notes:b.notes||"",status:b.status});};
   const cancelEdit=()=>{sEditId(null);sEditForm(null);};
   const saveEdit=()=>{if(!editId||!editForm)return;onUpd(editId,editForm);cancelEdit();};
   const userName=(uid:string)=>{const u=(users||[]).find((u2:any)=>u2.id===uid);return u?fn(u):"";};
@@ -117,7 +118,7 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel}:any){
     try{
       const title=form.title||BOOK_FAC[form.facility]?.l||"Reserva";
       const dates=generateDates(form.date,form.recurrence||"none");
-      const items=dates.map((d:string)=>({facility:form.facility,date:d,time_start:form.time_start,time_end:form.time_end,title,description:form.description,notes:form.notes,status:form.status,booked_by:user.id,booked_by_name:fn(user)}));
+      const items=dates.map((d:string)=>({facility:form.facility,date:d,time_start:form.time_start,time_end:form.time_end,title,division:form.division||"",description:form.description,notes:form.notes,status:form.status,booked_by:user.id,booked_by_name:fn(user)}));
       await onAdd(items.length===1?items[0]:items);
       resetForm();
     }catch(e){/* error handled by parent */}
@@ -200,10 +201,15 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel}:any){
         </div>
         <div><label style={lblSt}>Fecha *</label><input type="date" value={form.date} onChange={e=>sForm((p:any)=>({...p,date:e.target.value}))} style={iSt}/></div>
       </div>
-      <div style={{display:"grid",gridTemplateColumns:mob?"1fr 1fr":"1fr 1fr 1fr 1fr",gap:8,marginBottom:8}}>
+      <div style={{display:"grid",gridTemplateColumns:mob?"1fr 1fr":"1fr 1fr 1fr 1fr 1fr",gap:8,marginBottom:8}}>
         <div><label style={lblSt}>Hora inicio *</label><input type="time" value={form.time_start} onChange={e=>sForm((p:any)=>({...p,time_start:e.target.value}))} style={iSt}/></div>
         <div><label style={lblSt}>Hora fin *</label><input type="time" value={form.time_end} onChange={e=>sForm((p:any)=>({...p,time_end:e.target.value}))} style={iSt}/></div>
         <div><label style={lblSt}>Título</label><input value={form.title} onChange={e=>sForm((p:any)=>({...p,title:e.target.value}))} placeholder="Ej: Entrenamiento M19" style={iSt}/></div>
+        <div><label style={lblSt}>División</label>
+          <select value={form.division} onChange={e=>sForm((p:any)=>({...p,division:e.target.value}))} style={iSt}>
+            {DIV_LIST.map(d=><option key={d} value={d}>{d||"— Sin división —"}</option>)}
+          </select>
+        </div>
         {!mob&&<div><label style={lblSt}>Estado</label>
           <select value={form.status} onChange={e=>sForm((p:any)=>({...p,status:e.target.value}))} style={iSt}>
             {SKEYS.map(k=><option key={k} value={k}>{BOOK_ST[k].i} {BOOK_ST[k].l}</option>)}
@@ -288,8 +294,8 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel}:any){
                 const isToday=d===TODAY;
                 return(<div key={d} style={{padding:4,background:isToday?(isDark?"#1E3A5F10":"#EFF6FF50"):cardBg,border:"1px solid "+colors.g2,borderRadius:6,minHeight:38,cursor:"pointer",position:"relative" as const}} onClick={()=>{if(showAdd){sForm((p:any)=>({...p,facility:fk,date:d,title:p.title===BOOK_FAC[p.facility]?.l?BOOK_FAC[fk]?.l||"":p.title}));}else{openForm(fk,d);}}}>
                   {cb.length===0&&<div style={{fontSize:9,color:colors.g3,textAlign:"center" as const,paddingTop:6}}>—</div>}
-                  {cb.map((b:any,j:number)=>{const st=BOOK_ST[b.status];const div=extractDiv(b.title);const dc=div?DIV_COL[div]:null;return(
-                    <div key={b.id||j} onClick={e=>{e.stopPropagation();startEdit(b);}} style={{padding:"2px 5px",borderRadius:6,background:dc?dc+"20":st.bg,marginBottom:1,cursor:"pointer",border:"1px solid "+(dc||st.c)+"40"}} title={b.title+" ("+b.time_start+"-"+b.time_end+")"}>
+                  {cb.map((b:any,j:number)=>{const st=BOOK_ST[b.status];const div=b.division||extractDiv(b.title);const dc=div?DIV_COL[div]:null;return(
+                    <div key={b.id||j} onClick={e=>{e.stopPropagation();startEdit(b);}} style={{padding:"2px 5px",borderRadius:6,background:dc?dc+"20":st.bg,marginBottom:1,cursor:"pointer",border:"1px solid "+(dc||st.c)+"40"}} title={(div?div+": ":"")+b.title+" ("+b.time_start+"-"+b.time_end+")"}>
                       <div style={{fontSize:10,fontWeight:800,color:dc||st.c,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const,lineHeight:1.3}}>{div||b.title}</div>
                       <div style={{fontSize:8,color:dc||colors.g5,fontWeight:600}}>{b.time_start}</div>
                     </div>);})}
@@ -322,10 +328,15 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel}:any){
           </div>
           <div><label style={lblSt}>Fecha</label><input type="date" value={editForm.date} onChange={e=>sEditForm((p:any)=>({...p,date:e.target.value}))} style={iSt}/></div>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:mob?"1fr 1fr":"1fr 1fr 1fr",gap:8,marginBottom:8}}>
+        <div style={{display:"grid",gridTemplateColumns:mob?"1fr 1fr":"1fr 1fr 1fr 1fr",gap:8,marginBottom:8}}>
           <div><label style={lblSt}>Hora inicio</label><input type="time" value={editForm.time_start} onChange={e=>sEditForm((p:any)=>({...p,time_start:e.target.value}))} style={iSt}/></div>
           <div><label style={lblSt}>Hora fin</label><input type="time" value={editForm.time_end} onChange={e=>sEditForm((p:any)=>({...p,time_end:e.target.value}))} style={iSt}/></div>
           <div><label style={lblSt}>Título</label><input value={editForm.title} onChange={e=>sEditForm((p:any)=>({...p,title:e.target.value}))} style={iSt}/></div>
+          <div><label style={lblSt}>División</label>
+            <select value={editForm.division||""} onChange={e=>sEditForm((p:any)=>({...p,division:e.target.value}))} style={iSt}>
+              {DIV_LIST.map(d=><option key={d} value={d}>{d||"— Sin división —"}</option>)}
+            </select>
+          </div>
         </div>
         <div style={{marginBottom:8}}><label style={lblSt}>Descripción</label><textarea value={editForm.description} onChange={e=>sEditForm((p:any)=>({...p,description:e.target.value}))} rows={2} style={{...iSt,resize:"vertical" as const}}/></div>
         <div style={{marginBottom:8}}><label style={lblSt}>Notas</label><input value={editForm.notes} onChange={e=>sEditForm((p:any)=>({...p,notes:e.target.value}))} style={iSt}/></div>
@@ -365,7 +376,7 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel}:any){
                 <span style={{fontSize:13}}>{fac.i}</span>
                 <span style={{fontSize:12,fontWeight:700,color:colors.nv,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{b.title}</span>
               </div>
-              <div style={{fontSize:10,color:colors.g4,marginTop:2}}>{fac.l} &middot; {fmtD(b.date)} &middot; {b.time_start}-{b.time_end}</div>
+              <div style={{fontSize:10,color:colors.g4,marginTop:2}}>{fac.l} &middot; {fmtD(b.date)} &middot; {b.time_start}-{b.time_end}{(b.division||"")&&<span style={{marginLeft:4,padding:"0 5px",borderRadius:8,background:(DIV_COL[b.division]||colors.g4)+"18",color:DIV_COL[b.division]||colors.g4,fontWeight:700,fontSize:9}}>{b.division}</span>}</div>
               {b.description&&<div style={{fontSize:10,color:colors.g5,marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{b.description}</div>}
             </div>
             <div style={{display:"flex",flexDirection:"column" as const,alignItems:"flex-end",gap:4,flexShrink:0}}>
@@ -392,10 +403,15 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel}:any){
           <button key={k} onClick={()=>sEditForm((p:any)=>({...p,status:k}))} style={{padding:"4px 12px",borderRadius:14,border:editForm.status===k?"2px solid "+s.c:"1px solid "+colors.g3,background:editForm.status===k?s.bg:cardBg,color:s.c,fontSize:10,fontWeight:700,cursor:"pointer"}}>{s.i} {s.l}</button>
         );})}
       </div>
-      <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr 1fr",gap:8,marginBottom:8}}>
+      <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr 1fr 1fr",gap:8,marginBottom:8}}>
         <div><label style={lblSt}>Hora inicio</label><input type="time" value={editForm.time_start} onChange={e=>sEditForm((p:any)=>({...p,time_start:e.target.value}))} style={iSt}/></div>
         <div><label style={lblSt}>Hora fin</label><input type="time" value={editForm.time_end} onChange={e=>sEditForm((p:any)=>({...p,time_end:e.target.value}))} style={iSt}/></div>
         <div><label style={lblSt}>Título</label><input value={editForm.title} onChange={e=>sEditForm((p:any)=>({...p,title:e.target.value}))} style={iSt}/></div>
+        <div><label style={lblSt}>División</label>
+          <select value={editForm.division||""} onChange={e=>sEditForm((p:any)=>({...p,division:e.target.value}))} style={iSt}>
+            {DIV_LIST.map(d=><option key={d} value={d}>{d||"— Sin división —"}</option>)}
+          </select>
+        </div>
       </div>
       <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}>
         <Btn v="g" s="s" onClick={cancelEdit}>Cancelar</Btn>
