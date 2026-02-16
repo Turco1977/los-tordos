@@ -1,9 +1,10 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { SPON_ST, DOLAR_REF } from "@/lib/constants";
 import { fmtD } from "@/lib/mappers";
 import { Btn, Card } from "@/components/ui";
 import { useC } from "@/lib/theme-context";
+import * as XLSX from "xlsx";
 
 const TODAY=new Date().toISOString().slice(0,10);
 const daysLeft=(d:string)=>{if(!d)return Infinity;return Math.round((new Date(d).getTime()-new Date(TODAY).getTime())/864e5);};
@@ -27,6 +28,11 @@ const emptyForm=()=>({
 
 export function SponsorsView({sponsors,user,mob,onAdd,onUpd,onDel}:any){
   const{colors,isDark,cardBg}=useC();
+  const isSA=user?.role==="superadmin";
+  const [dolarRef,sDolarRef]=useState(()=>{if(typeof window!=="undefined"){const v=localStorage.getItem("lt_dolar_ref");if(v)return Number(v);}return DOLAR_REF;});
+  const [editDolar,sEditDolar]=useState(false);
+  const [dolarInput,sDolarInput]=useState(String(dolarRef));
+  const saveDolar=()=>{const n=Number(dolarInput);if(n>0){sDolarRef(n);localStorage.setItem("lt_dolar_ref",String(n));}sEditDolar(false);};
   const [search,sSr]=useState("");
   const [fSt,sFSt]=useState("all");
   const [showForm,sShowForm]=useState(false);
@@ -34,6 +40,48 @@ export function SponsorsView({sponsors,user,mob,onAdd,onUpd,onDel}:any){
   const [expandId,sExpandId]=useState<string|null>(null);
   const [form,sForm]=useState(emptyForm());
   const [confirmDel,sConfirmDel]=useState<string|null>(null);
+  const [importing,sImporting]=useState(false);
+  const [importPreview,sImportPreview]=useState<any[]|null>(null);
+  const fileRef=useRef<HTMLInputElement>(null);
+
+  /* ── Excel import ── */
+  const handleFile=async(e:React.ChangeEvent<HTMLInputElement>)=>{
+    const file=e.target.files?.[0];
+    if(!file)return;
+    const data=await file.arrayBuffer();
+    const wb=XLSX.read(data,{type:"array"});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const rows:any[]=XLSX.utils.sheet_to_json(ws,{defval:""});
+    if(!rows.length)return;
+    /* Map columns flexibly — try common header names */
+    const mapped=rows.map((r:any)=>{
+      const get=(...keys:string[])=>{for(const k of keys){const v=r[k]??r[k.toLowerCase()]??r[k.toUpperCase()];if(v!==undefined&&v!=="")return v;}return "";};
+      const num=(v:any)=>{if(!v&&v!==0)return 0;const n=Number(String(v).replace(/[$.,%\s]/g,""));return isNaN(n)?0:n;};
+      return{
+        name:get("Sponsor","sponsor","Nombre","nombre","name","Name","SPONSOR"),
+        amount_cash:num(get("Aporte $","aporte $","Aporte","aporte","amount_cash","Efectivo","efectivo","Cash","cash","APORTE $")),
+        amount_service:num(get("Aporte Pro/Ser","aporte pro/ser","Canjes","canjes","amount_service","Servicio","servicio","APORTE PRO/SER")),
+        end_date:get("Período","periodo","Periodo","end_date","Vencimiento","vencimiento","PERIODO")||null,
+        exposure:get("Exposición","exposicion","Exposicion","exposure","EXPOSICION"),
+        notes:get("Varios","varios","Observaciones","observaciones","notes","Notes","Notas","notas","VARIOS"),
+        payment_type:get("Tipo pago","tipo pago","payment_type","Pago","pago","TIPO PAGO"),
+        status:"active",
+      };
+    }).filter((s:any)=>s.name);
+    sImportPreview(mapped);
+    if(fileRef.current)fileRef.current.value="";
+  };
+  const confirmImport=async()=>{
+    if(!importPreview?.length)return;
+    sImporting(true);
+    try{
+      for(const sp of importPreview){
+        const total=(sp.amount_cash||0)+(sp.amount_service||0);
+        await onAdd({...sp,amount:total});
+      }
+    }catch(e){}
+    finally{sImporting(false);sImportPreview(null);}
+  };
 
   /* ── Derived data ── */
   const all:any[]=sponsors||[];
@@ -134,10 +182,43 @@ export function SponsorsView({sponsors,user,mob,onAdd,onUpd,onDel}:any){
         <p style={{color:colors.g4,fontSize:12,margin:0}}>Gestión de patrocinadores y sponsors del club</p>
       </div>
       <div style={{display:"flex",alignItems:"center",gap:8}}>
-        <span style={{background:isDark?"rgba(16,185,129,.15)":"#D1FAE5",color:"#10B981",padding:"4px 10px",borderRadius:8,fontSize:11,fontWeight:700}}>dólar ${DOLAR_REF.toLocaleString("es-AR")}</span>
+        {editDolar?<div style={{display:"flex",alignItems:"center",gap:4}}><span style={{fontSize:10,fontWeight:600,color:colors.g5}}>USD $</span><input type="number" value={dolarInput} onChange={e=>sDolarInput(e.target.value)} style={{width:80,padding:"4px 8px",borderRadius:6,border:"1px solid #10B981",fontSize:12,fontWeight:700,background:cardBg,color:colors.nv}} autoFocus onKeyDown={e=>{if(e.key==="Enter")saveDolar();if(e.key==="Escape")sEditDolar(false);}}/><Btn v="s" s="s" onClick={saveDolar}>OK</Btn><Btn v="g" s="s" onClick={()=>sEditDolar(false)}>✕</Btn></div>
+        :<span onClick={()=>{if(isSA){sDolarInput(String(dolarRef));sEditDolar(true);}}} style={{background:isDark?"rgba(16,185,129,.15)":"#D1FAE5",color:"#10B981",padding:"4px 10px",borderRadius:8,fontSize:11,fontWeight:700,cursor:isSA?"pointer":"default"}} title={isSA?"Click para editar tipo de cambio":""}>dólar ${dolarRef.toLocaleString("es-AR")}{isSA&&" ✏️"}</span>}
+        <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleFile} style={{display:"none"}}/>
+        <Btn v="g" s="s" onClick={()=>fileRef.current?.click()}>📥 Importar Excel</Btn>
         <Btn v="pu" s="s" onClick={openAdd}>+ Nuevo Sponsor</Btn>
       </div>
     </div>
+
+    {/* ── Import Preview ── */}
+    {importPreview&&<Card style={{marginBottom:14,background:isDark?"#0D2818":"#F0FDF4",border:"1px solid #BBF7D0"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+        <div style={{fontSize:13,fontWeight:700,color:isDark?"#4ADE80":"#166534"}}>📥 Vista previa: {importPreview.length} sponsors del Excel</div>
+        <button onClick={()=>sImportPreview(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:colors.g4}}>✕</button>
+      </div>
+      <div style={{maxHeight:300,overflowY:"auto" as const,marginBottom:10}}>
+        <table style={{width:"100%",borderCollapse:"collapse" as const,fontSize:11}}>
+          <thead><tr style={{background:isDark?"rgba(0,0,0,.2)":"#E8F5E9"}}>
+            <th style={{padding:"4px 6px",textAlign:"left" as const,fontWeight:700,color:colors.nv}}>Sponsor</th>
+            <th style={{padding:"4px 6px",textAlign:"right" as const,fontWeight:700,color:"#10B981"}}>Aporte $</th>
+            <th style={{padding:"4px 6px",textAlign:"right" as const,fontWeight:700,color:"#3B82F6"}}>Canjes</th>
+            <th style={{padding:"4px 6px",textAlign:"left" as const,fontWeight:700,color:colors.g5}}>Exposición</th>
+            <th style={{padding:"4px 6px",textAlign:"left" as const,fontWeight:700,color:colors.g5}}>Notas</th>
+          </tr></thead>
+          <tbody>{importPreview.map((sp,i)=><tr key={i} style={{borderBottom:"1px solid "+colors.g2}}>
+            <td style={{padding:"4px 6px",fontWeight:600,color:colors.nv}}>{sp.name}</td>
+            <td style={{padding:"4px 6px",textAlign:"right" as const,color:"#10B981",fontWeight:600}}>{fmtARS(sp.amount_cash)}</td>
+            <td style={{padding:"4px 6px",textAlign:"right" as const,color:"#3B82F6",fontWeight:600}}>{fmtARS(sp.amount_service)}</td>
+            <td style={{padding:"4px 6px",color:colors.g5,maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{sp.exposure}</td>
+            <td style={{padding:"4px 6px",color:colors.g5,maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{sp.notes}</td>
+          </tr>)}</tbody>
+        </table>
+      </div>
+      <div style={{display:"flex",gap:6,justifyContent:"flex-end"}}>
+        <Btn v="g" s="s" onClick={()=>sImportPreview(null)}>Cancelar</Btn>
+        <Btn v="s" s="s" disabled={importing} onClick={confirmImport}>{importing?`Importando...`:`Importar ${importPreview.length} sponsors`}</Btn>
+      </div>
+    </Card>}
 
     {/* ── KPI Dashboard ── */}
     <div style={{display:"grid",gridTemplateColumns:mob?"repeat(2,1fr)":"repeat(4,1fr)",gap:10,margin:"14px 0"}}>
@@ -409,7 +490,7 @@ export function SponsorsView({sponsors,user,mob,onAdd,onUpd,onDel}:any){
             <span style={{fontWeight:800,color:colors.nv}}>{fmtARS(totalAll)}</span>
           </div>
           {totalAll>0&&<div style={{fontSize:10,color:colors.g5,marginTop:2,textAlign:"right" as const}}>
-            USD ~${Math.round(totalAll/DOLAR_REF).toLocaleString("es-AR")} (ref ${DOLAR_REF.toLocaleString("es-AR")})
+            USD ~${Math.round(totalAll/dolarRef).toLocaleString("es-AR")} (ref ${dolarRef.toLocaleString("es-AR")})
           </div>}
         </div>
       </div>
