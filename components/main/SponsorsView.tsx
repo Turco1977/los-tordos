@@ -4,7 +4,6 @@ import { SPON_ST, DOLAR_REF } from "@/lib/constants";
 import { fmtD } from "@/lib/mappers";
 import { Btn, Card } from "@/components/ui";
 import { useC } from "@/lib/theme-context";
-import * as XLSX from "xlsx";
 
 const TODAY=new Date().toISOString().slice(0,10);
 const daysLeft=(d:string)=>{if(!d)return Infinity;return Math.round((new Date(d).getTime()-new Date(TODAY).getTime())/864e5);};
@@ -45,42 +44,65 @@ export function SponsorsView({sponsors,user,mob,onAdd,onUpd,onDel}:any){
   const fileRef=useRef<HTMLInputElement>(null);
 
   /* ── Excel import ── */
+  const [importErr,sImportErr]=useState<string|null>(null);
   const handleFile=async(e:React.ChangeEvent<HTMLInputElement>)=>{
     const file=e.target.files?.[0];
     if(!file)return;
-    const data=await file.arrayBuffer();
-    const wb=XLSX.read(data,{type:"array"});
-    const ws=wb.Sheets[wb.SheetNames[0]];
-    const rows:any[]=XLSX.utils.sheet_to_json(ws,{defval:""});
-    if(!rows.length)return;
-    /* Map columns flexibly — try common header names */
-    const mapped=rows.map((r:any)=>{
-      const get=(...keys:string[])=>{for(const k of keys){const v=r[k]??r[k.toLowerCase()]??r[k.toUpperCase()];if(v!==undefined&&v!=="")return v;}return "";};
-      const num=(v:any)=>{if(!v&&v!==0)return 0;const n=Number(String(v).replace(/[$.,%\s]/g,""));return isNaN(n)?0:n;};
-      return{
-        name:get("Sponsor","sponsor","Nombre","nombre","name","Name","SPONSOR"),
-        amount_cash:num(get("Aporte $","aporte $","Aporte","aporte","amount_cash","Efectivo","efectivo","Cash","cash","APORTE $")),
-        amount_service:num(get("Aporte Pro/Ser","aporte pro/ser","Canjes","canjes","amount_service","Servicio","servicio","APORTE PRO/SER")),
-        end_date:get("Período","periodo","Periodo","end_date","Vencimiento","vencimiento","PERIODO")||null,
-        exposure:get("Exposición","exposicion","Exposicion","exposure","EXPOSICION"),
-        notes:get("Varios","varios","Observaciones","observaciones","notes","Notes","Notas","notas","VARIOS"),
-        payment_type:get("Tipo pago","tipo pago","payment_type","Pago","pago","TIPO PAGO"),
-        status:"active",
-      };
-    }).filter((s:any)=>s.name);
-    sImportPreview(mapped);
+    sImportErr(null);
+    try{
+      const XLSX=await import("xlsx");
+      const data=new Uint8Array(await file.arrayBuffer());
+      const wb=XLSX.read(data);
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows:any[]=XLSX.utils.sheet_to_json(ws,{defval:""});
+      if(!rows.length){sImportErr("El archivo no tiene datos");return;}
+      /* Map columns flexibly — try common header names, also check all keys case-insensitively */
+      const mapped=rows.map((r:any)=>{
+        const rKeys=Object.keys(r);
+        const get=(...keys:string[])=>{
+          for(const k of keys){
+            if(r[k]!==undefined&&r[k]!=="")return r[k];
+            const found=rKeys.find(rk=>rk.toLowerCase().trim()===k.toLowerCase().trim());
+            if(found&&r[found]!==undefined&&r[found]!=="")return r[found];
+          }
+          return "";
+        };
+        const num=(v:any)=>{if(!v&&v!==0)return 0;const n=Number(String(v).replace(/[$.,%\s]/g,""));return isNaN(n)?0:n;};
+        return{
+          name:get("Sponsor","sponsor","Nombre","nombre","name","Name","SPONSOR"),
+          amount_cash:num(get("Aporte $","aporte $","Aporte","aporte","amount_cash","Efectivo","efectivo","Cash","cash","APORTE $")),
+          amount_service:num(get("Aporte Pro/Ser","aporte pro/ser","Canjes","canjes","amount_service","Servicio","servicio","APORTE PRO/SER")),
+          end_date:get("Período","periodo","Periodo","end_date","Vencimiento","vencimiento","PERIODO")||null,
+          exposure:get("Exposición","exposicion","Exposicion","exposure","EXPOSICION"),
+          notes:get("Varios","varios","Observaciones","observaciones","notes","Notes","Notas","notas","VARIOS"),
+          payment_type:get("Tipo pago","tipo pago","payment_type","Pago","pago","TIPO PAGO"),
+          status:"active",
+        };
+      }).filter((s:any)=>s.name);
+      if(!mapped.length){sImportErr("No se encontraron sponsors con nombre. Columnas detectadas: "+Object.keys(rows[0]).join(", "));return;}
+      sImportPreview(mapped);
+    }catch(err:any){
+      sImportErr("Error leyendo archivo: "+(err.message||"formato no reconocido"));
+    }
     if(fileRef.current)fileRef.current.value="";
   };
   const confirmImport=async()=>{
     if(!importPreview?.length)return;
-    sImporting(true);
+    sImporting(true);sImportErr(null);
+    let ok=0,fail=0;
     try{
       for(const sp of importPreview){
-        const total=(sp.amount_cash||0)+(sp.amount_service||0);
-        await onAdd({...sp,amount:total});
+        try{
+          const total=(sp.amount_cash||0)+(sp.amount_service||0);
+          await onAdd({...sp,amount:total});
+          ok++;
+        }catch{fail++;}
       }
-    }catch(e){}
-    finally{sImporting(false);sImportPreview(null);}
+    }catch{}
+    finally{
+      sImporting(false);sImportPreview(null);
+      if(fail>0)sImportErr(`Importados: ${ok}, Errores: ${fail}`);
+    }
   };
 
   /* ── Derived data ── */
@@ -115,7 +137,7 @@ export function SponsorsView({sponsors,user,mob,onAdd,onUpd,onDel}:any){
     sEditId(sp.id);sShowForm(true);
   };
   const closeForm=()=>{sShowForm(false);sEditId(null);sForm(emptyForm());};
-  const saveForm=()=>{
+  const saveForm=async()=>{
     const cash=Number(form.amount_cash)||0;
     const service=Number(form.amount_service)||0;
     const payload={
@@ -129,8 +151,10 @@ export function SponsorsView({sponsors,user,mob,onAdd,onUpd,onDel}:any){
       status:form.status,
       payment_type:form.payment_type,
     };
-    if(editId){onUpd(editId,payload);}else{onAdd(payload);}
-    closeForm();
+    try{
+      if(editId){await onUpd(editId,payload);}else{await onAdd(payload);}
+      closeForm();
+    }catch(e:any){sImportErr(e.message||"Error al guardar sponsor");}
   };
 
   /* ── Inline edit helpers ── */
@@ -181,14 +205,20 @@ export function SponsorsView({sponsors,user,mob,onAdd,onUpd,onDel}:any){
         <h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:colors.nv,fontWeight:800}}>Sponsors</h2>
         <p style={{color:colors.g4,fontSize:12,margin:0}}>Gestión de patrocinadores y sponsors del club</p>
       </div>
-      <div style={{display:"flex",alignItems:"center",gap:8}}>
+      <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap" as const}}>
         {editDolar?<div style={{display:"flex",alignItems:"center",gap:4}}><span style={{fontSize:10,fontWeight:600,color:colors.g5}}>USD $</span><input type="number" value={dolarInput} onChange={e=>sDolarInput(e.target.value)} style={{width:80,padding:"4px 8px",borderRadius:6,border:"1px solid #10B981",fontSize:12,fontWeight:700,background:cardBg,color:colors.nv}} autoFocus onKeyDown={e=>{if(e.key==="Enter")saveDolar();if(e.key==="Escape")sEditDolar(false);}}/><Btn v="s" s="s" onClick={saveDolar}>OK</Btn><Btn v="g" s="s" onClick={()=>sEditDolar(false)}>✕</Btn></div>
-        :<span onClick={()=>{if(isSA){sDolarInput(String(dolarRef));sEditDolar(true);}}} style={{background:isDark?"rgba(16,185,129,.15)":"#D1FAE5",color:"#10B981",padding:"4px 10px",borderRadius:8,fontSize:11,fontWeight:700,cursor:isSA?"pointer":"default"}} title={isSA?"Click para editar tipo de cambio":""}>dólar ${dolarRef.toLocaleString("es-AR")}{isSA&&" ✏️"}</span>}
+        :<div style={{display:"flex",alignItems:"center",gap:4}}>
+          <span style={{background:isDark?"rgba(16,185,129,.15)":"#D1FAE5",color:"#10B981",padding:"4px 10px",borderRadius:8,fontSize:11,fontWeight:700}}>dólar ${dolarRef.toLocaleString("es-AR")}</span>
+          {isSA&&<Btn v="g" s="s" onClick={()=>{sDolarInput(String(dolarRef));sEditDolar(true);}}>✏️</Btn>}
+        </div>}
         <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleFile} style={{display:"none"}}/>
-        <Btn v="g" s="s" onClick={()=>fileRef.current?.click()}>📥 Importar Excel</Btn>
-        <Btn v="pu" s="s" onClick={openAdd}>+ Nuevo Sponsor</Btn>
+        <Btn v="g" s="s" onClick={()=>fileRef.current?.click()}>📥 Excel</Btn>
+        <Btn v="pu" s="s" onClick={openAdd}>+ Sponsor</Btn>
       </div>
     </div>
+
+    {/* ── Import Error ── */}
+    {importErr&&<div style={{padding:"8px 14px",marginBottom:10,borderRadius:8,background:isDark?"rgba(220,38,38,.15)":"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",fontSize:12,fontWeight:600,display:"flex",justifyContent:"space-between",alignItems:"center"}}><span>{importErr}</span><button onClick={()=>sImportErr(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#DC2626"}}>✕</button></div>}
 
     {/* ── Import Preview ── */}
     {importPreview&&<Card style={{marginBottom:14,background:isDark?"#0D2818":"#F0FDF4",border:"1px solid #BBF7D0"}}>

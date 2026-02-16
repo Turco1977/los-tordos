@@ -418,7 +418,7 @@ export default function App(){
           />}
           {/* Sponsors */}
           {vw==="sponsors"&&(isAd||user.role==="coordinador"||user.role==="embudo")&&<SponsorsView sponsors={sponsors} user={user} mob={mob}
-            onAdd={async(d:any)=>{try{const row={...d,created_by:user.id,created_by_name:fn(user)};const{data,error}=await supabase.from("sponsors").insert(row).select().single();if(error)throw new Error(error.message);if(data)sSponsors(prev=>[data,...prev]);showT("Sponsor agregado");}catch(e:any){showT(e.message||"Error","err");}}}
+            onAdd={async(d:any)=>{const row={...d,created_by:user.id,created_by_name:fn(user)};const{data,error}=await supabase.from("sponsors").insert(row).select().single();if(error)throw new Error(error.message);if(data){sSponsors(prev=>[data,...prev]);showT("Sponsor agregado");}}}
             onUpd={async(id:number,d:any)=>{try{sSponsors(prev=>prev.map(x=>x.id===id?{...x,...d}:x));await supabase.from("sponsors").update(d).eq("id",id);showT("Sponsor actualizado");}catch(e:any){showT(e.message||"Error","err");}}}
             onDel={async(id:number)=>{try{sSponsors(prev=>prev.filter(x=>x.id!==id));await supabase.from("sponsors").delete().eq("id",id);showT("Sponsor eliminado");}catch(e:any){showT(e.message||"Error","err");}}}
           />}
