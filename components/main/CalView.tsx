@@ -32,11 +32,11 @@ export default function CalView({peds,agendas,minutas,presu,reminders,areas,dept
   const RECUR_OPTS=[{k:"none",l:"Una vez"},{k:"weekly",l:"Semanal"},{k:"biweekly",l:"Quincenal"},{k:"monthly",l:"Mensual"},{k:"quarterly",l:"Trimestral"},{k:"yearly",l:"Anual"}];
 
   /* expand recurring reminders into visible date range (current year ±1) */
-  const expandReminder=(r:any):{date:string;type:string;icon:string;color:string;label:string;data:any}[]=>{
+  const expandReminder=(r:any):{date:string;type:string;icon:string;color:string;label:string;sub?:string;data:any}[]=>{
     const rec=r.recurrence||"none";
     const base=new Date(r.date+"T12:00:00");
     if(isNaN(base.getTime()))return[];
-    const results:{date:string;type:string;icon:string;color:string;label:string;data:any}[]=[];
+    const results:{date:string;type:string;icon:string;color:string;label:string;sub?:string;data:any}[]=[];
     const recLabel=rec!=="none"?" 🔁":"";
     const makeEvt=(iso:string)=>({date:iso,type:"reminder",icon:"🔔",color:r.color||T.bl,label:r.title+recLabel,data:r});
     if(rec==="none"){results.push(makeEvt(r.date));return results;}
@@ -62,9 +62,9 @@ export default function CalView({peds,agendas,minutas,presu,reminders,areas,dept
   };
 
   /* build events */
-  const events:{date:string;type:string;icon:string;color:string;label:string;data:any}[]=[];
+  const events:{date:string;type:string;icon:string;color:string;label:string;sub?:string;data:any}[]=[];
   const myPeds=isPersonalUser?peds.filter((p:any)=>p.cId===user.id||p.asTo===user.id):peds;
-  myPeds.filter((p:any)=>p.fReq).forEach((p:any)=>events.push({date:p.fReq,type:"task",icon:SC[p.st]?.i||"📋",color:SC[p.st]?.c||T.bl,label:p.desc?.slice(0,40)||"",data:p}));
+  myPeds.filter((p:any)=>p.fReq).forEach((p:any)=>{const ag=users.find((u:any)=>u.id===p.asTo);events.push({date:p.fReq,type:"task",icon:SC[p.st]?.i||"📋",color:SC[p.st]?.c||T.bl,label:p.desc||"",sub:ag?fn(ag):undefined,data:p});});
   if(!isPersonalUser){
     agendas.filter((a:any)=>a.date).forEach((a:any)=>events.push({date:a.date,type:"agenda",icon:"📋",color:AGT[a.type]?.color||T.bl,label:"OD "+(AGT[a.type]?.title||""),data:a}));
     minutas.filter((m:any)=>m.date).forEach((m:any)=>events.push({date:m.date,type:"minuta",icon:"📝",color:AGT[m.type]?.color||T.gn,label:"Minuta "+(AGT[m.type]?.title||""),data:m}));
@@ -99,10 +99,13 @@ export default function CalView({peds,agendas,minutas,presu,reminders,areas,dept
 
   /* EVENT PILL */
   const EvtPill=({e,compact}:{e:any;compact?:boolean})=>(
-    <div draggable={e.type==="task"} onDragStart={(ev)=>handleDragStart(ev,e)} onTouchStart={(ev)=>handleTouchStart(ev,e)} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd} onClick={(ev)=>{ev.stopPropagation();handleEvtClick(e);}} style={{display:"flex",alignItems:"center",gap:3,padding:compact?"1px 4px":"3px 8px",borderRadius:10,background:e.color+"18",cursor:"pointer",overflow:"hidden",whiteSpace:"nowrap" as const}} title={e.type==="reminder"?(e.label+(e.data.description?" — "+e.data.description:"")+(e.data.assigned_name?" → "+e.data.assigned_name:"")+(e.data.recurrence&&e.data.recurrence!=="none"?" (🔁 "+e.data.recurrence+")":"")+(e.data.user_name?" · por "+e.data.user_name:"")):e.label}>
-      <span style={{fontSize:compact?8:10,flexShrink:0}}>{e.icon}</span>
-      {!compact&&<span style={{fontSize:10,fontWeight:600,color:e.color,overflow:"hidden",textOverflow:"ellipsis",flex:1}}>{e.label}</span>}
-      {!compact&&e.type==="reminder"&&onDelReminder&&<button onClick={(ev)=>{ev.stopPropagation();if(confirm("¿Eliminar recordatorio?"))onDelReminder(e.data.id);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:9,color:T.g4,padding:0,flexShrink:0}}>✕</button>}
+    <div draggable={e.type==="task"} onDragStart={(ev)=>handleDragStart(ev,e)} onTouchStart={(ev)=>handleTouchStart(ev,e)} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd} onClick={(ev)=>{ev.stopPropagation();handleEvtClick(e);}} style={{padding:compact?"1px 4px":"3px 8px",borderRadius:10,background:e.color+"18",cursor:"pointer",overflow:"hidden"}} title={e.type==="reminder"?(e.label+(e.data.description?" — "+e.data.description:"")+(e.data.assigned_name?" → "+e.data.assigned_name:"")+(e.data.recurrence&&e.data.recurrence!=="none"?" (🔁 "+e.data.recurrence+")":"")+(e.data.user_name?" · por "+e.data.user_name:"")):e.label}>
+      <div style={{display:"flex",alignItems:"center",gap:3}}>
+        <span style={{fontSize:compact?8:10,flexShrink:0}}>{e.icon}</span>
+        {!compact&&<span style={{fontSize:10,fontWeight:600,color:e.color,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const,flex:1}}>{e.label}</span>}
+        {!compact&&e.type==="reminder"&&onDelReminder&&<button onClick={(ev)=>{ev.stopPropagation();if(confirm("¿Eliminar recordatorio?"))onDelReminder(e.data.id);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:9,color:T.g4,padding:0,flexShrink:0}}>✕</button>}
+      </div>
+      {!compact&&e.sub&&<div style={{fontSize:9,color:T.g5,marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>👤 {e.sub}</div>}
     </div>
   );
 
@@ -183,9 +186,12 @@ export default function CalView({peds,agendas,minutas,presu,reminders,areas,dept
             <div style={{fontSize:11,fontWeight:isToday?800:600,color:isToday?T.bl:T.nv,marginBottom:6}}>{DIAS_SEM[i]} {d.slice(8)}{isToday?" (Hoy)":""}</div>
             {dayEvts.length===0&&<div style={{fontSize:10,color:T.g3}}>—</div>}
             {dayEvts.map((e,j)=><div key={j} draggable={e.type==="task"} onDragStart={(ev)=>handleDragStart(ev,e)} onTouchStart={(ev)=>handleTouchStart(ev,e)} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd} style={{marginBottom:3,cursor:"pointer"}} onClick={()=>handleEvtClick(e)}>
-              <div style={{display:"flex",alignItems:"center",gap:4,padding:"4px 8px",background:e.color+"12",borderRadius:8,border:"1px solid "+e.color+"30"}}>
-                <span style={{fontSize:10}}>{e.icon}</span>
-                <span style={{fontSize:10,fontWeight:600,color:e.color,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{e.label}</span>
+              <div style={{padding:"4px 8px",background:e.color+"12",borderRadius:8,border:"1px solid "+e.color+"30"}}>
+                <div style={{display:"flex",alignItems:"center",gap:4}}>
+                  <span style={{fontSize:10}}>{e.icon}</span>
+                  <span style={{fontSize:10,fontWeight:600,color:e.color,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{e.label}</span>
+                </div>
+                {e.sub&&<div style={{fontSize:9,color:T.g5,marginTop:1}}>👤 {e.sub}</div>}
               </div>
             </div>)}
           </div>);
@@ -204,10 +210,13 @@ export default function CalView({peds,agendas,minutas,presu,reminders,areas,dept
       {overdueEvts.length>0&&<div style={{marginBottom:14}}>
         <div style={{fontSize:13,fontWeight:700,color:"#DC2626",marginBottom:6}}>⏰ Tareas vencidas ({overdueEvts.length})</div>
         {overdueEvts.map((e,i)=><div key={i} style={{marginBottom:4,cursor:"pointer"}} onClick={()=>handleEvtClick(e)}>
-          <div style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",background:"#FEF2F2",borderRadius:8,border:"1px solid #FECACA"}}>
-            <span style={{fontSize:11}}>{e.icon}</span>
-            <span style={{fontSize:11,fontWeight:600,color:"#DC2626",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{e.label}</span>
-            <span style={{fontSize:9,color:T.g4}}>{fmtD(e.date)}</span>
+          <div style={{padding:"6px 10px",background:"#FEF2F2",borderRadius:8,border:"1px solid #FECACA"}}>
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              <span style={{fontSize:11}}>{e.icon}</span>
+              <span style={{fontSize:11,fontWeight:600,color:"#DC2626",flex:1}}>{e.label}</span>
+              <span style={{fontSize:9,color:T.g4,flexShrink:0}}>{fmtD(e.date)}</span>
+            </div>
+            {e.sub&&<div style={{fontSize:9,color:T.g5,marginTop:2,paddingLeft:20}}>👤 {e.sub}</div>}
           </div>
         </div>)}
       </div>}
@@ -215,10 +224,13 @@ export default function CalView({peds,agendas,minutas,presu,reminders,areas,dept
         <div style={{fontSize:13,fontWeight:700,color:T.nv,marginBottom:6}}>Hoy — {fmtD(TODAY)}</div>
         {todayEvts.length===0&&<Card style={{textAlign:"center" as const,padding:20,color:T.g4}}><span style={{fontSize:20}}>📭</span><div style={{marginTop:4,fontSize:12}}>Sin eventos hoy</div></Card>}
         {todayEvts.map((e,i)=><div key={i} style={{marginBottom:4,cursor:"pointer"}} onClick={()=>handleEvtClick(e)}>
-          <div style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",background:e.color+"12",borderRadius:8,border:"1px solid "+e.color+"30"}}>
-            <span style={{fontSize:11}}>{e.icon}</span>
-            <span style={{fontSize:11,fontWeight:600,color:e.color,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{e.label}</span>
-            <span style={{fontSize:9,padding:"1px 6px",borderRadius:10,background:e.color+"20",color:e.color,fontWeight:600}}>{e.type}</span>
+          <div style={{padding:"6px 10px",background:e.color+"12",borderRadius:8,border:"1px solid "+e.color+"30"}}>
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              <span style={{fontSize:11}}>{e.icon}</span>
+              <span style={{fontSize:11,fontWeight:600,color:e.color,flex:1}}>{e.label}</span>
+              <span style={{fontSize:9,padding:"1px 6px",borderRadius:10,background:e.color+"20",color:e.color,fontWeight:600,flexShrink:0}}>{e.type}</span>
+            </div>
+            {e.sub&&<div style={{fontSize:9,color:T.g5,marginTop:2,paddingLeft:20}}>👤 {e.sub}</div>}
           </div>
         </div>)}
       </div>
@@ -226,10 +238,13 @@ export default function CalView({peds,agendas,minutas,presu,reminders,areas,dept
         <div style={{fontSize:13,fontWeight:700,color:T.nv,marginBottom:6}}>Próximos 7 días</div>
         {upcomingEvts.length===0&&<Card style={{textAlign:"center" as const,padding:20,color:T.g4}}><span style={{fontSize:20}}>✨</span><div style={{marginTop:4,fontSize:12}}>Sin eventos próximos</div></Card>}
         {upcomingEvts.map((e,i)=><div key={i} style={{marginBottom:4,cursor:"pointer"}} onClick={()=>handleEvtClick(e)}>
-          <div style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",background:"#fff",borderRadius:8,border:"1px solid "+T.g2}}>
-            <span style={{fontSize:11}}>{e.icon}</span>
-            <span style={{fontSize:11,fontWeight:600,color:e.color,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{e.label}</span>
-            <span style={{fontSize:9,color:T.g4}}>{(e as any).dateLabel}</span>
+          <div style={{padding:"6px 10px",background:"#fff",borderRadius:8,border:"1px solid "+T.g2}}>
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              <span style={{fontSize:11}}>{e.icon}</span>
+              <span style={{fontSize:11,fontWeight:600,color:e.color,flex:1}}>{e.label}</span>
+              <span style={{fontSize:9,color:T.g4,flexShrink:0}}>{(e as any).dateLabel}</span>
+            </div>
+            {e.sub&&<div style={{fontSize:9,color:T.g5,marginTop:2,paddingLeft:20}}>👤 {e.sub}</div>}
           </div>
         </div>)}
       </div>
