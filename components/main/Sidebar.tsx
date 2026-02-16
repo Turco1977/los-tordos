@@ -2,7 +2,7 @@
 import { ST, SC } from "@/lib/constants";
 import { useC } from "@/lib/theme-context";
 
-export function SB({areas,deptos,pedidos,aA,aD,onAC,onDC,col,onCol,isPersonal,mob,sbOpen,onClose}:any){
+export function SB({areas,deptos,pedidos,aA,aD,onAC,onDC,col,onCol,isPersonal,mob,sbOpen,onClose,vw,onNav,user}:any){
   const {colors,isDark,cardBg}=useC();
   const sbContent=(<div style={{flex:1,overflowY:"auto" as const,padding:"8px 6px"}}>
     {!isPersonal&&areas.map((ar:any)=>{const ds=deptos.filter((d:any)=>d.aId===ar.id),ids=ds.map((d:any)=>d.id),ap=pedidos.filter((p:any)=>ids.indexOf(p.dId)>=0),pe=ap.filter((p:any)=>p.st===ST.P).length,cu=ap.filter((p:any)=>[ST.C,ST.E,ST.V].indexOf(p.st)>=0).length,ok=ap.filter((p:any)=>p.st===ST.OK).length;
@@ -14,6 +14,16 @@ export function SB({areas,deptos,pedidos,aA,aD,onAC,onDC,col,onCol,isPersonal,mo
       <div style={{fontSize:9,fontWeight:700,color:colors.g4,textTransform:"uppercase" as const,marginBottom:4}}>Global</div>
       {Object.keys(SC).map(k=><div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:10,padding:"1px 0"}}><span style={{color:"rgba(255,255,255,.45)"}}>{SC[k].i} {SC[k].l}</span><span style={{fontWeight:700,color:SC[k].c}}>{pedidos.filter((p:any)=>p.st===k).length}</span></div>)}
     </div>
+    {/* Navigation links */}
+    {onNav&&<div style={{marginTop:10,padding:"4px 2px"}}>
+      <div style={{fontSize:9,fontWeight:700,color:colors.g4,textTransform:"uppercase" as const,marginBottom:4,padding:"0 6px",letterSpacing:1}}>Secciones</div>
+      {[
+        {k:"org",l:"Organigrama",icon:"🏛️",show:true},
+        {k:"proy",l:"Plan 2035",icon:"🎯",show:true},
+        {k:"profs",l:"Perfiles",icon:"👤",show:true},
+        {k:"comm",l:"Comunicar",icon:"📢",show:!isPersonal&&user&&(user.role==="admin"||user.role==="superadmin"||user.role==="coordinador")},
+      ].filter(n=>n.show).map(n=><div key={n.k} onClick={()=>{onNav(n.k);if(mob)onClose();}} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:7,cursor:"pointer",background:vw===n.k?"rgba(255,255,255,.1)":"transparent",fontSize:11,fontWeight:vw===n.k?700:500,color:vw===n.k?"#fff":"rgba(255,255,255,.55)",marginBottom:1}}><span style={{fontSize:13}}>{n.icon}</span>{n.l}</div>)}
+    </div>}
   </div>);
   if(mob){
     if(!sbOpen) return null;
