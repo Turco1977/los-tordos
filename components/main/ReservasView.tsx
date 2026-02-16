@@ -159,7 +159,7 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel}:any){
       {formConflict&&<div style={{padding:"8px 12px",borderRadius:8,background:"#FEF2F2",border:"1px solid #FECACA",fontSize:11,fontWeight:600,color:"#DC2626",marginBottom:8}}>⚠️ Conflicto: ya existe una reserva en {BOOK_FAC[form.facility]?.l} el {fmtD(form.date)} que se superpone con el horario seleccionado.</div>}
       <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}>
         <Btn v="g" s="s" onClick={resetForm}>Cancelar</Btn>
-        <Btn v="s" s="s" disabled={!form.title||!form.date||!form.time_start||!form.time_end} onClick={()=>{onAdd({...form,created_by:user.id,created_at:TODAY});resetForm();}}>📅 Reservar</Btn>
+        <Btn v="s" s="s" disabled={!form.title||!form.date||!form.time_start||!form.time_end} onClick={()=>{onAdd({...form,booked_by:user.id,booked_by_name:fn(user)});resetForm();}}>📅 Reservar</Btn>
       </div>
     </Card>}
 
@@ -279,7 +279,7 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel}:any){
           </div>
           <div style={{display:"flex",flexDirection:"column" as const,alignItems:"flex-end",gap:4,flexShrink:0}}>
             <span style={{background:st.bg,color:st.c,padding:"1px 8px",borderRadius:12,fontSize:10,fontWeight:600,whiteSpace:"nowrap" as const}}>{st.i} {st.l}</span>
-            {b.created_by&&<span style={{fontSize:9,color:colors.g4}}>por {userName(b.created_by)}</span>}
+            {(b.booked_by||b.booked_by_name)&&<span style={{fontSize:9,color:colors.g4}}>por {b.booked_by_name||userName(b.booked_by)}</span>}
           </div>
         </div>
         {b.notes&&<div style={{fontSize:9,color:colors.g5,marginTop:4,fontStyle:"italic" as const}}>Notas: {b.notes}</div>}

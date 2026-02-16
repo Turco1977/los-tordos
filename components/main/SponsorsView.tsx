@@ -7,7 +7,7 @@ import { useC } from "@/lib/theme-context";
 
 const TODAY=new Date().toISOString().slice(0,10);
 const daysLeft=(d:string)=>{if(!d)return Infinity;return Math.round((new Date(d).getTime()-new Date(TODAY).getTime())/864e5);};
-const emptyForm=()=>({nombre:"",tier:"oro",monto:"",moneda:"ARS",contacto_nombre:"",contacto_email:"",contacto_tel:"",status:"negociando",start_date:TODAY,end_date:"",notas:""});
+const emptyForm=()=>({name:"",tier:"oro",amount:"",currency:"ARS",contact_name:"",contact_email:"",contact_phone:"",status:"negociando",start_date:TODAY,end_date:"",notes:""});
 
 export function SponsorsView({sponsors,user,mob,onAdd,onUpd,onDel}:any){
   const{colors,isDark,cardBg}=useC();
@@ -20,24 +20,24 @@ export function SponsorsView({sponsors,user,mob,onAdd,onUpd,onDel}:any){
   /* ── Derived data ── */
   const all:any[]=sponsors||[];
   const active=useMemo(()=>all.filter((s:any)=>s.status==="activo"),[all]);
-  const totalRev=useMemo(()=>active.reduce((s:number,sp:any)=>s+Number(sp.monto||0),0),[active]);
+  const totalRev=useMemo(()=>active.reduce((s:number,sp:any)=>s+Number(sp.amount||0),0),[active]);
   const expiring=useMemo(()=>all.filter((s:any)=>{const dl=daysLeft(s.end_date);return dl>=0&&dl<=30&&s.status==="activo";}),[all]);
 
   /* Revenue by tier */
-  const revByTier=useMemo(()=>{const m:Record<string,number>={};active.forEach((s:any)=>{m[s.tier]=(m[s.tier]||0)+Number(s.monto||0);});return m;},[active]);
+  const revByTier=useMemo(()=>{const m:Record<string,number>={};active.forEach((s:any)=>{m[s.tier]=(m[s.tier]||0)+Number(s.amount||0);});return m;},[active]);
   const maxTierRev=useMemo(()=>Math.max(...Object.values(revByTier),1),[revByTier]);
 
   /* Filter */
-  const vis=useMemo(()=>{let v=[...all];if(fTier!=="all")v=v.filter((s:any)=>s.tier===fTier);if(fSt!=="all")v=v.filter((s:any)=>s.status===fSt);if(search){const q=search.toLowerCase();v=v.filter((s:any)=>(s.nombre+s.contacto_nombre+s.contacto_email+s.notas+(s.id||"")).toLowerCase().includes(q));}return v;},[all,fTier,fSt,search]);
+  const vis=useMemo(()=>{let v=[...all];if(fTier!=="all")v=v.filter((s:any)=>s.tier===fTier);if(fSt!=="all")v=v.filter((s:any)=>s.status===fSt);if(search){const q=search.toLowerCase();v=v.filter((s:any)=>((s.name||"")+(s.contact_name||"")+(s.contact_email||"")+(s.notes||"")+(s.id||"")).toLowerCase().includes(q));}return v;},[all,fTier,fSt,search]);
 
   /* ── Form helpers ── */
   const openAdd=()=>{sForm(emptyForm());sEditId(null);sShowForm(true);};
-  const openEdit=(sp:any)=>{sForm({nombre:sp.nombre||"",tier:sp.tier||"oro",monto:String(sp.monto||""),moneda:sp.moneda||"ARS",contacto_nombre:sp.contacto_nombre||"",contacto_email:sp.contacto_email||"",contacto_tel:sp.contacto_tel||"",status:sp.status||"negociando",start_date:sp.start_date||"",end_date:sp.end_date||"",notas:sp.notas||""});sEditId(sp.id);sShowForm(true);};
+  const openEdit=(sp:any)=>{sForm({name:sp.name||"",tier:sp.tier||"oro",amount:String(sp.amount||""),currency:sp.currency||"ARS",contact_name:sp.contact_name||"",contact_email:sp.contact_email||"",contact_phone:sp.contact_phone||"",status:sp.status||"negociando",start_date:sp.start_date||"",end_date:sp.end_date||"",notes:sp.notes||""});sEditId(sp.id);sShowForm(true);};
   const closeForm=()=>{sShowForm(false);sEditId(null);sForm(emptyForm());};
-  const saveForm=()=>{const payload={...form,monto:Number(form.monto)||0};if(editId){onUpd(editId,payload);}else{onAdd(payload);}closeForm();};
+  const saveForm=()=>{const payload={...form,amount:Number(form.amount)||0};if(editId){onUpd(editId,payload);}else{onAdd(payload);}closeForm();};
 
   /* ── Inline edit helpers ── */
-  const inlineUpd=(sp:any,field:string,val:any)=>{onUpd(sp.id,{...sp,[field]:val});};
+  const inlineUpd=(sp:any,field:string,val:any)=>{onUpd(sp.id,{[field]:val});};
 
   /* ── Styles ── */
   const lbl:React.CSSProperties={fontSize:10,fontWeight:600,color:colors.g5,marginBottom:2,display:"block"};
@@ -46,7 +46,7 @@ export function SponsorsView({sponsors,user,mob,onAdd,onUpd,onDel}:any){
   return(<div style={{maxWidth:900}}>
     {/* ── Header ── */}
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"start",marginBottom:4}}>
-      <div><h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:colors.nv,fontWeight:800}}>🤝 Sponsors CRM</h2><p style={{color:colors.g4,fontSize:12,margin:0}}>Gestion de patrocinadores y sponsors del club</p></div>
+      <div><h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:colors.nv,fontWeight:800}}>🤝 Sponsors CRM</h2><p style={{color:colors.g4,fontSize:12,margin:0}}>Gestión de patrocinadores y sponsors del club</p></div>
       <Btn v="pu" s="s" onClick={openAdd}>+ Nuevo Sponsor</Btn>
     </div>
 
@@ -109,20 +109,20 @@ export function SponsorsView({sponsors,user,mob,onAdd,onUpd,onDel}:any){
         </div>
         {/* Name + tier */}
         <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"2fr 1fr",gap:8,marginBottom:8}}>
-          <div><label style={lbl}>Nombre / Empresa *</label><input value={form.nombre} onChange={e=>sForm(p=>({...p,nombre:e.target.value}))} style={inp} placeholder="Ej: Cerveceria Quilmes"/></div>
+          <div><label style={lbl}>Nombre / Empresa *</label><input value={form.name} onChange={e=>sForm(p=>({...p,name:e.target.value}))} style={inp} placeholder="Ej: Cervecería Quilmes"/></div>
           <div><label style={lbl}>Tier</label><select value={form.tier} onChange={e=>sForm(p=>({...p,tier:e.target.value}))} style={inp}>{Object.keys(SPON_TIER).map(k=><option key={k} value={k}>{SPON_TIER[k].i} {SPON_TIER[k].l}</option>)}</select></div>
         </div>
         {/* Amount + currency */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 80px",gap:8,marginBottom:8}}>
-          <div><label style={lbl}>Monto ($)</label><input type="number" value={form.monto} onChange={e=>sForm(p=>({...p,monto:e.target.value}))} style={inp} placeholder="0"/></div>
-          <div><label style={lbl}>Moneda</label><select value={form.moneda} onChange={e=>sForm(p=>({...p,moneda:e.target.value}))} style={inp}>{MONEDAS.map(m=><option key={m} value={m}>{m}</option>)}</select></div>
+          <div><label style={lbl}>Monto ($)</label><input type="number" value={form.amount} onChange={e=>sForm(p=>({...p,amount:e.target.value}))} style={inp} placeholder="0"/></div>
+          <div><label style={lbl}>Moneda</label><select value={form.currency} onChange={e=>sForm(p=>({...p,currency:e.target.value}))} style={inp}>{MONEDAS.map(m=><option key={m} value={m}>{m}</option>)}</select></div>
         </div>
         {/* Contact info */}
         <div style={{fontSize:11,fontWeight:700,color:colors.g5,margin:"8px 0 4px"}}>Contacto</div>
         <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr 1fr",gap:8,marginBottom:8}}>
-          <div><label style={lbl}>Nombre</label><input value={form.contacto_nombre} onChange={e=>sForm(p=>({...p,contacto_nombre:e.target.value}))} style={inp} placeholder="Juan Perez"/></div>
-          <div><label style={lbl}>Email</label><input type="email" value={form.contacto_email} onChange={e=>sForm(p=>({...p,contacto_email:e.target.value}))} style={inp} placeholder="email@empresa.com"/></div>
-          <div><label style={lbl}>Telefono</label><input value={form.contacto_tel} onChange={e=>sForm(p=>({...p,contacto_tel:e.target.value}))} style={inp} placeholder="+54 9 ..."/></div>
+          <div><label style={lbl}>Nombre</label><input value={form.contact_name} onChange={e=>sForm(p=>({...p,contact_name:e.target.value}))} style={inp} placeholder="Juan Perez"/></div>
+          <div><label style={lbl}>Email</label><input type="email" value={form.contact_email} onChange={e=>sForm(p=>({...p,contact_email:e.target.value}))} style={inp} placeholder="email@empresa.com"/></div>
+          <div><label style={lbl}>Teléfono</label><input value={form.contact_phone} onChange={e=>sForm(p=>({...p,contact_phone:e.target.value}))} style={inp} placeholder="+54 9 ..."/></div>
         </div>
         {/* Status + dates */}
         <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr 1fr",gap:8,marginBottom:8}}>
@@ -131,11 +131,11 @@ export function SponsorsView({sponsors,user,mob,onAdd,onUpd,onDel}:any){
           <div><label style={lbl}>Fin contrato</label><input type="date" value={form.end_date} onChange={e=>sForm(p=>({...p,end_date:e.target.value}))} style={inp}/></div>
         </div>
         {/* Notes */}
-        <div style={{marginBottom:12}}><label style={lbl}>Notas</label><textarea value={form.notas} onChange={e=>sForm(p=>({...p,notas:e.target.value}))} rows={3} style={{...inp,resize:"vertical" as const}} placeholder="Detalles adicionales..."/></div>
+        <div style={{marginBottom:12}}><label style={lbl}>Notas</label><textarea value={form.notes} onChange={e=>sForm(p=>({...p,notes:e.target.value}))} rows={3} style={{...inp,resize:"vertical" as const}} placeholder="Detalles adicionales..."/></div>
         {/* Actions */}
         <div style={{display:"flex",gap:6,justifyContent:"flex-end"}}>
           <Btn v="g" s="s" onClick={closeForm}>Cancelar</Btn>
-          <Btn v="pu" s="s" disabled={!form.nombre.trim()} onClick={saveForm}>{editId?"💾 Guardar Cambios":"✅ Crear Sponsor"}</Btn>
+          <Btn v="pu" s="s" disabled={!form.name.trim()} onClick={saveForm}>{editId?"💾 Guardar Cambios":"✅ Crear Sponsor"}</Btn>
         </div>
       </div>
     </div>}
@@ -152,20 +152,20 @@ export function SponsorsView({sponsors,user,mob,onAdd,onUpd,onDel}:any){
               <span style={{background:st.bg,color:st.c,padding:"2px 8px",borderRadius:12,fontSize:10,fontWeight:600}}>{st.l}</span>
             </div>
             {/* Company name */}
-            <div style={{fontSize:15,fontWeight:800,color:colors.nv,marginBottom:2}}>{sp.nombre}</div>
+            <div style={{fontSize:15,fontWeight:800,color:colors.nv,marginBottom:2}}>{sp.name}</div>
             {/* Contact info */}
-            {sp.contacto_nombre&&<div style={{fontSize:11,color:colors.g5}}>👤 {sp.contacto_nombre}{sp.contacto_email?" · "+sp.contacto_email:""}</div>}
+            {sp.contact_name&&<div style={{fontSize:11,color:colors.g5}}>👤 {sp.contact_name}{sp.contact_email?" · "+sp.contact_email:""}</div>}
             {/* Amount */}
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:6}}>
-              <span style={{fontSize:16,fontWeight:800,color:sp.status==="activo"?colors.gn:colors.nv}}>${Number(sp.monto||0).toLocaleString()} <span style={{fontSize:10,fontWeight:600,color:colors.g4}}>{sp.moneda||"ARS"}</span></span>
+              <span style={{fontSize:16,fontWeight:800,color:sp.status==="activo"?colors.gn:colors.nv}}>${Number(sp.amount||0).toLocaleString()} <span style={{fontSize:10,fontWeight:600,color:colors.g4}}>{sp.currency||"ARS"}</span></span>
               {/* Contract dates */}
               {sp.start_date&&<span style={{fontSize:10,color:colors.g5}}>{fmtD(sp.start_date)} → {sp.end_date?fmtD(sp.end_date):"∞"}</span>}
             </div>
             {/* Days remaining + expiry warning */}
             {sp.end_date&&sp.status==="activo"&&<div style={{marginTop:4}}>
-              {dl<0?<span style={{fontSize:10,fontWeight:700,color:"#DC2626",background:"#FEE2E2",padding:"2px 6px",borderRadius:8}}>⛔ Vencido hace {Math.abs(dl)} dias</span>
-              :isExp?<span style={{fontSize:10,fontWeight:700,color:"#D97706",background:"#FEF3C7",padding:"2px 6px",borderRadius:8}}>⚠️ Vence en {dl} dias</span>
-              :<span style={{fontSize:10,color:colors.g4}}>{dl} dias restantes</span>}
+              {dl<0?<span style={{fontSize:10,fontWeight:700,color:"#DC2626",background:"#FEE2E2",padding:"2px 6px",borderRadius:8}}>⛔ Vencido hace {Math.abs(dl)} días</span>
+              :isExp?<span style={{fontSize:10,fontWeight:700,color:"#D97706",background:"#FEF3C7",padding:"2px 6px",borderRadius:8}}>⚠️ Vence en {dl} días</span>
+              :<span style={{fontSize:10,color:colors.g4}}>{dl} días restantes</span>}
             </div>}
           </div>
 
@@ -176,22 +176,22 @@ export function SponsorsView({sponsors,user,mob,onAdd,onUpd,onDel}:any){
               <div><label style={lbl}>Estado</label><select value={sp.status} onChange={e=>inlineUpd(sp,"status",e.target.value)} style={inp}>{Object.keys(SPON_ST).map(k=><option key={k} value={k}>{SPON_ST[k].l}</option>)}</select></div>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 80px",gap:8,marginBottom:8}}>
-              <div><label style={lbl}>Monto</label><input type="number" value={sp.monto||""} onChange={e=>inlineUpd(sp,"monto",Number(e.target.value)||0)} style={inp}/></div>
-              <div><label style={lbl}>Moneda</label><select value={sp.moneda||"ARS"} onChange={e=>inlineUpd(sp,"moneda",e.target.value)} style={inp}>{MONEDAS.map(m=><option key={m} value={m}>{m}</option>)}</select></div>
+              <div><label style={lbl}>Monto</label><input type="number" value={sp.amount||""} onChange={e=>inlineUpd(sp,"amount",Number(e.target.value)||0)} style={inp}/></div>
+              <div><label style={lbl}>Moneda</label><select value={sp.currency||"ARS"} onChange={e=>inlineUpd(sp,"currency",e.target.value)} style={inp}>{MONEDAS.map(m=><option key={m} value={m}>{m}</option>)}</select></div>
             </div>
             <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8,marginBottom:8}}>
               <div><label style={lbl}>Inicio</label><input type="date" value={sp.start_date||""} onChange={e=>inlineUpd(sp,"start_date",e.target.value)} style={inp}/></div>
               <div><label style={lbl}>Fin</label><input type="date" value={sp.end_date||""} onChange={e=>inlineUpd(sp,"end_date",e.target.value)} style={inp}/></div>
             </div>
             <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr 1fr",gap:8,marginBottom:8}}>
-              <div><label style={lbl}>Contacto</label><input value={sp.contacto_nombre||""} onChange={e=>inlineUpd(sp,"contacto_nombre",e.target.value)} style={inp}/></div>
-              <div><label style={lbl}>Email</label><input value={sp.contacto_email||""} onChange={e=>inlineUpd(sp,"contacto_email",e.target.value)} style={inp}/></div>
-              <div><label style={lbl}>Telefono</label><input value={sp.contacto_tel||""} onChange={e=>inlineUpd(sp,"contacto_tel",e.target.value)} style={inp}/></div>
+              <div><label style={lbl}>Contacto</label><input value={sp.contact_name||""} onChange={e=>inlineUpd(sp,"contact_name",e.target.value)} style={inp}/></div>
+              <div><label style={lbl}>Email</label><input value={sp.contact_email||""} onChange={e=>inlineUpd(sp,"contact_email",e.target.value)} style={inp}/></div>
+              <div><label style={lbl}>Teléfono</label><input value={sp.contact_phone||""} onChange={e=>inlineUpd(sp,"contact_phone",e.target.value)} style={inp}/></div>
             </div>
-            <div style={{marginBottom:8}}><label style={lbl}>Notas</label><textarea value={sp.notas||""} onChange={e=>inlineUpd(sp,"notas",e.target.value)} rows={2} style={{...inp,resize:"vertical" as const}}/></div>
+            <div style={{marginBottom:8}}><label style={lbl}>Notas</label><textarea value={sp.notes||""} onChange={e=>inlineUpd(sp,"notes",e.target.value)} rows={2} style={{...inp,resize:"vertical" as const}}/></div>
             <div style={{display:"flex",gap:6,justifyContent:"space-between"}}>
               {confirmDel===sp.id
-                ?<div style={{display:"flex",gap:4,alignItems:"center"}}><span style={{fontSize:11,color:"#DC2626",fontWeight:600}}>Confirmar?</span><Btn v="r" s="s" onClick={()=>{onDel(sp.id);sConfirmDel(null);sExpandId(null);}}>Si, eliminar</Btn><Btn v="g" s="s" onClick={()=>sConfirmDel(null)}>No</Btn></div>
+                ?<div style={{display:"flex",gap:4,alignItems:"center"}}><span style={{fontSize:11,color:"#DC2626",fontWeight:600}}>Confirmar?</span><Btn v="r" s="s" onClick={()=>{onDel(sp.id);sConfirmDel(null);sExpandId(null);}}>Sí, eliminar</Btn><Btn v="g" s="s" onClick={()=>sConfirmDel(null)}>No</Btn></div>
                 :<Btn v="r" s="s" onClick={()=>sConfirmDel(sp.id)}>🗑️ Eliminar</Btn>}
               <Btn v="pu" s="s" onClick={()=>openEdit(sp)}>✏️ Editar completo</Btn>
             </div>
@@ -202,7 +202,7 @@ export function SponsorsView({sponsors,user,mob,onAdd,onUpd,onDel}:any){
     {/* ── Summary: Revenue breakdown by tier ── */}
     {all.length>0&&<Card style={{padding:14,marginTop:18}}>
       <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:12}}>📊 Resumen de Revenue por Tier</div>
-      {Object.keys(SPON_TIER).map(k=>{const t=SPON_TIER[k];const tierSpons=all.filter((s:any)=>s.tier===k);const tierActive=tierSpons.filter((s:any)=>s.status==="activo");const tierRev=tierActive.reduce((s:number,sp:any)=>s+Number(sp.monto||0),0);const totalAll=all.filter((s:any)=>s.status==="activo").reduce((s:number,sp:any)=>s+Number(sp.monto||0),0)||1;const pct=Math.round(tierRev/totalAll*100);
+      {Object.keys(SPON_TIER).map(k=>{const t=SPON_TIER[k];const tierSpons=all.filter((s:any)=>s.tier===k);const tierActive=tierSpons.filter((s:any)=>s.status==="activo");const tierRev=tierActive.reduce((s:number,sp:any)=>s+Number(sp.amount||0),0);const totalAll=all.filter((s:any)=>s.status==="activo").reduce((s:number,sp:any)=>s+Number(sp.amount||0),0)||1;const pct=Math.round(tierRev/totalAll*100);
         return(<div key={k} style={{marginBottom:10}}>
           <div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:3}}>
             <span style={{fontWeight:600,color:colors.nv}}>{t.i} {t.l} <span style={{color:colors.g4,fontWeight:400}}>({tierSpons.length} sponsors, {tierActive.length} activos)</span></span>
