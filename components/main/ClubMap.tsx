@@ -43,8 +43,14 @@ const ZONES_ANEXO: Zone[] = [
   { k: "estMad",   l: "EST.\nMADRESELVA",  x: 5,  y: 66, w: 90, h: 22, type: "parking" },
 ];
 
+/* ── Zone definitions: Mapa Hockey ── */
+const ZONES_HOCKEY: Zone[] = [
+  { k: "hockey1",  l: "HOCKEY 1",  x: 5,  y: 8,  w: 42, h: 75, type: "hockey", facKey: "hockey1" },
+  { k: "hockey2",  l: "HOCKEY 2",  x: 53, y: 8,  w: 42, h: 75, type: "hockey", facKey: "hockey2" },
+];
+
 /* ── Map tab type ── */
-type MapTab = "urquiza" | "anexo";
+type MapTab = "urquiza" | "anexo" | "hockey";
 
 /* ── Color helpers ── */
 const CANCHA_FREE = "#4ADE80";
@@ -314,7 +320,7 @@ export function ClubMap({ bookings, date, mob, onSelectFacility, onSelectBooking
   const maxW = mob ? "100vw" : 700;
 
   /* ── active zones and aspect ratio based on selected tab ── */
-  const activeZones = mapTab === "urquiza" ? ZONES_URQUIZA : ZONES_ANEXO;
+  const activeZones = mapTab === "urquiza" ? ZONES_URQUIZA : mapTab === "anexo" ? ZONES_ANEXO : ZONES_HOCKEY;
   const aspectPadding = mapTab === "urquiza" ? "100%" : "65%";
 
   return (
@@ -346,8 +352,9 @@ export function ClubMap({ bookings, date, mob, onSelectFacility, onSelectBooking
         border: `2px solid ${isDark ? "#334155" : "#9CA3AF"}`
       }}>
         {([
-          { key: "urquiza" as MapTab, label: "Mapa Urquiza" },
-          { key: "anexo" as MapTab, label: "Mapa Anexo" }
+          { key: "urquiza" as MapTab, label: "🏈 Urquiza" },
+          { key: "anexo" as MapTab, label: "🏈 Anexo" },
+          { key: "hockey" as MapTab, label: "🏑 Hockey" }
         ]).map((t) => (
           <button
             key={t.key}
@@ -360,7 +367,7 @@ export function ClubMap({ bookings, date, mob, onSelectFacility, onSelectBooking
                 : (isDark ? "#1E293B" : "#F1F5F9"),
               color: mapTab === t.key ? "#fff" : (isDark ? "#94A3B8" : "#475569"),
               border: "none",
-              borderRight: t.key === "urquiza" ? `1px solid ${isDark ? "#334155" : "#9CA3AF"}` : "none",
+              borderRight: t.key !== "hockey" ? `1px solid ${isDark ? "#334155" : "#9CA3AF"}` : "none",
               fontSize: mob ? 11 : 13,
               fontWeight: mapTab === t.key ? 800 : 600,
               cursor: "pointer",
