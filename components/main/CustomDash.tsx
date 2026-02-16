@@ -125,17 +125,21 @@ export function CustomDash({peds,presu,agendas,minutas,users,areas,deptos,user,m
   const renderWidget=(id:string)=>{
     switch(id){
       case "kpis": return(<div style={{display:"grid",gridTemplateColumns:mob?"1fr 1fr":"repeat(4,1fr)",gap:8}}>
-        {kpiData.map(k=><div key={k.k} onClick={()=>onFilter(k.k)} style={{background:cardBg,borderRadius:12,padding:"12px 14px",border:"1px solid "+colors.g2,cursor:"pointer",textAlign:"center" as const}}>
+        {kpiData.map(k=><div key={k.k} onClick={()=>onFilter(k.k)} style={{background:cardBg,borderRadius:12,padding:"12px 14px",border:"1px solid "+colors.g2,cursor:"pointer",textAlign:"center" as const,transition:"transform .1s,box-shadow .1s"}}>
           <div style={{fontSize:22,fontWeight:800,color:k.c}}>{k.v}</div>
           <div style={{fontSize:10,color:colors.g5,marginTop:2}}>{k.i} {k.l}</div>
+          <div style={{fontSize:9,color:colors.bl,marginTop:4,fontWeight:600}}>Ver →</div>
         </div>)}
       </div>);
 
       case "deadlines": return(<Card style={{padding:mob?"10px 12px":"14px 16px"}}>
-        <div onClick={()=>onNav("cal")} style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:8,cursor:"pointer"}}>📅 Próximos Vencimientos <span style={{fontSize:10,color:colors.bl}}>→</span></div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+          <div style={{fontSize:13,fontWeight:700,color:colors.nv}}>📅 Próximos Vencimientos</div>
+          <button onClick={()=>onFilter("venc")} style={{padding:"3px 10px",borderRadius:6,border:"1px solid "+colors.bl,background:"none",fontSize:10,fontWeight:700,color:colors.bl,cursor:"pointer"}}>Ver todos →</button>
+        </div>
         {upcoming.length===0&&<div style={{fontSize:11,color:colors.g4,padding:8}}>Sin vencimientos próximos</div>}
-        {upcoming.slice(0,5).map((p:any)=>{const d=daysDiff(TODAY,p.fReq);return(<div key={p.id} onClick={()=>onSel(p)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 0",borderBottom:"1px solid "+colors.g1,cursor:"pointer",fontSize:11}}>
-          <div style={{flex:1,minWidth:0}}><span style={{color:colors.g4}}>#{p.id}</span> <span style={{fontWeight:600,color:colors.nv}}>{(p.desc||"").slice(0,30)}</span></div>
+        {upcoming.slice(0,5).map((p:any)=>{const d=daysDiff(TODAY,p.fReq);return(<div key={p.id} onClick={()=>onSel(p)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 4px",borderBottom:"1px solid "+colors.g1,cursor:"pointer",fontSize:11,borderRadius:6,background:"transparent",transition:"background .15s"}}>
+          <div style={{flex:1,minWidth:0}}><span style={{color:colors.g4}}>#{p.id}</span> <span style={{fontWeight:600,color:colors.bl,textDecoration:"underline" as const}}>{(p.desc||"").slice(0,30)}</span></div>
           <span style={{fontSize:10,fontWeight:600,padding:"1px 6px",borderRadius:8,background:d<=1?"#FEE2E2":d<=3?"#FEF3C7":"#D1FAE5",color:d<=1?"#DC2626":d<=3?"#92400E":"#065F46",flexShrink:0}}>{d===0?"Hoy":d===1?"Mañana":d+" días"}</span>
         </div>);})}
       </Card>);
