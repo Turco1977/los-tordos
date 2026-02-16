@@ -1,7 +1,7 @@
 import type { Profile, Task, TaskMessage } from "@/lib/supabase/types";
 import { ROLES, ST, isOD } from "@/lib/constants";
 
-export const profileToUser = (p: Profile) => ({ id: p.id, n: p.first_name, a: p.last_name, role: p.role, dId: p.dept_id, div: p.division, mail: p.email, tel: p.phone });
+export const profileToUser = (p: Profile) => ({ id: p.id, n: p.first_name, a: p.last_name, role: p.role, dId: p.dept_id, div: p.division, mail: p.email, tel: p.phone, so: (p as any).sort_order || 0 });
 
 export const taskFromDB = (t: Task, msgs: TaskMessage[]) => ({ id: t.id, div: t.division, cId: t.creator_id, cN: t.creator_name, dId: t.dept_id, tipo: t.tipo, desc: t.description, fReq: t.due_date, urg: t.urgency, st: t.status, asTo: t.assigned_to, rG: t.requires_expense, eOk: t.expense_ok, resp: t.resolution, cAt: t.created_at, monto: t.amount, log: msgs.map(m => ({ dt: m.created_at || "", uid: m.user_id, by: m.user_name, act: m.content, t: m.type })) });
 

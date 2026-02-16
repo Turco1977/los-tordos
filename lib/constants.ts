@@ -150,8 +150,10 @@ export const SPON_TIER:Record<string,{l:string;c:string;bg:string;i:string}>={
   colaborador:{l:"Colaborador",c:"#3B82F6",bg:"#DBEAFE",i:"🤝"}
 };
 export const SPON_ST:Record<string,{l:string;c:string;bg:string}>={
-  activo:{l:"Activo",c:"#10B981",bg:"#D1FAE5"},
-  negociando:{l:"Negociando",c:"#F59E0B",bg:"#FEF3C7"},
-  inactivo:{l:"Inactivo",c:"#6B7280",bg:"#F3F4F6"},
-  vencido:{l:"Vencido",c:"#DC2626",bg:"#FEE2E2"}
+  active:{l:"Activo",c:"#10B981",bg:"#D1FAE5"},
+  negotiating:{l:"Negociando",c:"#F59E0B",bg:"#FEF3C7"},
+  inactive:{l:"Inactivo",c:"#6B7280",bg:"#F3F4F6"},
+  expired:{l:"Vencido",c:"#DC2626",bg:"#FEE2E2"}
 };
+export const SPON_PAY_TYPES=["pago mensual","pago trimestral","pago anual","canje","cheques","transferencia","efectivo","otro"];
+export const DOLAR_REF=1250;
