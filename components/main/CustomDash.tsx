@@ -210,26 +210,47 @@ export function CustomDash({peds,presu,agendas,minutas,users,areas,deptos,user,m
           })}
         </div>
 
-        {/* Day detail view */}
-        {dayView&&<div>
-          {dayBookings.length===0&&<div style={{fontSize:11,color:colors.g4,padding:12,textAlign:"center" as const}}>Sin reservas para este día</div>}
-          {FKEYS.map(fk=>{const fac=BOOK_FAC[fk];const fb=dayBookings.filter((b:any)=>b.facility===fk);if(fb.length===0)return null;
-            return(<div key={fk} style={{marginBottom:8}}>
-              <div style={{fontSize:10,fontWeight:700,color:fac.c,marginBottom:4,display:"flex",alignItems:"center",gap:4}}>
-                <span style={{fontSize:12}}>{fac.i}</span>{fac.l}
+        {/* Day detail view — table: rows=times, cols=facilities, cells=divisions */}
+        {dayView&&(()=>{
+          if(dayBookings.length===0) return <div style={{fontSize:11,color:colors.g4,padding:12,textAlign:"center" as const}}>Sin reservas para este día</div>;
+          // Get unique facilities and time slots that have bookings this day
+          const usedFacs=FKEYS.filter(fk=>dayBookings.some((b:any)=>b.facility===fk));
+          const timeSet=new Set<string>();
+          dayBookings.forEach((b:any)=>timeSet.add(b.time_start+"-"+b.time_end));
+          const timeSlots=[...timeSet].sort((a,b)=>timeToMin(a.split("-")[0])-timeToMin(b.split("-")[0]));
+          const cols=usedFacs.length;
+          return(<div style={{overflowX:"auto" as const}}>
+            <div style={{minWidth:cols>3?cols*100:undefined}}>
+              {/* Header: facilities */}
+              <div style={{display:"grid",gridTemplateColumns:"80px repeat("+cols+",1fr)",gap:2,marginBottom:2}}>
+                <div style={{padding:"6px 4px",fontSize:9,fontWeight:700,color:colors.g4,background:isDark?"#1E293B":"#F8FAFC",borderRadius:6,textAlign:"center" as const}}>Horario</div>
+                {usedFacs.map(fk=>{const fac=BOOK_FAC[fk];return(
+                  <div key={fk} style={{padding:"6px 4px",fontSize:9,fontWeight:700,color:fac.c,background:fac.c+"10",borderRadius:6,textAlign:"center" as const,borderTop:"2px solid "+fac.c}}>
+                    {fac.i} {fac.l}
+                  </div>);
+                })}
               </div>
-              {fb.map((b:any)=>{const div=b.division||extractDiv(b.title);const dc=div?DIV_COL[div]:null;const st=BOOK_ST[b.status];return(
-                <div key={b.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 8px",marginBottom:3,borderRadius:8,background:dc?dc+"10":st?.bg||colors.g1,borderLeft:"3px solid "+(dc||st?.c||fac.c)}}>
-                  <div style={{fontSize:11,fontWeight:700,color:dc||st?.c||colors.nv,minWidth:80}}>{b.time_start} - {b.time_end}</div>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontSize:11,fontWeight:700,color:colors.nv,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{b.title}</div>
-                    {div&&<span style={{fontSize:9,fontWeight:700,color:dc||colors.g4,padding:"0 5px",borderRadius:6,background:(dc||colors.g4)+"18"}}>{div}</span>}
+              {/* Rows: time slots */}
+              {timeSlots.map(ts=>{const [tsStart,tsEnd]=ts.split("-");return(
+                <div key={ts} style={{display:"grid",gridTemplateColumns:"80px repeat("+cols+",1fr)",gap:2,marginBottom:2}}>
+                  <div style={{padding:"8px 4px",fontSize:11,fontWeight:700,color:colors.nv,background:isDark?"#1E293B":"#F8FAFC",borderRadius:6,textAlign:"center" as const,display:"flex",flexDirection:"column" as const,justifyContent:"center",alignItems:"center"}}>
+                    <div>{tsStart}</div>
+                    <div style={{fontSize:8,color:colors.g4}}>{tsEnd}</div>
                   </div>
-                  <span style={{fontSize:9,padding:"1px 6px",borderRadius:8,background:st?.bg||colors.g1,color:st?.c||colors.g5,fontWeight:600,flexShrink:0}}>{st?.i} {st?.l}</span>
+                  {usedFacs.map(fk=>{
+                    const cellB=dayBookings.filter((b:any)=>b.facility===fk&&(b.time_start+"-"+b.time_end)===ts).sort((a:any,b:any)=>divSortKey(a)-divSortKey(b));
+                    if(cellB.length===0) return <div key={fk} style={{padding:4,border:"1px solid "+colors.g2,borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:9,color:colors.g3}}>—</span></div>;
+                    return(<div key={fk} style={{padding:4,border:"1px solid "+colors.g2,borderRadius:6,display:"flex",flexDirection:"column" as const,gap:3,justifyContent:"center"}}>
+                      {cellB.map((b:any)=>{const div=b.division||extractDiv(b.title);const dc=div?DIV_COL[div]:null;return(
+                        <div key={b.id} style={{padding:"4px 6px",borderRadius:6,background:dc?dc+"15":"#F3F4F6",textAlign:"center" as const,border:"1px solid "+(dc||colors.g3)+"30"}}>
+                          <div style={{fontSize:12,fontWeight:800,color:dc||colors.nv}}>{div||b.title}</div>
+                        </div>);})}
+                    </div>);
+                  })}
                 </div>);})}
-            </div>);
-          })}
-        </div>}
+            </div>
+          </div>);
+        })()}
 
         {/* Week grid (when no day selected) */}
         {!dayView&&<div style={{overflowX:"auto" as const}}>
