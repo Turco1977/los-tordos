@@ -67,6 +67,7 @@ const DIV_COL:Record<string,string>={};
 ["Plantel Superior","Intermedia","Primera"].forEach(d=>{DIV_COL[d]="#DC2626";});
 const DIV_KEYS=Object.keys(DIV_COL).sort((a,b)=>b.length-a.length);
 const extractDiv=(title:string)=>{if(!title)return null;const t=title.trim();for(const d of DIV_KEYS){if(t.includes(d))return d;}const m=t.match(/M\d+/i);if(m)return m[0].toUpperCase();return null;};
+const divSortKey=(b:any)=>{const div=b.division||extractDiv(b.title)||"";const m=div.match(/(\d+)/);return m?Number(m[1]):div==="Escuelita"?0:div==="Intermedia"?50:div==="Plantel Superior"?60:div==="Primera"?61:div==="Hockey"?70:99;};
 
 const DIV_LIST=["","Escuelita","M5","M6","M7","M8","M9","M10","M11","M12","M13","M14","M15","M16","M17","M18","M19","Intermedia","Plantel Superior","Primera","Hockey"];
 const emptyForm=()=>({facility:"cancha1",date:TODAY,time_start:"09:00",time_end:"10:00",title:"",division:"",description:"",notes:"",status:"pendiente",recurrence:"none",recDays:[] as number[]});
@@ -494,8 +495,8 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel,onDelMul
               {weekDays.map(d=>{
                 const cb=cellBookings(fk,d);
                 const isToday=d===TODAY;
-                // Group by time_start, sorted by time
-                const sorted=[...cb].sort((a:any,b:any)=>timeToMin(a.time_start)-timeToMin(b.time_start));
+                // Group by time_start, sorted by time then division number
+                const sorted=[...cb].sort((a:any,b:any)=>{const td=timeToMin(a.time_start)-timeToMin(b.time_start);return td!==0?td:divSortKey(a)-divSortKey(b);});
                 const groups:any[][]=[];
                 sorted.forEach((b:any)=>{
                   const last=groups[groups.length-1];

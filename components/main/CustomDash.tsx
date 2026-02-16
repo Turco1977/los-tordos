@@ -19,6 +19,7 @@ const addDays=(dt:Date,n:number)=>{const d=new Date(dt);d.setDate(d.getDate()+n)
 const dateISO=(dt:Date)=>dt.toISOString().slice(0,10);
 const DIAS_SEM=["Lu","Ma","Mi","Ju","Vi","Sa","Do"];
 const FKEYS=Object.keys(BOOK_FAC);
+const divSortKey=(b:any)=>{const div=b.division||extractDiv(b.title)||"";const m=div.match(/(\d+)/);return m?Number(m[1]):div==="Escuelita"?0:div==="Intermedia"?50:div==="Plantel Superior"?60:div==="Primera"?61:div==="Hockey"?70:99;};
 
 const TODAY=new Date().toISOString().slice(0,10);
 
@@ -188,7 +189,7 @@ export function CustomDash({peds,presu,agendas,minutas,users,areas,deptos,user,m
 
       case "espacios": {
         const dayView=selDay||null;
-        const dayBookings=dayView?(bookings||[]).filter((b:any)=>b.date===dayView&&b.status!=="cancelada").sort((a:any,b:any)=>timeToMin(a.time_start)-timeToMin(b.time_start)):[];
+        const dayBookings=dayView?(bookings||[]).filter((b:any)=>b.date===dayView&&b.status!=="cancelada").sort((a:any,b:any)=>{const td=timeToMin(a.time_start)-timeToMin(b.time_start);return td!==0?td:divSortKey(a)-divSortKey(b);}):[];
         return(<Card style={{padding:mob?"10px 12px":"14px 16px"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
           <div onClick={()=>onNav("reservas")} style={{fontSize:13,fontWeight:700,color:colors.nv,cursor:"pointer"}}>🏟️ Espacios <span style={{fontSize:10,color:colors.bl}}>→</span></div>
@@ -240,7 +241,7 @@ export function CustomDash({peds,presu,agendas,minutas,users,areas,deptos,user,m
                 {weekDays.map(d=>{
                   const cb=cellBookings(fk,d);
                   const isToday=d===TODAY;
-                  const sorted=[...cb].sort((a:any,b:any)=>timeToMin(a.time_start)-timeToMin(b.time_start));
+                  const sorted=[...cb].sort((a:any,b:any)=>{const td=timeToMin(a.time_start)-timeToMin(b.time_start);return td!==0?td:divSortKey(a)-divSortKey(b);});
                   const groups:any[][]=[];
                   sorted.forEach((b:any)=>{
                     const last=groups[groups.length-1];
