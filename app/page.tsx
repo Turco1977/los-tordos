@@ -286,7 +286,7 @@ export default function App(){
 
   let nav:any[]=[];
   if(isPersonal){nav=[{k:"my",l:"Mis Tareas",sh:true},{k:"cal",l:"📅 Calendario",sh:true},{k:"new",l:"+ Tarea",sh:true}];}
-  else{nav=[{k:"dash",l:"Dashboard",sh:true},{k:"kanban",l:"📊 Kanban",sh:true},{k:"feed",l:"📰 Actividad",sh:true},{k:"cal",l:"📅 Calendario",sh:true},...(isAd||user.role==="coordinador"||user.role==="embudo"?[{k:"presu",l:"💰 Presupuestos",sh:true}]:[]),...(isAd||user.role==="coordinador"?[{k:"reun",l:"🤝 Reuniones",sh:true}]:[]),{k:"new",l:"+ Tarea",sh:true}];}
+  else{nav=[{k:"dash",l:"Dashboard",sh:true},{k:"kanban",l:"📊 Kanban",sh:true},{k:"feed",l:"📰 Actividad",sh:true},{k:"cal",l:"📅 Calendario",sh:true},{k:"new",l:"+ Tarea",sh:true}];}
 
   /* ── addLog: optimistic local + persist to Supabase ── */
   const addLog=async(id:number,uid:string,by:string,act:string,t?:string)=>{
@@ -309,7 +309,6 @@ export default function App(){
           <div style={{display:"flex",gap:1,overflowX:"auto" as const,alignItems:"center"}}>
             {mob&&<button aria-label="Menú" onClick={()=>sSbOpen(true)} style={{background:"none",border:"none",fontSize:18,cursor:"pointer",color:colors.nv,padding:"4px 6px",flexShrink:0,minHeight:44,minWidth:44}}>☰</button>}
             {nav.filter(n=>n.sh).map(n=><button key={n.k} onClick={()=>{sVw(n.k);if(n.k==="dash"||n.k==="my"){sAA(null);sAD(null);sKpiFilt(null);}}} style={{padding:mob?"5px 8px":"6px 11px",border:"none",borderRadius:7,background:vw===n.k?colors.nv:"transparent",color:vw===n.k?(isDark?"#0F172A":"#fff"):colors.g5,fontSize:mob?10:11,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap" as const,minHeight:mob?44:undefined}}>{n.l}</button>)}
-            <button onClick={()=>sVw("proyectos")} style={{padding:mob?"5px 8px":"6px 11px",border:"none",borderRadius:7,background:vw==="proyectos"?colors.nv:"transparent",color:vw==="proyectos"?(isDark?"#0F172A":"#fff"):colors.g5,fontSize:mob?10:11,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap" as const,minHeight:mob?44:undefined}}>📋 Proyectos</button>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:mob?4:8,flexShrink:0}}>
             <div ref={gsRef} style={{position:"relative" as const}}><input value={search} onChange={e=>{sSr(e.target.value);sGsOpen(true);}} onFocus={()=>{if(search.length>=2)sGsOpen(true);}} onKeyDown={e=>{if(e.key==="Escape")sGsOpen(false);}} placeholder="🔍 Buscar..." style={{padding:"5px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:11,width:mob?80:160}}/>

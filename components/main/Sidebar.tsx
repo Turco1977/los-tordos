@@ -18,6 +18,9 @@ export function SB({areas,deptos,pedidos,aA,aD,onAC,onDC,col,onCol,isPersonal,mo
     {onNav&&<div style={{marginTop:10,padding:"4px 2px"}}>
       <div style={{fontSize:9,fontWeight:700,color:colors.g4,textTransform:"uppercase" as const,marginBottom:4,padding:"0 6px",letterSpacing:1}}>Secciones</div>
       {[
+        {k:"presu",l:"Presupuestos",icon:"💰",show:!isPersonal&&user&&(user.role==="admin"||user.role==="superadmin"||user.role==="coordinador"||user.role==="embudo")},
+        {k:"reun",l:"Reuniones",icon:"🤝",show:!isPersonal&&user&&(user.role==="admin"||user.role==="superadmin"||user.role==="coordinador")},
+        {k:"proyectos",l:"Proyectos",icon:"📋",show:true},
         {k:"org",l:"Organigrama",icon:"🏛️",show:true},
         {k:"proy",l:"Plan 2035",icon:"🎯",show:true},
         {k:"profs",l:"Perfiles",icon:"👤",show:true},
