@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { T, TD, AREAS, DEPTOS, ROLES, RK, DIV, TIPOS, ST, SC, AGT, MINSECS, PST, PSC, MONEDAS, RUBROS, fn, isOD, daysDiff, PJ_ST, PJ_PR } from "@/lib/constants";
+import { T, TD, AREAS, DEPTOS, ROLES, RK, DIV, TIPOS, ST, SC, AGT, MINSECS, PST, PSC, MONEDAS, RUBROS, fn, isOD, daysDiff, PJ_ST, PJ_PR, FREQ } from "@/lib/constants";
 import type { Profile, Task, TaskMessage, OrgMember as OrgMemberType, Milestone, Agenda, Minuta, Presupuesto, Proveedor } from "@/lib/supabase/types";
 import { notify, fetchNotifications, markRead } from "@/lib/notifications";
 import { exportCSV, exportPDF, exportICal, exportMinutaPDF, exportMinutaWord, exportReportPDF } from "@/lib/export";
@@ -35,6 +35,7 @@ import { KanbanView } from "@/components/main/KanbanView";
 import { ActivityFeed } from "@/components/main/ActivityFeed";
 import { CommView } from "@/components/main/CommView";
 import { CommandPalette } from "@/components/main/CommandPalette";
+import { RecurrentTasks } from "@/components/main/RecurrentTasks";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const supabase = createClient();
@@ -90,6 +91,7 @@ export default function App(){
   const [users,sUs]=useState<any[]>([]);const [om,sOm]=useState<any[]>([]);const [peds,sPd]=useState<any[]>([]);const [hitos,sHi]=useState<any[]>([]);const [agendas,sAgs]=useState<any[]>([]);const [minutas,sMins]=useState<any[]>([]);
   const [presu,sPr]=useState<any[]>([]);const [provs,sPv]=useState<any[]>([]);const [reminders,sRems]=useState<any[]>([]);
   const [projects,sProjects]=useState<any[]>([]);const [projTasks,sProjTasks]=useState<any[]>([]);
+  const [taskTemplates,sTaskTemplates]=useState<any[]>([]);
   const [dbNotifs,sDbNotifs]=useState<any[]>([]);
   const [user,sU]=useState<any>(null);const [authChecked,sAuthChecked]=useState(false);
   const [vw,sVw_]=useState("dash");const [prevVw,sPrevVw]=useState<string|null>(null);
@@ -105,7 +107,7 @@ export default function App(){
 
   /* ── Fetch all data from Supabase ── */
   const fetchAll = useCallback(async()=>{
-    const [pRes,mRes,omRes,msRes,agRes,miRes,prRes,pvRes,remRes,projRes,ptRes]=await Promise.all([
+    const [pRes,mRes,omRes,msRes,agRes,miRes,prRes,pvRes,remRes,projRes,ptRes,ttRes]=await Promise.all([
       supabase.from("profiles").select("*"),
       supabase.from("tasks").select("*").order("id",{ascending:false}).limit(500),
       supabase.from("org_members").select("*"),
@@ -117,6 +119,7 @@ export default function App(){
       supabase.from("reminders").select("*").order("date",{ascending:true}),
       supabase.from("projects").select("*").order("id",{ascending:false}),
       supabase.from("project_tasks").select("*").order("id",{ascending:false}),
+      supabase.from("task_templates").select("*").order("id",{ascending:false}),
     ]);
     const errors:string[]=[];
     if(pRes.error) errors.push("Perfiles: "+pRes.error.message);
@@ -134,6 +137,7 @@ export default function App(){
     if(remRes.data) sRems(remRes.data);
     if(projRes.data) sProjects(projRes.data);
     if(ptRes.data) sProjTasks(ptRes.data);
+    if(ttRes.data) sTaskTemplates(ttRes.data);
     // Tasks + messages
     if(mRes.data){
       const tmRes=await supabase.from("task_messages").select("*").order("created_at");
@@ -168,6 +172,7 @@ export default function App(){
     {table:"presupuestos",onChange:()=>fetchAll()},
     {table:"projects",onChange:()=>fetchAll()},
     {table:"project_tasks",onChange:()=>fetchAll()},
+    {table:"task_templates",onChange:()=>fetchAll()},
     {table:"notifications",onChange:()=>refreshNotifs()},
   ],!!user);
 
@@ -187,7 +192,7 @@ export default function App(){
     if(tok) await notify({token:tok,user_id:userId,title,message,type,link});
   };
 
-  const out=async()=>{await supabase.auth.signOut();sU(null);sVw("dash");sSl(null);sAA(null);sAD(null);sSr("");sPd([]);sUs([]);sOm([]);sHi([]);sAgs([]);sMins([]);sPr([]);sPv([]);sRems([]);sDbNotifs([]);sProjects([]);sProjTasks([]);};
+  const out=async()=>{await supabase.auth.signOut();sU(null);sVw("dash");sSl(null);sAA(null);sAD(null);sSr("");sPd([]);sUs([]);sOm([]);sHi([]);sAgs([]);sMins([]);sPr([]);sPv([]);sRems([]);sDbNotifs([]);sProjects([]);sProjTasks([]);sTaskTemplates([]);};
   const isAd=user&&(user.role==="admin"||user.role==="superadmin");
   const isSA=user&&user.role==="superadmin";
   const isPersonal=user&&(user.role==="enlace"||user.role==="manager"||user.role==="usuario");
@@ -259,6 +264,7 @@ export default function App(){
       {id:"nav-org",label:"Organigrama",icon:"🏛️",keywords:"estructura,org",action:()=>sVw("org")},
       {id:"nav-profs",label:"Perfiles",icon:"👤",keywords:"personas,users",action:()=>sVw("profs")},
       {id:"nav-feed",label:"Actividad",icon:"📰",keywords:"feed,timeline",action:()=>sVw("feed")},
+      {id:"nav-recur",label:"Recurrentes",icon:"🔁",keywords:"template,automatica,repetir",action:()=>sVw("recurrentes")},
       {id:"nav-plan",label:"Plan 2035",icon:"🎯",keywords:"hitos,roadmap",action:()=>sVw("proy")},
     ];
     navItems.forEach(n=>items.push({...n,category:"nav"}));
@@ -295,6 +301,46 @@ export default function App(){
     sPd(p=>p.map(x=>x.id===id?{...x,log:[...(x.log||[]),{dt:ts,uid,by,act,t:tp}]}:x));
     await supabase.from("task_messages").insert({task_id:id,user_id:uid,user_name:by,content:act,type:tp});
   };
+
+  /* ── Auto-generate recurring tasks ── */
+  const autoGenRef=useRef(false);
+  useEffect(()=>{
+    if(!user||isPersonal||autoGenRef.current||!taskTemplates.length||dataLoading)return;
+    const isCoordOrAdmin=user.role==="admin"||user.role==="superadmin"||user.role==="coordinador";
+    if(!isCoordOrAdmin)return;
+    autoGenRef.current=true;
+    (async()=>{
+      const today=new Date();today.setHours(0,0,0,0);
+      const todayStr=today.toISOString().slice(0,10);
+      for(const tpl of taskTemplates){
+        if(!tpl.active)continue;
+        let shouldGen=false;
+        if(!tpl.last_generated){shouldGen=true;}
+        else{
+          const last=new Date(tpl.last_generated+"T12:00:00");
+          const freq=FREQ[tpl.frequency];
+          if(!freq)continue;
+          let next:Date;
+          if(tpl.frequency==="mensual"||tpl.frequency==="trimestral"){
+            const months=tpl.frequency==="mensual"?1:3;
+            next=new Date(last.getFullYear(),last.getMonth()+months,tpl.day_of_month||1);
+          }else{next=new Date(last.getTime()+freq.days*864e5);}
+          shouldGen=next<=today;
+        }
+        if(!shouldGen)continue;
+        try{
+          const dueDate=new Date(today.getTime()+7*864e5).toISOString().slice(0,10);
+          const row:any={division:"",creator_id:user.id,creator_name:fn(user),dept_id:tpl.dept_id||1,tipo:tpl.tipo||"Administrativo",description:tpl.name+(tpl.description?" - "+tpl.description:""),due_date:dueDate,urgency:tpl.urgency||"Normal",status:tpl.assigned_to?ST.C:ST.P,assigned_to:tpl.assigned_to||null,requires_expense:false,expense_ok:null,resolution:"",created_at:todayStr,amount:null};
+          const{data}=await supabase.from("tasks").insert(row).select().single();
+          if(data){
+            await supabase.from("task_messages").insert({task_id:data.id,user_id:user.id,user_name:fn(user),content:"Creó tarea automáticamente (recurrente: "+tpl.name+")",type:"sys"});
+            await supabase.from("task_templates").update({last_generated:todayStr}).eq("id",tpl.id);
+          }
+        }catch(e){/* silent */}
+      }
+      fetchAll();
+    })();
+  },[user,taskTemplates,dataLoading]);
 
   if(isPersonal&&vw==="dash") { setTimeout(()=>sVw("my"),0); return null; }
 
@@ -334,6 +380,12 @@ export default function App(){
           {vw==="feed"&&!isPersonal&&<ActivityFeed peds={peds} users={users} onSel={(p:any)=>sSl(p)} mob={mob}/>}
           {/* Communications (Feature 9) */}
           {vw==="comm"&&(isAd||user.role==="coordinador")&&<CommView peds={peds} presu={presu} agendas={agendas} minutas={minutas} users={users} areas={areas} deptos={deptos} user={user} mob={mob}/>}
+          {/* Recurring Tasks */}
+          {vw==="recurrentes"&&(isAd||user.role==="coordinador")&&<RecurrentTasks templates={taskTemplates} users={users} deptos={deptos} areas={areas} user={user} mob={mob} peds={peds}
+            onAdd={async(d:any)=>{try{const{data,error}=await supabase.from("task_templates").insert(d).select().single();if(error)throw new Error(error.message);if(data)sTaskTemplates(prev=>[data,...prev]);showT("Template creado");}catch(e:any){showT(e.message||"Error","err");}}}
+            onUpd={async(id:number,d:any)=>{try{sTaskTemplates(prev=>prev.map(t=>t.id===id?{...t,...d}:t));await supabase.from("task_templates").update(d).eq("id",id);showT("Template actualizado");}catch(e:any){showT(e.message||"Error","err");}}}
+            onDel={async(id:number)=>{try{sTaskTemplates(prev=>prev.filter(t=>t.id!==id));await supabase.from("task_templates").delete().eq("id",id);showT("Template eliminado");}catch(e:any){showT(e.message||"Error","err");}}}
+          />}
           {/* Proyectos */}
           {vw==="proyectos"&&<ProyectosView projects={projects} projTasks={projTasks} users={users} user={user} mob={mob}
             onAddProject={async(p:any)=>{try{const row={name:p.name,description:p.description||"",created_by:user.id,created_by_name:fn(user),status:p.status||"borrador"};const{data,error}=await supabase.from("projects").insert(row).select().single();if(error)throw new Error(error.message);if(data)sProjects(prev=>[data,...prev]);showT(p.status==="enviado"?"Proyecto enviado":"Borrador guardado");}catch(e:any){showT(e.message||"Error","err");}}}

@@ -139,6 +139,34 @@ CREATE POLICY project_tasks_all ON project_tasks FOR ALL USING (true) WITH CHECK
     });
   }
 
+  // Check task_templates table
+  const { error: ttErr } = await admin.from("task_templates").select("id").limit(1);
+  if (ttErr && ttErr.code === "42P01") {
+    missing.push({
+      table: "task_templates",
+      sql: `CREATE TABLE task_templates (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT DEFAULT '',
+  tipo TEXT DEFAULT 'Administrativo',
+  dept_id INT,
+  assigned_to UUID,
+  assigned_name TEXT DEFAULT '',
+  frequency TEXT DEFAULT 'semanal',
+  day_of_week INT DEFAULT 1,
+  day_of_month INT DEFAULT 1,
+  urgency TEXT DEFAULT 'Normal',
+  active BOOLEAN DEFAULT true,
+  created_by UUID NOT NULL,
+  created_by_name TEXT DEFAULT '',
+  last_generated DATE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE task_templates ENABLE ROW LEVEL SECURITY;
+CREATE POLICY task_templates_all ON task_templates FOR ALL USING (true) WITH CHECK (true);`,
+    });
+  }
+
   if (missing.length > 0) {
     return NextResponse.json({
       status: "missing",

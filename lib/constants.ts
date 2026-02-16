@@ -77,6 +77,17 @@ export const DEP_WK={sleep:{l:"Sueño",i:"😴",labels:["Muy malo","Malo","Regul
 export const DEP_SEM={red:{max:2.5,l:"Alerta",c:"#C8102E",bg:"#FEE2E2"},yellow:{max:3.5,l:"Precaución",c:"#F59E0B",bg:"#FEF3C7"},green:{max:5,l:"Óptimo",c:"#10B981",bg:"#D1FAE5"}};
 export const DEP_DIV=["Plantel Superior","M19","M17"];
 
+// Tareas Recurrentes constants
+export const FREQ: Record<string,{l:string;i:string;days:number}>={
+  semanal:{l:"Semanal",i:"📅",days:7},
+  quincenal:{l:"Quincenal",i:"📆",days:14},
+  mensual:{l:"Mensual",i:"🗓️",days:30},
+  trimestral:{l:"Trimestral",i:"📊",days:90}
+};
+export const FREQ_DAYS:Record<string,string[]>={
+  lunes:"Lunes",martes:"Martes",miercoles:"Miércoles",jueves:"Jueves",viernes:"Viernes"
+} as any;
+
 // Proyectos module constants
 export const PJ_ST: Record<string,{l:string;c:string;bg:string;i:string}>={
   backlog:{l:"Backlog",c:"#6B7280",bg:"#F3F4F6",i:"📋"},
