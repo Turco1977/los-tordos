@@ -102,3 +102,51 @@ export const PJ_PR: Record<string,{l:string;c:string;i:string}>={
   high:{l:"High",c:"#F59E0B",i:"⬆️"},
   critical:{l:"Critical",c:"#DC2626",i:"🔥"}
 };
+
+// Inventario constants
+export const INV_CAT:Record<string,{l:string;i:string;c:string}>={
+  deportivo:{l:"Deportivo",i:"🏉",c:"#C8102E"},
+  indumentaria:{l:"Indumentaria",i:"👕",c:"#3B82F6"},
+  infraestructura:{l:"Infraestructura",i:"🔧",c:"#F59E0B"},
+  tecnologia:{l:"Tecnología",i:"💻",c:"#8B5CF6"},
+  mobiliario:{l:"Mobiliario",i:"🪑",c:"#6B7280"},
+  otro:{l:"Otro",i:"📦",c:"#10B981"}
+};
+export const INV_COND:Record<string,{l:string;c:string;bg:string}>={
+  nuevo:{l:"Nuevo",c:"#10B981",bg:"#D1FAE5"},
+  bueno:{l:"Bueno",c:"#3B82F6",bg:"#DBEAFE"},
+  regular:{l:"Regular",c:"#F59E0B",bg:"#FEF3C7"},
+  reparar:{l:"A Reparar",c:"#DC2626",bg:"#FEE2E2"},
+  baja:{l:"De Baja",c:"#6B7280",bg:"#F3F4F6"}
+};
+
+// Reservas constants
+export const BOOK_FAC:Record<string,{l:string;i:string;c:string}>={
+  cancha1:{l:"Cancha 1",i:"🏟️",c:"#10B981"},
+  cancha2:{l:"Cancha 2",i:"🏟️",c:"#3B82F6"},
+  cancha3:{l:"Cancha 3",i:"🏟️",c:"#F59E0B"},
+  cancha4:{l:"Cancha 4",i:"🏟️",c:"#8B5CF6"},
+  gimnasio:{l:"Gimnasio",i:"🏋️",c:"#DC2626"},
+  salon:{l:"Salón",i:"🏠",c:"#6B7280"},
+  cantina:{l:"Cantina",i:"🍽️",c:"#C8102E"},
+  anexo:{l:"Anexo",i:"🏗️",c:"#0A1628"}
+};
+export const BOOK_ST:Record<string,{l:string;c:string;bg:string;i:string}>={
+  pendiente:{l:"Pendiente",c:"#F59E0B",bg:"#FEF3C7",i:"⏳"},
+  confirmada:{l:"Confirmada",c:"#10B981",bg:"#D1FAE5",i:"✅"},
+  cancelada:{l:"Cancelada",c:"#DC2626",bg:"#FEE2E2",i:"❌"}
+};
+
+// Sponsors CRM constants
+export const SPON_TIER:Record<string,{l:string;c:string;bg:string;i:string}>={
+  oro:{l:"Oro",c:"#D97706",bg:"#FEF3C7",i:"🥇"},
+  plata:{l:"Plata",c:"#6B7280",bg:"#F3F4F6",i:"🥈"},
+  bronce:{l:"Bronce",c:"#92400E",bg:"#FDE68A",i:"🥉"},
+  colaborador:{l:"Colaborador",c:"#3B82F6",bg:"#DBEAFE",i:"🤝"}
+};
+export const SPON_ST:Record<string,{l:string;c:string;bg:string}>={
+  activo:{l:"Activo",c:"#10B981",bg:"#D1FAE5"},
+  negociando:{l:"Negociando",c:"#F59E0B",bg:"#FEF3C7"},
+  inactivo:{l:"Inactivo",c:"#6B7280",bg:"#F3F4F6"},
+  vencido:{l:"Vencido",c:"#DC2626",bg:"#FEE2E2"}
+};

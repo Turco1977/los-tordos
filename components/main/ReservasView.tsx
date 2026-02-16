@@ -1,0 +1,289 @@
+"use client";
+import { useState, useMemo } from "react";
+import { BOOK_FAC, BOOK_ST, fn } from "@/lib/constants";
+import { fmtD } from "@/lib/mappers";
+import { Btn, Card } from "@/components/ui";
+import { useC } from "@/lib/theme-context";
+
+const TODAY=new Date().toISOString().slice(0,10);
+const FKEYS=Object.keys(BOOK_FAC);
+const SKEYS=Object.keys(BOOK_ST);
+const DIAS_SEM=["Lu","Ma","Mi","Ju","Vi","Sa","Do"];
+
+const getMonday=(dt:Date)=>{const d=new Date(dt);const day=d.getDay();const diff=d.getDate()-day+(day===0?-6:1);d.setDate(diff);return d;};
+const addDays=(dt:Date,n:number)=>{const d=new Date(dt);d.setDate(d.getDate()+n);return d;};
+const dateISO=(dt:Date)=>dt.toISOString().slice(0,10);
+const timeToMin=(t:string)=>{const [h,m]=t.split(":").map(Number);return h*60+(m||0);};
+const overlap=(a0:string,a1:string,b0:string,b1:string)=>timeToMin(a0)<timeToMin(b1)&&timeToMin(b0)<timeToMin(a1);
+
+const emptyForm=()=>({facility:"cancha1",date:TODAY,time_start:"09:00",time_end:"10:00",title:"",description:"",notes:"",status:"pendiente"});
+
+export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel}:any){
+  const {colors,isDark,cardBg}=useC();
+
+  /* week nav */
+  const [weekStart,sWeekStart]=useState(()=>getMonday(new Date()));
+  /* filters */
+  const [fFac,sFFac]=useState("");
+  const [fSearch,sFSearch]=useState("");
+  const [fDateFrom,sFDateFrom]=useState("");
+  const [fDateTo,sFDateTo]=useState("");
+  /* modal / editing */
+  const [showAdd,sShowAdd]=useState(false);
+  const [form,sForm]=useState<any>(emptyForm());
+  const [editId,sEditId]=useState<string|null>(null);
+  const [editForm,sEditForm]=useState<any>(null);
+  /* sort */
+  const [sortAsc,sSortAsc]=useState(true);
+
+  /* ── week days ── */
+  const weekDays=useMemo(()=>{const d:string[]=[];for(let i=0;i<7;i++) d.push(dateISO(addDays(weekStart,i)));return d;},[weekStart]);
+
+  /* ── filtered bookings ── */
+  const filtered=useMemo(()=>{
+    let v=[...(bookings||[])];
+    if(fFac) v=v.filter((b:any)=>b.facility===fFac);
+    if(fSearch){const s=fSearch.toLowerCase();v=v.filter((b:any)=>(b.title+b.description+b.notes+(BOOK_FAC[b.facility]?.l||"")).toLowerCase().includes(s));}
+    if(fDateFrom) v=v.filter((b:any)=>b.date>=fDateFrom);
+    if(fDateTo) v=v.filter((b:any)=>b.date<=fDateTo);
+    return v;
+  },[bookings,fFac,fSearch,fDateFrom,fDateTo]);
+
+  /* ── KPIs this week ── */
+  const weekBookings=useMemo(()=>(bookings||[]).filter((b:any)=>b.date>=weekDays[0]&&b.date<=weekDays[6]),[bookings,weekDays]);
+  const kConfirmed=weekBookings.filter((b:any)=>b.status==="confirmada").length;
+  const kPending=weekBookings.filter((b:any)=>b.status==="pendiente").length;
+  const facCounts=useMemo(()=>{const m:Record<string,number>={};weekBookings.forEach((b:any)=>{m[b.facility]=(m[b.facility]||0)+1;});return m;},[weekBookings]);
+
+  /* ── conflict detection ── */
+  const hasConflict=(fac:string,date:string,ts:string,te:string,excludeId?:string)=>{
+    return (bookings||[]).some((b:any)=>b.facility===fac&&b.date===date&&b.status!=="cancelada"&&(excludeId?String(b.id)!==String(excludeId):true)&&overlap(ts,te,b.time_start,b.time_end));
+  };
+  const formConflict=hasConflict(form.facility,form.date,form.time_start,form.time_end);
+  const editConflict=editForm?hasConflict(editForm.facility,editForm.date,editForm.time_start,editForm.time_end,editId||undefined):false;
+
+  /* ── helpers ── */
+  const resetForm=()=>{sForm(emptyForm());sShowAdd(false);};
+  const startEdit=(b:any)=>{sEditId(String(b.id));sEditForm({facility:b.facility,date:b.date,time_start:b.time_start,time_end:b.time_end,title:b.title,description:b.description||"",notes:b.notes||"",status:b.status});};
+  const cancelEdit=()=>{sEditId(null);sEditForm(null);};
+  const saveEdit=()=>{if(!editId||!editForm)return;onUpd(editId,editForm);cancelEdit();};
+  const userName=(uid:string)=>{const u=(users||[]).find((u2:any)=>u2.id===uid);return u?fn(u):"";};
+
+  /* ── sorted list ── */
+  const sortedFiltered=useMemo(()=>[...filtered].sort((a:any,b:any)=>sortAsc?a.date.localeCompare(b.date):b.date.localeCompare(a.date)),[filtered,sortAsc]);
+
+  /* ── booking cell lookup (facility+date) ── */
+  const cellBookings=(fac:string,date:string)=>(bookings||[]).filter((b:any)=>b.facility===fac&&b.date===date&&b.status!=="cancelada");
+
+  /* ── inline input style ── */
+  const iSt:any={padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,width:"100%",marginTop:2};
+  const lblSt:any={fontSize:10,fontWeight:600,color:colors.g5};
+
+  /* ═══════ RENDER ═══════ */
+  return(<div style={{maxWidth:mob?undefined:1000}}>
+    <h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:colors.nv,fontWeight:800}}>📅 Reservas</h2>
+    <p style={{color:colors.g4,fontSize:12,margin:"0 0 14px"}}>Gestione canchas, gimnasio, salones y otras instalaciones del club</p>
+
+    {/* ── KPI CARDS ── */}
+    <div style={{display:"grid",gridTemplateColumns:mob?"repeat(2,1fr)":"repeat(4,1fr)",gap:10,marginBottom:18}}>
+      <Card style={{padding:"10px 12px",borderTop:"3px solid "+colors.nv}}>
+        <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:16}}>📋</span><span style={{fontSize:17,fontWeight:800,color:colors.nv}}>{weekBookings.length}</span></div>
+        <div style={{fontSize:10,color:colors.g4,marginTop:3}}>Reservas esta semana</div>
+      </Card>
+      <Card style={{padding:"10px 12px",borderTop:"3px solid #10B981"}}>
+        <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:16}}>✅</span><span style={{fontSize:17,fontWeight:800,color:"#10B981"}}>{kConfirmed}</span></div>
+        <div style={{fontSize:10,color:colors.g4,marginTop:3}}>Confirmadas</div>
+      </Card>
+      <Card style={{padding:"10px 12px",borderTop:"3px solid #F59E0B"}}>
+        <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:16}}>⏳</span><span style={{fontSize:17,fontWeight:800,color:"#F59E0B"}}>{kPending}</span></div>
+        <div style={{fontSize:10,color:colors.g4,marginTop:3}}>Pendientes</div>
+      </Card>
+      <Card style={{padding:"10px 12px",borderTop:"3px solid "+colors.pr}}>
+        <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:16}}>🏟️</span><span style={{fontSize:17,fontWeight:800,color:colors.pr}}>{Object.keys(facCounts).length}</span></div>
+        <div style={{fontSize:10,color:colors.g4,marginTop:3}}>Instalaciones usadas</div>
+      </Card>
+    </div>
+
+    {/* ── per-facility mini badges ── */}
+    {Object.keys(facCounts).length>0&&<div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap" as const}}>
+      {FKEYS.filter(k=>facCounts[k]).map(k=><span key={k} style={{padding:"3px 10px",borderRadius:14,background:BOOK_FAC[k].c+"18",border:"1px solid "+BOOK_FAC[k].c+"40",fontSize:10,fontWeight:600,color:BOOK_FAC[k].c}}>{BOOK_FAC[k].i} {BOOK_FAC[k].l}: {facCounts[k]}</span>)}
+    </div>}
+
+    {/* ── FILTERS + ADD ── */}
+    <div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap" as const,alignItems:"center"}}>
+      <input value={fSearch} onChange={e=>sFSearch(e.target.value)} placeholder="Buscar titulo..." style={{padding:"5px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:11,width:140}}/>
+      <select value={fFac} onChange={e=>sFFac(e.target.value)} style={{padding:"5px 8px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:11}}>
+        <option value="">Todas las instalaciones</option>{FKEYS.map(k=><option key={k} value={k}>{BOOK_FAC[k].i} {BOOK_FAC[k].l}</option>)}
+      </select>
+      <input type="date" value={fDateFrom} onChange={e=>sFDateFrom(e.target.value)} style={{padding:"5px 8px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:11}} title="Desde"/>
+      <input type="date" value={fDateTo} onChange={e=>sFDateTo(e.target.value)} style={{padding:"5px 8px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:11}} title="Hasta"/>
+      {(fFac||fSearch||fDateFrom||fDateTo)&&<button onClick={()=>{sFFac("");sFSearch("");sFDateFrom("");sFDateTo("");}} style={{padding:"5px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:11,background:cardBg,cursor:"pointer",color:colors.g4}}>Limpiar</button>}
+      <div style={{flex:1}}/>
+      {onAdd&&<Btn v="s" s="s" onClick={()=>sShowAdd(!showAdd)}>{showAdd?"✕ Cancelar":"+ Nueva Reserva"}</Btn>}
+    </div>
+
+    {/* ── ADD BOOKING MODAL ── */}
+    {showAdd&&onAdd&&<Card style={{marginBottom:14,background:isDark?"#0D2818":"#F0FDF4",border:"1px solid #BBF7D0"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+        <div style={{fontSize:12,fontWeight:700,color:"#166534"}}>📅 Nueva Reserva</div>
+        <button onClick={resetForm} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:colors.g4}}>✕</button>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8,marginBottom:8}}>
+        <div><label style={lblSt}>Instalacion *</label>
+          <select value={form.facility} onChange={e=>sForm((p:any)=>({...p,facility:e.target.value}))} style={{...iSt}}>
+            {FKEYS.map(k=><option key={k} value={k}>{BOOK_FAC[k].i} {BOOK_FAC[k].l}</option>)}
+          </select>
+        </div>
+        <div><label style={lblSt}>Fecha *</label><input type="date" value={form.date} onChange={e=>sForm((p:any)=>({...p,date:e.target.value}))} style={iSt}/></div>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:mob?"1fr 1fr":"1fr 1fr 1fr 1fr",gap:8,marginBottom:8}}>
+        <div><label style={lblSt}>Hora inicio *</label><input type="time" value={form.time_start} onChange={e=>sForm((p:any)=>({...p,time_start:e.target.value}))} style={iSt}/></div>
+        <div><label style={lblSt}>Hora fin *</label><input type="time" value={form.time_end} onChange={e=>sForm((p:any)=>({...p,time_end:e.target.value}))} style={iSt}/></div>
+        {!mob&&<div><label style={lblSt}>Titulo *</label><input value={form.title} onChange={e=>sForm((p:any)=>({...p,title:e.target.value}))} placeholder="Ej: Entrenamiento M19" style={iSt}/></div>}
+        {!mob&&<div><label style={lblSt}>Estado</label>
+          <select value={form.status} onChange={e=>sForm((p:any)=>({...p,status:e.target.value}))} style={iSt}>
+            {SKEYS.map(k=><option key={k} value={k}>{BOOK_ST[k].i} {BOOK_ST[k].l}</option>)}
+          </select>
+        </div>}
+      </div>
+      {mob&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+        <div><label style={lblSt}>Titulo *</label><input value={form.title} onChange={e=>sForm((p:any)=>({...p,title:e.target.value}))} placeholder="Ej: Entrenamiento M19" style={iSt}/></div>
+        <div><label style={lblSt}>Estado</label>
+          <select value={form.status} onChange={e=>sForm((p:any)=>({...p,status:e.target.value}))} style={iSt}>
+            {SKEYS.map(k=><option key={k} value={k}>{BOOK_ST[k].i} {BOOK_ST[k].l}</option>)}
+          </select>
+        </div>
+      </div>}
+      <div style={{marginBottom:8}}><label style={lblSt}>Descripcion</label><textarea value={form.description} onChange={e=>sForm((p:any)=>({...p,description:e.target.value}))} rows={2} style={{...iSt,resize:"vertical" as const}} placeholder="Detalles de la reserva..."/></div>
+      <div style={{marginBottom:8}}><label style={lblSt}>Notas</label><input value={form.notes} onChange={e=>sForm((p:any)=>({...p,notes:e.target.value}))} style={iSt} placeholder="Notas internas..."/></div>
+      {formConflict&&<div style={{padding:"8px 12px",borderRadius:8,background:"#FEF2F2",border:"1px solid #FECACA",fontSize:11,fontWeight:600,color:"#DC2626",marginBottom:8}}>⚠️ Conflicto: ya existe una reserva en {BOOK_FAC[form.facility]?.l} el {fmtD(form.date)} que se superpone con el horario seleccionado.</div>}
+      <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}>
+        <Btn v="g" s="s" onClick={resetForm}>Cancelar</Btn>
+        <Btn v="s" s="s" disabled={!form.title||!form.date||!form.time_start||!form.time_end} onClick={()=>{onAdd({...form,created_by:user.id,created_at:TODAY});resetForm();}}>📅 Reservar</Btn>
+      </div>
+    </Card>}
+
+    {/* ═══════ WEEK VIEW ═══════ */}
+    <Card style={{padding:mob?10:14,marginBottom:18,overflow:"auto"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+        <button onClick={()=>sWeekStart(addDays(weekStart,-7))} style={{background:"none",border:"1px solid "+colors.g3,borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:14,color:colors.nv}}>◀</button>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <div style={{fontSize:mob?12:14,fontWeight:800,color:colors.nv}}>Semana del {fmtD(weekDays[0])} al {fmtD(weekDays[6])}</div>
+          <button onClick={()=>sWeekStart(getMonday(new Date()))} style={{padding:"3px 8px",borderRadius:6,border:"1px solid "+colors.g3,background:cardBg,fontSize:10,fontWeight:600,color:colors.bl,cursor:"pointer"}}>Hoy</button>
+        </div>
+        <button onClick={()=>sWeekStart(addDays(weekStart,7))} style={{background:"none",border:"1px solid "+colors.g3,borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:14,color:colors.nv}}>▶</button>
+      </div>
+
+      {/* week grid: facilities as rows, days as columns */}
+      <div style={{minWidth:mob?700:undefined}}>
+        {/* header row */}
+        <div style={{display:"grid",gridTemplateColumns:"120px repeat(7,1fr)",gap:2,marginBottom:2}}>
+          <div style={{padding:"6px 8px",fontSize:10,fontWeight:700,color:colors.g4,background:isDark?"#1E293B":"#F8FAFC",borderRadius:6}}>Instalacion</div>
+          {weekDays.map((d,i)=>{const isToday=d===TODAY;return(
+            <div key={d} style={{padding:"6px 4px",textAlign:"center" as const,fontSize:10,fontWeight:isToday?800:600,color:isToday?colors.bl:colors.nv,background:isToday?(isDark?"#1E3A5F":"#EFF6FF"):(isDark?"#1E293B":"#F8FAFC"),borderRadius:6,border:isToday?"2px solid "+colors.bl:"none"}}>
+              {DIAS_SEM[i]} {d.slice(8)}/{d.slice(5,7)}
+            </div>);
+          })}
+        </div>
+
+        {/* facility rows */}
+        {FKEYS.map(fk=>{const fac=BOOK_FAC[fk];return(
+          <div key={fk} style={{display:"grid",gridTemplateColumns:"120px repeat(7,1fr)",gap:2,marginBottom:2}}>
+            <div style={{padding:"6px 8px",fontSize:11,fontWeight:700,color:fac.c,background:fac.c+"10",borderRadius:6,display:"flex",alignItems:"center",gap:4,borderLeft:"3px solid "+fac.c}}>
+              <span style={{fontSize:13}}>{fac.i}</span>{fac.l}
+            </div>
+            {weekDays.map(d=>{
+              const cb=cellBookings(fk,d);
+              const isToday=d===TODAY;
+              return(<div key={d} style={{padding:4,background:isToday?(isDark?"#1E3A5F10":"#EFF6FF50"):cardBg,border:"1px solid "+colors.g2,borderRadius:6,minHeight:38,cursor:"pointer",position:"relative" as const}} onClick={()=>{if(!showAdd){sForm({...emptyForm(),facility:fk,date:d});sShowAdd(true);}}}>
+                {cb.length===0&&<div style={{fontSize:9,color:colors.g3,textAlign:"center" as const,paddingTop:6}}>—</div>}
+                {cb.map((b:any,j:number)=>{const st=BOOK_ST[b.status];return(
+                  <div key={b.id||j} onClick={e=>{e.stopPropagation();startEdit(b);}} style={{padding:"2px 5px",borderRadius:6,background:st.bg,marginBottom:1,cursor:"pointer",border:"1px solid "+st.c+"40"}} title={b.title+" ("+b.time_start+"-"+b.time_end+")"}>
+                    <div style={{fontSize:9,fontWeight:700,color:st.c,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{st.i} {b.time_start}-{b.time_end}</div>
+                    <div style={{fontSize:8,color:fac.c,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{b.title}</div>
+                  </div>);})}
+              </div>);
+            })}
+          </div>);})}
+      </div>
+    </Card>
+
+    {/* ═══════ EDIT BOOKING INLINE ═══════ */}
+    {editId&&editForm&&<Card style={{marginBottom:14,borderLeft:"4px solid "+BOOK_FAC[editForm.facility]?.c,background:isDark?"#1E293B":"#FAFAFA"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+        <div style={{fontSize:12,fontWeight:700,color:colors.nv}}>Editar Reserva #{editId}</div>
+        <div style={{display:"flex",gap:4,alignItems:"center"}}>
+          {onDel&&<button onClick={()=>{if(confirm("Eliminar esta reserva?"))onDel(editId);cancelEdit();}} style={{background:"none",border:"1px solid #DC2626",borderRadius:6,padding:"3px 8px",fontSize:10,color:"#DC2626",cursor:"pointer",fontWeight:600}}>Eliminar</button>}
+          <button onClick={cancelEdit} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:colors.g4}}>✕</button>
+        </div>
+      </div>
+      {/* status quick actions */}
+      <div style={{display:"flex",gap:4,marginBottom:10}}>
+        {SKEYS.map(k=>{const s=BOOK_ST[k];return(
+          <button key={k} onClick={()=>sEditForm((p:any)=>({...p,status:k}))} style={{padding:"4px 12px",borderRadius:14,border:editForm.status===k?"2px solid "+s.c:"1px solid "+colors.g3,background:editForm.status===k?s.bg:cardBg,color:s.c,fontSize:10,fontWeight:700,cursor:"pointer"}}>{s.i} {s.l}</button>
+        );})}
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8,marginBottom:8}}>
+        <div><label style={lblSt}>Instalacion</label>
+          <select value={editForm.facility} onChange={e=>sEditForm((p:any)=>({...p,facility:e.target.value}))} style={iSt}>
+            {FKEYS.map(k=><option key={k} value={k}>{BOOK_FAC[k].i} {BOOK_FAC[k].l}</option>)}
+          </select>
+        </div>
+        <div><label style={lblSt}>Fecha</label><input type="date" value={editForm.date} onChange={e=>sEditForm((p:any)=>({...p,date:e.target.value}))} style={iSt}/></div>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:mob?"1fr 1fr":"1fr 1fr 1fr",gap:8,marginBottom:8}}>
+        <div><label style={lblSt}>Hora inicio</label><input type="time" value={editForm.time_start} onChange={e=>sEditForm((p:any)=>({...p,time_start:e.target.value}))} style={iSt}/></div>
+        <div><label style={lblSt}>Hora fin</label><input type="time" value={editForm.time_end} onChange={e=>sEditForm((p:any)=>({...p,time_end:e.target.value}))} style={iSt}/></div>
+        <div><label style={lblSt}>Titulo</label><input value={editForm.title} onChange={e=>sEditForm((p:any)=>({...p,title:e.target.value}))} style={iSt}/></div>
+      </div>
+      <div style={{marginBottom:8}}><label style={lblSt}>Descripcion</label><textarea value={editForm.description} onChange={e=>sEditForm((p:any)=>({...p,description:e.target.value}))} rows={2} style={{...iSt,resize:"vertical" as const}}/></div>
+      <div style={{marginBottom:8}}><label style={lblSt}>Notas</label><input value={editForm.notes} onChange={e=>sEditForm((p:any)=>({...p,notes:e.target.value}))} style={iSt}/></div>
+      {editConflict&&<div style={{padding:"8px 12px",borderRadius:8,background:"#FEF2F2",border:"1px solid #FECACA",fontSize:11,fontWeight:600,color:"#DC2626",marginBottom:8}}>⚠️ Conflicto: se superpone con otra reserva en {BOOK_FAC[editForm.facility]?.l} el {fmtD(editForm.date)}.</div>}
+      <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}>
+        <Btn v="g" s="s" onClick={cancelEdit}>Cancelar</Btn>
+        <Btn v="p" s="s" disabled={!editForm.title} onClick={saveEdit}>Guardar cambios</Btn>
+      </div>
+    </Card>}
+
+    {/* ═══════ BOOKING LIST ═══════ */}
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+      <div style={{fontSize:13,fontWeight:700,color:colors.nv}}>Listado de Reservas ({filtered.length})</div>
+      <button onClick={()=>sSortAsc(!sortAsc)} style={{padding:"4px 10px",borderRadius:8,border:"1px solid "+colors.g3,background:cardBg,fontSize:10,fontWeight:600,color:colors.g5,cursor:"pointer"}}>{sortAsc?"▲ Fecha asc":"▼ Fecha desc"}</button>
+    </div>
+
+    {/* status summary pills */}
+    <div style={{display:"flex",gap:6,marginBottom:10}}>
+      {SKEYS.map(k=>{const cnt=(bookings||[]).filter((b:any)=>b.status===k).length;return(
+        <span key={k} style={{padding:"3px 10px",borderRadius:14,background:BOOK_ST[k].bg,border:"1px solid "+BOOK_ST[k].c+"40",fontSize:10,fontWeight:600,color:BOOK_ST[k].c}}>{BOOK_ST[k].i} {BOOK_ST[k].l}: {cnt}</span>
+      );})}
+    </div>
+
+    {sortedFiltered.length===0&&<Card style={{textAlign:"center" as const,padding:24,color:colors.g4}}>
+      <span style={{fontSize:24}}>📭</span>
+      <div style={{marginTop:6,fontSize:12}}>Sin reservas{fFac||fSearch||fDateFrom||fDateTo?" con los filtros seleccionados":""}</div>
+    </Card>}
+
+    {sortedFiltered.map((b:any)=>{
+      const fac=BOOK_FAC[b.facility]||{l:"?",i:"?",c:colors.g4};
+      const st=BOOK_ST[b.status]||BOOK_ST.pendiente;
+      const isEditing=editId===String(b.id);
+      return(<Card key={b.id} style={{padding:"10px 14px",marginBottom:6,cursor:"pointer",borderLeft:"3px solid "+fac.c,opacity:b.status==="cancelada"?.6:1,background:isEditing?(isDark?"#1E293B":"#F0F9FF"):cardBg}} onClick={()=>{if(!isEditing)startEdit(b);}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"start"}}>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              <span style={{fontSize:13}}>{fac.i}</span>
+              <span style={{fontSize:12,fontWeight:700,color:colors.nv,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{b.title}</span>
+            </div>
+            <div style={{fontSize:10,color:colors.g4,marginTop:2}}>{fac.l} &middot; {fmtD(b.date)} &middot; {b.time_start}-{b.time_end}</div>
+            {b.description&&<div style={{fontSize:10,color:colors.g5,marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{b.description}</div>}
+          </div>
+          <div style={{display:"flex",flexDirection:"column" as const,alignItems:"flex-end",gap:4,flexShrink:0}}>
+            <span style={{background:st.bg,color:st.c,padding:"1px 8px",borderRadius:12,fontSize:10,fontWeight:600,whiteSpace:"nowrap" as const}}>{st.i} {st.l}</span>
+            {b.created_by&&<span style={{fontSize:9,color:colors.g4}}>por {userName(b.created_by)}</span>}
+          </div>
+        </div>
+        {b.notes&&<div style={{fontSize:9,color:colors.g5,marginTop:4,fontStyle:"italic" as const}}>Notas: {b.notes}</div>}
+      </Card>);
+    })}
+  </div>);
+}

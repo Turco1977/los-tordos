@@ -167,6 +167,81 @@ CREATE POLICY task_templates_all ON task_templates FOR ALL USING (true) WITH CHE
     });
   }
 
+  // Check inventory table
+  const { error: invErr } = await admin.from("inventory").select("id").limit(1);
+  if (invErr && invErr.code === "42P01") {
+    missing.push({
+      table: "inventory",
+      sql: `CREATE TABLE inventory (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  category TEXT DEFAULT 'otro',
+  location TEXT DEFAULT '',
+  quantity INT DEFAULT 1,
+  condition TEXT DEFAULT 'bueno',
+  responsible_id UUID,
+  responsible_name TEXT DEFAULT '',
+  notes TEXT DEFAULT '',
+  photo_url TEXT DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE inventory ENABLE ROW LEVEL SECURITY;
+CREATE POLICY inventory_all ON inventory FOR ALL USING (true) WITH CHECK (true);`,
+    });
+  }
+
+  // Check bookings table
+  const { error: bookErr } = await admin.from("bookings").select("id").limit(1);
+  if (bookErr && bookErr.code === "42P01") {
+    missing.push({
+      table: "bookings",
+      sql: `CREATE TABLE bookings (
+  id SERIAL PRIMARY KEY,
+  facility TEXT NOT NULL,
+  date DATE NOT NULL,
+  time_start TEXT DEFAULT '08:00',
+  time_end TEXT DEFAULT '10:00',
+  title TEXT DEFAULT '',
+  description TEXT DEFAULT '',
+  booked_by UUID NOT NULL,
+  booked_by_name TEXT DEFAULT '',
+  status TEXT DEFAULT 'pendiente',
+  notes TEXT DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE bookings ENABLE ROW LEVEL SECURITY;
+CREATE POLICY bookings_all ON bookings FOR ALL USING (true) WITH CHECK (true);`,
+    });
+  }
+
+  // Check sponsors table
+  const { error: sponErr } = await admin.from("sponsors").select("id").limit(1);
+  if (sponErr && sponErr.code === "42P01") {
+    missing.push({
+      table: "sponsors",
+      sql: `CREATE TABLE sponsors (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  contact_name TEXT DEFAULT '',
+  contact_email TEXT DEFAULT '',
+  contact_phone TEXT DEFAULT '',
+  tier TEXT DEFAULT 'colaborador',
+  amount NUMERIC DEFAULT 0,
+  currency TEXT DEFAULT 'ARS',
+  status TEXT DEFAULT 'negociando',
+  start_date DATE,
+  end_date DATE,
+  notes TEXT DEFAULT '',
+  logo_url TEXT DEFAULT '',
+  created_by UUID,
+  created_by_name TEXT DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE sponsors ENABLE ROW LEVEL SECURITY;
+CREATE POLICY sponsors_all ON sponsors FOR ALL USING (true) WITH CHECK (true);`,
+    });
+  }
+
   if (missing.length > 0) {
     return NextResponse.json({
       status: "missing",

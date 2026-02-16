@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { T, TD, AREAS, DEPTOS, ROLES, RK, DIV, TIPOS, ST, SC, AGT, MINSECS, PST, PSC, MONEDAS, RUBROS, fn, isOD, daysDiff, PJ_ST, PJ_PR, FREQ } from "@/lib/constants";
+import { T, TD, AREAS, DEPTOS, ROLES, RK, DIV, TIPOS, ST, SC, AGT, MINSECS, PST, PSC, MONEDAS, RUBROS, fn, isOD, daysDiff, PJ_ST, PJ_PR, FREQ, INV_CAT, INV_COND, BOOK_FAC, BOOK_ST, SPON_TIER, SPON_ST } from "@/lib/constants";
 import type { Profile, Task, TaskMessage, OrgMember as OrgMemberType, Milestone, Agenda, Minuta, Presupuesto, Proveedor } from "@/lib/supabase/types";
 import { notify, fetchNotifications, markRead } from "@/lib/notifications";
 import { exportCSV, exportPDF, exportICal, exportMinutaPDF, exportMinutaWord, exportReportPDF } from "@/lib/export";
@@ -37,6 +37,9 @@ import { ActivityFeed } from "@/components/main/ActivityFeed";
 import { CommView } from "@/components/main/CommView";
 import { CommandPalette } from "@/components/main/CommandPalette";
 import { RecurrentTasks } from "@/components/main/RecurrentTasks";
+import { InventarioView } from "@/components/main/InventarioView";
+import { ReservasView } from "@/components/main/ReservasView";
+import { SponsorsView } from "@/components/main/SponsorsView";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const supabase = createClient();
@@ -93,6 +96,7 @@ export default function App(){
   const [presu,sPr]=useState<any[]>([]);const [provs,sPv]=useState<any[]>([]);const [reminders,sRems]=useState<any[]>([]);
   const [projects,sProjects]=useState<any[]>([]);const [projTasks,sProjTasks]=useState<any[]>([]);
   const [taskTemplates,sTaskTemplates]=useState<any[]>([]);
+  const [inventory,sInventory]=useState<any[]>([]);const [bookings,sBookings]=useState<any[]>([]);const [sponsors,sSponsors]=useState<any[]>([]);
   const [dbNotifs,sDbNotifs]=useState<any[]>([]);
   const [user,sU]=useState<any>(null);const [authChecked,sAuthChecked]=useState(false);
   const [vw,sVw_]=useState("dash");const [prevVw,sPrevVw]=useState<string|null>(null);
@@ -108,7 +112,7 @@ export default function App(){
 
   /* ── Fetch all data from Supabase ── */
   const fetchAll = useCallback(async()=>{
-    const [pRes,mRes,omRes,msRes,agRes,miRes,prRes,pvRes,remRes,projRes,ptRes,ttRes]=await Promise.all([
+    const [pRes,mRes,omRes,msRes,agRes,miRes,prRes,pvRes,remRes,projRes,ptRes,ttRes,invRes,bkRes,spRes]=await Promise.all([
       supabase.from("profiles").select("*"),
       supabase.from("tasks").select("*").order("id",{ascending:false}).limit(500),
       supabase.from("org_members").select("*"),
@@ -121,6 +125,9 @@ export default function App(){
       supabase.from("projects").select("*").order("id",{ascending:false}),
       supabase.from("project_tasks").select("*").order("id",{ascending:false}),
       supabase.from("task_templates").select("*").order("id",{ascending:false}),
+      supabase.from("inventory").select("*").order("id",{ascending:false}),
+      supabase.from("bookings").select("*").order("id",{ascending:false}),
+      supabase.from("sponsors").select("*").order("id",{ascending:false}),
     ]);
     const errors:string[]=[];
     if(pRes.error) errors.push("Perfiles: "+pRes.error.message);
@@ -139,6 +146,9 @@ export default function App(){
     if(projRes.data) sProjects(projRes.data);
     if(ptRes.data) sProjTasks(ptRes.data);
     if(ttRes.data) sTaskTemplates(ttRes.data);
+    if(invRes.data) sInventory(invRes.data);
+    if(bkRes.data) sBookings(bkRes.data);
+    if(spRes.data) sSponsors(spRes.data);
     // Tasks + messages
     if(mRes.data){
       const tmRes=await supabase.from("task_messages").select("*").order("created_at");
@@ -174,6 +184,9 @@ export default function App(){
     {table:"projects",onChange:()=>fetchAll()},
     {table:"project_tasks",onChange:()=>fetchAll()},
     {table:"task_templates",onChange:()=>fetchAll()},
+    {table:"inventory",onChange:()=>fetchAll()},
+    {table:"bookings",onChange:()=>fetchAll()},
+    {table:"sponsors",onChange:()=>fetchAll()},
     {table:"notifications",onChange:()=>refreshNotifs()},
   ],!!user);
 
@@ -193,7 +206,7 @@ export default function App(){
     if(tok) await notify({token:tok,user_id:userId,title,message,type,link});
   };
 
-  const out=async()=>{await supabase.auth.signOut();sU(null);sVw("dash");sSl(null);sAA(null);sAD(null);sSr("");sPd([]);sUs([]);sOm([]);sHi([]);sAgs([]);sMins([]);sPr([]);sPv([]);sRems([]);sDbNotifs([]);sProjects([]);sProjTasks([]);sTaskTemplates([]);};
+  const out=async()=>{await supabase.auth.signOut();sU(null);sVw("dash");sSl(null);sAA(null);sAD(null);sSr("");sPd([]);sUs([]);sOm([]);sHi([]);sAgs([]);sMins([]);sPr([]);sPv([]);sRems([]);sDbNotifs([]);sProjects([]);sProjTasks([]);sTaskTemplates([]);sInventory([]);sBookings([]);sSponsors([]);};
   const isAd=user&&(user.role==="admin"||user.role==="superadmin");
   const isSA=user&&user.role==="superadmin";
   const isPersonal=user&&(user.role==="enlace"||user.role==="manager"||user.role==="usuario");
@@ -308,6 +321,9 @@ export default function App(){
       {id:"nav-feed",label:"Actividad",icon:"📰",keywords:"feed,timeline",action:()=>sVw("feed")},
       {id:"nav-recur",label:"Recurrentes",icon:"🔁",keywords:"template,automatica,repetir",action:()=>sVw("recurrentes")},
       {id:"nav-plan",label:"Plan 2035",icon:"🎯",keywords:"hitos,roadmap",action:()=>sVw("proy")},
+      {id:"nav-inv",label:"Inventario",icon:"📦",keywords:"equipo,stock,material",action:()=>sVw("inventario")},
+      {id:"nav-res",label:"Reservas",icon:"🏟️",keywords:"cancha,booking,reserva",action:()=>sVw("reservas")},
+      {id:"nav-spon",label:"Sponsors",icon:"🥇",keywords:"sponsor,patrocinador,crm",action:()=>sVw("sponsors")},
     ];
     navItems.forEach(n=>items.push({...n,category:"nav"}));
     items.push({id:"act-new",label:"Nueva tarea",icon:"➕",category:"action",keywords:"crear,add,agregar",action:()=>sVw("new")});
@@ -387,6 +403,24 @@ export default function App(){
             onAdd={async(d:any)=>{try{const{data,error}=await supabase.from("task_templates").insert(d).select().single();if(error)throw new Error(error.message);if(data)sTaskTemplates(prev=>[data,...prev]);showT("Template creado");}catch(e:any){showT(e.message||"Error","err");}}}
             onUpd={async(id:number,d:any)=>{try{sTaskTemplates(prev=>prev.map(t=>t.id===id?{...t,...d}:t));await supabase.from("task_templates").update(d).eq("id",id);showT("Template actualizado");}catch(e:any){showT(e.message||"Error","err");}}}
             onDel={async(id:number)=>{try{sTaskTemplates(prev=>prev.filter(t=>t.id!==id));await supabase.from("task_templates").delete().eq("id",id);showT("Template eliminado");}catch(e:any){showT(e.message||"Error","err");}}}
+          />}
+          {/* Inventario */}
+          {vw==="inventario"&&(isAd||user.role==="coordinador")&&<InventarioView items={inventory} users={users} user={user} mob={mob}
+            onAdd={async(d:any)=>{try{const{data,error}=await supabase.from("inventory").insert(d).select().single();if(error)throw new Error(error.message);if(data)sInventory(prev=>[data,...prev]);showT("Item agregado");}catch(e:any){showT(e.message||"Error","err");}}}
+            onUpd={async(id:number,d:any)=>{try{sInventory(prev=>prev.map(x=>x.id===id?{...x,...d}:x));await supabase.from("inventory").update(d).eq("id",id);showT("Item actualizado");}catch(e:any){showT(e.message||"Error","err");}}}
+            onDel={async(id:number)=>{try{sInventory(prev=>prev.filter(x=>x.id!==id));await supabase.from("inventory").delete().eq("id",id);showT("Item eliminado");}catch(e:any){showT(e.message||"Error","err");}}}
+          />}
+          {/* Reservas */}
+          {vw==="reservas"&&<ReservasView bookings={bookings} users={users} user={user} mob={mob}
+            onAdd={async(d:any)=>{try{const{data,error}=await supabase.from("bookings").insert(d).select().single();if(error)throw new Error(error.message);if(data)sBookings(prev=>[data,...prev]);showT("Reserva creada");}catch(e:any){showT(e.message||"Error","err");}}}
+            onUpd={async(id:number,d:any)=>{try{sBookings(prev=>prev.map(x=>x.id===id?{...x,...d}:x));await supabase.from("bookings").update(d).eq("id",id);showT("Reserva actualizada");}catch(e:any){showT(e.message||"Error","err");}}}
+            onDel={async(id:number)=>{try{sBookings(prev=>prev.filter(x=>x.id!==id));await supabase.from("bookings").delete().eq("id",id);showT("Reserva eliminada");}catch(e:any){showT(e.message||"Error","err");}}}
+          />}
+          {/* Sponsors */}
+          {vw==="sponsors"&&(isAd||user.role==="coordinador"||user.role==="embudo")&&<SponsorsView sponsors={sponsors} user={user} mob={mob}
+            onAdd={async(d:any)=>{try{const row={...d,created_by:user.id,created_by_name:fn(user)};const{data,error}=await supabase.from("sponsors").insert(row).select().single();if(error)throw new Error(error.message);if(data)sSponsors(prev=>[data,...prev]);showT("Sponsor agregado");}catch(e:any){showT(e.message||"Error","err");}}}
+            onUpd={async(id:number,d:any)=>{try{sSponsors(prev=>prev.map(x=>x.id===id?{...x,...d}:x));await supabase.from("sponsors").update(d).eq("id",id);showT("Sponsor actualizado");}catch(e:any){showT(e.message||"Error","err");}}}
+            onDel={async(id:number)=>{try{sSponsors(prev=>prev.filter(x=>x.id!==id));await supabase.from("sponsors").delete().eq("id",id);showT("Sponsor eliminado");}catch(e:any){showT(e.message||"Error","err");}}}
           />}
           {/* Proyectos */}
           {vw==="proyectos"&&<ProyectosView projects={projects} projTasks={projTasks} users={users} user={user} mob={mob}
