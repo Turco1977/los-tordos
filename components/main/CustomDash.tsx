@@ -50,6 +50,7 @@ export function CustomDash({peds,presu,agendas,minutas,users,areas,deptos,user,m
   const{colors,isDark,cardBg}=useC();
   const [layout,sLayout]=useState<Layout>(()=>loadLayout(user?.id||""));
   const [editing,sEditing]=useState(false);
+  const [selDay,sSelDay]=useState<string|null>(null);
   const dragItem=useRef<string|null>(null);
   const dragOver=useRef<string|null>(null);
 
@@ -185,28 +186,54 @@ export function CustomDash({peds,presu,agendas,minutas,users,areas,deptos,user,m
         <Btn v="g" s="s" onClick={onExportMonthly}>Reporte Mensual</Btn>
       </div>);
 
-      case "espacios": return(<Card style={{padding:mob?"10px 12px":"14px 16px"}}>
+      case "espacios": {
+        const dayView=selDay||null;
+        const dayBookings=dayView?(bookings||[]).filter((b:any)=>b.date===dayView&&b.status!=="cancelada").sort((a:any,b:any)=>timeToMin(a.time_start)-timeToMin(b.time_start)):[];
+        return(<Card style={{padding:mob?"10px 12px":"14px 16px"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-          <div onClick={()=>onNav("reservas")} style={{fontSize:13,fontWeight:700,color:colors.nv,cursor:"pointer"}}>🏟️ Espacios - Semana Actual <span style={{fontSize:10,color:colors.bl}}>→</span></div>
+          <div onClick={()=>onNav("reservas")} style={{fontSize:13,fontWeight:700,color:colors.nv,cursor:"pointer"}}>🏟️ Espacios <span style={{fontSize:10,color:colors.bl}}>→</span></div>
+          {dayView&&<button onClick={()=>sSelDay(null)} style={{padding:"3px 10px",borderRadius:6,border:"1px solid "+colors.g3,background:cardBg,fontSize:10,fontWeight:600,color:colors.bl,cursor:"pointer"}}>← Semana</button>}
         </div>
-        <div style={{overflowX:"auto" as const}}>
-          <div style={{minWidth:600}}>
-            {/* Header row */}
-            <div style={{display:"grid",gridTemplateColumns:"90px repeat(7,1fr)",gap:2,marginBottom:2}}>
-              <div style={{padding:"4px 6px",fontSize:9,fontWeight:700,color:colors.g4,background:isDark?"#1E293B":"#F8FAFC",borderRadius:4}}></div>
-              {weekDays.map((d,i)=>{const isToday=d===TODAY;return(
-                <div key={d} style={{padding:"4px 2px",textAlign:"center" as const,fontSize:9,fontWeight:isToday?800:600,color:isToday?colors.bl:colors.nv,background:isToday?(isDark?"#1E3A5F":"#EFF6FF"):(isDark?"#1E293B":"#F8FAFC"),borderRadius:4,border:isToday?"1px solid "+colors.bl:"none"}}>
-                  {DIAS_SEM[i]} {d.slice(8)}/{d.slice(5,7)}
-                </div>);
-              })}
-            </div>
-            {/* Facility rows */}
+        {/* Day selector tabs */}
+        <div style={{display:"flex",gap:3,marginBottom:8,overflowX:"auto" as const}}>
+          {weekDays.map((d,i)=>{const isToday=d===TODAY;const isSel=dayView===d;const dayCount=(bookings||[]).filter((b:any)=>b.date===d&&b.status!=="cancelada").length;return(
+            <button key={d} onClick={()=>sSelDay(isSel?null:d)} style={{padding:"6px 8px",borderRadius:8,border:isSel?"2px solid "+colors.bl:isToday?"2px solid "+colors.bl+"60":"1px solid "+colors.g3,background:isSel?(isDark?"#1E3A5F":"#DBEAFE"):cardBg,cursor:"pointer",textAlign:"center" as const,minWidth:mob?44:54,flexShrink:0}}>
+              <div style={{fontSize:10,fontWeight:isSel||isToday?800:600,color:isSel?colors.bl:isToday?colors.bl:colors.nv}}>{DIAS_SEM[i]}</div>
+              <div style={{fontSize:9,color:isSel?colors.bl:colors.g4}}>{d.slice(8)}/{d.slice(5,7)}</div>
+              {dayCount>0&&<div style={{fontSize:8,fontWeight:700,color:isSel?"#fff":colors.bl,background:isSel?colors.bl:colors.bl+"20",borderRadius:8,padding:"0 4px",marginTop:2}}>{dayCount}</div>}
+            </button>);
+          })}
+        </div>
+
+        {/* Day detail view */}
+        {dayView&&<div>
+          {dayBookings.length===0&&<div style={{fontSize:11,color:colors.g4,padding:12,textAlign:"center" as const}}>Sin reservas para este día</div>}
+          {FKEYS.map(fk=>{const fac=BOOK_FAC[fk];const fb=dayBookings.filter((b:any)=>b.facility===fk);if(fb.length===0)return null;
+            return(<div key={fk} style={{marginBottom:8}}>
+              <div style={{fontSize:10,fontWeight:700,color:fac.c,marginBottom:4,display:"flex",alignItems:"center",gap:4}}>
+                <span style={{fontSize:12}}>{fac.i}</span>{fac.l}
+              </div>
+              {fb.map((b:any)=>{const div=b.division||extractDiv(b.title);const dc=div?DIV_COL[div]:null;const st=BOOK_ST[b.status];return(
+                <div key={b.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 8px",marginBottom:3,borderRadius:8,background:dc?dc+"10":st?.bg||colors.g1,borderLeft:"3px solid "+(dc||st?.c||fac.c)}}>
+                  <div style={{fontSize:11,fontWeight:700,color:dc||st?.c||colors.nv,minWidth:80}}>{b.time_start} - {b.time_end}</div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:11,fontWeight:700,color:colors.nv,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{b.title}</div>
+                    {div&&<span style={{fontSize:9,fontWeight:700,color:dc||colors.g4,padding:"0 5px",borderRadius:6,background:(dc||colors.g4)+"18"}}>{div}</span>}
+                  </div>
+                  <span style={{fontSize:9,padding:"1px 6px",borderRadius:8,background:st?.bg||colors.g1,color:st?.c||colors.g5,fontWeight:600,flexShrink:0}}>{st?.i} {st?.l}</span>
+                </div>);})}
+            </div>);
+          })}
+        </div>}
+
+        {/* Week grid (when no day selected) */}
+        {!dayView&&<div style={{overflowX:"auto" as const}}>
+          <div style={{minWidth:mob?500:undefined}}>
             {FKEYS.map(fk=>{const fac=BOOK_FAC[fk];
-              // Check if this facility has any bookings this week
               const hasAny=weekDays.some(d=>cellBookings(fk,d).length>0);
               if(!hasAny)return null;
               return(
-              <div key={fk} style={{display:"grid",gridTemplateColumns:"90px repeat(7,1fr)",gap:2,marginBottom:2}}>
+              <div key={fk} style={{display:"grid",gridTemplateColumns:"80px repeat(7,1fr)",gap:2,marginBottom:2}}>
                 <div style={{padding:"3px 4px",fontSize:8,fontWeight:700,color:fac.c,background:fac.c+"10",borderRadius:4,display:"flex",alignItems:"center",gap:2,borderLeft:"2px solid "+fac.c,lineHeight:1.1}}>
                   <span style={{fontSize:10}}>{fac.i}</span><span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{fac.l}</span>
                 </div>
@@ -220,7 +247,7 @@ export function CustomDash({peds,presu,agendas,minutas,users,areas,deptos,user,m
                     if(last&&last[0].time_start===b.time_start) last.push(b);
                     else groups.push([b]);
                   });
-                  return(<div key={d} style={{padding:2,background:isToday?(isDark?"#1E3A5F10":"#EFF6FF50"):cardBg,border:"1px solid "+colors.g2,borderRadius:4,minHeight:28,display:"flex",flexDirection:"column" as const,gap:1,justifyContent:"flex-start"}}>
+                  return(<div key={d} onClick={()=>sSelDay(d)} style={{padding:2,background:isToday?(isDark?"#1E3A5F10":"#EFF6FF50"):cardBg,border:"1px solid "+colors.g2,borderRadius:4,minHeight:28,display:"flex",flexDirection:"column" as const,gap:1,justifyContent:"flex-start",cursor:"pointer"}}>
                     {cb.length===0&&<div style={{fontSize:8,color:colors.g3,textAlign:"center" as const,paddingTop:4}}>—</div>}
                     {groups.map((grp,gi)=>(
                       <div key={gi} style={{display:"flex",gap:1}}>
@@ -234,8 +261,8 @@ export function CustomDash({peds,presu,agendas,minutas,users,areas,deptos,user,m
                 })}
               </div>);})}
           </div>
-        </div>
-      </Card>);
+        </div>}
+      </Card>);}
 
       default: return null;
     }
