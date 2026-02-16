@@ -210,6 +210,7 @@ CREATE POLICY inventory_all ON inventory FOR ALL USING (true) WITH CHECK (true);
   booked_by_name TEXT DEFAULT '',
   status TEXT DEFAULT 'pendiente',
   notes TEXT DEFAULT '',
+  series_id TEXT DEFAULT '',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 ALTER TABLE bookings ENABLE ROW LEVEL SECURITY;

@@ -10,12 +10,17 @@ const TODAY=new Date().toISOString().slice(0,10);
 const FKEYS=Object.keys(BOOK_FAC);
 const SKEYS=Object.keys(BOOK_ST);
 const DIAS_SEM=["Lu","Ma","Mi","Ju","Vi","Sa","Do"];
-const REC_OPTS:{k:string;l:string;i:string;count:number}[]=[
-  {k:"none",l:"Sin repetición",i:"1️⃣",count:1},
-  {k:"semanal",l:"Semanal",i:"📅",count:12},
-  {k:"mensual",l:"Mensual",i:"🗓️",count:6},
-  {k:"anual",l:"Anual",i:"📆",count:3}
+const REC_OPTS:{k:string;l:string;i:string}[]=[
+  {k:"none",l:"Sin repetición",i:"1️⃣"},
+  {k:"semanal",l:"Semanal (por día)",i:"📅"},
+  {k:"mensual",l:"Mensual (6 meses)",i:"🗓️"},
+  {k:"anual",l:"Anual (3 años)",i:"📆"}
 ];
+const DIAS_SEMANA=[
+  {k:1,l:"Lunes",s:"Lu"},{k:2,l:"Martes",s:"Ma"},{k:3,l:"Miércoles",s:"Mi"},
+  {k:4,l:"Jueves",s:"Ju"},{k:5,l:"Viernes",s:"Vi"},{k:6,l:"Sábado",s:"Sa"},{k:0,l:"Domingo",s:"Do"}
+];
+const WEEKS_AHEAD=12;
 
 const getMonday=(dt:Date)=>{const d=new Date(dt);const day=d.getDay();const diff=d.getDate()-day+(day===0?-6:1);d.setDate(diff);return d;};
 const addDays=(dt:Date,n:number)=>{const d=new Date(dt);d.setDate(d.getDate()+n);return d;};
@@ -23,17 +28,33 @@ const dateISO=(dt:Date)=>dt.toISOString().slice(0,10);
 const timeToMin=(t:string)=>{const [h,m]=t.split(":").map(Number);return h*60+(m||0);};
 const overlap=(a0:string,a1:string,b0:string,b1:string)=>timeToMin(a0)<timeToMin(b1)&&timeToMin(b0)<timeToMin(a1);
 
-const generateDates=(startDate:string,rec:string)=>{
+const generateDates=(startDate:string,rec:string,recDays?:number[])=>{
   if(rec==="none") return [startDate];
+  const start=new Date(startDate);
+  if(rec==="semanal"&&recDays&&recDays.length>0){
+    // Generate dates for selected weekdays over WEEKS_AHEAD weeks
+    const dates:string[]=[];
+    for(let w=0;w<WEEKS_AHEAD;w++){
+      for(const dayNum of recDays){
+        const d=new Date(start);
+        d.setDate(d.getDate()+w*7);
+        // Align to the correct day of week
+        const curr=d.getDay();
+        const diff=dayNum-curr;
+        d.setDate(d.getDate()+diff);
+        if(d>=start) dates.push(dateISO(d));
+      }
+    }
+    // Deduplicate and sort
+    return [...new Set(dates)].sort();
+  }
   const dates=[startDate];
-  const d=new Date(startDate);
-  const count=REC_OPTS.find(r=>r.k===rec)?.count||1;
-  for(let i=1;i<count;i++){
-    const nd=new Date(d);
+  for(let i=1;i<(rec==="mensual"?6:3);i++){
+    const nd=new Date(start);
     if(rec==="semanal") nd.setDate(nd.getDate()+7*i);
     else if(rec==="mensual") nd.setMonth(nd.getMonth()+i);
     else if(rec==="anual") nd.setFullYear(nd.getFullYear()+i);
-    dates.push(nd.toISOString().slice(0,10));
+    dates.push(dateISO(nd));
   }
   return dates;
 };
@@ -44,13 +65,14 @@ const DIV_COL:Record<string,string>={};
 ["M13","M14"].forEach(d=>{DIV_COL[d]="#3B82F6";});
 ["M15","M16","M17","M18","M19"].forEach(d=>{DIV_COL[d]="#F59E0B";});
 ["Plantel Superior","Intermedia","Primera"].forEach(d=>{DIV_COL[d]="#DC2626";});
-const DIV_KEYS=Object.keys(DIV_COL).sort((a,b)=>b.length-a.length);// longest first for matching
+const DIV_KEYS=Object.keys(DIV_COL).sort((a,b)=>b.length-a.length);
 const extractDiv=(title:string)=>{if(!title)return null;const t=title.trim();for(const d of DIV_KEYS){if(t.includes(d))return d;}const m=t.match(/M\d+/i);if(m)return m[0].toUpperCase();return null;};
 
 const DIV_LIST=["","Escuelita","M5","M6","M7","M8","M9","M10","M11","M12","M13","M14","M15","M16","M17","M18","M19","Intermedia","Plantel Superior","Primera","Hockey"];
-const emptyForm=()=>({facility:"cancha1",date:TODAY,time_start:"09:00",time_end:"10:00",title:"",division:"",description:"",notes:"",status:"pendiente",recurrence:"none"});
+const emptyForm=()=>({facility:"cancha1",date:TODAY,time_start:"09:00",time_end:"10:00",title:"",division:"",description:"",notes:"",status:"pendiente",recurrence:"none",recDays:[] as number[]});
+const genSeriesId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 
-export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel}:any){
+export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel,onDelMulti,onUpdMulti}:any){
   const {colors,isDark,cardBg}=useC();
 
   /* tabs */
@@ -70,6 +92,26 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel}:any){
   const [editForm,sEditForm]=useState<any>(null);
   /* sort */
   const [sortAsc,sSortAsc]=useState(true);
+  /* series action modals */
+  const [delModal,sDelModal]=useState<any>(null);
+  const [saveModal,sSaveModal]=useState(false);
+  /* multi-select for bulk delete */
+  const [selMode,sSelMode]=useState(false);
+  const [selIds,sSelIds]=useState<Set<string>>(new Set());
+
+  /* ── find series siblings ── */
+  const getSiblings=(b:any)=>{
+    if(!b) return [];
+    const all=bookings||[];
+    // By series_id first
+    if(b.series_id) return all.filter((x:any)=>x.series_id===b.series_id&&x.id!==b.id);
+    // Fallback: same facility+title+time
+    return all.filter((x:any)=>x.id!==b.id&&x.facility===b.facility&&x.title===b.title&&x.time_start===b.time_start&&x.time_end===b.time_end);
+  };
+  const getEditingBooking=()=>{
+    if(!editId) return null;
+    return (bookings||[]).find((b:any)=>String(b.id)===editId)||null;
+  };
 
   /* ── week days ── */
   const weekDays=useMemo(()=>{const d:string[]=[];for(let i=0;i<7;i++) d.push(dateISO(addDays(weekStart,i)));return d;},[weekStart]);
@@ -108,8 +150,66 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel}:any){
   };
   const startEdit=(b:any)=>{sShowAdd(false);sEditId(String(b.id));sEditForm({facility:b.facility,date:b.date,time_start:b.time_start,time_end:b.time_end,title:b.title,division:b.division||"",description:b.description||"",notes:b.notes||"",status:b.status});};
   const cancelEdit=()=>{sEditId(null);sEditForm(null);};
-  const saveEdit=()=>{if(!editId||!editForm)return;onUpd(editId,editForm);cancelEdit();};
   const userName=(uid:string)=>{const u=(users||[]).find((u2:any)=>u2.id===uid);return u?fn(u):"";};
+
+  /* ── DELETE handlers ── */
+  const promptDelete=(b:any)=>{
+    const sibs=getSiblings(b);
+    if(sibs.length>0){
+      sDelModal(b);// show modal with options
+    } else {
+      // single event, just delete
+      if(confirm("Eliminar este espacio?")){ onDel(String(b.id)); if(editId===String(b.id)) cancelEdit(); }
+    }
+  };
+  const doDelete=(scope:"one"|"all")=>{
+    if(!delModal) return;
+    const b=delModal;
+    if(scope==="one"){
+      onDel(String(b.id));
+    } else {
+      // delete entire series
+      const sibs=getSiblings(b);
+      const ids=[String(b.id),...sibs.map((s:any)=>String(s.id))];
+      if(onDelMulti){ onDelMulti(ids); }
+      else { ids.forEach(id=>onDel(id)); }
+    }
+    if(editId===String(b.id)) cancelEdit();
+    sDelModal(null);
+  };
+
+  /* ── SAVE handlers ── */
+  const doSave=(scope:"one"|"future")=>{
+    if(!editId||!editForm) return;
+    const cur=getEditingBooking();
+    if(scope==="one"){
+      onUpd(editId,editForm);
+    } else {
+      // update this + future siblings
+      const sibs=getSiblings(cur);
+      const futureIds=sibs.filter((s:any)=>s.date>=cur.date).map((s:any)=>String(s.id));
+      const allIds=[editId,...futureIds];
+      // Fields to propagate (not date — each keeps its own date)
+      const shared:{[k:string]:any}={};
+      for(const k of ["facility","time_start","time_end","title","division","description","notes","status"]){
+        shared[k]=editForm[k];
+      }
+      if(onUpdMulti){ onUpdMulti(allIds,shared); }
+      else { allIds.forEach(id=>onUpd(id,id===editId?editForm:shared)); }
+    }
+    cancelEdit();
+    sSaveModal(false);
+  };
+  const handleSaveClick=()=>{
+    if(!editId||!editForm) return;
+    const cur=getEditingBooking();
+    const sibs=getSiblings(cur);
+    if(sibs.length>0){
+      sSaveModal(true);// show modal
+    } else {
+      doSave("one");
+    }
+  };
 
   const [saving,sSaving]=useState(false);
   const handleSave=async()=>{
@@ -117,8 +217,9 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel}:any){
     sSaving(true);
     try{
       const title=form.title||BOOK_FAC[form.facility]?.l||"Reserva";
-      const dates=generateDates(form.date,form.recurrence||"none");
-      const items=dates.map((d:string)=>({facility:form.facility,date:d,time_start:form.time_start,time_end:form.time_end,title,division:form.division||"",description:form.description,notes:form.notes,status:form.status,booked_by:user.id,booked_by_name:fn(user)}));
+      const dates=generateDates(form.date,form.recurrence||"none",form.recDays);
+      const sid=dates.length>1?genSeriesId():"";
+      const items=dates.map((d:string)=>({facility:form.facility,date:d,time_start:form.time_start,time_end:form.time_end,title,division:form.division||"",description:form.description,notes:form.notes,status:form.status,series_id:sid,booked_by:user.id,booked_by_name:fn(user)}));
       await onAdd(items.length===1?items[0]:items);
       resetForm();
     }catch(e){/* error handled by parent */}
@@ -135,10 +236,60 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel}:any){
   const iSt:any={padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,width:"100%",marginTop:2,background:cardBg,color:isDark?"#E2E8F0":undefined};
   const lblSt:any={fontSize:10,fontWeight:600,color:colors.g5};
 
+  /* ── Modal overlay style ── */
+  const modalOvr:any={position:"fixed" as const,top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.5)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:20};
+  const modalBox:any={background:cardBg,borderRadius:14,padding:24,maxWidth:400,width:"100%",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"};
+
   /* ═══════ RENDER ═══════ */
   return(<div style={{maxWidth:mob?undefined:1000}}>
     <h2 style={{margin:"0 0 4px",fontSize:mob?16:19,color:colors.nv,fontWeight:800}}>🏟️ Espacios</h2>
     <p style={{color:colors.g4,fontSize:12,margin:"0 0 14px"}}>Gestión de canchas, espacios e instalaciones del club</p>
+
+    {/* ══ DELETE MODAL ══ */}
+    {delModal&&<div style={modalOvr} onClick={()=>sDelModal(null)}>
+      <div style={modalBox} onClick={e=>e.stopPropagation()}>
+        <div style={{fontSize:14,fontWeight:800,color:colors.nv,marginBottom:4}}>Eliminar espacio</div>
+        <div style={{fontSize:12,color:colors.g5,marginBottom:16}}>
+          Este evento es parte de una serie ({getSiblings(delModal).length+1} eventos).
+        </div>
+        <div style={{display:"flex",flexDirection:"column" as const,gap:8}}>
+          <button onClick={()=>doDelete("one")} style={{padding:"10px 16px",borderRadius:8,border:"1px solid #DC2626",background:isDark?"#7F1D1D":"#FEF2F2",color:"#DC2626",fontSize:12,fontWeight:700,cursor:"pointer",textAlign:"left" as const}}>
+            🗑️ Solo este evento
+            <div style={{fontSize:10,fontWeight:400,color:colors.g4,marginTop:2}}>Eliminar únicamente la reserva del {fmtD(delModal.date)}</div>
+          </button>
+          <button onClick={()=>doDelete("all")} style={{padding:"10px 16px",borderRadius:8,border:"1px solid #DC2626",background:"#DC2626",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer",textAlign:"left" as const}}>
+            🗑️ Toda la serie
+            <div style={{fontSize:10,fontWeight:400,color:"#fecaca",marginTop:2}}>Eliminar los {getSiblings(delModal).length+1} eventos de esta serie</div>
+          </button>
+          <button onClick={()=>sDelModal(null)} style={{padding:"8px 16px",borderRadius:8,border:"1px solid "+colors.g3,background:cardBg,color:colors.g5,fontSize:12,fontWeight:600,cursor:"pointer"}}>
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>}
+
+    {/* ══ SAVE SCOPE MODAL ══ */}
+    {saveModal&&<div style={modalOvr} onClick={()=>sSaveModal(false)}>
+      <div style={modalBox} onClick={e=>e.stopPropagation()}>
+        <div style={{fontSize:14,fontWeight:800,color:colors.nv,marginBottom:4}}>Guardar cambios</div>
+        <div style={{fontSize:12,color:colors.g5,marginBottom:16}}>
+          Este evento es parte de una serie. ¿Aplicar cambios a...?
+        </div>
+        <div style={{display:"flex",flexDirection:"column" as const,gap:8}}>
+          <button onClick={()=>doSave("one")} style={{padding:"10px 16px",borderRadius:8,border:"1px solid "+colors.bl,background:isDark?"#1E3A5F":"#EFF6FF",color:colors.bl,fontSize:12,fontWeight:700,cursor:"pointer",textAlign:"left" as const}}>
+            📌 Solo este evento
+            <div style={{fontSize:10,fontWeight:400,color:colors.g4,marginTop:2}}>Cambiar únicamente la reserva del {editForm?fmtD(editForm.date):""}</div>
+          </button>
+          <button onClick={()=>doSave("future")} style={{padding:"10px 16px",borderRadius:8,border:"1px solid "+colors.bl,background:colors.bl,color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer",textAlign:"left" as const}}>
+            📅 Este y eventos futuros
+            <div style={{fontSize:10,fontWeight:400,color:"#bfdbfe",marginTop:2}}>Aplicar cambios a este evento y todos los siguientes de la serie</div>
+          </button>
+          <button onClick={()=>sSaveModal(false)} style={{padding:"8px 16px",borderRadius:8,border:"1px solid "+colors.g3,background:cardBg,color:colors.g5,fontSize:12,fontWeight:600,cursor:"pointer"}}>
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>}
 
     {/* ── KPI CARDS ── */}
     <div style={{display:"grid",gridTemplateColumns:mob?"repeat(2,1fr)":"repeat(4,1fr)",gap:10,marginBottom:18}}>
@@ -226,19 +377,29 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel}:any){
       {/* ── Recurrence ── */}
       <div style={{marginBottom:8}}>
         <label style={lblSt}>Repetir</label>
-        <div style={{display:"flex",gap:4,marginTop:4}}>
-          {REC_OPTS.map(r=><button key={r.k} onClick={()=>sForm((p:any)=>({...p,recurrence:r.k}))} style={{padding:"5px 12px",borderRadius:14,border:(form.recurrence||"none")===r.k?"2px solid "+colors.bl:"1px solid "+colors.g3,background:(form.recurrence||"none")===r.k?(isDark?"#1E3A5F":"#EFF6FF"):cardBg,color:(form.recurrence||"none")===r.k?colors.bl:colors.g5,fontSize:10,fontWeight:600,cursor:"pointer"}}>{r.i} {r.l}</button>)}
+        <div style={{display:"flex",gap:4,marginTop:4,flexWrap:"wrap" as const}}>
+          {REC_OPTS.map(r=><button key={r.k} onClick={()=>sForm((p:any)=>({...p,recurrence:r.k,recDays:r.k==="semanal"?p.recDays||[]:[]}))} style={{padding:"5px 12px",borderRadius:14,border:(form.recurrence||"none")===r.k?"2px solid "+colors.bl:"1px solid "+colors.g3,background:(form.recurrence||"none")===r.k?(isDark?"#1E3A5F":"#EFF6FF"):cardBg,color:(form.recurrence||"none")===r.k?colors.bl:colors.g5,fontSize:10,fontWeight:600,cursor:"pointer"}}>{r.i} {r.l}</button>)}
         </div>
-        {form.recurrence&&form.recurrence!=="none"&&<div style={{fontSize:10,color:colors.g4,marginTop:4,fontStyle:"italic" as const}}>
-          Se crearán {REC_OPTS.find(r=>r.k===form.recurrence)?.count||1} reservas ({form.recurrence==="semanal"?"12 semanas":form.recurrence==="mensual"?"6 meses":"3 años"})
+        {form.recurrence==="semanal"&&<div style={{marginTop:6}}>
+          <label style={{...lblSt,marginBottom:4,display:"block"}}>Días de la semana</label>
+          <div style={{display:"flex",gap:4}}>
+            {DIAS_SEMANA.map(d=>{const sel=(form.recDays||[]).includes(d.k);return(
+              <button key={d.k} onClick={()=>sForm((p:any)=>{const cur=p.recDays||[];return{...p,recDays:sel?cur.filter((x:number)=>x!==d.k):[...cur,d.k]};})} style={{padding:"6px 10px",borderRadius:8,border:sel?"2px solid "+colors.bl:"1px solid "+colors.g3,background:sel?(isDark?"#1E3A5F":"#DBEAFE"):cardBg,color:sel?colors.bl:colors.g5,fontSize:11,fontWeight:sel?700:500,cursor:"pointer",minWidth:36}}>{d.s}</button>
+            );})}
+          </div>
+          {(form.recDays||[]).length>0&&<div style={{fontSize:10,color:colors.g4,marginTop:4,fontStyle:"italic" as const}}>
+            Se crearán {generateDates(form.date,"semanal",form.recDays).length} reservas en las próximas {WEEKS_AHEAD} semanas
+          </div>}
         </div>}
+        {form.recurrence==="mensual"&&<div style={{fontSize:10,color:colors.g4,marginTop:4,fontStyle:"italic" as const}}>Se crearán 6 reservas (una por mes)</div>}
+        {form.recurrence==="anual"&&<div style={{fontSize:10,color:colors.g4,marginTop:4,fontStyle:"italic" as const}}>Se crearán 3 reservas (una por año)</div>}
       </div>
       <div style={{marginBottom:8}}><label style={lblSt}>Descripción</label><textarea value={form.description} onChange={e=>sForm((p:any)=>({...p,description:e.target.value}))} rows={2} style={{...iSt,resize:"vertical" as const}} placeholder="Detalles de la reserva..."/></div>
       <div style={{marginBottom:8}}><label style={lblSt}>Notas</label><input value={form.notes} onChange={e=>sForm((p:any)=>({...p,notes:e.target.value}))} style={iSt} placeholder="Notas internas..."/></div>
       {formConflict&&<div style={{padding:"8px 12px",borderRadius:8,background:isDark?"#7F1D1D":"#FEF2F2",border:"1px solid #FECACA",fontSize:11,fontWeight:600,color:"#DC2626",marginBottom:8}}>⚠️ Conflicto: ya existe una reserva en {BOOK_FAC[form.facility]?.l} el {fmtD(form.date)} que se superpone con el horario seleccionado.</div>}
       <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}>
         <Btn v="g" s="s" onClick={resetForm}>Cancelar</Btn>
-        <Btn v="s" s="s" disabled={saving} onClick={handleSave}>{saving?"⏳ Guardando...":"✅ Reservar Espacio"}{!saving&&form.recurrence&&form.recurrence!=="none"?` (${REC_OPTS.find(r=>r.k===form.recurrence)?.count||1})`:""}</Btn>
+        <Btn v="s" s="s" disabled={saving||(form.recurrence==="semanal"&&(form.recDays||[]).length===0)} onClick={handleSave}>{saving?"⏳ Guardando...":"✅ Reservar Espacio"}{!saving&&form.recurrence&&form.recurrence!=="none"?` (${generateDates(form.date,form.recurrence,form.recDays).length})`:""}</Btn>
       </div>
     </Card>}
 
@@ -265,7 +426,7 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel}:any){
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
           <div style={{fontSize:12,fontWeight:700,color:colors.nv}}>Editar Espacio #{editId}</div>
           <div style={{display:"flex",gap:4,alignItems:"center"}}>
-            {onDel&&<button onClick={()=>{if(confirm("Eliminar este espacio?"))onDel(editId);cancelEdit();}} style={{background:"none",border:"1px solid #DC2626",borderRadius:6,padding:"3px 8px",fontSize:10,color:"#DC2626",cursor:"pointer",fontWeight:600}}>Eliminar</button>}
+            {onDel&&<button onClick={()=>{const b=getEditingBooking();if(b)promptDelete(b);}} style={{background:"none",border:"1px solid #DC2626",borderRadius:6,padding:"3px 8px",fontSize:10,color:"#DC2626",cursor:"pointer",fontWeight:600}}>Eliminar</button>}
             <button onClick={cancelEdit} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:colors.g4}}>✕</button>
           </div>
         </div>
@@ -297,7 +458,7 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel}:any){
         {editConflict&&<div style={{padding:"8px 12px",borderRadius:8,background:isDark?"#7F1D1D":"#FEF2F2",border:"1px solid #FECACA",fontSize:11,fontWeight:600,color:"#DC2626",marginBottom:8}}>⚠️ Conflicto: se superpone con otra reserva en {BOOK_FAC[editForm.facility]?.l} el {fmtD(editForm.date)}.</div>}
         <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}>
           <Btn v="g" s="s" onClick={cancelEdit}>Cancelar</Btn>
-          <Btn v="p" s="s" onClick={saveEdit}>Guardar cambios</Btn>
+          <Btn v="p" s="s" onClick={handleSaveClick}>Guardar cambios</Btn>
         </div>
       </Card>}
 
@@ -346,13 +507,19 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel}:any){
         </div>
       </Card>
 
-      {/* old edit form removed — now rendered above calendar */}
-
       {/* ═══════ BOOKING LIST ═══════ */}
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8,gap:6}}>
         <div style={{fontSize:13,fontWeight:700,color:colors.nv}}>Listado de Espacios ({filtered.length})</div>
-        <button onClick={()=>sSortAsc(!sortAsc)} style={{padding:"4px 10px",borderRadius:8,border:"1px solid "+colors.g3,background:cardBg,fontSize:10,fontWeight:600,color:colors.g5,cursor:"pointer"}}>{sortAsc?"▲ Fecha asc":"▼ Fecha desc"}</button>
+        <div style={{display:"flex",gap:4,alignItems:"center"}}>
+          {selMode&&selIds.size>0&&<button onClick={()=>{if(confirm(`Eliminar ${selIds.size} espacio(s)?`)){const ids=[...selIds];if(onDelMulti){onDelMulti(ids);}else{ids.forEach(id=>onDel(id));}sSelIds(new Set());sSelMode(false);}}} style={{padding:"4px 10px",borderRadius:8,border:"1px solid #DC2626",background:"#DC2626",fontSize:10,fontWeight:700,color:"#fff",cursor:"pointer"}}>🗑️ Eliminar ({selIds.size})</button>}
+          <button onClick={()=>{if(selMode){sSelMode(false);sSelIds(new Set());}else{sSelMode(true);}}} style={{padding:"4px 10px",borderRadius:8,border:"1px solid "+(selMode?"#DC2626":colors.g3),background:selMode?(isDark?"#7F1D1D":"#FEF2F2"):cardBg,fontSize:10,fontWeight:600,color:selMode?"#DC2626":colors.g5,cursor:"pointer"}}>{selMode?"✕ Cancelar":"☑️ Seleccionar"}</button>
+          <button onClick={()=>sSortAsc(!sortAsc)} style={{padding:"4px 10px",borderRadius:8,border:"1px solid "+colors.g3,background:cardBg,fontSize:10,fontWeight:600,color:colors.g5,cursor:"pointer"}}>{sortAsc?"▲ Asc":"▼ Desc"}</button>
+        </div>
       </div>
+      {selMode&&<div style={{display:"flex",gap:6,marginBottom:8,alignItems:"center"}}>
+        <button onClick={()=>{if(selIds.size===sortedFiltered.length){sSelIds(new Set());}else{sSelIds(new Set(sortedFiltered.map((b:any)=>String(b.id))));}}} style={{padding:"3px 10px",borderRadius:6,border:"1px solid "+colors.bl,background:cardBg,fontSize:10,fontWeight:600,color:colors.bl,cursor:"pointer"}}>{selIds.size===sortedFiltered.length?"Deseleccionar todo":"Seleccionar todo"}</button>
+        <span style={{fontSize:10,color:colors.g4}}>{selIds.size} seleccionado(s)</span>
+      </div>}
 
       {/* status summary pills */}
       <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap" as const}}>
@@ -370,10 +537,12 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel}:any){
         const fac=BOOK_FAC[b.facility]||{l:"?",i:"?",c:colors.g4};
         const st=BOOK_ST[b.status]||BOOK_ST.pendiente;
         const isEditing=editId===String(b.id);
-        return(<Card key={b.id} style={{padding:"10px 14px",marginBottom:6,cursor:"pointer",borderLeft:"3px solid "+fac.c,opacity:b.status==="cancelada"?.6:1,background:isEditing?(isDark?"#1E293B":"#F0F9FF"):cardBg}} onClick={()=>{if(!isEditing)startEdit(b);}}>
+        const isSel=selIds.has(String(b.id));
+        return(<Card key={b.id} style={{padding:"10px 14px",marginBottom:6,cursor:"pointer",borderLeft:"3px solid "+(selMode&&isSel?"#DC2626":fac.c),opacity:b.status==="cancelada"?.6:1,background:isEditing?(isDark?"#1E293B":"#F0F9FF"):isSel?(isDark?"#7F1D1D":"#FEF2F2"):cardBg}} onClick={()=>{if(selMode){sSelIds(prev=>{const n=new Set(prev);const id=String(b.id);if(n.has(id))n.delete(id);else n.add(id);return n;});}else if(!isEditing)startEdit(b);}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"start"}}>
             <div style={{flex:1,minWidth:0}}>
               <div style={{display:"flex",alignItems:"center",gap:6}}>
+                {selMode&&<input type="checkbox" checked={isSel} readOnly style={{width:16,height:16,cursor:"pointer",accentColor:"#DC2626"}}/>}
                 <span style={{fontSize:13}}>{fac.i}</span>
                 <span style={{fontSize:12,fontWeight:700,color:colors.nv,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{b.title}</span>
               </div>
@@ -385,7 +554,7 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel}:any){
               {(b.booked_by||b.booked_by_name)&&<span style={{fontSize:9,color:colors.g4}}>por {b.booked_by_name||userName(b.booked_by)}</span>}
               <div style={{display:"flex",gap:4,marginTop:2}}>
                 <button onClick={e=>{e.stopPropagation();startEdit(b);}} style={{padding:"3px 8px",borderRadius:6,border:"1px solid "+colors.bl,background:"none",fontSize:9,fontWeight:700,color:colors.bl,cursor:"pointer"}}>✏️ Editar</button>
-                {onDel&&<button onClick={e=>{e.stopPropagation();if(confirm("Eliminar este espacio?"))onDel(String(b.id));}} style={{padding:"3px 8px",borderRadius:6,border:"1px solid #DC2626",background:"none",fontSize:9,fontWeight:700,color:"#DC2626",cursor:"pointer"}}>🗑️</button>}
+                {onDel&&<button onClick={e=>{e.stopPropagation();promptDelete(b);}} style={{padding:"3px 8px",borderRadius:6,border:"1px solid #DC2626",background:"none",fontSize:9,fontWeight:700,color:"#DC2626",cursor:"pointer"}}>🗑️</button>}
               </div>
             </div>
           </div>
@@ -399,7 +568,7 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel}:any){
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
         <div style={{fontSize:12,fontWeight:700,color:colors.nv}}>Editar Espacio #{editId}</div>
         <div style={{display:"flex",gap:4,alignItems:"center"}}>
-          {onDel&&<button onClick={()=>{if(confirm("Eliminar?"))onDel(editId);cancelEdit();}} style={{background:"none",border:"1px solid #DC2626",borderRadius:6,padding:"3px 8px",fontSize:10,color:"#DC2626",cursor:"pointer",fontWeight:600}}>Eliminar</button>}
+          {onDel&&<button onClick={()=>{const b=getEditingBooking();if(b)promptDelete(b);}} style={{background:"none",border:"1px solid #DC2626",borderRadius:6,padding:"3px 8px",fontSize:10,color:"#DC2626",cursor:"pointer",fontWeight:600}}>Eliminar</button>}
           <button onClick={cancelEdit} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:colors.g4}}>✕</button>
         </div>
       </div>
@@ -420,7 +589,7 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel}:any){
       </div>
       <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}>
         <Btn v="g" s="s" onClick={cancelEdit}>Cancelar</Btn>
-        <Btn v="p" s="s" onClick={saveEdit}>Guardar</Btn>
+        <Btn v="p" s="s" onClick={handleSaveClick}>Guardar</Btn>
       </div>
     </Card>}
   </div>);
