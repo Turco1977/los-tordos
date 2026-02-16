@@ -38,7 +38,8 @@ const DEFAULT_ORDER=["kpis","deadlines","activity","workload","weekly","areas","
 type Layout={order:string[];hidden:string[]};
 
 function loadLayout(userId:string):Layout{
-  try{const raw=localStorage.getItem("dash-layout-"+userId);if(raw){const l=JSON.parse(raw);return{order:l.order||DEFAULT_ORDER,hidden:l.hidden||[]};}}catch{}
+  try{const raw=localStorage.getItem("dash-layout-"+userId);if(raw){const l=JSON.parse(raw);const saved=l.order||DEFAULT_ORDER;// append any new widgets not in saved order
+  const missing=DEFAULT_ORDER.filter(id=>!saved.includes(id));return{order:[...saved,...missing],hidden:l.hidden||[]};}}catch{}
   return{order:[...DEFAULT_ORDER],hidden:[]};
 }
 function saveLayout(userId:string,layout:Layout){
