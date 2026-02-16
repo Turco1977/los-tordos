@@ -343,7 +343,7 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel,onDelMul
     {showAdd&&onAdd&&<Card style={{marginBottom:14,background:isDark?"#0D2818":"#F0FDF4",border:"1px solid #BBF7D0"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
         <div style={{fontSize:12,fontWeight:700,color:isDark?"#4ADE80":"#166534"}}>🏟️ Reservar Espacio</div>
-        <button onClick={resetForm} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:colors.g4}}>✕</button>
+        <button onClick={resetForm} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:colors.g4}} title="Cerrar formulario">✕</button>
       </div>
       <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8,marginBottom:8}}>
         <div><label style={lblSt}>Instalación *</label>
@@ -428,7 +428,7 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel,onDelMul
           <div style={{fontSize:12,fontWeight:700,color:colors.nv}}>Editar Espacio #{editId}</div>
           <div style={{display:"flex",gap:4,alignItems:"center"}}>
             {onDel&&<button onClick={()=>{const b=getEditingBooking();if(b)promptDelete(b);}} style={{background:"none",border:"1px solid #DC2626",borderRadius:6,padding:"3px 8px",fontSize:10,color:"#DC2626",cursor:"pointer",fontWeight:600}}>Eliminar</button>}
-            <button onClick={cancelEdit} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:colors.g4}}>✕</button>
+            <button onClick={cancelEdit} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:colors.g4}} title="Cancelar edición">✕</button>
           </div>
         </div>
         <div style={{display:"flex",gap:4,marginBottom:10,flexWrap:"wrap" as const}}>
@@ -466,12 +466,12 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel,onDelMul
       {/* ── WEEK VIEW ── */}
       <Card style={{padding:mob?10:14,marginBottom:18,overflow:"auto"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-          <button onClick={()=>sWeekStart(addDays(weekStart,-7))} style={{background:"none",border:"1px solid "+colors.g3,borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:14,color:colors.nv}}>◀</button>
+          <button onClick={()=>sWeekStart(addDays(weekStart,-7))} style={{background:"none",border:"1px solid "+colors.g3,borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:14,color:colors.nv}} title="Semana anterior">◀</button>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
             <div style={{fontSize:mob?12:14,fontWeight:800,color:colors.nv}}>Semana del {fmtD(weekDays[0])} al {fmtD(weekDays[6])}</div>
             <button onClick={()=>sWeekStart(getMonday(new Date()))} style={{padding:"3px 8px",borderRadius:6,border:"1px solid "+colors.g3,background:cardBg,fontSize:10,fontWeight:600,color:colors.bl,cursor:"pointer"}}>Hoy</button>
           </div>
-          <button onClick={()=>sWeekStart(addDays(weekStart,7))} style={{background:"none",border:"1px solid "+colors.g3,borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:14,color:colors.nv}}>▶</button>
+          <button onClick={()=>sWeekStart(addDays(weekStart,7))} style={{background:"none",border:"1px solid "+colors.g3,borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:14,color:colors.nv}} title="Semana siguiente">▶</button>
         </div>
 
         {/* week grid: facilities as rows, days as columns */}
@@ -581,7 +581,7 @@ export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel,onDelMul
         <div style={{fontSize:12,fontWeight:700,color:colors.nv}}>Editar Espacio #{editId}</div>
         <div style={{display:"flex",gap:4,alignItems:"center"}}>
           {onDel&&<button onClick={()=>{const b=getEditingBooking();if(b)promptDelete(b);}} style={{background:"none",border:"1px solid #DC2626",borderRadius:6,padding:"3px 8px",fontSize:10,color:"#DC2626",cursor:"pointer",fontWeight:600}}>Eliminar</button>}
-          <button onClick={cancelEdit} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:colors.g4}}>✕</button>
+          <button onClick={cancelEdit} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:colors.g4}} title="Cancelar edición">✕</button>
         </div>
       </div>
       <div style={{display:"flex",gap:4,marginBottom:10,flexWrap:"wrap" as const}}>

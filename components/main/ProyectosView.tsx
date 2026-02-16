@@ -283,7 +283,7 @@ export function ProyectosView({projects,projTasks,users,user,mob,onAddProject,on
                     <input type="date" value={editTask.due_date||""} onChange={e=>sEditTask({...editTask,due_date:e.target.value||null})} style={iS}/>
                   </div>
                   <div style={{display:"flex",gap:4,justifyContent:"space-between"}}>
-                    <button onClick={()=>{if(confirm("¿Eliminar esta tarea?")){onDelTask(t.id);sEditTask(null);}}} style={{padding:"4px 8px",borderRadius:6,border:"1px solid #FCA5A5",background:"transparent",fontSize:10,cursor:"pointer",color:"#DC2626"}}>🗑</button>
+                    <button onClick={()=>{if(confirm("¿Eliminar esta tarea?")){onDelTask(t.id);sEditTask(null);}}} style={{padding:"4px 8px",borderRadius:6,border:"1px solid #FCA5A5",background:"transparent",fontSize:10,cursor:"pointer",color:"#DC2626"}} title="Eliminar tarea">🗑</button>
                     <div style={{display:"flex",gap:4}}>
                       <button onClick={()=>sEditTask(null)} style={{padding:"4px 10px",borderRadius:6,border:"1px solid "+colors.g3,background:"transparent",fontSize:10,cursor:"pointer",color:colors.g5}}>Cancelar</button>
                       <button onClick={()=>{if(!editTask.title.trim())return;onUpdTask(t.id,{title:editTask.title.trim(),description:editTask.description||"",status:editTask.status,priority:editTask.priority,assignee_id:editTask.assignee_id||null,assignee_name:editTask.assignee_name||"",due_date:editTask.due_date||null});sEditTask(null);}} style={{padding:"4px 10px",borderRadius:6,border:"none",background:colors.nv,color:isDark?"#0F172A":"#fff",fontSize:10,fontWeight:700,cursor:"pointer"}}>Guardar</button>

@@ -57,7 +57,7 @@ export function TList({title,icon,color,peds,users,onSel,search,mob,onBulk,onImp
         <select value={sortBy} onChange={e=>{sSortBy(e.target.value);sPg(1);}} style={{padding:"4px 8px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:10,background:cardBg,color:colors.nv}}>
           <option value="id">Ordenar: #ID</option><option value="date">Ordenar: Fecha</option><option value="tipo">Ordenar: Tipo</option>
         </select>
-        <button onClick={()=>{sSortDir(d=>d==="asc"?"desc":"asc");sPg(1);}} style={{padding:"3px 6px",borderRadius:6,border:"1px solid "+colors.g3,background:cardBg,fontSize:10,cursor:"pointer",color:colors.nv}}>{sortDir==="asc"?"↑":"↓"}</button>
+        <button onClick={()=>{sSortDir(d=>d==="asc"?"desc":"asc");sPg(1);}} style={{padding:"3px 6px",borderRadius:6,border:"1px solid "+colors.g3,background:cardBg,fontSize:10,cursor:"pointer",color:colors.nv}} title={sortDir==="asc"?"Orden descendente":"Orden ascendente"}>{sortDir==="asc"?"↑":"↓"}</button>
       </div>
     </div>
     {showFilters&&<div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap" as const,padding:10,background:colors.g1,borderRadius:8}}>

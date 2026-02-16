@@ -16,7 +16,7 @@ export function Toast({ msg, type, onDone }: { msg: string; type: "ok" | "err"; 
   return (
     <div role="alert" aria-live="polite" style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", padding: "10px 20px", borderRadius: 10, background: type === "ok" ? "#065F46" : "#991B1B", color: "#fff", fontSize: 12, fontWeight: 600, zIndex: 9999, boxShadow: "0 4px 16px rgba(0,0,0,.2)", maxWidth: "90vw", textAlign: "center", display: "flex", alignItems: "center", gap: 8 }}>
       <span>{type === "ok" ? "✅" : "❌"} {msg}</span>
-      <button onClick={onDone} style={{ background: "rgba(255,255,255,.3)", border: "none", borderRadius: 4, color: "#fff", fontSize: 12, cursor: "pointer", padding: "4px 10px", flexShrink: 0 }}>✕</button>
+      <button onClick={onDone} title="Cerrar" style={{ background: "rgba(255,255,255,.3)", border: "none", borderRadius: 4, color: "#fff", fontSize: 12, cursor: "pointer", padding: "4px 10px", flexShrink: 0 }}>✕</button>
     </div>
   );
 }
@@ -44,8 +44,9 @@ interface BtnProps {
   s?: BtnSize;
   disabled?: boolean;
   style?: React.CSSProperties;
+  title?: string;
 }
-export function Btn({ children, onClick, v, s, disabled, style: st }: BtnProps) {
+export function Btn({ children, onClick, v, s, disabled, style: st, title }: BtnProps) {
   const { colors, isDark } = useC();
   const vs: Record<string, React.CSSProperties> = {
     p: { background: colors.nv, color: isDark ? "#0F172A" : "#fff" },
@@ -60,7 +61,7 @@ export function Btn({ children, onClick, v, s, disabled, style: st }: BtnProps) 
     m: { padding: "7px 16px", fontSize: 13 },
   };
   return (
-    <button onClick={onClick} disabled={disabled} style={{ border: "none", borderRadius: 8, cursor: disabled ? "not-allowed" : "pointer", fontWeight: 600, opacity: disabled ? .5 : 1, ...sz[s || "m"], ...vs[v || "p"], ...(st || {}) }}>
+    <button onClick={onClick} disabled={disabled} title={title} style={{ border: "none", borderRadius: 8, cursor: disabled ? "not-allowed" : "pointer", fontWeight: 600, opacity: disabled ? .5 : 1, ...sz[s || "m"], ...vs[v || "p"], ...(st || {}) }}>
       {children}
     </button>
   );

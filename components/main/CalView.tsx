@@ -105,7 +105,7 @@ export default function CalView({peds,agendas,minutas,presu,reminders,areas,dept
       <div style={{display:"flex",alignItems:"center",gap:3}}>
         <span style={{fontSize:compact?8:10,flexShrink:0}}>{e.icon}</span>
         {!compact&&<span style={{fontSize:10,fontWeight:600,color:e.color,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const,flex:1}}>{e.label}</span>}
-        {!compact&&e.type==="reminder"&&onDelReminder&&<button onClick={(ev)=>{ev.stopPropagation();if(confirm("¿Eliminar recordatorio?"))onDelReminder(e.data.id);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:9,color:colors.g4,padding:0,flexShrink:0}}>✕</button>}
+        {!compact&&e.type==="reminder"&&onDelReminder&&<button onClick={(ev)=>{ev.stopPropagation();if(confirm("¿Eliminar recordatorio?"))onDelReminder(e.data.id);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:9,color:colors.g4,padding:0,flexShrink:0}} title="Eliminar recordatorio">✕</button>}
       </div>
       {!compact&&e.sub&&<div style={{fontSize:9,color:colors.g5,marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>👤 {e.sub}</div>}
     </div>
@@ -137,9 +137,9 @@ export default function CalView({peds,agendas,minutas,presu,reminders,areas,dept
 
     return(<div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-        <button onClick={()=>sMonth(new Date(y,m-1,1))} style={{background:"none",border:"1px solid "+colors.g3,borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:14,color:colors.nv}}>◀</button>
+        <button onClick={()=>sMonth(new Date(y,m-1,1))} style={{background:"none",border:"1px solid "+colors.g3,borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:14,color:colors.nv}} title="Mes anterior">◀</button>
         <div style={{fontSize:mob?14:16,fontWeight:800,color:colors.nv}}>{MESES[m]} {y}</div>
-        <button onClick={()=>sMonth(new Date(y,m+1,1))} style={{background:"none",border:"1px solid "+colors.g3,borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:14,color:colors.nv}}>▶</button>
+        <button onClick={()=>sMonth(new Date(y,m+1,1))} style={{background:"none",border:"1px solid "+colors.g3,borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:14,color:colors.nv}} title="Mes siguiente">▶</button>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:1}}>
         {DIAS_SEM.map(d=><div key={d} style={{textAlign:"center" as const,fontSize:10,fontWeight:700,color:colors.g4,padding:"4px 0"}}>{d}</div>)}
@@ -161,7 +161,7 @@ export default function CalView({peds,agendas,minutas,presu,reminders,areas,dept
       {selDay&&<Card style={{marginTop:12,borderLeft:"4px solid "+colors.bl}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
           <div style={{fontSize:14,fontWeight:800,color:colors.nv}}>{selDay===TODAY?"Hoy — ":""}{fmtD(selDay)}</div>
-          <button onClick={()=>sSelDay(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:colors.g4}}>✕</button>
+          <button onClick={()=>sSelDay(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:colors.g4}} title="Cerrar día">✕</button>
         </div>
         {evtsByDate(selDay).length===0&&<div style={{fontSize:12,color:colors.g4,textAlign:"center" as const,padding:12}}>Sin eventos este día</div>}
         {evtsByDate(selDay).map((e,i)=><div key={i} style={{marginBottom:4}}><EvtPill e={e}/></div>)}
@@ -175,9 +175,9 @@ export default function CalView({peds,agendas,minutas,presu,reminders,areas,dept
     for(let i=0;i<7;i++) days.push(dateToISO(addDays(weekStart,i)));
     return(<div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-        <button onClick={()=>sWeekStart(addDays(weekStart,-7))} style={{background:"none",border:"1px solid "+colors.g3,borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:14,color:colors.nv}}>◀</button>
+        <button onClick={()=>sWeekStart(addDays(weekStart,-7))} style={{background:"none",border:"1px solid "+colors.g3,borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:14,color:colors.nv}} title="Semana anterior">◀</button>
         <div style={{fontSize:mob?12:14,fontWeight:800,color:colors.nv}}>Semana del {fmtD(days[0])} al {fmtD(days[6])}</div>
-        <button onClick={()=>sWeekStart(addDays(weekStart,7))} style={{background:"none",border:"1px solid "+colors.g3,borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:14,color:colors.nv}}>▶</button>
+        <button onClick={()=>sWeekStart(addDays(weekStart,7))} style={{background:"none",border:"1px solid "+colors.g3,borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:14,color:colors.nv}} title="Semana siguiente">▶</button>
       </div>
       <div style={{display:mob?"flex":"grid",gridTemplateColumns:"repeat(7,1fr)",flexDirection:mob?"column" as const:undefined,gap:mob?6:4}}>
         {days.map((d,i)=>{
@@ -261,7 +261,7 @@ export default function CalView({peds,agendas,minutas,presu,reminders,areas,dept
     </div>
     <FilterBar/>
     {showAddR&&onAddReminder&&<Card style={{marginBottom:14,background:"#F0FDF4",border:"1px solid #BBF7D0"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><div style={{fontSize:12,fontWeight:700,color:"#166534"}}>🔔 Nuevo recordatorio</div><button onClick={resetR} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:colors.g4}}>✕</button></div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><div style={{fontSize:12,fontWeight:700,color:"#166534"}}>🔔 Nuevo recordatorio</div><button onClick={resetR} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:colors.g4}} title="Cerrar">✕</button></div>
       <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8,marginBottom:8}}>
         <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Título *</label><input value={rForm.title} onChange={e=>sRForm((p:any)=>({...p,title:e.target.value}))} placeholder="Ej: Pago cuota de luz, Fichas médicas..." style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
         <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Fecha inicio *</label><input type="date" value={rForm.date} onChange={e=>sRForm((p:any)=>({...p,date:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>

@@ -65,7 +65,7 @@ export function InventarioView({items,users,user,mob,onAdd,onUpd,onDel}:any){
 
     {/* Add/Edit form */}
     {form&&<Card style={{marginBottom:14,background:isDark?"rgba(139,92,246,.08)":"#F5F3FF",border:"1px solid "+colors.pr+"33"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><div style={{fontSize:12,fontWeight:700,color:colors.pr}}>{editId?"✏️ Editar item":"➕ Nuevo item"}</div><button onClick={closeForm} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:colors.g4}}>✕</button></div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><div style={{fontSize:12,fontWeight:700,color:colors.pr}}>{editId?"✏️ Editar item":"➕ Nuevo item"}</div><button onClick={closeForm} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:colors.g4}} title="Cerrar">✕</button></div>
       <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8,marginBottom:8}}>
         <div style={{gridColumn:mob?"1":"1/3"}}><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Nombre *</label><input value={form.name} onChange={e=>sForm((f:any)=>({...f,name:e.target.value}))} placeholder="Nombre del item..." style={{...iS,marginTop:2}}/></div>
         <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Categoría</label><select value={form.category} onChange={e=>sForm((f:any)=>({...f,category:e.target.value}))} style={{...iS,marginTop:2}}>{CATS.map(k=><option key={k} value={k}>{INV_CAT[k].i} {INV_CAT[k].l}</option>)}</select></div>
@@ -105,8 +105,8 @@ export function InventarioView({items,users,user,mob,onAdd,onUpd,onDel}:any){
           </div>
           {it.notes&&<div style={{fontSize:10,color:colors.g4,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical" as const,marginBottom:6}}>{it.notes}</div>}
           <div style={{display:"flex",gap:4,justifyContent:"flex-end"}} onClick={e=>e.stopPropagation()}>
-            <button onClick={()=>openEdit(it)} style={{padding:"3px 8px",borderRadius:6,border:"1px solid "+colors.g3,background:"transparent",fontSize:10,cursor:"pointer",color:colors.nv,fontWeight:600}}>✏️</button>
-            <button onClick={()=>{if(confirm("Eliminar "+it.name+"?"))onDel(it.id);}} style={{padding:"3px 8px",borderRadius:6,border:"1px solid #FCA5A5",background:"transparent",fontSize:10,cursor:"pointer",color:"#DC2626",fontWeight:600}}>🗑</button>
+            <button onClick={()=>openEdit(it)} style={{padding:"3px 8px",borderRadius:6,border:"1px solid "+colors.g3,background:"transparent",fontSize:10,cursor:"pointer",color:colors.nv,fontWeight:600}} title="Editar item">✏️</button>
+            <button onClick={()=>{if(confirm("Eliminar "+it.name+"?"))onDel(it.id);}} style={{padding:"3px 8px",borderRadius:6,border:"1px solid #FCA5A5",background:"transparent",fontSize:10,cursor:"pointer",color:"#DC2626",fontWeight:600}} title="Eliminar item">🗑</button>
           </div>
         </Card>);})}
     </div>

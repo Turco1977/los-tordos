@@ -243,7 +243,7 @@ export function RecurrentTasks({templates,users,deptos,areas,user,mob,peds,onAdd
               {/* Toggle active */}
               <button onClick={()=>onUpd(t.id,{active:!t.active})} title={t.active?"Desactivar":"Activar"} style={{padding:"4px 8px",borderRadius:6,border:"1px solid "+(t.active?colors.gn+"40":"#FCA5A5"),background:t.active?"#D1FAE5":"#FEE2E2",fontSize:10,cursor:"pointer",color:t.active?"#059669":"#DC2626",fontWeight:600}}>{t.active?"✅ Activa":"❌ Inactiva"}</button>
               <button onClick={()=>{sForm({name:t.name,description:t.description||"",tipo:t.tipo||"Administrativo",dept_id:t.dept_id?String(t.dept_id):"",assigned_to:t.assigned_to||"",frequency:t.frequency||"semanal",day_of_week:t.day_of_week||1,day_of_month:t.day_of_month||1,urgency:t.urgency||"Normal"});sEditing(t);sFormErr("");sMode("form");}} style={{padding:"4px 8px",borderRadius:6,border:"1px solid "+colors.g3,background:"transparent",fontSize:10,cursor:"pointer",color:colors.nv}}>✏️ Editar</button>
-              <button onClick={()=>{if(confirm("¿Eliminar este template?"))onDel(t.id);}} style={{padding:"4px 8px",borderRadius:6,border:"1px solid #FCA5A5",background:"transparent",fontSize:10,cursor:"pointer",color:"#DC2626"}}>🗑</button>
+              <button onClick={()=>{if(confirm("¿Eliminar este template?"))onDel(t.id);}} style={{padding:"4px 8px",borderRadius:6,border:"1px solid #FCA5A5",background:"transparent",fontSize:10,cursor:"pointer",color:"#DC2626"}} title="Eliminar template">🗑</button>
             </div>}
           </div>
         </div>);

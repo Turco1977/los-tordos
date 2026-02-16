@@ -280,7 +280,7 @@ export function SponsorsView({sponsors,user,mob,onAdd,onUpd,onDel,canjeUsado}:an
     </div>
 
     {/* ── Import Error ── */}
-    {importErr&&<div style={{padding:"8px 14px",marginBottom:10,borderRadius:8,background:isDark?"rgba(220,38,38,.15)":"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",fontSize:12,fontWeight:600,display:"flex",justifyContent:"space-between",alignItems:"center"}}><span>{importErr}</span><button onClick={()=>sImportErr(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#DC2626"}}>✕</button></div>}
+    {importErr&&<div style={{padding:"8px 14px",marginBottom:10,borderRadius:8,background:isDark?"rgba(220,38,38,.15)":"#FEF2F2",border:"1px solid #FECACA",color:"#DC2626",fontSize:12,fontWeight:600,display:"flex",justifyContent:"space-between",alignItems:"center"}}><span>{importErr}</span><button onClick={()=>sImportErr(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#DC2626"}} title="Cerrar error">✕</button></div>}
 
     {/* ── Manual paste ── */}
     {showManual&&<Card style={{marginBottom:14,background:isDark?"#0D1B2A":"#F0F4FF",border:"1px solid #93C5FD"}}>
@@ -298,7 +298,7 @@ export function SponsorsView({sponsors,user,mob,onAdd,onUpd,onDel,canjeUsado}:an
     {importPreview&&<Card style={{marginBottom:14,background:isDark?"#0D2818":"#F0FDF4",border:"1px solid #BBF7D0"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
         <div style={{fontSize:13,fontWeight:700,color:isDark?"#4ADE80":"#166534"}}>📥 Vista previa: {importPreview.length} sponsors del Excel</div>
-        <button onClick={()=>sImportPreview(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:colors.g4}}>✕</button>
+        <button onClick={()=>sImportPreview(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:colors.g4}} title="Cerrar vista previa">✕</button>
       </div>
       <div style={{maxHeight:300,overflowY:"auto" as const,marginBottom:10}}>
         <table style={{width:"100%",borderCollapse:"collapse" as const,fontSize:11}}>
@@ -370,7 +370,7 @@ export function SponsorsView({sponsors,user,mob,onAdd,onUpd,onDel,canjeUsado}:an
       <div style={{background:cardBg,borderRadius:16,padding:mob?16:24,width:"100%",maxWidth:520,maxHeight:"90vh",overflowY:"auto" as const,boxShadow:"0 8px 32px rgba(0,0,0,.2)"}} onClick={e=>e.stopPropagation()}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
           <div style={{fontSize:14,fontWeight:800,color:colors.nv}}>{editId?"Editar Sponsor":"Nuevo Sponsor"}</div>
-          <button onClick={closeForm} style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:colors.g4}}>✕</button>
+          <button onClick={closeForm} style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:colors.g4}} title="Cerrar formulario">✕</button>
         </div>
 
         {/* Sponsor name */}
