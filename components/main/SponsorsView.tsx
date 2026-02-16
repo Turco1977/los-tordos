@@ -176,6 +176,7 @@ export function SponsorsView({sponsors,user,mob,onAdd,onUpd,onDel}:any){
     let v=[...all];
     if(fSt!=="all")v=v.filter((s:any)=>s.status===fSt);
     if(search){const q=search.toLowerCase();v=v.filter((s:any)=>((s.name||"")+(s.exposure||"")+(s.notes||"")+(s.payment_type||"")).toLowerCase().includes(q));}
+    v.sort((a:any,b:any)=>{const ta=(Number(a.amount_cash||0)+Number(a.amount_service||0));const tb=(Number(b.amount_cash||0)+Number(b.amount_service||0));return tb-ta;});
     return v;
   },[all,fSt,search]);
 
