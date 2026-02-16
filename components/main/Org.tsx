@@ -101,8 +101,12 @@ function AcademiaOrg({mob,ex,tog}:any){
           <P cargo="Kinesiólogo Rugby" name="Martin Azcurra" color={AC_C.med}/>
           <P cargo="Kinesiólogo Hockey" name="Carolina Armani" color={AC_C.med}/>
         </OrgNode>
-        <P cargo="Nutricionista" name="Matias Zanni" color={AC_C.med}/>
-        <P cargo="Psicóloga" name="Veronica Gomez" color={AC_C.med}/>
+        <OrgNode mob={mob} icon="🥗" title="Nutrición" color={AC_C.med} ex={!!ex.acNut} onTog={()=>tog("acNut")} cnt="1">
+          <P cargo="Nutricionista" name="Matias Zanni" color={AC_C.med}/>
+        </OrgNode>
+        <OrgNode mob={mob} icon="🧠" title="Psicología" color={AC_C.med} ex={!!ex.acPsi} onTog={()=>tog("acPsi")} cnt="1">
+          <P cargo="Psicóloga" name="Veronica Gomez" color={AC_C.med}/>
+        </OrgNode>
       </OrgNode>
     </OrgNode>
   </div>);
