@@ -34,6 +34,7 @@ import { ProyectosView } from "@/components/main/ProyectosView";
 import { KanbanView } from "@/components/main/KanbanView";
 import { ActivityFeed } from "@/components/main/ActivityFeed";
 import { CommView } from "@/components/main/CommView";
+import { CommandPalette } from "@/components/main/CommandPalette";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const supabase = createClient();
@@ -95,6 +96,7 @@ export default function App(){
   const sVw=(v:string)=>{sPrevVw(vw);sVw_(v);};const [sel,sSl]=useState<any>(null);const [aA,sAA]=useState<number|null>(null);const [aD,sAD]=useState<number|null>(null);const [sbCol,sSbCol]=useState(false);const [search,sSr]=useState("");const [shNot,sShNot]=useState(false);const [preAT,sPreAT]=useState<any>(null);const [showPw,sShowPw]=useState(false);const [toast,sToast]=useState<{msg:string;type:"ok"|"err"}|null>(null);const [kpiFilt,sKpiFilt]=useState<string|null>(null);
   /* Global Search state (Feature 1) */
   const [gsOpen,sGsOpen]=useState(false);const gsRef=useRef<HTMLDivElement>(null);
+  const [cmdOpen,sCmdOpen]=useState(false);
   const mob=useMobile();const [sbOpen,sSbOpen]=useState(false);
   const {pushEnabled,requestPush,sendPush}=usePushNotifs(user,peds);
   const {mode:themeMode,toggle:toggleTheme,colors,isDark,cardBg,headerBg}=useTheme();
@@ -202,6 +204,28 @@ export default function App(){
   /* Close global search on outside click */
   useEffect(()=>{const h=(e:any)=>{if(gsRef.current&&!gsRef.current.contains(e.target))sGsOpen(false);};document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h);},[]);
 
+  /* Cmd+K command palette + keyboard shortcuts */
+  useEffect(()=>{
+    if(!user)return;
+    const h=(e:KeyboardEvent)=>{
+      const tag=(e.target as HTMLElement)?.tagName;
+      const inInput=tag==="INPUT"||tag==="TEXTAREA"||tag==="SELECT";
+      // Cmd+K or Ctrl+K: toggle command palette
+      if((e.metaKey||e.ctrlKey)&&e.key==="k"){e.preventDefault();sCmdOpen(o=>!o);return;}
+      // Shortcuts only when not typing in an input and palette is closed
+      if(inInput||cmdOpen||sel||showPw)return;
+      if(e.key==="n"||e.key==="N"){e.preventDefault();sVw("new");}
+      else if(e.key==="d"||e.key==="D"){e.preventDefault();sVw(isPersonal?"my":"dash");sAA(null);sAD(null);sKpiFilt(null);}
+      else if(e.key==="k"||e.key==="K"){e.preventDefault();sVw("kanban");}
+      else if(e.key==="c"||e.key==="C"){e.preventDefault();sVw("cal");}
+      else if(e.key==="r"||e.key==="R"){e.preventDefault();sVw("reun");}
+      else if(e.key==="p"||e.key==="P"){e.preventDefault();sVw("presu");}
+      else if(e.key==="/"){e.preventDefault();sCmdOpen(true);}
+    };
+    document.addEventListener("keydown",h);
+    return()=>document.removeEventListener("keydown",h);
+  },[user,cmdOpen,sel,showPw,isPersonal]);
+
   /* Bulk action handler (Feature 3) */
   const handleBulk=async(ids:number[],action:string,value:string)=>{
     try{if(action==="status"){sPd(p=>p.map(x=>ids.includes(x.id)?{...x,st:value}:x));for(const id of ids){await supabase.from("tasks").update({status:value}).eq("id",id);await addLog(id,user.id,fn(user),"Cambió estado a "+SC[value]?.l,"sys");}showT(ids.length+" tareas actualizadas");}
@@ -246,6 +270,35 @@ export default function App(){
   };
 
   if(isPersonal&&vw==="dash") { setTimeout(()=>sVw("my"),0); return null; }
+
+  /* Command Palette items */
+  const cmdItems=useMemo(()=>{
+    const items:any[]=[];
+    // Navigation
+    const navItems=[
+      {id:"nav-dash",label:isPersonal?"Mis Tareas":"Dashboard",icon:isPersonal?"📋":"📊",keywords:"d,inicio,home",action:()=>{sVw(isPersonal?"my":"dash");sAA(null);sAD(null);sKpiFilt(null);}},
+      {id:"nav-kanban",label:"Kanban",icon:"📊",keywords:"k,tablero,board",action:()=>sVw("kanban")},
+      {id:"nav-cal",label:"Calendario",icon:"📅",keywords:"c,calendar,fecha",action:()=>sVw("cal")},
+      {id:"nav-reun",label:"Reuniones",icon:"🤝",keywords:"r,agenda,minuta",action:()=>sVw("reun")},
+      {id:"nav-presu",label:"Presupuestos",icon:"💰",keywords:"p,budget,gasto",action:()=>sVw("presu")},
+      {id:"nav-proy",label:"Proyectos",icon:"📋",keywords:"proyecto,board",action:()=>sVw("proyectos")},
+      {id:"nav-org",label:"Organigrama",icon:"🏛️",keywords:"estructura,org",action:()=>sVw("org")},
+      {id:"nav-profs",label:"Perfiles",icon:"👤",keywords:"personas,users",action:()=>sVw("profs")},
+      {id:"nav-feed",label:"Actividad",icon:"📰",keywords:"feed,timeline",action:()=>sVw("feed")},
+      {id:"nav-plan",label:"Plan 2035",icon:"🎯",keywords:"hitos,roadmap",action:()=>sVw("proy")},
+    ];
+    navItems.forEach(n=>items.push({...n,category:"nav"}));
+    // Actions
+    items.push({id:"act-new",label:"Nueva tarea",icon:"➕",category:"action",keywords:"crear,add,agregar",action:()=>sVw("new")});
+    items.push({id:"act-theme",label:isDark?"Modo claro":"Modo oscuro",icon:isDark?"☀️":"🌙",category:"action",keywords:"tema,theme,dark,light",action:toggleTheme});
+    items.push({id:"act-pw",label:"Cambiar contrasena",icon:"🔒",category:"action",keywords:"password,clave",action:()=>sShowPw(true)});
+    items.push({id:"act-logout",label:"Cerrar sesion",icon:"↩",category:"action",keywords:"salir,logout",action:out});
+    // Recent tasks (last 8)
+    peds.slice(0,8).forEach(p=>items.push({id:"task-"+p.id,label:"#"+p.id+" "+p.desc?.slice(0,40),icon:SC[p.st]?.i||"📌",category:"task",badge:p.st,keywords:p.tipo+","+p.cN,action:()=>sSl(p)}));
+    // Users (first 5)
+    users.slice(0,5).forEach(u=>items.push({id:"user-"+u.id,label:fn(u),icon:"👤",category:"user",keywords:u.role+","+(ROLES[u.role]?.l||""),action:()=>{sVw("profs");}}));
+    return items;
+  },[isPersonal,isDark,peds,users,toggleTheme]);
 
   return(
     <ErrorBoundary>
@@ -366,6 +419,7 @@ export default function App(){
         onDel={async(id:number)=>{try{sPd(p=>p.filter(x=>x.id!==id));await supabase.from("tasks").delete().eq("id",id);showT("Tarea eliminada");sSl(null);}catch(e:any){showT(e.message||"Error","err");}}}
         onEditSave={async(id:number,d:any)=>{try{const sd={...d,desc:sanitize(d.desc||"")};sPd(p=>p.map(x=>x.id===id?{...x,...sd}:x));await supabase.from("tasks").update({tipo:sd.tipo,description:sd.desc,due_date:sd.fReq,urgency:sd.urg,division:sd.div||"",requires_expense:sd.rG}).eq("id",id);addLog(id,user.id,fn(user),"Editó la tarea","sys");showT("Tarea actualizada");}catch(e:any){showT(e.message||"Error","err");}}}
       />}
+      <CommandPalette open={cmdOpen} onClose={()=>sCmdOpen(false)} items={cmdItems}/>
       {toast&&<Toast msg={toast.msg} type={toast.type} onDone={()=>sToast(null)}/>}
     </div>
     </ThemeCtx.Provider>
