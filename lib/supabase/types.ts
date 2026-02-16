@@ -210,5 +210,7 @@ export interface Presupuesto {
   recibido_at: string;
   resuelto_por: string;
   resuelto_at: string;
+  is_canje: boolean;
+  sponsor_id: number | null;
   created_at?: string;
 }

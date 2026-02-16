@@ -211,6 +211,9 @@ export default function App(){
   const isSA=user&&user.role==="superadmin";
   const isPersonal=user&&(user.role==="enlace"||user.role==="manager"||user.role==="usuario");
 
+  /* Canje usage per sponsor: sum of approved canje presupuestos */
+  const canjeUsado=useMemo(()=>{const m:Record<number,number>={};presu.forEach((pr:any)=>{if(pr.is_canje&&pr.sponsor_id&&pr.status==="aprobado"){m[pr.sponsor_id]=(m[pr.sponsor_id]||0)+Number(pr.monto||0);}});return m;},[presu]);
+
   /* Global Search logic (Feature 1) */
   const gsResults=useCallback(()=>{
     if(!search||search.length<2)return{tasks:[],users:[],presu:[]};
@@ -419,7 +422,7 @@ export default function App(){
             onUpdMulti={async(ids:string[],d:any)=>{try{const numIds=ids.map(Number);sBookings(prev=>prev.map(x=>numIds.includes(x.id)?{...x,...d}:x));await supabase.from("bookings").update(d).in("id",numIds);showT(`${ids.length} espacios actualizados`);}catch(e:any){showT(e.message||"Error","err");}}}
           />}
           {/* Sponsors */}
-          {vw==="sponsors"&&(isAd||user.role==="coordinador"||user.role==="embudo")&&<SponsorsView sponsors={sponsors} user={user} mob={mob}
+          {vw==="sponsors"&&(isAd||user.role==="coordinador"||user.role==="embudo")&&<SponsorsView sponsors={sponsors} user={user} mob={mob} canjeUsado={canjeUsado}
             onAdd={async(d:any)=>{const row={...d,created_by:user.id,created_by_name:fn(user)};const{data,error}=await supabase.from("sponsors").insert(row).select().single();if(error)throw new Error(error.message);if(data){sSponsors(prev=>[data,...prev]);showT("Sponsor agregado");}}}
             onUpd={async(id:number,d:any)=>{try{sSponsors(prev=>prev.map(x=>x.id===id?{...x,...d}:x));await supabase.from("sponsors").update(d).eq("id",id);showT("Sponsor actualizado");}catch(e:any){showT(e.message||"Error","err");}}}
             onDel={async(id:number)=>{try{sSponsors(prev=>prev.filter(x=>x.id!==id));await supabase.from("sponsors").delete().eq("id",id);showT("Sponsor eliminado");}catch(e:any){showT(e.message||"Error","err");}}}
@@ -472,7 +475,7 @@ export default function App(){
             if(d.mail&&oldUser&&d.mail!==oldUser.mail){const{data:{session}}=await supabase.auth.getSession();const tok=session?.access_token;if(tok)await fetch("/api/admin/create-user",{method:"PUT",headers:{"Content-Type":"application/json","Authorization":"Bearer "+tok},body:JSON.stringify({userId:id,email:d.mail})});}
             showT("Perfil actualizado");}catch(e:any){showT(e.message||"Error","err");}
           }} isAd={isAd} onAssignTask={(u:any)=>{sPreAT(u);sVw("new");}} mob={mob}/>}
-          {vw==="new"&&<NP user={user} users={users} deptos={deptos} areas={areas} preAssign={preAT} mob={mob} provs={provs} onSub={async(p:any)=>{
+          {vw==="new"&&<NP user={user} users={users} deptos={deptos} areas={areas} preAssign={preAT} mob={mob} provs={provs} sponsors={sponsors} canjeUsado={canjeUsado} onSub={async(p:any)=>{
             try{const row:any=taskToDB(p);
             const{data,error}=await supabase.from("tasks").insert(row).select().single();
             if(error)throw new Error(error.message);
@@ -482,7 +485,7 @@ export default function App(){
             for(const l of (p.log||[])){await supabase.from("task_messages").insert({task_id:tid,user_id:l.uid,user_name:l.by,content:l.act,type:l.t});}
             /* Auto-create presupuesto if rG */
             if(p._presu&&tid){const prRow=presuToDB({...p._presu,task_id:tid,status:PST.SOL,solicitado_por:fn(user),solicitado_at:TODAY});const{data:prData}=await supabase.from("presupuestos").insert(prRow).select().single();if(prData)sPr(prev=>[presuFromDB(prData),...prev]);}
-            sPreAT(null);sVw(isPersonal?"my":"dash");sAA(null);sAD(null);showT(p._presu?"Tarea creada con presupuesto":"Tarea creada");}catch(e:any){showT(e.message||"Error al crear tarea","err");}
+            sPreAT(null);sVw(isPersonal?"my":"dash");sAA(null);sAD(null);showT(p._presu?(p._presu.is_canje?"Tarea creada con canje":"Tarea creada con presupuesto"):"Tarea creada");}catch(e:any){showT(e.message||"Error al crear tarea","err");}
           }} onX={()=>{sPreAT(null);sVw(isPersonal?"my":"dash");}}/>}
           {vw==="proy"&&<Proyecto hitos={hitos} setHitos={(updater:any)=>{sHi((prev:any)=>{const next=typeof updater==="function"?updater(prev):updater;next.forEach((h:any)=>{supabase.from("milestones").update({pct:h.pct}).eq("id",h.id);});return next;});}} isAd={isAd} mob={mob}/>}
           {vw==="dash"&&!isPersonal&&!aA&&!aD&&!kpiFilt&&<CustomDash peds={peds} presu={presu} agendas={agendas} minutas={minutas} users={users} areas={areas} deptos={deptos} user={user} mob={mob} bookings={bookings} onSel={(p:any)=>sSl(p)} onFilter={(k:string)=>sKpiFilt(k)} onAC={hAC} onNav={(view:string,filt?:string)=>{if(view==="filter"&&filt){sKpiFilt(filt);}else{sVw(view);}}}
@@ -497,7 +500,7 @@ export default function App(){
         </div>
       </div>
       {showPw&&<ChangePw onX={()=>sShowPw(false)}/>}
-      {sel&&<Det p={peds.find(x=>x.id===sel.id)||sel} user={user} users={users} presu={presu} provs={provs} onX={()=>sSl(null)} mob={mob}
+      {sel&&<Det p={peds.find(x=>x.id===sel.id)||sel} user={user} users={users} presu={presu} provs={provs} sponsors={sponsors} onX={()=>sSl(null)} mob={mob}
         onDup={async(p:any)=>{try{const ts=TODAY+" "+new Date().toTimeString().slice(0,5);const row:any=taskToDB({...p,st:ST.P,asTo:null,resp:"",monto:null,eOk:null,cAt:TODAY,cId:user.id,cN:fn(user)});const{data,error}=await supabase.from("tasks").insert(row).select().single();if(error)throw new Error(error.message);const tid=data?.id||0;const newP={...p,id:tid,st:ST.P,asTo:null,resp:"",monto:null,eOk:null,cAt:TODAY,cId:user.id,cN:fn(user),log:[{dt:ts,uid:user.id,by:fn(user),act:"Creó tarea (duplicada de #"+p.id+")",t:"sys"}]};sPd(ps=>[newP,...ps]);await supabase.from("task_messages").insert({task_id:tid,user_id:user.id,user_name:fn(user),content:"Creó tarea (duplicada de #"+p.id+")",type:"sys"});sSl(newP);showT("Tarea duplicada");}catch(e:any){showT(e.message||"Error","err");}}}
         onCheck={async(id:number,items:any[])=>{try{/* save checklist as special log entries */for(const item of items){await supabase.from("task_messages").upsert({task_id:id,user_id:user.id,user_name:fn(user),content:JSON.stringify(item),type:"check"});}/* update local */const ts=TODAY+" "+new Date().toTimeString().slice(0,5);sPd(p=>p.map(x=>x.id===id?{...x,log:[...(x.log||[]).filter((l:any)=>l.t!=="check"),...items.map(item=>({dt:ts,uid:user.id,by:fn(user),act:JSON.stringify(item),t:"check"}))]}:x));}catch(e:any){showT(e.message||"Error","err");}}}
         onAddPresu={async(d:any)=>{try{const row=presuToDB(d);const{data,error}=await supabase.from("presupuestos").insert(row).select().single();if(error)throw new Error(error.message);sPr(p=>[presuFromDB(data),...p]);showT("Presupuesto agregado");}catch(e:any){showT(e.message||"Error","err");}}}

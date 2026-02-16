@@ -8,7 +8,7 @@ import { Thread } from "./Thread";
 
 const TODAY = new Date().toISOString().slice(0,10);
 
-export function Det({p,user,users,onX,onTk,onAs,onRe,onSE,onEO,onFi,onVa,onMsg,onMonto,onDel,onEditSave,presu,provs,onAddPresu,onUpdPresu,onDelPresu,onDup,onCheck,mob}:any){
+export function Det({p,user,users,onX,onTk,onAs,onRe,onSE,onEO,onFi,onVa,onMsg,onMonto,onDel,onEditSave,presu,provs,onAddPresu,onUpdPresu,onDelPresu,onDup,onCheck,mob,sponsors}:any){
   const {colors,isDark,cardBg}=useC();
   const [at,sAt]=useState("");const [mt,sMt]=useState(p.monto||"");const [tab,sTab]=useState("chat");const [rp,sRp]=useState(p.resp||"");
   const [editing,sEditing]=useState(false);const [ef,sEf]=useState({tipo:p.tipo,desc:p.desc,fReq:p.fReq,urg:p.urg,div:p.div||"",rG:p.rG});
@@ -86,10 +86,15 @@ export function Det({p,user,users,onX,onTk,onAs,onRe,onSE,onEO,onFi,onVa,onMsg,o
           </div>}
           {isSA&&p.st!==ST.C&&p.st!==ST.OK&&<div style={{display:"flex",gap:4,flexWrap:"wrap" as const}}>
             {p.st===ST.P&&<Btn v="w" s="s" onClick={()=>{onTk(p.id);onX();}}>🙋 Tomar tarea</Btn>}
-            {p.st===ST.E&&<><Btn v="s" s="s" onClick={()=>onEO(p.id,true)}>✅ Aprobar gasto</Btn><Btn v="r" s="s" onClick={()=>onEO(p.id,false)}>❌ Rechazar gasto</Btn></>}
+            {p.st===ST.E&&(()=>{const cp=tPresu.find((pr:any)=>pr.is_canje);return<><Btn v="s" s="s" onClick={()=>onEO(p.id,true)}>✅ Aprobar {cp?"canje":"gasto"}</Btn><Btn v="r" s="s" onClick={()=>onEO(p.id,false)}>❌ Rechazar {cp?"canje":"gasto"}</Btn></>;})()}
             {p.st===ST.V&&<><Btn v="s" s="s" onClick={()=>onVa(p.id,true)}>✅ Validar</Btn><Btn v="r" s="s" onClick={()=>onVa(p.id,false)}>❌ Rechazar</Btn></>}
           </div>}
-          {isEm&&!isSA&&p.st===ST.E&&<div style={{background:"#EDE9FE",padding:14,borderRadius:10}}><div style={{fontSize:13,fontWeight:700,color:"#5B21B6",marginBottom:8}}>💰 Aprobación{p.monto&&" – $"+p.monto.toLocaleString()}</div>{tPresu.length>0&&<div style={{fontSize:11,color:colors.pr,marginBottom:6,cursor:"pointer"}} onClick={()=>sTab("presu")}>📋 {tPresu.length} presupuesto(s) cargado(s) → Ver comparación</div>}<div style={{display:"flex",gap:8}}><Btn v="s" onClick={()=>onEO(p.id,true)}>✅ Aprobar</Btn><Btn v="r" onClick={()=>onEO(p.id,false)}>❌ Rechazar</Btn></div></div>}
+          {isEm&&!isSA&&p.st===ST.E&&(()=>{const canjePresu=tPresu.find((pr:any)=>pr.is_canje);const canjeSp=canjePresu&&(sponsors||[]).find((s:any)=>s.id===canjePresu.sponsor_id);return <div style={{background:canjePresu?"#EFF6FF":"#EDE9FE",padding:14,borderRadius:10}}>
+            <div style={{fontSize:13,fontWeight:700,color:canjePresu?"#1E40AF":"#5B21B6",marginBottom:8}}>{canjePresu?"🔄 Canje":"💰 Aprobación"}{p.monto&&" – $"+p.monto.toLocaleString()}</div>
+            {canjeSp&&<div style={{padding:"6px 10px",background:"#DBEAFE",borderRadius:8,fontSize:11,marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontWeight:700,color:"#1E40AF"}}>Sponsor: {canjeSp.name}</span><span style={{fontWeight:600,color:"#059669"}}>Canjes: ${Math.round(Number(canjeSp.amount_service||0)).toLocaleString("es-AR")}</span></div>}
+            {tPresu.length>0&&<div style={{fontSize:11,color:colors.pr,marginBottom:6,cursor:"pointer"}} onClick={()=>sTab("presu")}>📋 {tPresu.length} presupuesto(s) cargado(s) → Ver comparación</div>}
+            <div style={{display:"flex",gap:8}}><Btn v="s" onClick={()=>onEO(p.id,true)}>✅ Aprobar{canjePresu?" canje":""}</Btn><Btn v="r" onClick={()=>onEO(p.id,false)}>❌ Rechazar</Btn></div>
+          </div>;})()}
           {isCr&&!isSA&&p.st===ST.V&&<div style={{background:"#F0FDF4",padding:14,borderRadius:10}}><div style={{fontSize:13,fontWeight:700,color:"#166534",marginBottom:8}}>¿Confirmás resolución?</div><div style={{display:"flex",gap:8}}><Btn v="s" onClick={()=>onVa(p.id,true)}>✅ Validar</Btn><Btn v="r" onClick={()=>onVa(p.id,false)}>❌ Rechazar</Btn></div></div>}
           {!(canT||isCo||isSA||(isM&&p.st===ST.C)||(isEm&&p.st===ST.E)||(isCr&&p.st===ST.V)||p.st===ST.OK)&&<div style={{padding:16,textAlign:"center" as const,color:colors.g4,fontSize:12}}>No hay acciones disponibles.</div>}
         </div>}
@@ -122,6 +127,7 @@ export function Det({p,user,users,onX,onTk,onAs,onRe,onSE,onEO,onFi,onVa,onMsg,o
                   <PBadge s={pr.status} sm/>
                 </div>
               </div>
+              {pr.is_canje&&<div style={{marginTop:4}}><span style={{padding:"2px 8px",borderRadius:8,background:"#DBEAFE",color:"#1E40AF",fontSize:9,fontWeight:700}}>🔄 Canje{pr.sponsor_id&&(sponsors||[]).find((s:any)=>s.id===pr.sponsor_id)?" — "+(sponsors||[]).find((s:any)=>s.id===pr.sponsor_id).name:""}</span></div>}
               <div style={{display:"flex",gap:8,marginTop:6,flexWrap:"wrap" as const,fontSize:10,color:colors.g5}}>
                 {pr.proveedor_contacto&&<span>📞 {pr.proveedor_contacto}</span>}
                 {pr.archivo_url&&<a href={pr.archivo_url} target="_blank" rel="noopener noreferrer" style={{color:colors.bl,textDecoration:"underline"}}>📎 Archivo</a>}

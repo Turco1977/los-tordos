@@ -25,9 +25,10 @@ const emptyForm=()=>({
   payment_type:"",
 });
 
-export function SponsorsView({sponsors,user,mob,onAdd,onUpd,onDel}:any){
+export function SponsorsView({sponsors,user,mob,onAdd,onUpd,onDel,canjeUsado}:any){
   const{colors,isDark,cardBg}=useC();
   const isSA=user?.role==="superadmin";
+  const canFullEdit=isSA||user?.role==="coordinador";
   const [dolarRef,sDolarRef]=useState(()=>{if(typeof window!=="undefined"){const v=localStorage.getItem("lt_dolar_ref");if(v)return Number(v);}return DOLAR_REF;});
   const [editDolar,sEditDolar]=useState(false);
   const [dolarInput,sDolarInput]=useState(String(dolarRef));
@@ -268,7 +269,7 @@ export function SponsorsView({sponsors,user,mob,onAdd,onUpd,onDel}:any){
         {editDolar?<div style={{display:"flex",alignItems:"center",gap:4}}><span style={{fontSize:10,fontWeight:600,color:colors.g5}}>USD $</span><input type="number" value={dolarInput} onChange={e=>sDolarInput(e.target.value)} style={{width:80,padding:"4px 8px",borderRadius:6,border:"1px solid #10B981",fontSize:12,fontWeight:700,background:cardBg,color:colors.nv}} autoFocus onKeyDown={e=>{if(e.key==="Enter")saveDolar();if(e.key==="Escape")sEditDolar(false);}}/><Btn v="s" s="s" onClick={saveDolar}>OK</Btn><Btn v="g" s="s" onClick={()=>sEditDolar(false)}>✕</Btn></div>
         :<div style={{display:"flex",alignItems:"center",gap:4}}>
           <span style={{background:isDark?"rgba(16,185,129,.15)":"#D1FAE5",color:"#10B981",padding:"4px 10px",borderRadius:8,fontSize:11,fontWeight:700}}>dólar ${dolarRef.toLocaleString("es-AR")}</span>
-          {isSA&&<Btn v="g" s="s" onClick={()=>{sDolarInput(String(dolarRef));sEditDolar(true);}}>✏️</Btn>}
+          {canFullEdit&&<Btn v="g" s="s" onClick={()=>{sDolarInput(String(dolarRef));sEditDolar(true);}}>✏️</Btn>}
         </div>}
         <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleFile} style={{display:"none"}}/>
         <Btn v="g" s="s" onClick={()=>fileRef.current?.click()}>📥 Excel</Btn>
@@ -483,6 +484,21 @@ export function SponsorsView({sponsors,user,mob,onAdd,onUpd,onDel}:any){
               {/* Donut chart */}
               <DonutChart cash={cash} service={service} size={52}/>
             </div>
+
+            {/* Canje progress bar */}
+            {service>0&&(()=>{const usado=(canjeUsado||{})[sp.id]||0;const disp=service-usado;const pct=Math.min(100,Math.round(usado/service*100));const barC=pct>80?"#DC2626":pct>50?"#F59E0B":"#10B981";return(
+              <div style={{marginTop:6,padding:"6px 8px",background:isDark?"rgba(59,130,246,.08)":"#F0F7FF",borderRadius:8}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3}}>
+                  <span style={{fontSize:9,fontWeight:700,color:"#3B82F6"}}>🔄 Canjes</span>
+                  <span style={{fontSize:9,fontWeight:700,color:barC}}>{pct}% usado</span>
+                </div>
+                <div style={{height:6,background:isDark?"#334155":"#E2E8F0",borderRadius:3,overflow:"hidden"}}><div style={{height:"100%",width:pct+"%",background:barC,borderRadius:3,transition:"width .3s"}}/></div>
+                <div style={{display:"flex",justifyContent:"space-between",marginTop:3}}>
+                  <span style={{fontSize:8,color:colors.g5}}>Usado: {fmtARS(usado)}</span>
+                  <span style={{fontSize:8,fontWeight:700,color:disp>0?"#059669":"#DC2626"}}>Disponible: {fmtARS(disp)}</span>
+                </div>
+                {usado===0&&<div style={{marginTop:3,fontSize:8,fontWeight:700,color:"#F59E0B",background:"#FEF3C7",padding:"1px 6px",borderRadius:4,display:"inline-block"}}>⚠️ Sin usar</div>}
+              </div>);})()}
 
             {/* Período */}
             {sp.end_date&&<div style={{marginTop:6,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
