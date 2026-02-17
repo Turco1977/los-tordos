@@ -12,25 +12,17 @@ export async function uploadFile(
   file: File,
   folder: string = "general"
 ): Promise<{ url: string; path: string } | { error: string }> {
-  const supabase = createClient();
-  const ext = file.name.split(".").pop() || "bin";
-  const safeName = file.name
-    .replace(/[^a-zA-Z0-9._-]/g, "_")
-    .slice(0, 80);
-  const path = `${folder}/${Date.now()}_${safeName}`;
-
-  const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
-    cacheControl: "3600",
-    upsert: false,
-  });
-
-  if (error) return { error: error.message };
-
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from(BUCKET).getPublicUrl(path);
-
-  return { url: publicUrl, path };
+  try {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("folder", folder);
+    const res = await fetch("/api/upload", { method: "POST", body: form });
+    const data = await res.json();
+    if (!res.ok || data.error) return { error: data.error || "Upload failed" };
+    return { url: data.url, path: data.path };
+  } catch (e: any) {
+    return { error: e.message || "Upload failed" };
+  }
 }
 
 export async function deleteFile(path: string): Promise<void> {
