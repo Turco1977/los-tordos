@@ -8,16 +8,23 @@ import { createClient } from "@/lib/supabase/client";
 
 const BUCKET = "attachments";
 
+const MAX_FILE_MB = 4;
+
 export async function uploadFile(
   file: File,
   folder: string = "general"
 ): Promise<{ url: string; path: string } | { error: string }> {
   try {
+    if (file.size > MAX_FILE_MB * 1024 * 1024) {
+      return { error: `El archivo supera el límite de ${MAX_FILE_MB}MB` };
+    }
     const form = new FormData();
     form.append("file", file);
     form.append("folder", folder);
     const res = await fetch("/api/upload", { method: "POST", body: form });
-    const data = await res.json();
+    const text = await res.text();
+    let data: any;
+    try { data = JSON.parse(text); } catch { return { error: `Error del servidor: ${text.slice(0, 100)}` }; }
     if (!res.ok || data.error) return { error: data.error || "Upload failed" };
     return { url: data.url, path: data.path };
   } catch (e: any) {
