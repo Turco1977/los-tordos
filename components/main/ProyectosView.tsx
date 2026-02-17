@@ -28,7 +28,7 @@ export function ProyectosView({projects,projTasks,projBudgets,users,user,mob,onA
   const [taskPriFilter,sTaskPriFilter]=useState<string>("all");
   const [showBudgetForm,sShowBudgetForm]=useState(false);
   const [editBudgetId,sEditBudgetId]=useState<number|null>(null);
-  const [budgetForm,sBudgetForm]=useState<{provider:string;options:{label:string;description:string;amount:string}[];file_url:string}>({provider:"",options:[{label:"Opción 1",description:"",amount:""},{label:"Opción 2",description:"",amount:""}],file_url:""});
+  const [budgetForm,sBudgetForm]=useState<{provider:string;options:{label:string;description:string;amount:string;currency:string}[];file_url:string}>({provider:"",options:[{label:"Opción 1",description:"",amount:"",currency:"ARS"},{label:"Opción 2",description:"",amount:"",currency:"ARS"}],file_url:""});
 
   const upd=(k:string,v:string)=>{sForm(f=>({...f,[k]:v}));if(k==="nombre"&&v.trim())sFormErr("");};
   const iS:any={width:"100%",padding:"8px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,background:cardBg,color:colors.nv};
@@ -48,8 +48,8 @@ export function ProyectosView({projects,projTasks,projBudgets,users,user,mob,onA
 
   /* Budget helpers */
   const budgetsFor=(pid:number)=>(projBudgets||[]).filter((b:any)=>b.project_id===pid);
-  const resetBudgetForm=()=>{sBudgetForm({provider:"",options:[{label:"Opción 1",description:"",amount:""},{label:"Opción 2",description:"",amount:""}],file_url:""});sShowBudgetForm(false);sEditBudgetId(null);};
-  const startEditBudget=(b:any)=>{const opts=parseBudgetOpts(b);sBudgetForm({provider:b.provider||"",options:opts.map((o:any)=>({label:o.label||"",description:o.description||"",amount:String(o.amount||"")})),file_url:b.file_url||""});sEditBudgetId(b.id);sShowBudgetForm(true);};
+  const resetBudgetForm=()=>{sBudgetForm({provider:"",options:[{label:"Opción 1",description:"",amount:"",currency:"ARS"},{label:"Opción 2",description:"",amount:"",currency:"ARS"}],file_url:""});sShowBudgetForm(false);sEditBudgetId(null);};
+  const startEditBudget=(b:any)=>{const opts=parseBudgetOpts(b);sBudgetForm({provider:b.provider||"",options:opts.map((o:any)=>({label:o.label||"",description:o.description||"",amount:String(o.amount||""),currency:o.currency||"ARS"})),file_url:b.file_url||""});sEditBudgetId(b.id);sShowBudgetForm(true);};
 
   /* View-mode computations (must be before early returns to keep hooks order stable) */
   const viewProj=selProj;
@@ -349,16 +349,17 @@ export function ProyectosView({projects,projTasks,projBudgets,users,user,mob,onA
         </div>
         <div style={{marginBottom:8}}>
           <label style={{fontSize:11,fontWeight:700,color:colors.g5,display:"block",marginBottom:6}}>Opciones</label>
-          {budgetForm.options.map((opt,i)=><div key={i} style={{display:"flex",gap:6,marginBottom:6,alignItems:"center"}}>
-            <input value={opt.label} onChange={e=>{const v=e.target.value;sBudgetForm(prev=>{const opts=[...prev.options];opts[i]={...opts[i],label:v};return{...prev,options:opts};});}} placeholder={"Opción "+(i+1)} style={{...iS,width:mob?100:140}}/>
-            <input value={opt.description} onChange={e=>{const v=e.target.value;sBudgetForm(prev=>{const opts=[...prev.options];opts[i]={...opts[i],description:v};return{...prev,options:opts};});}} placeholder="Descripción" style={{...iS,flex:1}}/>
-            <div style={{position:"relative" as const}}>
-              <span style={{position:"absolute" as const,left:8,top:"50%",transform:"translateY(-50%)",fontSize:12,color:colors.g4,pointerEvents:"none" as const}}>$</span>
-              <input type="number" value={opt.amount} onChange={e=>{const v=e.target.value;sBudgetForm(prev=>{const opts=[...prev.options];opts[i]={...opts[i],amount:v};return{...prev,options:opts};});}} placeholder="0" style={{...iS,width:mob?100:130,paddingLeft:20}}/>
-            </div>
+          {budgetForm.options.map((opt,i)=><div key={i} style={{display:"flex",gap:6,marginBottom:6,alignItems:"center",flexWrap:mob?"wrap":"nowrap" as const}}>
+            <input value={opt.label} onChange={e=>{const v=e.target.value;sBudgetForm(prev=>{const opts=[...prev.options];opts[i]={...opts[i],label:v};return{...prev,options:opts};});}} placeholder={"Opción "+(i+1)} style={{...iS,width:mob?80:120}}/>
+            <input value={opt.description} onChange={e=>{const v=e.target.value;sBudgetForm(prev=>{const opts=[...prev.options];opts[i]={...opts[i],description:v};return{...prev,options:opts};});}} placeholder="Descripción" style={{...iS,flex:1,minWidth:80}}/>
+            <select value={opt.currency||"ARS"} onChange={e=>{const v=e.target.value;sBudgetForm(prev=>{const opts=[...prev.options];opts[i]={...opts[i],currency:v};return{...prev,options:opts};});}} style={{...iS,width:mob?60:70,padding:"8px 4px",flexShrink:0}}>
+              <option value="ARS">$</option>
+              <option value="USD">US$</option>
+            </select>
+            <input type="number" value={opt.amount} onChange={e=>{const v=e.target.value;sBudgetForm(prev=>{const opts=[...prev.options];opts[i]={...opts[i],amount:v};return{...prev,options:opts};});}} placeholder="0" style={{...iS,width:mob?90:120,flexShrink:0}}/>
             {budgetForm.options.length>2&&<button onClick={()=>sBudgetForm(prev=>({...prev,options:prev.options.filter((_,j)=>j!==i)}))} style={{padding:"4px 6px",borderRadius:4,border:"1px solid #FCA5A5",background:"transparent",fontSize:10,cursor:"pointer",color:"#DC2626",flexShrink:0}} title="Quitar opción">✕</button>}
           </div>)}
-          <button onClick={()=>sBudgetForm(prev=>({...prev,options:[...prev.options,{label:"Opción "+(prev.options.length+1),description:"",amount:""}]}))} style={{padding:"4px 10px",borderRadius:6,border:"1px dashed "+colors.g3,background:"transparent",fontSize:10,cursor:"pointer",color:colors.g4}}>+ Agregar opción</button>
+          <button onClick={()=>sBudgetForm(prev=>({...prev,options:[...prev.options,{label:"Opción "+(prev.options.length+1),description:"",amount:"",currency:"ARS"}]}))} style={{padding:"4px 10px",borderRadius:6,border:"1px dashed "+colors.g3,background:"transparent",fontSize:10,cursor:"pointer",color:colors.g4}}>+ Agregar opción</button>
         </div>
         <div style={{marginBottom:10}}>
           <label style={{fontSize:11,fontWeight:700,color:colors.g5,display:"block",marginBottom:3}}>Archivo adjunto</label>
@@ -366,7 +367,7 @@ export function ProyectosView({projects,projTasks,projBudgets,users,user,mob,onA
         </div>
         <div style={{display:"flex",gap:6,justifyContent:"flex-end"}}>
           <button onClick={resetBudgetForm} style={{padding:"6px 12px",borderRadius:6,border:"1px solid "+colors.g3,background:"transparent",fontSize:11,cursor:"pointer",color:colors.g5}}>Cancelar</button>
-          <button onClick={()=>{if(!budgetForm.provider.trim())return;const opts=budgetForm.options.map(o=>({label:o.label||"",description:o.description||"",amount:Number(o.amount)||0}));if(editBudgetId){onUpdBudget(editBudgetId,{provider:budgetForm.provider.trim(),options:opts,file_url:budgetForm.file_url||""});}else{onAddBudget({project_id:p.id,provider:budgetForm.provider.trim(),options:opts,file_url:budgetForm.file_url||"",created_by_name:user?((user.n||"")+" "+(user.a||"")).trim():""});}resetBudgetForm();}} style={{padding:"6px 12px",borderRadius:6,border:"none",background:colors.nv,color:isDark?"#0F172A":"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>Guardar</button>
+          <button onClick={()=>{if(!budgetForm.provider.trim())return;const opts=budgetForm.options.map(o=>({label:o.label||"",description:o.description||"",amount:Number(o.amount)||0,currency:o.currency||"ARS"}));if(editBudgetId){onUpdBudget(editBudgetId,{provider:budgetForm.provider.trim(),options:opts,file_url:budgetForm.file_url||""});}else{onAddBudget({project_id:p.id,provider:budgetForm.provider.trim(),options:opts,file_url:budgetForm.file_url||"",created_by_name:user?((user.n||"")+" "+(user.a||"")).trim():""});}resetBudgetForm();}} style={{padding:"6px 12px",borderRadius:6,border:"none",background:colors.nv,color:isDark?"#0F172A":"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>Guardar</button>
         </div>
       </div>}
 
@@ -390,7 +391,7 @@ export function ProyectosView({projects,projTasks,projBudgets,users,user,mob,onA
             {opts.map((o:any,i:number)=><div key={i} style={{background:isDark?"rgba(255,255,255,.05)":"#f8f9fa",borderRadius:8,padding:"8px 14px",minWidth:100,textAlign:"center" as const,border:"1px solid "+colors.g2}}>
               <div style={{fontSize:10,fontWeight:600,color:colors.g4,marginBottom:2}}>{o.label||"Opción "+(i+1)}</div>
               {o.description&&<div style={{fontSize:9,color:colors.g5,marginBottom:2}}>{o.description}</div>}
-              <div style={{fontSize:14,fontWeight:800,color:colors.nv}}>${fmtAmt(o.amount||0)}</div>
+              <div style={{fontSize:14,fontWeight:800,color:colors.nv}}>{o.currency==="USD"?"US$":"$"}{fmtAmt(o.amount||0)}</div>
             </div>)}
           </div>
           {b.file_url&&<div style={{display:"flex",alignItems:"center",gap:6}}>
@@ -421,7 +422,8 @@ export function ProyectosView({projects,projTasks,projBudgets,users,user,mob,onA
                     const amt=opt?.amount||0;
                     const colAmts=budgets.map((bb:any)=>{const oo=parseBudgetOpts(bb);return oo[i]?.amount||0;}).filter((a:number)=>a>0);
                     const isMin=colAmts.length>1&&amt>0&&amt===Math.min(...colAmts);
-                    return <td key={i} style={{padding:"6px 10px",borderBottom:"1px solid "+colors.g2,textAlign:"right" as const,fontWeight:isMin?800:400,color:isMin?"#059669":colors.nv,background:isMin?(isDark?"rgba(16,185,129,.15)":"#D1FAE5"):"transparent"}}>{amt>0?"$"+fmtAmt(amt):"–"}</td>;
+                    const cur=opt?.currency==="USD"?"US$":"$";
+                    return <td key={i} style={{padding:"6px 10px",borderBottom:"1px solid "+colors.g2,textAlign:"right" as const,fontWeight:isMin?800:400,color:isMin?"#059669":colors.nv,background:isMin?(isDark?"rgba(16,185,129,.15)":"#D1FAE5"):"transparent"}}>{amt>0?cur+fmtAmt(amt):"–"}</td>;
                   })}
                 </tr>
               );})}

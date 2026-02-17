@@ -244,7 +244,7 @@ ${data.pendingTasks.length ? `<h2 style="font-size:14px;color:#DC2626;border-bot
 }
 
 /* ── PROJECT INFORME PDF ── */
-type ProjectBudgetOption = { label: string; amount: number; description?: string };
+type ProjectBudgetOption = { label: string; amount: number; description?: string; currency?: string };
 type ProjectBudget = { id: number; provider: string; options: ProjectBudgetOption[]; file_url?: string };
 type ProjectTask = { id: number; title: string; status: string; priority: string; assignee_name?: string; due_date?: string };
 type ProjectInfo = { name: string; status: string; created_by_name?: string; created_at?: string };
@@ -301,7 +301,8 @@ ${budgets.length ? `<h2 style="font-size:14px;color:#0A1628;border-bottom:2px so
       // Find min for this column
       const colAmts = budgets.map(bb => (bb.options || [])[i]?.amount || 0).filter(a => a > 0);
       const isMin = colAmts.length > 1 && amt > 0 && amt === Math.min(...colAmts);
-      return `<td style="padding:5px 8px;border-bottom:1px solid #e5e5e5;text-align:right;${isMin ? "background:#D1FAE5;color:#065F46;font-weight:700;" : ""}">${opt && amt ? "$" + fmtN(amt) : "–"}</td>`;
+      const cur = opt?.currency === "USD" ? "US$" : "$";
+      return `<td style="padding:5px 8px;border-bottom:1px solid #e5e5e5;text-align:right;${isMin ? "background:#D1FAE5;color:#065F46;font-weight:700;" : ""}">${opt && amt ? cur + fmtN(amt) : "–"}</td>`;
     }).join("")}</tr>`;
   }).join("")}</tbody></table>` : ""}
 
