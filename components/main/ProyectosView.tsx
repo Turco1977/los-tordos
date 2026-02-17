@@ -12,8 +12,9 @@ const parseFormData=(desc:any)=>{try{if(!desc||typeof desc!=="string")return emp
 const wordCount=(t:string)=>t.trim().split(/\s+/).filter(Boolean).length;
 const COLS=Object.keys(PJ_ST) as string[];
 const fmtAmt=(n:number)=>n.toLocaleString("es-AR");
+const parseBudgetOpts=(b:any):any[]=>Array.isArray(b.options)?b.options:(()=>{try{return JSON.parse(b.options)||[];}catch{return[];}})();
 
-export function ProyectosView({projects,projTasks,projBudgets,users,user,mob,onAddProject,onUpdProject,onDelProject,onAddTask,onUpdTask,onDelTask,onAddBudget,onDelBudget}:any){
+export function ProyectosView({projects,projTasks,projBudgets,users,user,mob,onAddProject,onUpdProject,onDelProject,onAddTask,onUpdTask,onDelTask,onAddBudget,onUpdBudget,onDelBudget}:any){
   const{colors,isDark,cardBg}=useC();
   const [mode,sMode]=useState<"list"|"form"|"view">("list");
   const [selProj,sSelProj]=useState<any>(null);
@@ -26,6 +27,7 @@ export function ProyectosView({projects,projTasks,projBudgets,users,user,mob,onA
   const [taskSearch,sTaskSearch]=useState("");
   const [taskPriFilter,sTaskPriFilter]=useState<string>("all");
   const [showBudgetForm,sShowBudgetForm]=useState(false);
+  const [editBudgetId,sEditBudgetId]=useState<number|null>(null);
   const [budgetForm,sBudgetForm]=useState<{provider:string;options:{label:string;description:string;amount:string}[];file_url:string}>({provider:"",options:[{label:"Opción 1",description:"",amount:""},{label:"Opción 2",description:"",amount:""}],file_url:""});
 
   const upd=(k:string,v:string)=>{sForm(f=>({...f,[k]:v}));if(k==="nombre"&&v.trim())sFormErr("");};
@@ -46,7 +48,8 @@ export function ProyectosView({projects,projTasks,projBudgets,users,user,mob,onA
 
   /* Budget helpers */
   const budgetsFor=(pid:number)=>(projBudgets||[]).filter((b:any)=>b.project_id===pid);
-  const resetBudgetForm=()=>{sBudgetForm({provider:"",options:[{label:"Opción 1",description:"",amount:""},{label:"Opción 2",description:"",amount:""}],file_url:""});sShowBudgetForm(false);};
+  const resetBudgetForm=()=>{sBudgetForm({provider:"",options:[{label:"Opción 1",description:"",amount:""},{label:"Opción 2",description:"",amount:""}],file_url:""});sShowBudgetForm(false);sEditBudgetId(null);};
+  const startEditBudget=(b:any)=>{const opts=parseBudgetOpts(b);sBudgetForm({provider:b.provider||"",options:opts.map((o:any)=>({label:o.label||"",description:o.description||"",amount:String(o.amount||"")})),file_url:b.file_url||""});sEditBudgetId(b.id);sShowBudgetForm(true);};
 
   /* View-mode computations (must be before early returns to keep hooks order stable) */
   const viewProj=selProj;
@@ -177,8 +180,6 @@ export function ProyectosView({projects,projTasks,projBudgets,users,user,mob,onA
 
   // Comparison table data
   const maxOpts=budgets.reduce((mx:number,b:any)=>{const opts=Array.isArray(b.options)?b.options:(()=>{try{return JSON.parse(b.options)||[];}catch{return[];}})();return Math.max(mx,opts.length);},0);
-  const parseBudgetOpts=(b:any)=>Array.isArray(b.options)?b.options:(()=>{try{return JSON.parse(b.options)||[];}catch{return[];}})();
-
   return(<div style={{maxWidth:mob?undefined:1100}}>
     <button onClick={()=>{sMode("list");sSelProj(null);sEditTask(null);sTaskForm(null);sShowBudgetForm(false);}} style={{background:"none",border:"1px solid "+colors.g3,borderRadius:6,cursor:"pointer",fontSize:12,padding:"4px 10px",color:colors.g5,marginBottom:10}}>← Volver a lista</button>
 
@@ -341,7 +342,7 @@ export function ProyectosView({projects,projTasks,projBudgets,users,user,mob,onA
 
       {/* Budget form */}
       {showBudgetForm&&<div style={{background:cardBg,borderRadius:12,padding:14,border:"1px solid "+colors.g2,marginBottom:12}}>
-        <div style={{fontSize:12,fontWeight:700,color:colors.nv,marginBottom:10}}>Nuevo Presupuesto</div>
+        <div style={{fontSize:12,fontWeight:700,color:colors.nv,marginBottom:10}}>{editBudgetId?"Editar Presupuesto":"Nuevo Presupuesto"}</div>
         <div style={{marginBottom:8}}>
           <label style={{fontSize:11,fontWeight:700,color:colors.g5,display:"block",marginBottom:3}}>Proveedor *</label>
           <input value={budgetForm.provider} onChange={e=>{const v=e.target.value;sBudgetForm(prev=>({...prev,provider:v}));}} placeholder="Nombre del proveedor" style={iS}/>
@@ -365,7 +366,7 @@ export function ProyectosView({projects,projTasks,projBudgets,users,user,mob,onA
         </div>
         <div style={{display:"flex",gap:6,justifyContent:"flex-end"}}>
           <button onClick={resetBudgetForm} style={{padding:"6px 12px",borderRadius:6,border:"1px solid "+colors.g3,background:"transparent",fontSize:11,cursor:"pointer",color:colors.g5}}>Cancelar</button>
-          <button onClick={()=>{if(!budgetForm.provider.trim())return;const opts=budgetForm.options.map(o=>({label:o.label||"",description:o.description||"",amount:Number(o.amount)||0}));onAddBudget({project_id:p.id,provider:budgetForm.provider.trim(),options:opts,file_url:budgetForm.file_url||"",created_by_name:user?((user.n||"")+" "+(user.a||"")).trim():""});resetBudgetForm();}} style={{padding:"6px 12px",borderRadius:6,border:"none",background:colors.nv,color:isDark?"#0F172A":"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>Guardar</button>
+          <button onClick={()=>{if(!budgetForm.provider.trim())return;const opts=budgetForm.options.map(o=>({label:o.label||"",description:o.description||"",amount:Number(o.amount)||0}));if(editBudgetId){onUpdBudget(editBudgetId,{provider:budgetForm.provider.trim(),options:opts,file_url:budgetForm.file_url||""});}else{onAddBudget({project_id:p.id,provider:budgetForm.provider.trim(),options:opts,file_url:budgetForm.file_url||"",created_by_name:user?((user.n||"")+" "+(user.a||"")).trim():""});}resetBudgetForm();}} style={{padding:"6px 12px",borderRadius:6,border:"none",background:colors.nv,color:isDark?"#0F172A":"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>Guardar</button>
         </div>
       </div>}
 
@@ -380,7 +381,10 @@ export function ProyectosView({projects,projTasks,projBudgets,users,user,mob,onA
         <div key={b.id} style={{background:cardBg,borderRadius:12,padding:14,border:"1px solid "+colors.g2,marginBottom:10}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
             <div style={{fontSize:13,fontWeight:700,color:colors.nv}}>🏢 {b.provider}</div>
-            <button onClick={()=>{if(confirm("¿Eliminar este presupuesto?"))onDelBudget(b.id);}} style={{padding:"3px 7px",borderRadius:4,border:"1px solid #FCA5A5",background:"transparent",fontSize:10,cursor:"pointer",color:"#DC2626"}} title="Eliminar">🗑</button>
+            <div style={{display:"flex",gap:4}}>
+              <button onClick={()=>startEditBudget(b)} style={{padding:"3px 7px",borderRadius:4,border:"1px solid "+colors.g3,background:"transparent",fontSize:10,cursor:"pointer",color:colors.nv}} title="Editar">✏️</button>
+              <button onClick={()=>{if(confirm("¿Eliminar este presupuesto?"))onDelBudget(b.id);}} style={{padding:"3px 7px",borderRadius:4,border:"1px solid #FCA5A5",background:"transparent",fontSize:10,cursor:"pointer",color:"#DC2626"}} title="Eliminar">🗑</button>
+            </div>
           </div>
           <div style={{display:"flex",gap:6,flexWrap:"wrap" as const,marginBottom:8}}>
             {opts.map((o:any,i:number)=><div key={i} style={{background:isDark?"rgba(255,255,255,.05)":"#f8f9fa",borderRadius:8,padding:"8px 14px",minWidth:100,textAlign:"center" as const,border:"1px solid "+colors.g2}}>
