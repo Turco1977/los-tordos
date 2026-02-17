@@ -28,6 +28,7 @@ export function ProyectosView({projects,projTasks,projBudgets,users,user,mob,onA
   const [taskPriFilter,sTaskPriFilter]=useState<string>("all");
   const [showBudgetForm,sShowBudgetForm]=useState(false);
   const [editBudgetId,sEditBudgetId]=useState<number|null>(null);
+  const [budgetUploading,sBudgetUploading]=useState(false);
   const [budgetForm,sBudgetForm]=useState<{provider:string;options:{label:string;description:string;amount:string;currency:string}[];file_url:string}>({provider:"",options:[{label:"Opción 1",description:"",amount:"",currency:"ARS"},{label:"Opción 2",description:"",amount:"",currency:"ARS"}],file_url:""});
 
   const upd=(k:string,v:string)=>{sForm(f=>({...f,[k]:v}));if(k==="nombre"&&v.trim())sFormErr("");};
@@ -363,11 +364,11 @@ export function ProyectosView({projects,projTasks,projBudgets,users,user,mob,onA
         </div>
         <div style={{marginBottom:10}}>
           <label style={{fontSize:11,fontWeight:700,color:colors.g5,display:"block",marginBottom:3}}>Archivo adjunto</label>
-          <FileField value={budgetForm.file_url} onChange={(url:string)=>sBudgetForm(prev=>({...prev,file_url:url}))} folder="project-budgets"/>
+          <FileField value={budgetForm.file_url} onChange={(url:string)=>sBudgetForm(prev=>({...prev,file_url:url}))} folder="project-budgets" onUploadingChange={sBudgetUploading}/>
         </div>
         <div style={{display:"flex",gap:6,justifyContent:"flex-end"}}>
           <button onClick={resetBudgetForm} style={{padding:"6px 12px",borderRadius:6,border:"1px solid "+colors.g3,background:"transparent",fontSize:11,cursor:"pointer",color:colors.g5}}>Cancelar</button>
-          <button onClick={()=>{if(!budgetForm.provider.trim())return;const opts=budgetForm.options.map(o=>({label:o.label||"",description:o.description||"",amount:Number(o.amount)||0,currency:o.currency||"ARS"}));if(editBudgetId){onUpdBudget(editBudgetId,{provider:budgetForm.provider.trim(),options:opts,file_url:budgetForm.file_url||""});}else{onAddBudget({project_id:p.id,provider:budgetForm.provider.trim(),options:opts,file_url:budgetForm.file_url||"",created_by_name:user?((user.n||"")+" "+(user.a||"")).trim():""});}resetBudgetForm();}} style={{padding:"6px 12px",borderRadius:6,border:"none",background:colors.nv,color:isDark?"#0F172A":"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>Guardar</button>
+          <button disabled={budgetUploading} onClick={()=>{if(!budgetForm.provider.trim())return;const opts=budgetForm.options.map(o=>({label:o.label||"",description:o.description||"",amount:Number(o.amount)||0,currency:o.currency||"ARS"}));if(editBudgetId){onUpdBudget(editBudgetId,{provider:budgetForm.provider.trim(),options:opts,file_url:budgetForm.file_url||""});}else{onAddBudget({project_id:p.id,provider:budgetForm.provider.trim(),options:opts,file_url:budgetForm.file_url||"",created_by_name:user?((user.n||"")+" "+(user.a||"")).trim():""});}resetBudgetForm();}} style={{padding:"6px 12px",borderRadius:6,border:"none",background:colors.nv,color:isDark?"#0F172A":"#fff",fontSize:11,fontWeight:700,cursor:budgetUploading?"wait":"pointer",opacity:budgetUploading?.5:1}}>{budgetUploading?"Subiendo archivo...":"Guardar"}</button>
         </div>
       </div>}
 

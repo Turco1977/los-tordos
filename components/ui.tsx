@@ -129,27 +129,34 @@ interface FileFieldProps {
   value: string;
   onChange: (url: string) => void;
   folder?: string;
+  onUploadingChange?: (uploading: boolean) => void;
 }
-export function FileField({ value, onChange, folder }: FileFieldProps) {
+export function FileField({ value, onChange, folder, onUploadingChange }: FileFieldProps) {
   const { colors, cardBg } = useC();
   const [uploading, sUploading] = useState(false);
+  const [err, sErr] = useState("");
+  const [ok, sOk] = useState(false);
   const doUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
-    sUploading(true);
+    sErr(""); sOk(false);
+    sUploading(true); onUploadingChange?.(true);
     const res = await uploadFile(file, folder || "general");
-    sUploading(false);
-    if ("url" in res) onChange(res.url);
+    sUploading(false); onUploadingChange?.(false);
+    if ("url" in res) { onChange(res.url); sOk(true); setTimeout(() => sOk(false), 3000); }
+    else sErr(res.error || "Error al subir archivo");
   };
   return (
     <div>
       <label style={{ fontSize: 10, fontWeight: 600, color: colors.g5 }}>Archivo/cotización</label>
       <div style={{ display: "flex", gap: 4, marginTop: 3 }}>
-        <input value={value} onChange={e => onChange(e.target.value)} placeholder="URL o subir archivo..." style={{ flex: 1, padding: 7, borderRadius: 7, border: "1px solid " + colors.g3, fontSize: 12, boxSizing: "border-box" as const }} />
+        <input value={value} onChange={e => { sErr(""); onChange(e.target.value); }} placeholder="URL o subir archivo..." style={{ flex: 1, padding: 7, borderRadius: 7, border: "1px solid " + (err ? "#DC2626" : colors.g3), fontSize: 12, boxSizing: "border-box" as const }} />
         <label style={{ padding: "7px 12px", borderRadius: 7, border: "1px solid " + colors.g3, background: cardBg, fontSize: 11, fontWeight: 600, color: colors.nv, cursor: uploading ? "wait" : "pointer", opacity: uploading ? .5 : 1 }}>
           {uploading ? "Subiendo..." : "📎 Subir"}
           <input type="file" onChange={doUpload} style={{ display: "none" }} disabled={uploading} />
         </label>
       </div>
+      {err && <div style={{ marginTop: 3, fontSize: 10, color: "#DC2626", fontWeight: 600 }}>⚠️ {err}</div>}
+      {ok && !err && <div style={{ marginTop: 3, fontSize: 10, color: "#059669", fontWeight: 600 }}>✅ Archivo subido correctamente</div>}
       {value && <div style={{ marginTop: 4, fontSize: 10 }}><a href={value} target="_blank" rel="noopener noreferrer" style={{ color: colors.bl }}>{getFileIcon(value)} Ver archivo</a></div>}
     </div>
   );
