@@ -13,6 +13,7 @@ const wordCount=(t:string)=>t.trim().split(/\s+/).filter(Boolean).length;
 const COLS=Object.keys(PJ_ST) as string[];
 const fmtAmt=(n:number)=>n.toLocaleString("es-AR");
 const parseBudgetOpts=(b:any):any[]=>Array.isArray(b.options)?b.options:(()=>{try{return JSON.parse(b.options)||[];}catch{return[];}})();
+const parseBudgetFiles=(v:any):string[]=>{if(!v)return[];if(Array.isArray(v))return v.filter(Boolean);if(typeof v==="string"){try{const arr=JSON.parse(v);if(Array.isArray(arr))return arr.filter(Boolean);}catch{}return v.trim()?[v]:[];}return[];};
 
 export function ProyectosView({projects,projTasks,projBudgets,users,user,mob,onAddProject,onUpdProject,onDelProject,onAddTask,onUpdTask,onDelTask,onAddBudget,onUpdBudget,onDelBudget}:any){
   const{colors,isDark,cardBg}=useC();
@@ -29,7 +30,7 @@ export function ProyectosView({projects,projTasks,projBudgets,users,user,mob,onA
   const [showBudgetForm,sShowBudgetForm]=useState(false);
   const [editBudgetId,sEditBudgetId]=useState<number|null>(null);
   const [budgetUploading,sBudgetUploading]=useState(false);
-  const [budgetForm,sBudgetForm]=useState<{provider:string;options:{label:string;description:string;amount:string;currency:string}[];file_url:string}>({provider:"",options:[{label:"Opción 1",description:"",amount:"",currency:"ARS"},{label:"Opción 2",description:"",amount:"",currency:"ARS"}],file_url:""});
+  const [budgetForm,sBudgetForm]=useState<{provider:string;options:{label:string;description:string;amount:string;currency:string}[];file_urls:string[]}>({provider:"",options:[{label:"Opción 1",description:"",amount:"",currency:"ARS"},{label:"Opción 2",description:"",amount:"",currency:"ARS"}],file_urls:[""]});
 
   const upd=(k:string,v:string)=>{sForm(f=>({...f,[k]:v}));if(k==="nombre"&&v.trim())sFormErr("");};
   const iS:any={width:"100%",padding:"8px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,background:cardBg,color:colors.nv};
@@ -49,8 +50,8 @@ export function ProyectosView({projects,projTasks,projBudgets,users,user,mob,onA
 
   /* Budget helpers */
   const budgetsFor=(pid:number)=>(projBudgets||[]).filter((b:any)=>b.project_id===pid);
-  const resetBudgetForm=()=>{sBudgetForm({provider:"",options:[{label:"Opción 1",description:"",amount:"",currency:"ARS"},{label:"Opción 2",description:"",amount:"",currency:"ARS"}],file_url:""});sShowBudgetForm(false);sEditBudgetId(null);};
-  const startEditBudget=(b:any)=>{const opts=parseBudgetOpts(b);sBudgetForm({provider:b.provider||"",options:opts.map((o:any)=>({label:o.label||"",description:o.description||"",amount:String(o.amount||""),currency:o.currency||"ARS"})),file_url:b.file_url||""});sEditBudgetId(b.id);sShowBudgetForm(true);};
+  const resetBudgetForm=()=>{sBudgetForm({provider:"",options:[{label:"Opción 1",description:"",amount:"",currency:"ARS"},{label:"Opción 2",description:"",amount:"",currency:"ARS"}],file_urls:[""]});sShowBudgetForm(false);sEditBudgetId(null);};
+  const startEditBudget=(b:any)=>{const opts=parseBudgetOpts(b);const files=parseBudgetFiles(b.file_url);sBudgetForm({provider:b.provider||"",options:opts.map((o:any)=>({label:o.label||"",description:o.description||"",amount:String(o.amount||""),currency:o.currency||"ARS"})),file_urls:files.length>0?files:[""]});sEditBudgetId(b.id);sShowBudgetForm(true);};
 
   /* View-mode computations (must be before early returns to keep hooks order stable) */
   const viewProj=selProj;
@@ -363,12 +364,16 @@ export function ProyectosView({projects,projTasks,projBudgets,users,user,mob,onA
           <button onClick={()=>sBudgetForm(prev=>({...prev,options:[...prev.options,{label:"Opción "+(prev.options.length+1),description:"",amount:"",currency:"ARS"}]}))} style={{padding:"4px 10px",borderRadius:6,border:"1px dashed "+colors.g3,background:"transparent",fontSize:10,cursor:"pointer",color:colors.g4}}>+ Agregar opción</button>
         </div>
         <div style={{marginBottom:10}}>
-          <label style={{fontSize:11,fontWeight:700,color:colors.g5,display:"block",marginBottom:3}}>Archivo adjunto</label>
-          <FileField value={budgetForm.file_url} onChange={(url:string)=>sBudgetForm(prev=>({...prev,file_url:url}))} folder="project-budgets" onUploadingChange={sBudgetUploading}/>
+          <label style={{fontSize:11,fontWeight:700,color:colors.g5,display:"block",marginBottom:6}}>Archivos adjuntos</label>
+          {budgetForm.file_urls.map((fu,fi)=><div key={fi} style={{display:"flex",gap:4,alignItems:"flex-start",marginBottom:6}}>
+            <div style={{flex:1}}><FileField value={fu} onChange={(url:string)=>sBudgetForm(prev=>{const fus=[...prev.file_urls];fus[fi]=url;return{...prev,file_urls:fus};})} folder="project-budgets" onUploadingChange={sBudgetUploading}/></div>
+            {budgetForm.file_urls.length>1&&<button onClick={()=>sBudgetForm(prev=>({...prev,file_urls:prev.file_urls.filter((_,j)=>j!==fi)}))} style={{padding:"4px 6px",borderRadius:4,border:"1px solid #FCA5A5",background:"transparent",fontSize:10,cursor:"pointer",color:"#DC2626",marginTop:18,flexShrink:0}} title="Quitar archivo">✕</button>}
+          </div>)}
+          <button onClick={()=>sBudgetForm(prev=>({...prev,file_urls:[...prev.file_urls,""]}))} style={{padding:"4px 10px",borderRadius:6,border:"1px dashed "+colors.g3,background:"transparent",fontSize:10,cursor:"pointer",color:colors.g4}}>+ Agregar archivo</button>
         </div>
         <div style={{display:"flex",gap:6,justifyContent:"flex-end"}}>
           <button onClick={resetBudgetForm} style={{padding:"6px 12px",borderRadius:6,border:"1px solid "+colors.g3,background:"transparent",fontSize:11,cursor:"pointer",color:colors.g5}}>Cancelar</button>
-          <button disabled={budgetUploading} onClick={()=>{if(!budgetForm.provider.trim())return;const opts=budgetForm.options.map(o=>({label:o.label||"",description:o.description||"",amount:Number(o.amount)||0,currency:o.currency||"ARS"}));if(editBudgetId){onUpdBudget(editBudgetId,{provider:budgetForm.provider.trim(),options:opts,file_url:budgetForm.file_url||""});}else{onAddBudget({project_id:p.id,provider:budgetForm.provider.trim(),options:opts,file_url:budgetForm.file_url||"",created_by_name:user?((user.n||"")+" "+(user.a||"")).trim():""});}resetBudgetForm();}} style={{padding:"6px 12px",borderRadius:6,border:"none",background:colors.nv,color:isDark?"#0F172A":"#fff",fontSize:11,fontWeight:700,cursor:budgetUploading?"wait":"pointer",opacity:budgetUploading?.5:1}}>{budgetUploading?"Subiendo archivo...":"Guardar"}</button>
+          <button disabled={budgetUploading} onClick={()=>{if(!budgetForm.provider.trim())return;const opts=budgetForm.options.map(o=>({label:o.label||"",description:o.description||"",amount:Number(o.amount)||0,currency:o.currency||"ARS"}));const urls=budgetForm.file_urls.filter(u=>u.trim());const fileVal=urls.length>0?JSON.stringify(urls):"";if(editBudgetId){onUpdBudget(editBudgetId,{provider:budgetForm.provider.trim(),options:opts,file_url:fileVal});}else{onAddBudget({project_id:p.id,provider:budgetForm.provider.trim(),options:opts,file_url:fileVal,created_by_name:user?((user.n||"")+" "+(user.a||"")).trim():""});}resetBudgetForm();}} style={{padding:"6px 12px",borderRadius:6,border:"none",background:colors.nv,color:isDark?"#0F172A":"#fff",fontSize:11,fontWeight:700,cursor:budgetUploading?"wait":"pointer",opacity:budgetUploading?.5:1}}>{budgetUploading?"Subiendo archivo...":"Guardar"}</button>
         </div>
       </div>}
 
@@ -395,10 +400,12 @@ export function ProyectosView({projects,projTasks,projBudgets,users,user,mob,onA
               <div style={{fontSize:14,fontWeight:800,color:colors.nv}}>{o.currency==="USD"?"US$":"$"}{fmtAmt(o.amount||0)}</div>
             </div>)}
           </div>
-          {b.file_url&&<div style={{display:"flex",alignItems:"center",gap:6}}>
-            <span style={{fontSize:11,color:colors.g4}}>📎</span>
-            <a href={b.file_url} target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:"#3B82F6",textDecoration:"none",fontWeight:600}} onClick={e=>e.stopPropagation()}>Ver archivo</a>
-          </div>}
+          {(()=>{const files=parseBudgetFiles(b.file_url);return files.length>0&&<div style={{display:"flex",flexDirection:"column" as const,gap:3}}>
+            {files.map((f:string,fi:number)=><div key={fi} style={{display:"flex",alignItems:"center",gap:6}}>
+              <span style={{fontSize:11,color:colors.g4}}>📎</span>
+              <a href={f} target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:"#3B82F6",textDecoration:"none",fontWeight:600}} onClick={e=>e.stopPropagation()}>{files.length>1?`Archivo ${fi+1}`:"Ver archivo"}</a>
+            </div>)}
+          </div>;})()}
           {b.created_by_name&&<div style={{fontSize:9,color:colors.g4,marginTop:4}}>Por {b.created_by_name} · {b.created_at?.slice(0,10)}</div>}
         </div>
       );})}
