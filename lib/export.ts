@@ -243,6 +243,99 @@ ${data.pendingTasks.length ? `<h2 style="font-size:14px;color:#DC2626;border-bot
   }
 }
 
+/* ── PROJECT INFORME PDF ── */
+type ProjectBudgetOption = { label: string; amount: number; description?: string };
+type ProjectBudget = { id: number; provider: string; options: ProjectBudgetOption[]; file_url?: string };
+type ProjectTask = { id: number; title: string; status: string; priority: string; assignee_name?: string; due_date?: string };
+type ProjectInfo = { name: string; status: string; created_by_name?: string; created_at?: string };
+
+const PJ_ST_LABELS: Record<string,string> = { backlog:"Backlog", todo:"To Do", in_progress:"In Progress", review:"Review", done:"Done", borrador:"Borrador", enviado:"Enviado", aprobado:"Aprobado", rechazado:"Rechazado" };
+const PJ_PR_LABELS: Record<string,string> = { critical:"Crítica", high:"Alta", medium:"Media", low:"Baja" };
+
+export async function exportProjectPDF(project: ProjectInfo, formData: any, budgets: ProjectBudget[], tasks: ProjectTask[], progress: { total: number; done: number; pct: number }) {
+  const esc = (s: string) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>");
+  const fmtN = (n: number) => n.toLocaleString("es-AR");
+  const fmtD = (d: string) => { if (!d) return "–"; const [y, m, dd] = d.split("-"); return `${dd}/${m}/${y}`; };
+
+  const sectionField = (label: string, val: string) => val ? `<div style="margin-bottom:6px;"><span style="font-size:10px;font-weight:700;color:#666;text-transform:uppercase;">${esc(label)}</span><div style="font-size:11px;color:#333;margin-top:1px;white-space:pre-wrap;">${esc(val)}</div></div>` : "";
+
+  // Max options count across all budgets
+  const maxOpts = budgets.reduce((mx, b) => Math.max(mx, (b.options || []).length), 0);
+
+  const html = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:12px;color:#1a1a1a;line-height:1.5;padding:10px;">
+<div style="text-align:center;border-bottom:3px solid #0A1628;padding-bottom:12px;margin-bottom:16px;">
+  <div style="font-size:10px;color:#999;text-transform:uppercase;letter-spacing:1px;">Los Tordos Rugby Club</div>
+  <h1 style="font-size:20px;margin:4px 0 0;color:#0A1628;">INFORME DE PROYECTO: ${esc(project.name)}</h1>
+  <div style="font-size:11px;color:#555;margin-top:4px;">Estado: ${esc(PJ_ST_LABELS[project.status] || project.status)} · Fecha: ${fmtD(project.created_at?.slice(0, 10) || "")}</div>
+  ${project.created_by_name ? `<div style="font-size:10px;color:#888;margin-top:2px;">Creado por: ${esc(project.created_by_name)}</div>` : ""}
+</div>
+
+<!-- PROPUESTA -->
+<h2 style="font-size:14px;color:#0A1628;border-bottom:2px solid #0A1628;padding-bottom:4px;margin:16px 0 10px;">PROPUESTA</h2>
+${sectionField("Nombre", formData.nombre)}
+${sectionField("Responsable", formData.responsable)}
+${sectionField("Equipo inicial", formData.equipo)}
+${sectionField("¿Qué busca lograr?", formData.obj_lograr)}
+${sectionField("Beneficio para el club", formData.obj_beneficio)}
+${sectionField("Eje estratégico", formData.eje)}
+${sectionField("Alineación con ADN Tordos", formData.adn)}
+${sectionField("Descripción", formData.descripcion)}
+${sectionField("Duración estimada", formData.duracion)}
+${sectionField("Etapas principales", formData.etapas)}
+${sectionField("Recursos económicos", formData.rec_eco)}
+${sectionField("Recursos humanos", formData.rec_hum)}
+${sectionField("Infraestructura / equipamiento", formData.rec_infra)}
+${sectionField("¿Qué puede salir mal?", formData.riesgo_mal)}
+${sectionField("Clave para que funcione", formData.riesgo_clave)}
+${sectionField("Entregables esperados", formData.entregables)}
+
+<!-- PRESUPUESTOS -->
+${budgets.length ? `<h2 style="font-size:14px;color:#0A1628;border-bottom:2px solid #0A1628;padding-bottom:4px;margin:16px 0 10px;">PRESUPUESTOS (${budgets.length})</h2>
+<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:16px;">
+<thead><tr><th style="background:#0A1628;color:#fff;padding:5px 8px;text-align:left;font-size:10px;">Proveedor</th>${Array.from({ length: maxOpts }, (_, i) => `<th style="background:#0A1628;color:#fff;padding:5px 8px;text-align:right;font-size:10px;">Opción ${i + 1}</th>`).join("")}</tr></thead>
+<tbody>${budgets.map((b, bi) => {
+    const opts = b.options || [];
+    return `<tr style="background:${bi % 2 ? "#f9f9f9" : "#fff"}"><td style="padding:5px 8px;border-bottom:1px solid #e5e5e5;font-weight:600;">${esc(b.provider)}</td>${Array.from({ length: maxOpts }, (_, i) => {
+      const opt = opts[i];
+      const amt = opt ? opt.amount : 0;
+      // Find min for this column
+      const colAmts = budgets.map(bb => (bb.options || [])[i]?.amount || 0).filter(a => a > 0);
+      const isMin = colAmts.length > 1 && amt > 0 && amt === Math.min(...colAmts);
+      return `<td style="padding:5px 8px;border-bottom:1px solid #e5e5e5;text-align:right;${isMin ? "background:#D1FAE5;color:#065F46;font-weight:700;" : ""}">${opt && amt ? "$" + fmtN(amt) : "–"}</td>`;
+    }).join("")}</tr>`;
+  }).join("")}</tbody></table>` : ""}
+
+<!-- TAREAS -->
+${tasks.length ? `<h2 style="font-size:14px;color:#0A1628;border-bottom:2px solid #0A1628;padding-bottom:4px;margin:16px 0 10px;">TAREAS (${progress.done}/${progress.total} completadas — ${progress.pct}%)</h2>
+<div style="margin-bottom:8px;"><div style="height:8px;border-radius:4px;background:#e5e5e5;overflow:hidden;"><div style="height:100%;width:${progress.pct}%;border-radius:4px;background:${progress.pct === 100 ? "#10B981" : "#3B82F6"};"></div></div></div>
+<table style="width:100%;border-collapse:collapse;font-size:11px;">
+<thead><tr><th style="background:#0A1628;color:#fff;padding:5px 8px;text-align:left;font-size:10px;">#</th><th style="background:#0A1628;color:#fff;padding:5px 8px;text-align:left;font-size:10px;">Título</th><th style="background:#0A1628;color:#fff;padding:5px 8px;text-align:left;font-size:10px;">Estado</th><th style="background:#0A1628;color:#fff;padding:5px 8px;text-align:left;font-size:10px;">Prioridad</th><th style="background:#0A1628;color:#fff;padding:5px 8px;text-align:left;font-size:10px;">Asignado</th><th style="background:#0A1628;color:#fff;padding:5px 8px;text-align:left;font-size:10px;">Vence</th></tr></thead>
+<tbody>${tasks.map((t, i) => `<tr style="background:${i % 2 ? "#f9f9f9" : "#fff"}"><td style="padding:4px 8px;border-bottom:1px solid #e5e5e5;">${i + 1}</td><td style="padding:4px 8px;border-bottom:1px solid #e5e5e5;">${esc(t.title)}</td><td style="padding:4px 8px;border-bottom:1px solid #e5e5e5;">${esc(PJ_ST_LABELS[t.status] || t.status)}</td><td style="padding:4px 8px;border-bottom:1px solid #e5e5e5;">${esc(PJ_PR_LABELS[t.priority] || t.priority)}</td><td style="padding:4px 8px;border-bottom:1px solid #e5e5e5;">${esc(t.assignee_name || "–")}</td><td style="padding:4px 8px;border-bottom:1px solid #e5e5e5;">${fmtD(t.due_date || "")}</td></tr>`).join("")}</tbody></table>` : ""}
+
+<div style="margin-top:20px;text-align:center;font-size:9px;color:#999;border-top:1px solid #e5e5e5;padding-top:8px;">Los Tordos Rugby Club · Generado: ${new Date().toLocaleDateString("es-AR")} ${new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}</div>
+</div>`;
+
+  const el = document.createElement("div");
+  el.innerHTML = html;
+  el.style.position = "fixed";
+  el.style.left = "-9999px";
+  el.style.width = "210mm";
+  document.body.appendChild(el);
+
+  try {
+    const html2pdf = await loadHtml2Pdf();
+    await html2pdf().set({
+      margin: [10, 10, 10, 10],
+      filename: `Informe_${project.name.replace(/\s/g, "_")}_${new Date().toISOString().slice(0, 10)}.pdf`,
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
+    }).from(el).save();
+  } finally {
+    document.body.removeChild(el);
+  }
+}
+
 /* ── iCal ── */
 export function exportICal(filename: string, events: {title:string;date:string;description?:string;type?:string}[]) {
   const esc = (s: string) => String(s ?? "").replace(/[\;,]/g, (m) => "\\" + m).replace(/\n/g, "\\n");

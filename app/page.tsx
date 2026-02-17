@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { T, TD, AREAS, DEPTOS, ROLES, RK, DIV, TIPOS, ST, SC, AGT, MINSECS, PST, PSC, MONEDAS, RUBROS, fn, isOD, daysDiff, PJ_ST, PJ_PR, FREQ, INV_CAT, INV_COND, BOOK_FAC, BOOK_ST, SPON_TIER, SPON_ST } from "@/lib/constants";
 import type { Profile, Task, TaskMessage, OrgMember as OrgMemberType, Milestone, Agenda, Minuta, Presupuesto, Proveedor } from "@/lib/supabase/types";
 import { notify, fetchNotifications, markRead } from "@/lib/notifications";
-import { exportCSV, exportPDF, exportICal, exportMinutaPDF, exportMinutaWord, exportReportPDF } from "@/lib/export";
+import { exportCSV, exportPDF, exportICal, exportMinutaPDF, exportMinutaWord, exportReportPDF, exportProjectPDF } from "@/lib/export";
 import { useRealtime } from "@/lib/realtime";
 import { paginate } from "@/lib/pagination";
 import { uploadFile, getFileIcon, formatFileSize } from "@/lib/storage";
@@ -96,6 +96,7 @@ export default function App(){
   const [presu,sPr]=useState<any[]>([]);const [provs,sPv]=useState<any[]>([]);const [reminders,sRems]=useState<any[]>([]);
   const [projects,sProjects]=useState<any[]>([]);const [projTasks,sProjTasks]=useState<any[]>([]);
   const [taskTemplates,sTaskTemplates]=useState<any[]>([]);
+  const [projBudgets,sProjBudgets]=useState<any[]>([]);
   const [inventory,sInventory]=useState<any[]>([]);const [bookings,sBookings]=useState<any[]>([]);const [sponsors,sSponsors]=useState<any[]>([]);
   const [dbNotifs,sDbNotifs]=useState<any[]>([]);
   const [user,sU]=useState<any>(null);const [authChecked,sAuthChecked]=useState(false);
@@ -112,7 +113,7 @@ export default function App(){
 
   /* ── Fetch all data from Supabase ── */
   const fetchAll = useCallback(async()=>{
-    const [pRes,mRes,omRes,msRes,agRes,miRes,prRes,pvRes,remRes,projRes,ptRes,ttRes,invRes,bkRes,spRes]=await Promise.all([
+    const [pRes,mRes,omRes,msRes,agRes,miRes,prRes,pvRes,remRes,projRes,ptRes,ttRes,invRes,bkRes,spRes,pbRes]=await Promise.all([
       supabase.from("profiles").select("*"),
       supabase.from("tasks").select("*").order("id",{ascending:false}).limit(500),
       supabase.from("org_members").select("*"),
@@ -128,6 +129,7 @@ export default function App(){
       supabase.from("inventory").select("*").order("id",{ascending:false}),
       supabase.from("bookings").select("*").order("id",{ascending:false}),
       supabase.from("sponsors").select("*").order("id",{ascending:false}),
+      supabase.from("project_budgets").select("*").order("id",{ascending:false}),
     ]);
     const errors:string[]=[];
     if(pRes.error) errors.push("Perfiles: "+pRes.error.message);
@@ -149,6 +151,7 @@ export default function App(){
     if(invRes.data) sInventory(invRes.data);
     if(bkRes.data) sBookings(bkRes.data);
     if(spRes.data) sSponsors(spRes.data);
+    if(pbRes.data) sProjBudgets(pbRes.data);
     // Tasks + messages
     if(mRes.data){
       const tmRes=await supabase.from("task_messages").select("*").order("created_at");
@@ -187,6 +190,7 @@ export default function App(){
     {table:"inventory",onChange:()=>fetchAll()},
     {table:"bookings",onChange:()=>fetchAll()},
     {table:"sponsors",onChange:()=>fetchAll()},
+    {table:"project_budgets",onChange:()=>fetchAll()},
     {table:"notifications",onChange:()=>refreshNotifs()},
   ],!!user);
 
@@ -206,7 +210,7 @@ export default function App(){
     if(tok) await notify({token:tok,user_id:userId,title,message,type,link});
   };
 
-  const out=async()=>{await supabase.auth.signOut();sU(null);sVw("dash");sSl(null);sAA(null);sAD(null);sSr("");sPd([]);sUs([]);sOm([]);sHi([]);sAgs([]);sMins([]);sPr([]);sPv([]);sRems([]);sDbNotifs([]);sProjects([]);sProjTasks([]);sTaskTemplates([]);sInventory([]);sBookings([]);sSponsors([]);};
+  const out=async()=>{await supabase.auth.signOut();sU(null);sVw("dash");sSl(null);sAA(null);sAD(null);sSr("");sPd([]);sUs([]);sOm([]);sHi([]);sAgs([]);sMins([]);sPr([]);sPv([]);sRems([]);sDbNotifs([]);sProjects([]);sProjTasks([]);sProjBudgets([]);sTaskTemplates([]);sInventory([]);sBookings([]);sSponsors([]);};
   const isAd=user&&(user.role==="admin"||user.role==="superadmin");
   const isSA=user&&user.role==="superadmin";
   const isPersonal=user&&(user.role==="enlace"||user.role==="manager"||user.role==="usuario");
@@ -428,13 +432,15 @@ export default function App(){
             onDel={async(id:number)=>{try{sSponsors(prev=>prev.filter(x=>x.id!==id));await supabase.from("sponsors").delete().eq("id",id);showT("Sponsor eliminado");}catch(e:any){showT(e.message||"Error","err");}}}
           />}
           {/* Proyectos */}
-          {vw==="proyectos"&&<ProyectosView projects={projects} projTasks={projTasks} users={users} user={user} mob={mob}
+          {vw==="proyectos"&&<ProyectosView projects={projects} projTasks={projTasks} projBudgets={projBudgets} users={users} user={user} mob={mob}
             onAddProject={async(p:any)=>{try{const row={name:p.name,description:p.description||"",created_by:user.id,created_by_name:fn(user),status:p.status||"borrador"};const{data,error}=await supabase.from("projects").insert(row).select().single();if(error)throw new Error(error.message);if(data)sProjects(prev=>[data,...prev]);showT(p.status==="enviado"?"Proyecto enviado":"Borrador guardado");}catch(e:any){showT(e.message||"Error","err");}}}
             onUpdProject={async(id:number,d:any)=>{try{sProjects(prev=>prev.map(p=>p.id===id?{...p,...d}:p));await supabase.from("projects").update(d).eq("id",id);showT("Proyecto actualizado");}catch(e:any){showT(e.message||"Error","err");}}}
             onDelProject={async(id:number)=>{try{sProjects(prev=>prev.filter(p=>p.id!==id));sProjTasks(prev=>prev.filter((t:any)=>t.project_id!==id));await supabase.from("projects").delete().eq("id",id);showT("Proyecto eliminado");}catch(e:any){showT(e.message||"Error","err");}}}
             onAddTask={async(t:any)=>{try{const{data,error}=await supabase.from("project_tasks").insert(t).select().single();if(error)throw new Error(error.message);if(data)sProjTasks(prev=>[data,...prev]);showT("Tarea creada");}catch(e:any){showT(e.message||"Error","err");}}}
             onUpdTask={async(id:number,d:any)=>{try{sProjTasks(prev=>prev.map((t:any)=>t.id===id?{...t,...d}:t));await supabase.from("project_tasks").update(d).eq("id",id);showT("Tarea actualizada");}catch(e:any){showT(e.message||"Error","err");}}}
             onDelTask={async(id:number)=>{try{sProjTasks(prev=>prev.filter((t:any)=>t.id!==id));await supabase.from("project_tasks").delete().eq("id",id);showT("Tarea eliminada");}catch(e:any){showT(e.message||"Error","err");}}}
+            onAddBudget={async(b:any)=>{try{const{data,error}=await supabase.from("project_budgets").insert(b).select().single();if(error)throw new Error(error.message);if(data)sProjBudgets(prev=>[data,...prev]);showT("Presupuesto agregado");}catch(e:any){showT(e.message||"Error","err");}}}
+            onDelBudget={async(id:number)=>{try{sProjBudgets(prev=>prev.filter(b=>b.id!==id));await supabase.from("project_budgets").delete().eq("id",id);showT("Presupuesto eliminado");}catch(e:any){showT(e.message||"Error","err");}}}
           />}
           {vw==="org"&&<Org areas={areas} deptos={deptos} users={users} om={om} pedidos={peds} onSel={(p:any)=>sSl(p)} onEditSave={async(id:string,d:any)=>{sOm(p=>p.map(m=>m.id===id?{...m,...d}:m));await supabase.from("org_members").update({first_name:d.n,last_name:d.a,email:d.mail||"",phone:d.tel||""}).eq("id",id);}} onDelOm={async(id:string)=>{sOm(p=>p.filter(m=>m.id!==id));await supabase.from("org_members").delete().eq("id",id);}} onDelUser={async(id:string)=>{sUs(p=>p.filter(u=>u.id!==id));await supabase.from("profiles").delete().eq("id",id);}} onEditUser={(u:any)=>{sVw("profs");}} isSA={isSA} onAssignTask={(u:any)=>{sPreAT(u);sVw("new");}} mob={mob}
             onReorderOm={async(id:string,dir:string,type:string)=>{const grp=om.filter((m:any)=>m.t===type).sort((a:any,b:any)=>(a.so||0)-(b.so||0));const idx=grp.findIndex((m:any)=>m.id===id);const si=dir==="up"?idx-1:idx+1;if(si<0||si>=grp.length)return;[grp[idx],grp[si]]=[grp[si],grp[idx]];const upd:any={};grp.forEach((m:any,i:number)=>{upd[m.id]=i;});sOm(prev=>prev.map((m:any)=>upd[m.id]!==undefined?{...m,so:upd[m.id]}:m));for(const m of grp){await supabase.from("org_members").update({sort_order:upd[m.id]}).eq("id",m.id);}}}

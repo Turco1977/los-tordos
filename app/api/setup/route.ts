@@ -250,6 +250,26 @@ CREATE POLICY sponsors_all ON sponsors FOR ALL USING (true) WITH CHECK (true);`,
     });
   }
 
+  // Check project_budgets table
+  const { error: e11 } = await admin.from("project_budgets").select("id").limit(1);
+  if (isMissing(e11)) {
+    missing.push({
+      table: "project_budgets",
+      sql: `CREATE TABLE project_budgets (
+  id SERIAL PRIMARY KEY,
+  project_id INT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  provider TEXT NOT NULL DEFAULT '',
+  options JSONB DEFAULT '[{"label":"Opción 1","amount":0},{"label":"Opción 2","amount":0}]',
+  file_url TEXT DEFAULT '',
+  notes TEXT DEFAULT '',
+  created_by_name TEXT DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE project_budgets ENABLE ROW LEVEL SECURITY;
+CREATE POLICY project_budgets_all ON project_budgets FOR ALL USING (true) WITH CHECK (true);`,
+    });
+  }
+
   if (missing.length > 0) {
     return NextResponse.json({
       status: "missing",

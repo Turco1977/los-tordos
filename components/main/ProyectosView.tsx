@@ -2,7 +2,8 @@
 import { useState } from "react";
 import { useC } from "@/lib/theme-context";
 import { PJ_ST, PJ_PR } from "@/lib/constants";
-import { UserPicker } from "@/components/ui";
+import { UserPicker, FileField } from "@/components/ui";
+import { exportProjectPDF } from "@/lib/export";
 
 const PJ_EJES=["Deportivo","Social","Institucional","Infraestructura"];
 const PJ_STATUS:{[k:string]:{l:string;c:string;bg:string}}={borrador:{l:"Borrador",c:"#6B7280",bg:"#F3F4F6"},enviado:{l:"Enviado",c:"#3B82F6",bg:"#DBEAFE"},aprobado:{l:"Aprobado",c:"#10B981",bg:"#D1FAE5"},rechazado:{l:"Rechazado",c:"#DC2626",bg:"#FEE2E2"}};
@@ -10,19 +11,22 @@ const emptyForm=()=>({nombre:"",responsable:"",equipo:"",obj_lograr:"",obj_benef
 const parseFormData=(desc:any)=>{try{if(!desc||typeof desc!=="string")return emptyForm();return JSON.parse(desc)||emptyForm();}catch{return emptyForm();}};
 const wordCount=(t:string)=>t.trim().split(/\s+/).filter(Boolean).length;
 const COLS=Object.keys(PJ_ST) as string[];
+const fmtAmt=(n:number)=>n.toLocaleString("es-AR");
 
-export function ProyectosView({projects,projTasks,users,user,mob,onAddProject,onUpdProject,onDelProject,onAddTask,onUpdTask,onDelTask}:any){
+export function ProyectosView({projects,projTasks,projBudgets,users,user,mob,onAddProject,onUpdProject,onDelProject,onAddTask,onUpdTask,onDelTask,onAddBudget,onDelBudget}:any){
   const{colors,isDark,cardBg}=useC();
   const [mode,sMode]=useState<"list"|"form"|"view">("list");
   const [selProj,sSelProj]=useState<any>(null);
   const [form,sForm]=useState(emptyForm());
   const [editing,sEditing]=useState(false);
   const [formErr,sFormErr]=useState("");
-  const [viewTab,sViewTab]=useState<"propuesta"|"tareas">("tareas");
+  const [viewTab,sViewTab]=useState<"tareas"|"presupuestos"|"propuesta">("tareas");
   const [taskForm,sTaskForm]=useState<any>(null);
   const [editTask,sEditTask]=useState<any>(null);
   const [taskSearch,sTaskSearch]=useState("");
   const [taskPriFilter,sTaskPriFilter]=useState<string>("all");
+  const [showBudgetForm,sShowBudgetForm]=useState(false);
+  const [budgetForm,sBudgetForm]=useState<{provider:string;options:{label:string;description:string;amount:string}[];file_url:string}>({provider:"",options:[{label:"Opción 1",description:"",amount:""},{label:"Opción 2",description:"",amount:""}],file_url:""});
 
   const upd=(k:string,v:string)=>{sForm(f=>({...f,[k]:v}));if(k==="nombre"&&v.trim())sFormErr("");};
   const iS:any={width:"100%",padding:"8px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,background:cardBg,color:colors.nv};
@@ -40,12 +44,17 @@ export function ProyectosView({projects,projTasks,users,user,mob,onAddProject,on
   const projTasksFor=(pid:number)=>(projTasks||[]).filter((t:any)=>t.project_id===pid);
   const taskProgress=(pid:number)=>{const ts=projTasksFor(pid);const total=ts.length;const done=ts.filter((t:any)=>t.status==="done").length;return{total,done,pct:total?Math.round(done/total*100):0};};
 
+  /* Budget helpers */
+  const budgetsFor=(pid:number)=>(projBudgets||[]).filter((b:any)=>b.project_id===pid);
+  const resetBudgetForm=()=>{sBudgetForm({provider:"",options:[{label:"Opción 1",description:"",amount:""},{label:"Opción 2",description:"",amount:""}],file_url:""});sShowBudgetForm(false);};
+
   /* View-mode computations (must be before early returns to keep hooks order stable) */
   const viewProj=selProj;
   const viewFd=viewProj?parseFormData(viewProj.description):emptyForm();
   const viewSt=viewProj?(PJ_STATUS[viewProj.status]||PJ_STATUS.borrador):PJ_STATUS.borrador;
   const viewTasks=viewProj?projTasksFor(viewProj.id):[];
   const viewProg=viewProj?taskProgress(viewProj.id):{total:0,done:0,pct:0};
+  const viewBudgets=viewProj?budgetsFor(viewProj.id):[];
   const filteredTasks=(()=>{
     let ts=viewTasks;
     if(taskSearch){const s=taskSearch.toLowerCase();ts=ts.filter((t:any)=>((t.title||"")+(t.description||"")+(t.assignee_name||"")).toLowerCase().includes(s));}
@@ -164,9 +173,14 @@ export function ProyectosView({projects,projTasks,users,user,mob,onAddProject,on
   const isOwner=user&&p.created_by===user.id;
   const tasks=viewTasks;
   const prog=viewProg;
+  const budgets=viewBudgets;
+
+  // Comparison table data
+  const maxOpts=budgets.reduce((mx:number,b:any)=>{const opts=Array.isArray(b.options)?b.options:(()=>{try{return JSON.parse(b.options)||[];}catch{return[];}})();return Math.max(mx,opts.length);},0);
+  const parseBudgetOpts=(b:any)=>Array.isArray(b.options)?b.options:(()=>{try{return JSON.parse(b.options)||[];}catch{return[];}})();
 
   return(<div style={{maxWidth:mob?undefined:1100}}>
-    <button onClick={()=>{sMode("list");sSelProj(null);sEditTask(null);sTaskForm(null);}} style={{background:"none",border:"1px solid "+colors.g3,borderRadius:6,cursor:"pointer",fontSize:12,padding:"4px 10px",color:colors.g5,marginBottom:10}}>← Volver a lista</button>
+    <button onClick={()=>{sMode("list");sSelProj(null);sEditTask(null);sTaskForm(null);sShowBudgetForm(false);}} style={{background:"none",border:"1px solid "+colors.g3,borderRadius:6,cursor:"pointer",fontSize:12,padding:"4px 10px",color:colors.g5,marginBottom:10}}>← Volver a lista</button>
 
     {/* Project header */}
     <div style={{background:cardBg,borderRadius:14,padding:mob?"12px 14px":"14px 20px",border:"1px solid "+colors.g2,marginBottom:12}}>
@@ -197,12 +211,13 @@ export function ProyectosView({projects,projTasks,users,user,mob,onAddProject,on
           <button onClick={()=>{if(confirm("¿Aprobar este proyecto?")){onUpdProject(p.id,{status:"aprobado"});sSelProj({...p,status:"aprobado"});}}} style={{padding:"5px 10px",borderRadius:6,border:"none",background:"#10B981",color:"#fff",fontSize:10,fontWeight:700,cursor:"pointer"}}>✅ Aprobar</button>
           <button onClick={()=>{if(confirm("¿Rechazar este proyecto?")){onUpdProject(p.id,{status:"rechazado"});sSelProj({...p,status:"rechazado"});}}} style={{padding:"5px 10px",borderRadius:6,border:"none",background:"#DC2626",color:"#fff",fontSize:10,fontWeight:700,cursor:"pointer"}}>❌ Rechazar</button>
         </>}
+        <button onClick={()=>exportProjectPDF(p,fd,budgets.map((b:any)=>({...b,options:parseBudgetOpts(b)})),tasks,prog)} style={{padding:"5px 10px",borderRadius:6,border:"1px solid "+colors.g3,background:"transparent",fontSize:10,cursor:"pointer",color:colors.nv,fontWeight:600}}>📄 Informe</button>
       </div>
     </div>
 
     {/* Tabs */}
-    <div style={{display:"flex",gap:2,marginBottom:12}}>
-      {(["tareas","propuesta"] as const).map(tab=><button key={tab} onClick={()=>sViewTab(tab)} style={{padding:"7px 16px",borderRadius:"8px 8px 0 0",border:"1px solid "+colors.g2,borderBottom:viewTab===tab?"2px solid "+colors.nv:"1px solid "+colors.g2,background:viewTab===tab?cardBg:"transparent",fontSize:12,fontWeight:viewTab===tab?700:500,color:viewTab===tab?colors.nv:colors.g4,cursor:"pointer"}}>{tab==="tareas"?"📊 Tablero de Tareas"+(prog.total>0?" ("+prog.total+")":""):"📝 Propuesta"}</button>)}
+    <div style={{display:"flex",gap:2,marginBottom:12,overflowX:"auto" as const}}>
+      {(["tareas","presupuestos","propuesta"] as const).map(tab=><button key={tab} onClick={()=>sViewTab(tab)} style={{padding:"7px 16px",borderRadius:"8px 8px 0 0",border:"1px solid "+colors.g2,borderBottom:viewTab===tab?"2px solid "+colors.nv:"1px solid "+colors.g2,background:viewTab===tab?cardBg:"transparent",fontSize:12,fontWeight:viewTab===tab?700:500,color:viewTab===tab?colors.nv:colors.g4,cursor:"pointer",whiteSpace:"nowrap" as const}}>{tab==="tareas"?"📊 Tablero de Tareas"+(prog.total>0?" ("+prog.total+")":""):tab==="presupuestos"?"💰 Presupuestos"+(budgets.length>0?" ("+budgets.length+")":""):"📝 Propuesta"}</button>)}
     </div>
 
     {/* ── TAREAS TAB ── */}
@@ -237,7 +252,7 @@ export function ProyectosView({projects,projTasks,users,user,mob,onAddProject,on
           <select value={taskForm.priority} onChange={e=>sTaskForm({...taskForm,priority:e.target.value})} style={iS}>
             {Object.keys(PJ_PR).map(k=><option key={k} value={k}>{PJ_PR[k].i} {PJ_PR[k].l}</option>)}
           </select>
-          <UserPicker users={users} value={taskForm.assignee_id||""} onChange={(id,u)=>sTaskForm({...taskForm,assignee_id:id,assignee_name:u?((u.n||"")+" "+(u.a||"")).trim():""})} placeholder="Sin asignar"/>
+          <UserPicker users={users} value={taskForm.assignee_id||""} onChange={(id:string,u:any)=>sTaskForm({...taskForm,assignee_id:id,assignee_name:u?((u.n||"")+" "+(u.a||"")).trim():""})} placeholder="Sin asignar"/>
           <input type="date" value={taskForm.due_date||""} onChange={e=>sTaskForm({...taskForm,due_date:e.target.value})} style={iS}/>
         </div>
         <div style={{display:"flex",gap:6,justifyContent:"flex-end",marginTop:8}}>
@@ -280,7 +295,7 @@ export function ProyectosView({projects,projTasks,users,user,mob,onAddProject,on
                     <select value={editTask.priority} onChange={e=>sEditTask({...editTask,priority:e.target.value})} style={iS}>
                       {Object.keys(PJ_PR).map(k=><option key={k} value={k}>{PJ_PR[k].i} {PJ_PR[k].l}</option>)}
                     </select>
-                    <UserPicker users={users} value={editTask.assignee_id||""} onChange={(id,u)=>sEditTask({...editTask,assignee_id:id||null,assignee_name:u?((u.n||"")+" "+(u.a||"")).trim():""})} placeholder="Sin asignar"/>
+                    <UserPicker users={users} value={editTask.assignee_id||""} onChange={(id:string,u:any)=>sEditTask({...editTask,assignee_id:id||null,assignee_name:u?((u.n||"")+" "+(u.a||"")).trim():""})} placeholder="Sin asignar"/>
                     <input type="date" value={editTask.due_date||""} onChange={e=>sEditTask({...editTask,due_date:e.target.value||null})} style={iS}/>
                   </div>
                   <div style={{display:"flex",gap:4,justifyContent:"space-between"}}>
@@ -314,6 +329,102 @@ export function ProyectosView({projects,projTasks,users,user,mob,onAddProject,on
             </div>
           </div>
         );})}
+      </div>}
+    </div>}
+
+    {/* ── PRESUPUESTOS TAB ── */}
+    {viewTab==="presupuestos"&&<div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+        <div style={{fontSize:14,fontWeight:700,color:colors.nv}}>💰 Presupuestos del Proyecto</div>
+        {!showBudgetForm&&<button onClick={()=>sShowBudgetForm(true)} style={{padding:"6px 12px",borderRadius:8,border:"none",background:colors.nv,color:isDark?"#0F172A":"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>+ Agregar</button>}
+      </div>
+
+      {/* Budget form */}
+      {showBudgetForm&&<div style={{background:cardBg,borderRadius:12,padding:14,border:"1px solid "+colors.g2,marginBottom:12}}>
+        <div style={{fontSize:12,fontWeight:700,color:colors.nv,marginBottom:10}}>Nuevo Presupuesto</div>
+        <div style={{marginBottom:8}}>
+          <label style={{fontSize:11,fontWeight:700,color:colors.g5,display:"block",marginBottom:3}}>Proveedor *</label>
+          <input value={budgetForm.provider} onChange={e=>sBudgetForm({...budgetForm,provider:e.target.value})} placeholder="Nombre del proveedor" style={iS}/>
+        </div>
+        <div style={{marginBottom:8}}>
+          <label style={{fontSize:11,fontWeight:700,color:colors.g5,display:"block",marginBottom:6}}>Opciones</label>
+          {budgetForm.options.map((opt,i)=><div key={i} style={{display:"flex",gap:6,marginBottom:6,alignItems:"center"}}>
+            <input value={opt.label} onChange={e=>{const opts=[...budgetForm.options];opts[i]={...opts[i],label:e.target.value};sBudgetForm({...budgetForm,options:opts});}} placeholder={"Opción "+(i+1)} style={{...iS,width:mob?100:140}}/>
+            <input value={opt.description} onChange={e=>{const opts=[...budgetForm.options];opts[i]={...opts[i],description:e.target.value};sBudgetForm({...budgetForm,options:opts});}} placeholder="Descripción" style={{...iS,flex:1}}/>
+            <div style={{position:"relative" as const}}>
+              <span style={{position:"absolute" as const,left:8,top:"50%",transform:"translateY(-50%)",fontSize:12,color:colors.g4,pointerEvents:"none" as const}}>$</span>
+              <input type="number" value={opt.amount} onChange={e=>{const opts=[...budgetForm.options];opts[i]={...opts[i],amount:e.target.value};sBudgetForm({...budgetForm,options:opts});}} placeholder="0" style={{...iS,width:mob?100:130,paddingLeft:20}}/>
+            </div>
+            {budgetForm.options.length>2&&<button onClick={()=>{const opts=budgetForm.options.filter((_,j)=>j!==i);sBudgetForm({...budgetForm,options:opts});}} style={{padding:"4px 6px",borderRadius:4,border:"1px solid #FCA5A5",background:"transparent",fontSize:10,cursor:"pointer",color:"#DC2626",flexShrink:0}} title="Quitar opción">✕</button>}
+          </div>)}
+          <button onClick={()=>sBudgetForm({...budgetForm,options:[...budgetForm.options,{label:"Opción "+(budgetForm.options.length+1),description:"",amount:""}]})} style={{padding:"4px 10px",borderRadius:6,border:"1px dashed "+colors.g3,background:"transparent",fontSize:10,cursor:"pointer",color:colors.g4}}>+ Agregar opción</button>
+        </div>
+        <div style={{marginBottom:10}}>
+          <label style={{fontSize:11,fontWeight:700,color:colors.g5,display:"block",marginBottom:3}}>Archivo adjunto</label>
+          <FileField value={budgetForm.file_url} onChange={(url:string)=>sBudgetForm({...budgetForm,file_url:url})} folder="project-budgets"/>
+        </div>
+        <div style={{display:"flex",gap:6,justifyContent:"flex-end"}}>
+          <button onClick={resetBudgetForm} style={{padding:"6px 12px",borderRadius:6,border:"1px solid "+colors.g3,background:"transparent",fontSize:11,cursor:"pointer",color:colors.g5}}>Cancelar</button>
+          <button onClick={()=>{if(!budgetForm.provider.trim())return;const opts=budgetForm.options.map(o=>({label:o.label||"",description:o.description||"",amount:Number(o.amount)||0}));onAddBudget({project_id:p.id,provider:budgetForm.provider.trim(),options:opts,file_url:budgetForm.file_url||"",created_by_name:user?((user.n||"")+" "+(user.a||"")).trim():""});resetBudgetForm();}} style={{padding:"6px 12px",borderRadius:6,border:"none",background:colors.nv,color:isDark?"#0F172A":"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>Guardar</button>
+        </div>
+      </div>}
+
+      {/* Budget list */}
+      {budgets.length===0&&!showBudgetForm&&<div style={{background:cardBg,borderRadius:14,padding:32,textAlign:"center" as const,border:"1px solid "+colors.g2}}>
+        <div style={{fontSize:28,marginBottom:8}}>💰</div>
+        <div style={{fontSize:13,color:colors.g4,marginBottom:4}}>No hay presupuestos cargados.</div>
+        <div style={{fontSize:11,color:colors.g4}}>Usá el botón "+ Agregar" para cargar la primera cotización.</div>
+      </div>}
+
+      {budgets.map((b:any)=>{const opts=parseBudgetOpts(b);return(
+        <div key={b.id} style={{background:cardBg,borderRadius:12,padding:14,border:"1px solid "+colors.g2,marginBottom:10}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+            <div style={{fontSize:13,fontWeight:700,color:colors.nv}}>🏢 {b.provider}</div>
+            <button onClick={()=>{if(confirm("¿Eliminar este presupuesto?"))onDelBudget(b.id);}} style={{padding:"3px 7px",borderRadius:4,border:"1px solid #FCA5A5",background:"transparent",fontSize:10,cursor:"pointer",color:"#DC2626"}} title="Eliminar">🗑</button>
+          </div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap" as const,marginBottom:8}}>
+            {opts.map((o:any,i:number)=><div key={i} style={{background:isDark?"rgba(255,255,255,.05)":"#f8f9fa",borderRadius:8,padding:"8px 14px",minWidth:100,textAlign:"center" as const,border:"1px solid "+colors.g2}}>
+              <div style={{fontSize:10,fontWeight:600,color:colors.g4,marginBottom:2}}>{o.label||"Opción "+(i+1)}</div>
+              {o.description&&<div style={{fontSize:9,color:colors.g5,marginBottom:2}}>{o.description}</div>}
+              <div style={{fontSize:14,fontWeight:800,color:colors.nv}}>${fmtAmt(o.amount||0)}</div>
+            </div>)}
+          </div>
+          {b.file_url&&<div style={{display:"flex",alignItems:"center",gap:6}}>
+            <span style={{fontSize:11,color:colors.g4}}>📎</span>
+            <a href={b.file_url} target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:"#3B82F6",textDecoration:"none",fontWeight:600}} onClick={e=>e.stopPropagation()}>Ver archivo</a>
+          </div>}
+          {b.created_by_name&&<div style={{fontSize:9,color:colors.g4,marginTop:4}}>Por {b.created_by_name} · {b.created_at?.slice(0,10)}</div>}
+        </div>
+      );})}
+
+      {/* Comparison table */}
+      {budgets.length>=2&&<div style={{background:cardBg,borderRadius:12,padding:14,border:"1px solid "+colors.g2,marginTop:14}}>
+        <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:10}}>📊 Resumen Comparativo</div>
+        <div style={{overflowX:"auto" as const}}>
+          <table style={{width:"100%",borderCollapse:"collapse" as const,fontSize:11}}>
+            <thead>
+              <tr>
+                <th style={{padding:"6px 10px",textAlign:"left" as const,background:colors.nv,color:isDark?"#0F172A":"#fff",borderRadius:"6px 0 0 0",fontSize:10,fontWeight:700}}>Proveedor</th>
+                {Array.from({length:maxOpts},(_,i)=><th key={i} style={{padding:"6px 10px",textAlign:"right" as const,background:colors.nv,color:isDark?"#0F172A":"#fff",fontSize:10,fontWeight:700,...(i===maxOpts-1?{borderRadius:"0 6px 0 0"}:{})}}>Opc {i+1}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {budgets.map((b:any,bi:number)=>{const opts=parseBudgetOpts(b);return(
+                <tr key={b.id} style={{background:bi%2?(isDark?"rgba(255,255,255,.03)":"#f9f9f9"):"transparent"}}>
+                  <td style={{padding:"6px 10px",borderBottom:"1px solid "+colors.g2,fontWeight:600,color:colors.nv}}>{b.provider}</td>
+                  {Array.from({length:maxOpts},(_,i)=>{
+                    const opt=opts[i];
+                    const amt=opt?.amount||0;
+                    const colAmts=budgets.map((bb:any)=>{const oo=parseBudgetOpts(bb);return oo[i]?.amount||0;}).filter((a:number)=>a>0);
+                    const isMin=colAmts.length>1&&amt>0&&amt===Math.min(...colAmts);
+                    return <td key={i} style={{padding:"6px 10px",borderBottom:"1px solid "+colors.g2,textAlign:"right" as const,fontWeight:isMin?800:400,color:isMin?"#059669":colors.nv,background:isMin?(isDark?"rgba(16,185,129,.15)":"#D1FAE5"):"transparent"}}>{amt>0?"$"+fmtAmt(amt):"–"}</td>;
+                  })}
+                </tr>
+              );})}
+            </tbody>
+          </table>
+        </div>
+        <div style={{fontSize:9,color:colors.g4,marginTop:6}}>✅ El menor precio por opción se resalta en verde</div>
       </div>}
     </div>}
 
