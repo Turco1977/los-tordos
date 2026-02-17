@@ -344,24 +344,24 @@ export function ProyectosView({projects,projTasks,projBudgets,users,user,mob,onA
         <div style={{fontSize:12,fontWeight:700,color:colors.nv,marginBottom:10}}>Nuevo Presupuesto</div>
         <div style={{marginBottom:8}}>
           <label style={{fontSize:11,fontWeight:700,color:colors.g5,display:"block",marginBottom:3}}>Proveedor *</label>
-          <input value={budgetForm.provider} onChange={e=>sBudgetForm({...budgetForm,provider:e.target.value})} placeholder="Nombre del proveedor" style={iS}/>
+          <input value={budgetForm.provider} onChange={e=>{const v=e.target.value;sBudgetForm(prev=>({...prev,provider:v}));}} placeholder="Nombre del proveedor" style={iS}/>
         </div>
         <div style={{marginBottom:8}}>
           <label style={{fontSize:11,fontWeight:700,color:colors.g5,display:"block",marginBottom:6}}>Opciones</label>
           {budgetForm.options.map((opt,i)=><div key={i} style={{display:"flex",gap:6,marginBottom:6,alignItems:"center"}}>
-            <input value={opt.label} onChange={e=>{const opts=[...budgetForm.options];opts[i]={...opts[i],label:e.target.value};sBudgetForm({...budgetForm,options:opts});}} placeholder={"Opción "+(i+1)} style={{...iS,width:mob?100:140}}/>
-            <input value={opt.description} onChange={e=>{const opts=[...budgetForm.options];opts[i]={...opts[i],description:e.target.value};sBudgetForm({...budgetForm,options:opts});}} placeholder="Descripción" style={{...iS,flex:1}}/>
+            <input value={opt.label} onChange={e=>{const v=e.target.value;sBudgetForm(prev=>{const opts=[...prev.options];opts[i]={...opts[i],label:v};return{...prev,options:opts};});}} placeholder={"Opción "+(i+1)} style={{...iS,width:mob?100:140}}/>
+            <input value={opt.description} onChange={e=>{const v=e.target.value;sBudgetForm(prev=>{const opts=[...prev.options];opts[i]={...opts[i],description:v};return{...prev,options:opts};});}} placeholder="Descripción" style={{...iS,flex:1}}/>
             <div style={{position:"relative" as const}}>
               <span style={{position:"absolute" as const,left:8,top:"50%",transform:"translateY(-50%)",fontSize:12,color:colors.g4,pointerEvents:"none" as const}}>$</span>
-              <input type="number" value={opt.amount} onChange={e=>{const opts=[...budgetForm.options];opts[i]={...opts[i],amount:e.target.value};sBudgetForm({...budgetForm,options:opts});}} placeholder="0" style={{...iS,width:mob?100:130,paddingLeft:20}}/>
+              <input type="number" value={opt.amount} onChange={e=>{const v=e.target.value;sBudgetForm(prev=>{const opts=[...prev.options];opts[i]={...opts[i],amount:v};return{...prev,options:opts};});}} placeholder="0" style={{...iS,width:mob?100:130,paddingLeft:20}}/>
             </div>
-            {budgetForm.options.length>2&&<button onClick={()=>{const opts=budgetForm.options.filter((_,j)=>j!==i);sBudgetForm({...budgetForm,options:opts});}} style={{padding:"4px 6px",borderRadius:4,border:"1px solid #FCA5A5",background:"transparent",fontSize:10,cursor:"pointer",color:"#DC2626",flexShrink:0}} title="Quitar opción">✕</button>}
+            {budgetForm.options.length>2&&<button onClick={()=>sBudgetForm(prev=>({...prev,options:prev.options.filter((_,j)=>j!==i)}))} style={{padding:"4px 6px",borderRadius:4,border:"1px solid #FCA5A5",background:"transparent",fontSize:10,cursor:"pointer",color:"#DC2626",flexShrink:0}} title="Quitar opción">✕</button>}
           </div>)}
-          <button onClick={()=>sBudgetForm({...budgetForm,options:[...budgetForm.options,{label:"Opción "+(budgetForm.options.length+1),description:"",amount:""}]})} style={{padding:"4px 10px",borderRadius:6,border:"1px dashed "+colors.g3,background:"transparent",fontSize:10,cursor:"pointer",color:colors.g4}}>+ Agregar opción</button>
+          <button onClick={()=>sBudgetForm(prev=>({...prev,options:[...prev.options,{label:"Opción "+(prev.options.length+1),description:"",amount:""}]}))} style={{padding:"4px 10px",borderRadius:6,border:"1px dashed "+colors.g3,background:"transparent",fontSize:10,cursor:"pointer",color:colors.g4}}>+ Agregar opción</button>
         </div>
         <div style={{marginBottom:10}}>
           <label style={{fontSize:11,fontWeight:700,color:colors.g5,display:"block",marginBottom:3}}>Archivo adjunto</label>
-          <FileField value={budgetForm.file_url} onChange={(url:string)=>sBudgetForm({...budgetForm,file_url:url})} folder="project-budgets"/>
+          <FileField value={budgetForm.file_url} onChange={(url:string)=>sBudgetForm(prev=>({...prev,file_url:url}))} folder="project-budgets"/>
         </div>
         <div style={{display:"flex",gap:6,justifyContent:"flex-end"}}>
           <button onClick={resetBudgetForm} style={{padding:"6px 12px",borderRadius:6,border:"1px solid "+colors.g3,background:"transparent",fontSize:11,cursor:"pointer",color:colors.g5}}>Cancelar</button>
