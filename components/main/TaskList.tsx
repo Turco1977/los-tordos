@@ -3,7 +3,7 @@ import { useState } from "react";
 import { T, TIPOS, ST, SC, fn, isOD } from "@/lib/constants";
 import { rlv } from "@/lib/mappers";
 import { useC } from "@/lib/theme-context";
-import { Btn, Card, Pager, Badge } from "@/components/ui";
+import { Btn, Card, Pager, Badge, UserPicker } from "@/components/ui";
 import { paginate } from "@/lib/pagination";
 import { exportCSV, exportPDF } from "@/lib/export";
 
@@ -48,7 +48,7 @@ export function TList({title,icon,color,peds,users,onSel,search,mob,onBulk,onImp
       <label style={{display:"flex",alignItems:"center",gap:4,fontSize:10,cursor:"pointer"}}><input type="checkbox" checked={allSelected} onChange={()=>{if(allSelected)sBulkSel([]);else sBulkSel(allVis);}}/><span style={{fontWeight:600}}>Todos</span></label>
       <span style={{fontSize:10,fontWeight:700,color:colors.nv}}>{bulkSel.length} seleccionados</span>
       <select onChange={e=>{if(e.target.value){onBulk(bulkSel,"status",e.target.value);sBulkSel([]);}}} style={{padding:"3px 6px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:10}} defaultValue=""><option value="">Cambiar estado...</option>{Object.keys(SC).map(k=><option key={k} value={k}>{SC[k].l}</option>)}</select>
-      <select onChange={e=>{if(e.target.value){onBulk(bulkSel,"assign",e.target.value);sBulkSel([]);}}} style={{padding:"3px 6px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:10}} defaultValue=""><option value="">Asignar a...</option>{users.filter((u:any)=>rlv(u.role)>=2).map((u:any)=><option key={u.id} value={u.id}>{fn(u)}</option>)}</select>
+      <UserPicker users={users.filter((u:any)=>rlv(u.role)>=2)} value="" onChange={(id)=>{if(id){onBulk(bulkSel,"assign",id);sBulkSel([]);}}} placeholder="Asignar a..." style={{minWidth:140}}/>
       <Btn v="g" s="s" onClick={()=>sBulkSel([])}>✕ Limpiar</Btn>
     </div>}
     <div style={{display:"flex",gap:6,marginBottom:8,alignItems:"center",flexWrap:"wrap" as const}}>
@@ -63,7 +63,7 @@ export function TList({title,icon,color,peds,users,onSel,search,mob,onBulk,onImp
     {showFilters&&<div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap" as const,padding:10,background:colors.g1,borderRadius:8}}>
       <select value={fTipo} onChange={e=>{sFTipo(e.target.value);sPg(1);}} style={{padding:"5px 8px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:10,background:cardBg,color:colors.nv}}><option value="">Tipo: Todos</option>{TIPOS.map(t=><option key={t} value={t}>{t}</option>)}</select>
       <select value={fUrg} onChange={e=>{sFUrg(e.target.value);sPg(1);}} style={{padding:"5px 8px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:10,background:cardBg,color:colors.nv}}><option value="">Urgencia: Todas</option><option value="Normal">Normal</option><option value="Urgente">Urgente</option></select>
-      <select value={fAsTo} onChange={e=>{sFAsTo(e.target.value);sPg(1);}} style={{padding:"5px 8px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:10,background:cardBg,color:colors.nv}}><option value="">Asignado: Todos</option>{users.filter((u:any)=>rlv(u.role)>=2).map((u:any)=><option key={u.id} value={u.id}>{fn(u)}</option>)}</select>
+      <UserPicker users={users.filter((u:any)=>rlv(u.role)>=2)} value={fAsTo} onChange={(id)=>{sFAsTo(id);sPg(1);}} placeholder="Asignado: Todos" style={{minWidth:150}}/>
       <input type="date" value={fDateFrom} onChange={e=>{sFDateFrom(e.target.value);sPg(1);}} style={{padding:"4px 6px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:10,background:cardBg,color:colors.nv}} title="Desde"/>
       <input type="date" value={fDateTo} onChange={e=>{sFDateTo(e.target.value);sPg(1);}} style={{padding:"4px 6px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:10,background:cardBg,color:colors.nv}} title="Hasta"/>
       {(fTipo||fUrg||fAsTo||fDateFrom||fDateTo)&&<button onClick={()=>{sFTipo("");sFUrg("");sFAsTo("");sFDateFrom("");sFDateTo("");sPg(1);}} style={{padding:"4px 8px",borderRadius:6,border:"none",background:colors.rd,color:"#fff",fontSize:10,fontWeight:600,cursor:"pointer"}}>✕ Limpiar</button>}

@@ -2,6 +2,7 @@
 import { useState, useMemo } from "react";
 import { useC } from "@/lib/theme-context";
 import { FREQ, TIPOS, fn } from "@/lib/constants";
+import { UserPicker } from "@/components/ui";
 
 const DOW=["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
 
@@ -111,10 +112,7 @@ export function RecurrentTasks({templates,users,deptos,areas,user,mob,peds,onAdd
         <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8,marginBottom:8}}>
           <div>
             <label style={{fontSize:11,fontWeight:700,color:colors.g5,display:"block",marginBottom:3}}>Asignar a</label>
-            <select value={form.assigned_to} onChange={e=>sForm({...form,assigned_to:e.target.value})} style={iS}>
-              <option value="">Sin asignar (se asigna al crear)</option>
-              {users.map((u:any)=><option key={u.id} value={u.id}>{fn(u)}</option>)}
-            </select>
+            <UserPicker users={users} value={form.assigned_to} onChange={(id)=>sForm({...form,assigned_to:id})} placeholder="Sin asignar (se asigna al crear)" labelFn={(u:any)=>fn(u)}/>
           </div>
           <div>
             <label style={{fontSize:11,fontWeight:700,color:colors.g5,display:"block",marginBottom:3}}>Departamento</label>

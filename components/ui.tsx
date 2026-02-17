@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { T, SC, PSC } from "@/lib/constants";
 import { useC } from "@/lib/theme-context";
 import { uploadFile, getFileIcon } from "@/lib/storage";
@@ -151,6 +151,59 @@ export function FileField({ value, onChange, folder }: FileFieldProps) {
         </label>
       </div>
       {value && <div style={{ marginTop: 4, fontSize: 10 }}><a href={value} target="_blank" rel="noopener noreferrer" style={{ color: colors.bl }}>{getFileIcon(value)} Ver archivo</a></div>}
+    </div>
+  );
+}
+
+/* ── USER PICKER (autocomplete) ── */
+interface UserPickerProps {
+  users: any[];
+  value: string;
+  onChange: (userId: string, user?: any) => void;
+  placeholder?: string;
+  labelFn?: (u: any) => string;
+  style?: React.CSSProperties;
+}
+export function UserPicker({ users, value, onChange, placeholder, labelFn, style: st }: UserPickerProps) {
+  const { colors, cardBg } = useC();
+  const [open, sOpen] = useState(false);
+  const [q, sQ] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+  const label = labelFn || ((u: any) => ((u.n || u.first_name || "") + " " + (u.a || u.last_name || "")).trim());
+  const selUser = users.find((u: any) => u.id === value);
+  const filtered = q
+    ? users.filter((u: any) => label(u).toLowerCase().includes(q.toLowerCase()))
+    : users;
+
+  useEffect(() => {
+    const h = (e: any) => { if (ref.current && !ref.current.contains(e.target)) { sOpen(false); sQ(""); } };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+
+  return (
+    <div ref={ref} style={{ position: "relative", ...(st || {}) }}>
+      <div style={{ display: "flex", alignItems: "center", border: "1px solid " + colors.g3, borderRadius: 8, background: cardBg, overflow: "hidden" }}>
+        <input
+          value={open ? q : (selUser ? label(selUser) : "")}
+          onChange={e => { sQ(e.target.value); if (!open) sOpen(true); }}
+          onFocus={() => { sOpen(true); sQ(""); }}
+          placeholder={placeholder || "Buscar persona..."}
+          style={{ flex: 1, padding: "8px 10px", border: "none", outline: "none", fontSize: 12, background: "transparent", color: colors.nv, boxSizing: "border-box" as const, minWidth: 0 }}
+        />
+        {value && !open && <button onClick={() => { onChange(""); sQ(""); }} style={{ background: "none", border: "none", cursor: "pointer", padding: "4px 8px", fontSize: 11, color: colors.g4, flexShrink: 0 }} title="Limpiar">✕</button>}
+      </div>
+      {open && <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50, background: cardBg, border: "1px solid " + colors.g3, borderRadius: 8, marginTop: 2, maxHeight: 200, overflowY: "auto", boxShadow: "0 4px 16px rgba(0,0,0,.12)" }}>
+        {filtered.length === 0 && <div style={{ padding: "10px 12px", fontSize: 11, color: colors.g4 }}>Sin resultados</div>}
+        {filtered.map((u: any) => (
+          <div key={u.id} onClick={() => { onChange(u.id, u); sOpen(false); sQ(""); }}
+            style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", color: colors.nv, borderBottom: "1px solid " + colors.g1 }}
+            onMouseEnter={e => (e.currentTarget.style.background = colors.g1)}
+            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+            {label(u)}
+          </div>
+        ))}
+      </div>}
     </div>
   );
 }

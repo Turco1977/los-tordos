@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useC } from "@/lib/theme-context";
 import { PJ_ST, PJ_PR } from "@/lib/constants";
+import { UserPicker } from "@/components/ui";
 
 const PJ_EJES=["Deportivo","Social","Institucional","Infraestructura"];
 const PJ_STATUS:{[k:string]:{l:string;c:string;bg:string}}={borrador:{l:"Borrador",c:"#6B7280",bg:"#F3F4F6"},enviado:{l:"Enviado",c:"#3B82F6",bg:"#DBEAFE"},aprobado:{l:"Aprobado",c:"#10B981",bg:"#D1FAE5"},rechazado:{l:"Rechazado",c:"#DC2626",bg:"#FEE2E2"}};
@@ -236,10 +237,7 @@ export function ProyectosView({projects,projTasks,users,user,mob,onAddProject,on
           <select value={taskForm.priority} onChange={e=>sTaskForm({...taskForm,priority:e.target.value})} style={iS}>
             {Object.keys(PJ_PR).map(k=><option key={k} value={k}>{PJ_PR[k].i} {PJ_PR[k].l}</option>)}
           </select>
-          <select value={taskForm.assignee_id} onChange={e=>{const u=users.find((u:any)=>u.id===e.target.value);sTaskForm({...taskForm,assignee_id:e.target.value,assignee_name:u?(u.n+" "+u.a).trim():""});}} style={iS}>
-            <option value="">Sin asignar</option>
-            {users.map((u:any)=><option key={u.id} value={u.id}>{(u.n+" "+u.a).trim()}</option>)}
-          </select>
+          <UserPicker users={users} value={taskForm.assignee_id||""} onChange={(id,u)=>sTaskForm({...taskForm,assignee_id:id,assignee_name:u?((u.n||"")+" "+(u.a||"")).trim():""})} placeholder="Sin asignar"/>
           <input type="date" value={taskForm.due_date||""} onChange={e=>sTaskForm({...taskForm,due_date:e.target.value})} style={iS}/>
         </div>
         <div style={{display:"flex",gap:6,justifyContent:"flex-end",marginTop:8}}>
@@ -282,10 +280,7 @@ export function ProyectosView({projects,projTasks,users,user,mob,onAddProject,on
                     <select value={editTask.priority} onChange={e=>sEditTask({...editTask,priority:e.target.value})} style={iS}>
                       {Object.keys(PJ_PR).map(k=><option key={k} value={k}>{PJ_PR[k].i} {PJ_PR[k].l}</option>)}
                     </select>
-                    <select value={editTask.assignee_id||""} onChange={e=>{const u=users.find((u:any)=>u.id===e.target.value);sEditTask({...editTask,assignee_id:e.target.value||null,assignee_name:u?(u.n+" "+u.a).trim():""});}} style={iS}>
-                      <option value="">Sin asignar</option>
-                      {users.map((u:any)=><option key={u.id} value={u.id}>{(u.n+" "+u.a).trim()}</option>)}
-                    </select>
+                    <UserPicker users={users} value={editTask.assignee_id||""} onChange={(id,u)=>sEditTask({...editTask,assignee_id:id||null,assignee_name:u?((u.n||"")+" "+(u.a||"")).trim():""})} placeholder="Sin asignar"/>
                     <input type="date" value={editTask.due_date||""} onChange={e=>sEditTask({...editTask,due_date:e.target.value||null})} style={iS}/>
                   </div>
                   <div style={{display:"flex",gap:4,justifyContent:"space-between"}}>
