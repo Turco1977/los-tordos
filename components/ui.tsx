@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { T, SC, PSC } from "@/lib/constants";
+import type { OfflineState } from "@/lib/use-offline";
 import { useC } from "@/lib/theme-context";
 import { uploadFile, getFileIcon } from "@/lib/storage";
 import { paginate } from "@/lib/pagination";
@@ -234,4 +235,37 @@ export function Bread({ parts, mob }: BreadProps) {
       ))}
     </div>
   );
+}
+
+/* ── OFFLINE INDICATOR ── */
+interface OfflineIndicatorProps {
+  state: OfflineState;
+  onSync?: () => void;
+}
+export function OfflineIndicator({ state, onSync }: OfflineIndicatorProps) {
+  const { colors } = useC();
+  if (state.isOnline && state.pendingCount === 0 && !state.isSyncing) return null;
+  if (!state.isOnline) {
+    return (
+      <div style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 20, background: "#DC262620", color: "#DC2626", fontSize: 10, fontWeight: 700, whiteSpace: "nowrap" }}>
+        <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#DC2626", display: "inline-block" }} />
+        Sin conexion
+      </div>
+    );
+  }
+  if (state.isSyncing) {
+    return (
+      <div style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 20, background: colors.bl + "20", color: colors.bl, fontSize: 10, fontWeight: 700, whiteSpace: "nowrap" }}>
+        Sincronizando...
+      </div>
+    );
+  }
+  if (state.pendingCount > 0) {
+    return (
+      <button onClick={onSync} title="Sincronizar cambios pendientes" style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 20, background: "#F59E0B20", color: "#B45309", fontSize: 10, fontWeight: 700, border: "none", cursor: "pointer", whiteSpace: "nowrap" }}>
+        {state.pendingCount} pendiente{state.pendingCount > 1 ? "s" : ""}
+      </button>
+    );
+  }
+  return null;
 }

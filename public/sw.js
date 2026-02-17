@@ -1,6 +1,6 @@
-const CACHE_VERSION = 'los-tordos-v3';
-const STATIC_CACHE = 'los-tordos-static-v3';
-const API_CACHE = 'los-tordos-api-v3';
+const CACHE_VERSION = 'los-tordos-v4';
+const STATIC_CACHE = 'los-tordos-static-v4';
+const API_CACHE = 'los-tordos-api-v4';
 
 // App shell - always cache these
 const APP_SHELL = [
@@ -54,8 +54,18 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // Supabase calls: network only (auth-dependent)
-  if (url.hostname.includes('supabase')) return;
+  // Supabase calls: return 503 when offline instead of hanging
+  if (url.hostname.includes('supabase')) {
+    e.respondWith(
+      fetch(e.request).catch(() =>
+        new Response(JSON.stringify({ error: 'Offline' }), {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' }
+        })
+      )
+    );
+    return;
+  }
 
   // Static assets (_next/static): cache first
   if (url.pathname.includes('/_next/static/') || url.pathname.includes('/_next/image')) {
@@ -106,7 +116,7 @@ self.addEventListener('fetch', e => {
           caches.match(e.request)
             .then(cached => cached || caches.match('/offline.html'))
             .then(r => r || new Response(
-              '<html><body style="font-family:system-ui;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0A1628;color:#fff;text-align:center"><div><h1>Sin conexion</h1><p>Reconecta a internet para usar Los Tordos</p></div></body></html>',
+              '<html><body style="font-family:system-ui;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0A1628;color:#fff;text-align:center"><div><h1>Sin conexion</h1><p>Los Tordos funciona offline — recarga la pagina</p></div></body></html>',
               { headers: { 'Content-Type': 'text/html' } }
             ))
         )
@@ -128,7 +138,21 @@ self.addEventListener('fetch', e => {
   );
 });
 
-// Listen for skip waiting message from client
+// Background Sync: process offline queue when connectivity returns
+self.addEventListener('sync', e => {
+  if (e.tag === 'offline-sync') {
+    e.waitUntil(
+      self.clients.matchAll().then(clients => {
+        clients.forEach(client => client.postMessage('TRIGGER_SYNC'));
+      })
+    );
+  }
+});
+
+// Listen for messages from client
 self.addEventListener('message', e => {
   if (e.data === 'skipWaiting') self.skipWaiting();
+  if (e.data === 'SYNC_COMPLETE') {
+    // Could notify other tabs if needed
+  }
 });

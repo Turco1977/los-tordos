@@ -10,8 +10,10 @@ import { paginate } from "@/lib/pagination";
 import { uploadFile, getFileIcon, formatFileSize } from "@/lib/storage";
 import { useTheme, darkCSS } from "@/lib/theme";
 import { ThemeCtx, useC } from "@/lib/theme-context";
-import { Toast, useMobile, Btn, Card, Ring, Pager, FileField, Bread, Badge } from "@/components/ui";
+import { Toast, useMobile, Btn, Card, Ring, Pager, FileField, Bread, Badge, OfflineIndicator } from "@/components/ui";
 import { profileToUser, taskToDB, presuFromDB, presuToDB, provFromDB } from "@/lib/mappers";
+import { useOfflineData } from "@/lib/use-offline";
+import { clearAll as clearOfflineDB } from "@/lib/offline-store";
 import { Login } from "@/components/main/Login";
 import { ChangePw } from "@/components/main/ChangePw";
 import { SB } from "@/components/main/Sidebar";
@@ -110,6 +112,7 @@ export default function App(){
   const {mode:themeMode,toggle:toggleTheme,colors,isDark,cardBg,headerBg}=useTheme();
   const showT=(msg:string,type:"ok"|"err"="ok")=>sToast({msg,type});
   const [dataLoading,sDataLoading]=useState(true);
+  const {offlineState,loadFromCache,saveToCache,offlineMutate,sync,cacheLoaded}=useOfflineData(user);
 
   /* ── Fetch all data from Supabase ── */
   const fetchAll = useCallback(async()=>{
@@ -153,16 +156,32 @@ export default function App(){
     if(spRes.data) sSponsors(spRes.data);
     if(pbRes.data) sProjBudgets(pbRes.data);
     // Tasks + messages
+    let tmData:any[]=[];
     if(mRes.data){
       const tmRes=await supabase.from("task_messages").select("*").order("created_at");
       const msgs:any[]=tmRes.data||[];
+      tmData=msgs;
       sPd(mRes.data.map((t:any)=>{
         const tMsgs=msgs.filter((m:any)=>m.task_id===t.id).map((m:any)=>({dt:m.created_at||"",uid:m.user_id,by:m.user_name,act:m.content,t:m.type}));
         return{id:t.id,div:t.division,cId:t.creator_id,cN:t.creator_name,dId:t.dept_id,tipo:t.tipo,desc:t.description,fReq:t.due_date,urg:t.urgency,st:t.status,asTo:t.assigned_to,rG:t.requires_expense,eOk:t.expense_ok,resp:t.resolution,cAt:t.created_at,monto:t.amount,log:tMsgs};
       }));
     }
     sDataLoading(false);
-  },[]);
+    // Save raw Supabase data to IndexedDB for offline use
+    const anyData=pRes.data||mRes.data||omRes.data;
+    if(anyData){
+      saveToCache({
+        profiles:pRes.data||[],tasks:mRes.data||[],task_messages:tmData,
+        org_members:omRes.data||[],milestones:msRes.data||[],
+        agendas:agRes.data||[],minutas:miRes.data||[],
+        presupuestos:prRes.data||[],proveedores:pvRes.data||[],
+        reminders:remRes.data||[],projects:projRes.data||[],
+        project_tasks:ptRes.data||[],task_templates:ttRes.data||[],
+        inventory:invRes.data||[],bookings:bkRes.data||[],
+        sponsors:spRes.data||[],project_budgets:pbRes.data||[],
+      });
+    }
+  },[saveToCache]);
 
   /* ── Check existing session on mount ── */
   useEffect(()=>{
@@ -176,10 +195,46 @@ export default function App(){
     })();
   },[]);
 
+  /* ── Load cached data from IndexedDB (instant UI) ── */
+  useEffect(()=>{
+    if(!user||cacheLoaded)return;
+    loadFromCache({
+      profiles:(d:any[])=>sUs(d.map((p:any)=>profileToUser(p))),
+      tasks:(d:any[])=>{/* handled with task_messages below */},
+      org_members:(d:any[])=>sOm(d.map((m:any)=>({id:m.id,t:m.type,cargo:m.cargo,n:m.first_name,a:m.last_name,mail:m.email,tel:m.phone,so:m.sort_order||0}))),
+      milestones:(d:any[])=>sHi(d.map((h:any)=>({id:h.id,fase:h.phase,name:h.name,periodo:h.period,pct:h.pct,color:h.color}))),
+      agendas:(d:any[])=>sAgs(d.map((a:any)=>({id:a.id,type:a.type,areaName:a.area_name,date:a.date,sections:a.sections,presentes:a.presentes||[],status:a.status,createdAt:a.created_at}))),
+      minutas:(d:any[])=>sMins(d.map((m:any)=>({id:m.id,type:m.type,areaName:m.area_name,agendaId:m.agenda_id,date:m.date,horaInicio:m.hora_inicio,horaCierre:m.hora_cierre,lugar:m.lugar,presentes:m.presentes,ausentes:m.ausentes,sections:m.sections,tareas:m.tareas,status:m.status,createdAt:m.created_at}))),
+      presupuestos:(d:any[])=>sPr(d.map(presuFromDB)),
+      proveedores:(d:any[])=>sPv(d.map(provFromDB)),
+      reminders:(d:any[])=>sRems(d),
+      projects:(d:any[])=>sProjects(d),
+      project_tasks:(d:any[])=>sProjTasks(d),
+      task_templates:(d:any[])=>sTaskTemplates(d),
+      inventory:(d:any[])=>sInventory(d),
+      bookings:(d:any[])=>sBookings(d),
+      sponsors:(d:any[])=>sSponsors(d),
+      project_budgets:(d:any[])=>sProjBudgets(d),
+    }).then(async()=>{
+      // Load tasks + messages from cache together
+      try{
+        const{getAll}=await import("@/lib/offline-store");
+        const[cachedTasks,cachedMsgs]=await Promise.all([getAll("tasks"),getAll("task_messages")]);
+        if(cachedTasks.length){
+          sPd(cachedTasks.map((t:any)=>{
+            const tMsgs=(cachedMsgs||[]).filter((m:any)=>m.task_id===t.id).map((m:any)=>({dt:m.created_at||"",uid:m.user_id,by:m.user_name,act:m.content,t:m.type}));
+            return{id:t.id,div:t.division,cId:t.creator_id,cN:t.creator_name,dId:t.dept_id,tipo:t.tipo,desc:t.description,fReq:t.due_date,urg:t.urgency,st:t.status,asTo:t.assigned_to,rG:t.requires_expense,eOk:t.expense_ok,resp:t.resolution,cAt:t.created_at,monto:t.amount,log:tMsgs};
+          }));
+          sDataLoading(false);
+        }
+      }catch{}
+    });
+  },[user,cacheLoaded,loadFromCache]);
+
   /* ── Fetch data when user logs in ── */
   useEffect(()=>{if(user) fetchAll();},[user,fetchAll]);
 
-  /* ── Realtime: auto-refresh on DB changes ── */
+  /* ── Realtime: auto-refresh on DB changes (only when online) ── */
   useRealtime([
     {table:"tasks",onChange:()=>fetchAll()},
     {table:"task_messages",onChange:()=>fetchAll()},
@@ -192,7 +247,7 @@ export default function App(){
     {table:"sponsors",onChange:()=>fetchAll()},
     {table:"project_budgets",onChange:()=>fetchAll()},
     {table:"notifications",onChange:()=>refreshNotifs()},
-  ],!!user);
+  ],!!user&&offlineState.isOnline);
 
   /* ── Auth token helper for API calls ── */
   const getToken=async()=>{const{data:{session}}=await supabase.auth.getSession();return session?.access_token||"";};
@@ -210,7 +265,7 @@ export default function App(){
     if(tok) await notify({token:tok,user_id:userId,title,message,type,link});
   };
 
-  const out=async()=>{await supabase.auth.signOut();sU(null);sVw("dash");sSl(null);sAA(null);sAD(null);sSr("");sPd([]);sUs([]);sOm([]);sHi([]);sAgs([]);sMins([]);sPr([]);sPv([]);sRems([]);sDbNotifs([]);sProjects([]);sProjTasks([]);sProjBudgets([]);sTaskTemplates([]);sInventory([]);sBookings([]);sSponsors([]);};
+  const out=async()=>{await supabase.auth.signOut();try{await clearOfflineDB();}catch{}sU(null);sVw("dash");sSl(null);sAA(null);sAD(null);sSr("");sPd([]);sUs([]);sOm([]);sHi([]);sAgs([]);sMins([]);sPr([]);sPv([]);sRems([]);sDbNotifs([]);sProjects([]);sProjTasks([]);sProjBudgets([]);sTaskTemplates([]);sInventory([]);sBookings([]);sSponsors([]);};
   const isAd=user&&(user.role==="admin"||user.role==="superadmin");
   const isSA=user&&user.role==="superadmin";
   const isPersonal=user&&(user.role==="enlace"||user.role==="manager"||user.role==="usuario");
@@ -381,14 +436,15 @@ export default function App(){
             {mob&&<button aria-label="Menú" onClick={()=>sSbOpen(true)} title="Abrir menú" style={{background:"none",border:"none",fontSize:18,cursor:"pointer",color:colors.nv,padding:"4px 6px",flexShrink:0,minHeight:44,minWidth:44}}>☰</button>}
             {nav.filter(n=>n.sh).map(n=><button key={n.k} onClick={()=>{sVw(n.k);if(n.k==="dash"||n.k==="my"){sAA(null);sAD(null);sKpiFilt(null);}}} style={{padding:mob?"8px 10px":"6px 11px",border:"none",borderRadius:7,background:vw===n.k?colors.nv:"transparent",color:vw===n.k?(isDark?"#0F172A":"#fff"):colors.g5,fontSize:mob?12:11,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap" as const,minHeight:44}}>{n.l}</button>)}
           </div>
-          <div style={{display:"flex",alignItems:"center",gap:mob?4:8,flexShrink:0}}>
-            <div ref={gsRef} style={{position:"relative" as const}}><input value={search} onChange={e=>{sSr(e.target.value);sGsOpen(true);}} onFocus={()=>{if(search.length>=2)sGsOpen(true);}} onKeyDown={e=>{if(e.key==="Escape")sGsOpen(false);}} placeholder="🔍 Buscar..." style={{padding:mob?"8px 10px":"5px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:mob?13:11,width:mob?120:160,minHeight:mob?40:undefined}}/>
+          <div style={{display:"flex",alignItems:"center",gap:mob?6:10,flexShrink:0}}>
+            <div ref={gsRef} style={{position:"relative" as const}}><input value={search} onChange={e=>{sSr(e.target.value);sGsOpen(true);}} onFocus={()=>{if(search.length>=2)sGsOpen(true);}} onKeyDown={e=>{if(e.key==="Escape")sGsOpen(false);}} placeholder="Buscar..." style={{padding:mob?"8px 10px":"5px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:mob?13:11,width:mob?100:140,minHeight:mob?40:undefined}}/>
               {gsOpen&&search.length>=2&&(()=>{const r=gsResults();const hasR=r.tasks.length||r.users.length||r.presu.length;return hasR?<div style={{position:"absolute" as const,top:32,right:0,background:cardBg,borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,.12)",border:"1px solid "+colors.g2,width:280,zIndex:100,maxHeight:360,overflowY:"auto" as const,padding:6}}>
                 {r.tasks.length>0&&<div><div style={{fontSize:9,fontWeight:700,color:colors.g4,padding:"4px 8px",textTransform:"uppercase" as const}}>Tareas</div>{r.tasks.map((p:any)=><div key={p.id} onClick={()=>{sSl(p);sGsOpen(false);sSr("");}} style={{padding:"5px 8px",borderRadius:6,cursor:"pointer",fontSize:11,color:colors.nv,fontWeight:600}}><span style={{color:colors.g4}}>#{p.id}</span> {p.desc?.slice(0,35)} <Badge s={p.st} sm/></div>)}</div>}
                 {r.users.length>0&&<div><div style={{fontSize:9,fontWeight:700,color:colors.g4,padding:"4px 8px",textTransform:"uppercase" as const}}>Personas</div>{r.users.map((u:any)=><div key={u.id} onClick={()=>{sVw("profs");sGsOpen(false);sSr("");}} style={{padding:"5px 8px",borderRadius:6,cursor:"pointer",fontSize:11,color:colors.nv}}>👤 {fn(u)} <span style={{color:colors.g4,fontSize:9}}>{ROLES[u.role]?.l}</span></div>)}</div>}
                 {r.presu.length>0&&<div><div style={{fontSize:9,fontWeight:700,color:colors.g4,padding:"4px 8px",textTransform:"uppercase" as const}}>Presupuestos</div>{r.presu.map((pr:any)=><div key={pr.id} onClick={()=>{sVw("presu");sGsOpen(false);sSr("");}} style={{padding:"5px 8px",borderRadius:6,cursor:"pointer",fontSize:11,color:colors.nv}}>💰 {pr.proveedor_nombre} <span style={{color:colors.g4,fontSize:9}}>${Number(pr.monto).toLocaleString()}</span></div>)}</div>}
               </div>:<div style={{position:"absolute" as const,top:32,right:0,background:cardBg,borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,.12)",border:"1px solid "+colors.g2,width:280,zIndex:100,padding:"16px 12px",textAlign:"center" as const}}><div style={{fontSize:11,color:colors.g4}}>Sin resultados para &ldquo;{search}&rdquo;</div></div>;})()}
             </div>
+            <OfflineIndicator state={offlineState} onSync={async()=>{const r=await sync();if(r.processed>0)showT(r.processed+" cambio"+(r.processed>1?"s":"")+" sincronizado"+(r.processed>1?"s":""));}}/>
             <div style={{position:"relative" as const}}><button aria-label="Notificaciones" onClick={()=>sShNot(!shNot)} title="Notificaciones" style={{background:"none",border:"none",fontSize:mob?18:16,cursor:"pointer",position:"relative" as const,minWidth:mob?40:undefined,minHeight:mob?40:undefined,display:"flex",alignItems:"center",justifyContent:"center"}}>🔔{nts.length>0&&<span style={{position:"absolute" as const,top:-4,right:-4,width:14,height:14,borderRadius:7,background:colors.rd,color:"#fff",fontSize:8,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>{nts.length}</span>}</button>{shNot&&<div style={{position:"absolute" as const,right:0,top:32,background:cardBg,borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,.12)",border:"1px solid "+colors.g2,width:280,zIndex:100,padding:8,maxHeight:360,overflowY:"auto" as const}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}><div style={{fontSize:11,fontWeight:700,color:colors.nv}}>Notificaciones</div>{unreadDb.length>0&&<button onClick={async()=>{const tok=await getToken();await markRead(tok);sDbNotifs(prev=>prev.map((n:any)=>({...n,read:true})));}} style={{background:"none",border:"none",fontSize:10,color:colors.bl,cursor:"pointer",fontWeight:600}}>Marcar leídas</button>}</div>{nts.length===0&&<div style={{fontSize:11,color:colors.g4,padding:8}}>Todo al día ✅</div>}{nts.map((n,i)=><div key={i} onClick={()=>{sShNot(false);if(n.dbId){getToken().then(tok=>markRead(tok,[n.dbId]));sDbNotifs(prev=>prev.map((x:any)=>x.id===n.dbId?{...x,read:true}:x));}if(n.first){sSl(n.first);}else if(n.link){window.location.hash=n.link;}else if(n.act){sVw(n.act);sAA(null);sAD(null);}}} style={{padding:"6px 8px",borderRadius:6,background:n.c+"10",marginBottom:3,fontSize:11,color:n.c,fontWeight:600,cursor:"pointer"}}>{n.t}</div>)}{!pushEnabled&&"Notification" in (typeof window!=="undefined"?window:{})&&<div style={{borderTop:"1px solid "+colors.g2,padding:"6px 8px",marginTop:4}}><button onClick={requestPush} style={{width:"100%",padding:"6px 0",border:"1px solid "+colors.bl,borderRadius:6,background:"transparent",color:colors.bl,fontSize:10,fontWeight:600,cursor:"pointer"}}>🔔 Activar notificaciones push</button></div>}</div>}</div>
             {!mob&&<div style={{textAlign:"right" as const}}><div style={{fontSize:11,fontWeight:700,color:colors.nv}}>{fn(user)}</div><div style={{fontSize:9,color:colors.g4}}>{ROLES[user.role]?.i} {ROLES[user.role]?.l}{user.div?" · "+user.div:""}</div></div>}
             <button aria-label="Cambiar tema" onClick={toggleTheme} title={isDark?"Modo claro":"Modo oscuro"} style={{width:mob?40:28,height:mob?40:28,borderRadius:7,border:"1px solid "+colors.g2,background:cardBg,cursor:"pointer",fontSize:mob?14:12,display:"flex",alignItems:"center",justifyContent:"center"}}>{isDark?"☀️":"🌙"}</button>
