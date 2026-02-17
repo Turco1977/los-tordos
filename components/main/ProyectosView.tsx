@@ -1,12 +1,12 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useC } from "@/lib/theme-context";
 import { PJ_ST, PJ_PR } from "@/lib/constants";
 
 const PJ_EJES=["Deportivo","Social","Institucional","Infraestructura"];
 const PJ_STATUS:{[k:string]:{l:string;c:string;bg:string}}={borrador:{l:"Borrador",c:"#6B7280",bg:"#F3F4F6"},enviado:{l:"Enviado",c:"#3B82F6",bg:"#DBEAFE"},aprobado:{l:"Aprobado",c:"#10B981",bg:"#D1FAE5"},rechazado:{l:"Rechazado",c:"#DC2626",bg:"#FEE2E2"}};
 const emptyForm=()=>({nombre:"",responsable:"",equipo:"",obj_lograr:"",obj_beneficio:"",eje:"",adn:"",descripcion:"",duracion:"",etapas:"",rec_eco:"",rec_hum:"",rec_infra:"",riesgo_mal:"",riesgo_clave:"",entregables:""});
-const parseFormData=(desc:string)=>{try{return JSON.parse(desc);}catch{return emptyForm();}};
+const parseFormData=(desc:any)=>{try{if(!desc||typeof desc!=="string")return emptyForm();return JSON.parse(desc)||emptyForm();}catch{return emptyForm();}};
 const wordCount=(t:string)=>t.trim().split(/\s+/).filter(Boolean).length;
 const COLS=Object.keys(PJ_ST) as string[];
 
@@ -33,11 +33,24 @@ export function ProyectosView({projects,projTasks,users,user,mob,onAddProject,on
     :type==="select"?<select value={(form as any)[key]||""} onChange={e=>upd(key,e.target.value)} style={iS}><option value="">Seleccionar...</option>{PJ_EJES.map(e=><option key={e} value={e}>{e}</option>)}</select>
     :<input value={(form as any)[key]||""} onChange={e=>upd(key,e.target.value)} style={iS}/>}
   </div>;
-  const viewField=(label:string,val:string)=>val?<div style={{marginBottom:8}}><div style={{fontSize:10,fontWeight:700,color:colors.g4,textTransform:"uppercase" as const,marginBottom:2}}>{label}</div><div style={{fontSize:12,color:colors.nv,lineHeight:1.5,whiteSpace:"pre-wrap" as const}}>{val}</div></div>:null;
+  const viewField=(label:string,val:any)=>val&&typeof val==="string"?<div style={{marginBottom:8}}><div style={{fontSize:10,fontWeight:700,color:colors.g4,textTransform:"uppercase" as const,marginBottom:2}}>{label}</div><div style={{fontSize:12,color:colors.nv,lineHeight:1.5,whiteSpace:"pre-wrap" as const}}>{val}</div></div>:null;
 
   /* Task helpers */
   const projTasksFor=(pid:number)=>(projTasks||[]).filter((t:any)=>t.project_id===pid);
   const taskProgress=(pid:number)=>{const ts=projTasksFor(pid);const total=ts.length;const done=ts.filter((t:any)=>t.status==="done").length;return{total,done,pct:total?Math.round(done/total*100):0};};
+
+  /* View-mode computations (must be before early returns to keep hooks order stable) */
+  const viewProj=selProj;
+  const viewFd=viewProj?parseFormData(viewProj.description):emptyForm();
+  const viewSt=viewProj?(PJ_STATUS[viewProj.status]||PJ_STATUS.borrador):PJ_STATUS.borrador;
+  const viewTasks=viewProj?projTasksFor(viewProj.id):[];
+  const viewProg=viewProj?taskProgress(viewProj.id):{total:0,done:0,pct:0};
+  const filteredTasks=(()=>{
+    let ts=viewTasks;
+    if(taskSearch){const s=taskSearch.toLowerCase();ts=ts.filter((t:any)=>((t.title||"")+(t.description||"")+(t.assignee_name||"")).toLowerCase().includes(s));}
+    if(taskPriFilter!=="all")ts=ts.filter((t:any)=>t.priority===taskPriFilter);
+    return ts;
+  })();
 
   // ── List ──
   if(mode==="list") return(<div style={{maxWidth:900}}>
@@ -142,21 +155,14 @@ export function ProyectosView({projects,projTasks,users,user,mob,onAddProject,on
   </div>);
 
   // ── View (detail with tabs) ──
-  const p=selProj;
-  const fd=parseFormData(p.description);
-  const st=PJ_STATUS[p.status]||PJ_STATUS.borrador;
+  const p=viewProj;
+  if(!p) return null;
+  const fd=viewFd;
+  const st=viewSt;
   const isAdmin=user&&(user.role==="admin"||user.role==="superadmin"||user.role==="coordinador");
   const isOwner=user&&p.created_by===user.id;
-  const tasks=projTasksFor(p.id);
-  const prog=taskProgress(p.id);
-
-  /* Filtered tasks for board */
-  const filteredTasks=useMemo(()=>{
-    let ts=tasks;
-    if(taskSearch){const s=taskSearch.toLowerCase();ts=ts.filter((t:any)=>(t.title+t.description+t.assignee_name).toLowerCase().includes(s));}
-    if(taskPriFilter!=="all")ts=ts.filter((t:any)=>t.priority===taskPriFilter);
-    return ts;
-  },[tasks,taskSearch,taskPriFilter]);
+  const tasks=viewTasks;
+  const prog=viewProg;
 
   return(<div style={{maxWidth:mob?undefined:1100}}>
     <button onClick={()=>{sMode("list");sSelProj(null);sEditTask(null);sTaskForm(null);}} style={{background:"none",border:"1px solid "+colors.g3,borderRadius:6,cursor:"pointer",fontSize:12,padding:"4px 10px",color:colors.g5,marginBottom:10}}>← Volver a lista</button>
@@ -292,16 +298,16 @@ export function ProyectosView({projects,projTasks,users,user,mob,onAddProject,on
                 </div>);
 
                 return(<div key={t.id} onClick={()=>sEditTask({...t})} style={{background:cardBg,borderRadius:10,padding:"8px 10px",border:"1px solid "+colors.g2,cursor:"pointer",borderLeft:"3px solid "+pri.c}}>
-                  <div style={{fontSize:11,fontWeight:600,color:colors.nv,marginBottom:4,lineHeight:1.3}}>{t.title}</div>
-                  {t.description&&<div style={{fontSize:10,color:colors.g5,marginBottom:4,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical" as const}}>{t.description}</div>}
+                  <div style={{fontSize:11,fontWeight:600,color:colors.nv,marginBottom:4,lineHeight:1.3}}>{String(t.title||"")}</div>
+                  {t.description&&typeof t.description==="string"&&<div style={{fontSize:10,color:colors.g5,marginBottom:4,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical" as const}}>{t.description}</div>}
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap" as const,gap:3}}>
                     <div style={{display:"flex",gap:3,alignItems:"center"}}>
                       <span style={{fontSize:8,padding:"1px 5px",borderRadius:4,background:pri.c+"15",color:pri.c,fontWeight:600}}>{pri.i} {pri.l}</span>
                       {isOverdue&&<span style={{fontSize:8,padding:"1px 5px",borderRadius:4,background:"#FEE2E2",color:"#DC2626",fontWeight:600}}>Vencida</span>}
                     </div>
                     <div style={{display:"flex",gap:3,alignItems:"center"}}>
-                      {t.due_date&&<span style={{fontSize:9,color:isOverdue?"#DC2626":colors.g4}}>{t.due_date.slice(5).replace("-","/")}</span>}
-                      {t.assignee_name&&<span style={{fontSize:9,color:colors.g4,maxWidth:60,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>👤 {t.assignee_name.split(" ")[0]}</span>}
+                      {typeof t.due_date==="string"&&t.due_date&&<span style={{fontSize:9,color:isOverdue?"#DC2626":colors.g4}}>{t.due_date.slice(5).replace("-","/")}</span>}
+                      {typeof t.assignee_name==="string"&&t.assignee_name&&<span style={{fontSize:9,color:colors.g4,maxWidth:60,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>👤 {t.assignee_name.split(" ")[0]}</span>}
                     </div>
                   </div>
                   {/* Quick status change buttons */}
