@@ -4,6 +4,7 @@ import { AGT, MINSECS, DEPTOS, ROLES, fn } from "@/lib/constants";
 import { fmtD } from "@/lib/mappers";
 import { useC } from "@/lib/theme-context";
 import { Btn, Card } from "@/components/ui";
+import { exportMinutaPDF, exportMinutaWord, exportODPDF, exportODWord, shareODWhatsApp, shareMinutaWhatsApp } from "@/lib/export";
 
 const TODAY = new Date().toISOString().slice(0,10);
 
@@ -201,10 +202,13 @@ export function Reuniones({agendas,minutas,om,users,areas,onAddAg,onUpdAg,onDelA
       <Card>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"start",marginBottom:14}}>
           <div><h2 style={{margin:0,fontSize:17,color:colors.nv,fontWeight:800}}>{"\u{1F4CB}"} Orden del D{"\u00ED"}a{ag.areaName?" – "+ag.areaName:""}</h2><div style={{fontSize:11,color:colors.g4,marginTop:2}}>Fecha: {fmtD(ag.date)} {"\u00B7"} {ag.status==="enviada"?"\u2705 Enviada":"\u{1F4DD} Borrador"}</div></div>
-          <div style={{display:"flex",gap:4}}>
+          <div style={{display:"flex",gap:4,flexWrap:"wrap" as const}}>
             {ag.status==="borrador"&&<Btn v="g" s="s" onClick={enterEdit}>{"\u270F\uFE0F"} Editar</Btn>}
             {ag.status==="borrador"&&<Btn v="r" s="s" onClick={doSendFromView}>{"\u{1F4E8}"} Enviar</Btn>}
             <Btn v="p" s="s" onClick={()=>startNewMin(ag.id)}>{"\u{1F4DD}"} Crear Minuta</Btn>
+            <Btn v="g" s="s" onClick={()=>shareODWhatsApp({typeTitle:AGT[ag.type]?.title||"",areaName:ag.areaName,date:ag.date,presentes:ag.presentes,sections:ag.sections,status:ag.status})} title="Compartir por WhatsApp" style={{color:"#25D366"}}>WhatsApp</Btn>
+            <Btn v="g" s="s" onClick={()=>exportODPDF({typeTitle:AGT[ag.type]?.title||"",areaName:ag.areaName,date:ag.date,presentes:ag.presentes,sections:ag.sections,status:ag.status})} title="Descargar PDF">PDF</Btn>
+            <Btn v="g" s="s" onClick={()=>exportODWord({typeTitle:AGT[ag.type]?.title||"",areaName:ag.areaName,date:ag.date,presentes:ag.presentes,sections:ag.sections,status:ag.status})} title="Descargar Word">Word</Btn>
           </div>
         </div>
         {/* Presentes convocados */}
@@ -344,8 +348,11 @@ export function Reuniones({agendas,minutas,om,users,areas,onAddAg,onUpdAg,onDelA
       <Card>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"start",marginBottom:4}}>
           <div/>
-          <div style={{display:"flex",gap:4}}>
+          <div style={{display:"flex",gap:4,flexWrap:"wrap" as const}}>
             {mi.status==="borrador"&&<Btn v="g" s="s" onClick={enterEditMin}>{"\u270F\uFE0F"} Editar</Btn>}
+            <Btn v="g" s="s" onClick={()=>shareMinutaWhatsApp({type:mi.type,typeTitle:AGT[mi.type]?.title||"",areaName:mi.areaName,date:mi.date,horaInicio:mi.horaInicio,horaCierre:mi.horaCierre,lugar:mi.lugar,presentes:mi.presentes,ausentes:mi.ausentes,sections:mi.sections,tareas:(mi.tareas||[]).map((t:any)=>({desc:t.desc,resp:stf.find((u:any)=>u.id===t.respId)?fn(stf.find((u:any)=>u.id===t.respId)):"–",fecha:t.fecha})),status:mi.status})} title="Compartir por WhatsApp" style={{color:"#25D366"}}>WhatsApp</Btn>
+            <Btn v="g" s="s" onClick={()=>exportMinutaPDF({type:mi.type,typeTitle:AGT[mi.type]?.title||"",areaName:mi.areaName,date:mi.date,horaInicio:mi.horaInicio,horaCierre:mi.horaCierre,lugar:mi.lugar,presentes:mi.presentes,ausentes:mi.ausentes,sections:mi.sections,tareas:(mi.tareas||[]).map((t:any)=>({desc:t.desc,resp:stf.find((u:any)=>u.id===t.respId)?fn(stf.find((u:any)=>u.id===t.respId)):"–",fecha:t.fecha})),status:mi.status})} title="Descargar PDF">PDF</Btn>
+            <Btn v="g" s="s" onClick={()=>exportMinutaWord({type:mi.type,typeTitle:AGT[mi.type]?.title||"",areaName:mi.areaName,date:mi.date,horaInicio:mi.horaInicio,horaCierre:mi.horaCierre,lugar:mi.lugar,presentes:mi.presentes,ausentes:mi.ausentes,sections:mi.sections,tareas:(mi.tareas||[]).map((t:any)=>({desc:t.desc,resp:stf.find((u:any)=>u.id===t.respId)?fn(stf.find((u:any)=>u.id===t.respId)):"–",fecha:t.fecha})),status:mi.status})} title="Descargar Word">Word</Btn>
           </div>
         </div>
         <div style={{textAlign:"center" as const,borderBottom:"2px solid "+colors.nv,paddingBottom:12,marginBottom:12}}>

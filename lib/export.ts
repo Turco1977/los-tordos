@@ -149,6 +149,112 @@ function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
+/* ── OD (Orden del Día) types ── */
+type ODData = {typeTitle:string;areaName?:string;date:string;presentes?:string[];sections?:{t:string;sub:string[];notes:string;atts?:{type:string;label:string;val:string}[]}[];status:string};
+
+function buildODHTML(od: ODData): string {
+  const esc = (s: string) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>");
+  const fmtD = (d: string) => { if (!d) return "–"; const [y, m, dd] = d.split("-"); return `${dd}/${m}/${y}`; };
+  return `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:12px;color:#1a1a1a;line-height:1.5;padding:10px;">
+<div style="text-align:center;border-bottom:3px solid #0A1628;padding-bottom:12px;margin-bottom:16px;">
+  <div style="font-size:10px;color:#999;text-transform:uppercase;letter-spacing:1px;">Los Tordos Rugby Club</div>
+  <h1 style="font-size:18px;margin:4px 0 0;color:#0A1628;">${esc(od.typeTitle)}</h1>
+  <div style="font-size:13px;color:#333;margin-top:2px;">Orden del Día – ${fmtD(od.date)}${od.areaName ? " · " + esc(od.areaName) : ""}</div>
+</div>
+${od.presentes?.length ? `<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:700;color:#059669;margin-bottom:4px;text-transform:uppercase;">✅ Convocados (${od.presentes.length})</div><div style="display:flex;flex-wrap:wrap;gap:4px;">${od.presentes.map(p => `<span style="padding:2px 8px;border-radius:10px;background:#D1FAE5;border:1px solid #6EE7B7;font-size:10px;font-weight:600;color:#065F46;">${esc(p)}</span>`).join("")}</div></div>` : ""}
+${(od.sections || []).map((s, i) => `<div style="margin-bottom:10px;padding:8px 10px;background:${i % 2 === 0 ? "#F7F8FA" : "#fff"};border-radius:6px;">
+  <div style="font-size:12px;font-weight:700;color:#0A1628;">${i + 1}. ${esc(s.t)}</div>
+  ${s.sub?.length ? s.sub.map(sb => `<div style="font-size:10px;color:#5A6577;padding-left:12px;">• ${esc(sb)}</div>`).join("") : ""}
+  ${s.notes ? `<div style="font-size:11px;color:#3B82F6;margin-top:3px;padding-left:12px;font-style:italic;">💬 ${esc(s.notes)}</div>` : ""}
+</div>`).join("")}
+<div style="margin-top:20px;text-align:center;font-size:9px;color:#999;border-top:1px solid #e5e5e5;padding-top:8px;">Los Tordos Rugby Club · Generado: ${new Date().toLocaleDateString("es-AR")}</div>
+</div>`;
+}
+
+export async function exportODPDF(od: ODData) {
+  const html = buildODHTML(od);
+  const el = document.createElement("div");
+  el.innerHTML = html;
+  el.style.position = "fixed";
+  el.style.left = "-9999px";
+  el.style.width = "210mm";
+  document.body.appendChild(el);
+  try {
+    const html2pdf = await loadHtml2Pdf();
+    const fmtD = (d: string) => { if (!d) return ""; const [y, m, dd] = d.split("-"); return `${dd}-${m}-${y}`; };
+    await html2pdf().set({
+      margin: [10, 10, 10, 10],
+      filename: `OD_${od.typeTitle.replace(/\s/g, "_")}_${fmtD(od.date)}.pdf`,
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
+    }).from(el).save();
+  } finally {
+    document.body.removeChild(el);
+  }
+}
+
+export function exportODWord(od: ODData) {
+  const esc = (s: string) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>");
+  const fmtD = (d: string) => { if (!d) return "–"; const [y, m, dd] = d.split("-"); return `${dd}/${m}/${y}`; };
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="utf-8"><title>Orden del Dia</title>
+<style>
+  body { font-family: Calibri, sans-serif; font-size: 12pt; color: #1a1a1a; line-height: 1.5; }
+  h1 { font-size: 18pt; color: #0A1628; text-align: center; margin-bottom: 2pt; }
+  h2 { font-size: 14pt; color: #0A1628; border-bottom: 1px solid #ccc; padding-bottom: 4pt; margin-top: 14pt; }
+  .center { text-align: center; }
+  .meta { text-align: center; color: #666; font-size: 10pt; }
+  .footer { margin-top: 20pt; text-align: center; font-size: 9pt; color: #999; border-top: 1px solid #ccc; padding-top: 8pt; }
+</style></head><body>
+<p class="center" style="font-size:9pt;color:#999;text-transform:uppercase;letter-spacing:1pt;">Los Tordos Rugby Club</p>
+<h1>${esc(od.typeTitle)}</h1>
+<p class="meta">Orden del Dia – ${fmtD(od.date)}${od.areaName ? " · " + esc(od.areaName) : ""}</p>
+${od.presentes?.length ? `<h2>Convocados (${od.presentes.length})</h2><p>${od.presentes.map(p => "• " + esc(p)).join("<br>")}</p>` : ""}
+${(od.sections || []).map((s, i) => `<h2>${i + 1}. ${esc(s.t)}</h2>${s.sub?.length ? "<p>" + s.sub.map(sb => "• " + esc(sb)).join("<br>") + "</p>" : ""}${s.notes ? `<p style="color:#3B82F6;font-style:italic;">${esc(s.notes)}</p>` : ""}`).join("")}
+<div class="footer">Los Tordos Rugby Club · Generado: ${new Date().toLocaleDateString("es-AR")}</div>
+</body></html>`;
+  const blob = new Blob(["\uFEFF" + html], { type: "application/msword" });
+  downloadBlob(blob, `OD_${od.typeTitle.replace(/\s/g, "_")}_${od.date}.doc`);
+}
+
+/* ── WhatsApp share helpers ── */
+export function shareODWhatsApp(od: ODData) {
+  const fmtD = (d: string) => { if (!d) return "–"; const [y, m, dd] = d.split("-"); return `${dd}/${m}/${y}`; };
+  let text = `*Los Tordos Rugby Club*\n*${od.typeTitle}*\nOrden del Dia – ${fmtD(od.date)}${od.areaName ? " · " + od.areaName : ""}\n`;
+  if (od.presentes?.length) text += `\n*Convocados (${od.presentes.length}):*\n${od.presentes.map(p => "• " + p).join("\n")}\n`;
+  text += "\n";
+  (od.sections || []).forEach((s, i) => {
+    text += `*${i + 1}. ${s.t}*\n`;
+    if (s.sub?.length) s.sub.forEach(sb => { text += `  • ${sb}\n`; });
+    if (s.notes) text += `  _${s.notes}_\n`;
+    text += "\n";
+  });
+  text += `_Generado: ${new Date().toLocaleDateString("es-AR")}_`;
+  window.open("https://wa.me/?text=" + encodeURIComponent(text), "_blank");
+}
+
+export function shareMinutaWhatsApp(mi: MinutaData) {
+  const fmtD = (d: string) => { if (!d) return "–"; const [y, m, dd] = d.split("-"); return `${dd}/${m}/${y}`; };
+  let text = `*Los Tordos Rugby Club*\n*Minuta – ${mi.typeTitle}${mi.areaName ? " · " + mi.areaName : ""}*\n`;
+  text += `📅 ${fmtD(mi.date)}`;
+  if (mi.horaInicio) text += ` · 🕐 ${mi.horaInicio} – ${mi.horaCierre || ""}`;
+  if (mi.lugar) text += ` · 📍 ${mi.lugar}`;
+  text += `\n${mi.status === "final" ? "✅ Finalizada" : "📝 Borrador"}\n`;
+  if (mi.presentes?.length) text += `\n*Presentes:*\n${mi.presentes.map(p => "• " + p).join("\n")}\n`;
+  if (mi.ausentes?.length) text += `\n*Ausentes:*\n${mi.ausentes.map(a => "• " + a).join("\n")}\n`;
+  text += "\n";
+  (mi.sections || []).forEach((s, i) => {
+    text += `*${i + 1}. ${s.title}*\n${s.content || "–"}\n\n`;
+  });
+  if (mi.tareas?.length) {
+    text += `*📋 Tareas (${mi.tareas.length}):*\n`;
+    mi.tareas.forEach(t => { text += `• ${t.desc} → ${t.resp}${t.fecha ? " (" + fmtD(t.fecha) + ")" : ""}\n`; });
+  }
+  text += `\n_Generado: ${new Date().toLocaleDateString("es-AR")}_`;
+  window.open("https://wa.me/?text=" + encodeURIComponent(text), "_blank");
+}
+
 /* ── REPORT PDF (weekly/monthly summary) ── */
 type ReportData = {
   period: string;
