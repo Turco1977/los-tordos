@@ -259,75 +259,42 @@ export function ClubMap({ bookings, date, mob, onSelectFacility, onSelectBooking
           height: "100%",
           overflow: "hidden"
         }}>
-          {/* Zone name — hidden when cancha has bookings */}
-          {!(isCancha && booked) && (
-            <div style={{
-              fontSize: fontSize,
-              fontWeight: 800,
-              color: "#fff",
-              textShadow: "0 1px 3px rgba(0,0,0,0.5)",
-              letterSpacing: 0.5,
-              lineHeight: 1.2,
-              whiteSpace: "pre-line" as const,
-              textAlign: "center",
-              flexShrink: 0
-            }}>
-              {z.l}
-            </div>
-          )}
+          {/* Zone name */}
+          <div style={{
+            fontSize: fontSize,
+            fontWeight: 800,
+            color: "#fff",
+            textShadow: "0 1px 3px rgba(0,0,0,0.5)",
+            letterSpacing: 0.5,
+            lineHeight: 1.2,
+            whiteSpace: "pre-line" as const,
+            textAlign: "center",
+            flexShrink: 0
+          }}>
+            {z.l}
+          </div>
 
-          {/* Division cards for canchas/hockey — calendar style */}
+          {/* Division names — simple black text */}
           {isCancha && booked && (
             <div style={{
+              marginTop: mob ? 3 : 5,
               display: "flex",
               flexDirection: "column" as const,
-              gap: mob ? 3 : 4,
-              width: "100%",
-              height: "100%",
-              overflow: "auto",
-              justifyContent: zoneBookings.length <= 3 ? "center" : "flex-start",
-              padding: mob ? 3 : 5
+              alignItems: "center",
+              gap: mob ? 1 : 2
             }}>
               {zoneBookings.map((b: any, i: number) => {
                 const div = b.division || extractDiv(b.title);
-                const divColor = div ? (DIV_COL[div] || "#9CA3AF") : (BOOK_ST[b.status]?.c || "#9CA3AF");
-                const divLabel = div || b.title?.slice(0, 12) || "";
-                // Calendar-style: white base + color tint
-                const cardBgMap: Record<string,string> = {
-                  "#10B981": "#D1FAE5", // green
-                  "#3B82F6": "#DBEAFE", // blue
-                  "#F59E0B": "#FEF3C7", // amber
-                  "#DC2626": "#FEE2E2", // red
-                };
-                const cardBg = cardBgMap[divColor] || "#F1F5F9";
+                const divLabel = div || "";
+                if (!divLabel) return null;
                 return (
                   <div key={b.id || i} style={{
-                    background: cardBg,
-                    border: `2px solid ${divColor}50`,
-                    borderRadius: mob ? 6 : 8,
-                    padding: mob ? "4px 6px" : "5px 8px",
-                    display: "flex",
-                    flexDirection: "column" as const,
-                    alignItems: "flex-start",
-                    minHeight: 0,
-                    boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
+                    fontSize: mob ? 9 : 11,
+                    fontWeight: 800,
+                    color: "#000",
+                    lineHeight: 1.3
                   }}>
-                    <span style={{
-                      fontSize: mob ? 10 : 13,
-                      fontWeight: 800,
-                      color: divColor,
-                      lineHeight: 1.2
-                    }}>
-                      {divLabel}
-                    </span>
-                    <span style={{
-                      fontSize: mob ? 8 : 10,
-                      color: divColor,
-                      fontWeight: 600,
-                      opacity: 0.85
-                    }}>
-                      {b.time_start}
-                    </span>
+                    {divLabel} {b.time_start}
                   </div>
                 );
               })}
