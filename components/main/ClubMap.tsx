@@ -251,7 +251,7 @@ export function ClubMap({ bookings, date, mob, onSelectFacility, onSelectBooking
           zIndex: 2,
           display: "flex",
           flexDirection: "column" as const,
-          alignItems: isCancha && booked ? "stretch" : "center",
+          alignItems: "center",
           justifyContent: isCancha && booked ? "flex-start" : "center",
           textAlign: "center" as const,
           padding: mob ? 2 : 4,
@@ -259,31 +259,34 @@ export function ClubMap({ bookings, date, mob, onSelectFacility, onSelectBooking
           height: "100%",
           overflow: "hidden"
         }}>
-          {/* Zone name */}
-          <div style={{
-            fontSize: fontSize,
-            fontWeight: 800,
-            color: "#fff",
-            textShadow: "0 1px 3px rgba(0,0,0,0.5)",
-            letterSpacing: 0.5,
-            lineHeight: 1.2,
-            whiteSpace: "pre-line" as const,
-            textAlign: "center",
-            flexShrink: 0
-          }}>
-            {z.l}
-          </div>
+          {/* Zone name — hidden when cancha has bookings */}
+          {!(isCancha && booked) && (
+            <div style={{
+              fontSize: fontSize,
+              fontWeight: 800,
+              color: "#fff",
+              textShadow: "0 1px 3px rgba(0,0,0,0.5)",
+              letterSpacing: 0.5,
+              lineHeight: 1.2,
+              whiteSpace: "pre-line" as const,
+              textAlign: "center",
+              flexShrink: 0
+            }}>
+              {z.l}
+            </div>
+          )}
 
-          {/* Division strips for canchas/hockey with bookings */}
-          {isCancha && booked && !isSmall && (
+          {/* Division cards for canchas/hockey — calendar style */}
+          {isCancha && booked && (
             <div style={{
               display: "flex",
               flexDirection: "column" as const,
-              gap: 1,
-              marginTop: mob ? 2 : 3,
-              flex: 1,
+              gap: mob ? 2 : 3,
+              width: "100%",
+              height: "100%",
               overflow: "hidden",
-              width: "100%"
+              justifyContent: "center",
+              padding: mob ? 1 : 2
             }}>
               {zoneBookings.map((b: any, i: number) => {
                 const div = extractDiv(b.title);
@@ -291,21 +294,20 @@ export function ClubMap({ bookings, date, mob, onSelectFacility, onSelectBooking
                 const divLabel = div || b.title?.slice(0, 12) || "";
                 return (
                   <div key={b.id || i} style={{
-                    background: divColor + "30",
-                    borderLeft: `3px solid ${divColor}`,
-                    borderRadius: 3,
-                    padding: mob ? "1px 3px" : "2px 4px",
+                    background: divColor + "20",
+                    border: `1.5px solid ${divColor}40`,
+                    borderRadius: mob ? 4 : 6,
+                    padding: mob ? "2px 4px" : "3px 6px",
                     display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 2,
+                    flexDirection: "column" as const,
+                    alignItems: "flex-start",
                     minHeight: 0
                   }}>
                     <span style={{
-                      fontSize: mob ? 6 : 7,
-                      fontWeight: 700,
-                      color: "#fff",
-                      textShadow: "0 1px 2px rgba(0,0,0,0.5)",
+                      fontSize: mob ? 8 : 10,
+                      fontWeight: 800,
+                      color: divColor,
+                      lineHeight: 1.2,
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap" as const
@@ -313,13 +315,13 @@ export function ClubMap({ bookings, date, mob, onSelectFacility, onSelectBooking
                       {divLabel}
                     </span>
                     <span style={{
-                      fontSize: mob ? 5 : 6,
-                      color: "#CBD5E1",
-                      fontWeight: 500,
-                      whiteSpace: "nowrap" as const,
-                      flexShrink: 0
+                      fontSize: mob ? 6 : 8,
+                      color: divColor,
+                      fontWeight: 600,
+                      opacity: 0.8,
+                      whiteSpace: "nowrap" as const
                     }}>
-                      {b.time_start}-{b.time_end}
+                      {b.time_start}
                     </span>
                   </div>
                 );
