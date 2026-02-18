@@ -289,7 +289,7 @@ export function ClubMap({ bookings, date, mob, onSelectFacility, onSelectBooking
               padding: mob ? 3 : 5
             }}>
               {zoneBookings.map((b: any, i: number) => {
-                const div = extractDiv(b.title);
+                const div = b.division || extractDiv(b.title);
                 const divColor = div ? (DIV_COL[div] || "#9CA3AF") : (BOOK_ST[b.status]?.c || "#9CA3AF");
                 const divLabel = div || b.title?.slice(0, 12) || "";
                 // Calendar-style: white base + color tint
