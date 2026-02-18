@@ -449,6 +449,11 @@ export default function App(){
     return items;
   },[user,isPersonal_,isDark,peds,users,toggleTheme]);
 
+  /* Date label for notification grouping */
+  const ntDateLabel=(dt:string)=>{if(!dt)return"Sin fecha";const d=dt.slice(0,10);const today=new Date().toISOString().slice(0,10);const yd=new Date(Date.now()-86400000).toISOString().slice(0,10);if(d===today)return"Hoy";if(d===yd)return"Ayer";const p=d.split("-");return p[2]+"/"+p[1]+"/"+p[0];};
+  /* Group dbNotifs by date — useMemo MUST be before early returns */
+  const ntGrouped=useMemo(()=>{const map=new Map<string,any[]>();dbNotifs.forEach((n:any)=>{const key=ntDateLabel(n.created_at);if(!map.has(key))map.set(key,[]);map.get(key)!.push(n);});return Array.from(map.entries());},[dbNotifs]);
+
   if(!authChecked) return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:colors.g1}}><div style={{fontSize:14,color:colors.g4}}>Cargando...</div></div>;
   if(!user) return <Login onLogin={(u:any)=>sU(u)} mob={mob}/>;
 
@@ -456,10 +461,6 @@ export default function App(){
   const unreadDb=dbNotifs.filter((n:any)=>!n.read);
   const badgeCount=computedNts.length+unreadDb.length;
   const ntColor=(type:string)=>type==="task"?T.bl:type==="budget"?T.pr:type==="deadline"?T.rd:T.gn;
-  /* Date label for notification grouping */
-  const ntDateLabel=(dt:string)=>{if(!dt)return"Sin fecha";const d=dt.slice(0,10);const today=new Date().toISOString().slice(0,10);const yd=new Date(Date.now()-86400000).toISOString().slice(0,10);if(d===today)return"Hoy";if(d===yd)return"Ayer";const p=d.split("-");return p[2]+"/"+p[1]+"/"+p[0];};
-  /* Group dbNotifs by date */
-  const ntGrouped=useMemo(()=>{const map=new Map<string,any[]>();dbNotifs.forEach((n:any)=>{const key=ntDateLabel(n.created_at);if(!map.has(key))map.set(key,[]);map.get(key)!.push(n);});return Array.from(map.entries());},[dbNotifs]);
   const hAC=(id:number)=>{sAA(aA===id?null:id);sAD(null);sKpiFilt(null);sVw("dash");};
   const hDC=(id:number)=>sAD(aD===id?null:id);
 
