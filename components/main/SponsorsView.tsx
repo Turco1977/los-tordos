@@ -4,6 +4,7 @@ import { SPON_ST, DOLAR_REF } from "@/lib/constants";
 import { fmtD } from "@/lib/mappers";
 import { Btn, Card } from "@/components/ui";
 import { useC } from "@/lib/theme-context";
+import { useDataStore } from "@/lib/store";
 
 const TODAY=new Date().toISOString().slice(0,10);
 const daysLeft=(d:string)=>{if(!d)return Infinity;return Math.round((new Date(d).getTime()-new Date(TODAY).getTime())/864e5);};
@@ -25,7 +26,8 @@ const emptyForm=()=>({
   payment_type:"",
 });
 
-export function SponsorsView({sponsors,user,mob,onAdd,onUpd,onDel,canjeUsado}:any){
+export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado}:any){
+  const sponsors = useDataStore(s => s.sponsors);
   const{colors,isDark,cardBg}=useC();
   const isSA=user?.role==="superadmin";
   const isJH=user&&(user.n||user.first_name||"").toLowerCase().includes("jes")&&(user.a||user.last_name||"").toLowerCase().includes("herrera");

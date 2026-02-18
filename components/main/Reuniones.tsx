@@ -1,14 +1,20 @@
 "use client";
 import { useState } from "react";
-import { AGT, MINSECS, DEPTOS, ROLES, fn } from "@/lib/constants";
+import { AGT, MINSECS, DEPTOS, ROLES, fn, AREAS } from "@/lib/constants";
 import { fmtD } from "@/lib/mappers";
 import { useC } from "@/lib/theme-context";
 import { Btn, Card } from "@/components/ui";
 import { exportMinutaPDF, exportMinutaWord, exportODPDF, exportODWord, shareODWhatsApp, shareMinutaWhatsApp } from "@/lib/export";
+import { useDataStore } from "@/lib/store";
 
 const TODAY = new Date().toISOString().slice(0,10);
 
-export function Reuniones({agendas,minutas,om,users,areas,onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,onCreateTasks,user,mob}:any){
+export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,onCreateTasks,user,mob}:any){
+  const agendas = useDataStore(s => s.agendas);
+  const minutas = useDataStore(s => s.minutas);
+  const om = useDataStore(s => s.om);
+  const users = useDataStore(s => s.users);
+  const areas = AREAS;
   const {colors,isDark,cardBg}=useC();
   const [tab,sTab]=useState("cd");const [mode,sMode]=useState("home");const [selId,sSelId]=useState<number|null>(null);
   const [agDate,sAgDate]=useState(TODAY);const [agSecs,sAgSecs]=useState<{t:string;sub:string[];notes:string;atts:{type:string;label:string;val:string}[]}[]>([]);const [agPres,sAgPres]=useState<string[]>([]);const [areaName,sAreaName]=useState("");const [deptName,sDeptName]=useState("");

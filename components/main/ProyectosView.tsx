@@ -4,6 +4,7 @@ import { useC } from "@/lib/theme-context";
 import { PJ_ST, PJ_PR } from "@/lib/constants";
 import { UserPicker, FileField } from "@/components/ui";
 import { exportProjectPDF } from "@/lib/export";
+import { useDataStore } from "@/lib/store";
 
 const PJ_EJES=["Deportivo","Social","Institucional","Infraestructura"];
 const PJ_STATUS:{[k:string]:{l:string;c:string;bg:string}}={borrador:{l:"Borrador",c:"#6B7280",bg:"#F3F4F6"},enviado:{l:"Enviado",c:"#3B82F6",bg:"#DBEAFE"},aprobado:{l:"Aprobado",c:"#10B981",bg:"#D1FAE5"},rechazado:{l:"Rechazado",c:"#DC2626",bg:"#FEE2E2"}};
@@ -15,7 +16,11 @@ const fmtAmt=(n:number)=>n.toLocaleString("es-AR");
 const parseBudgetOpts=(b:any):any[]=>Array.isArray(b.options)?b.options:(()=>{try{return JSON.parse(b.options)||[];}catch{return[];}})();
 const parseBudgetFiles=(v:any):string[]=>{if(!v)return[];if(Array.isArray(v))return v.filter(Boolean);if(typeof v==="string"){try{const arr=JSON.parse(v);if(Array.isArray(arr))return arr.filter(Boolean);}catch{}return v.trim()?[v]:[];}return[];};
 
-export function ProyectosView({projects,projTasks,projBudgets,users,user,mob,onAddProject,onUpdProject,onDelProject,onAddTask,onUpdTask,onDelTask,onAddBudget,onUpdBudget,onDelBudget}:any){
+export function ProyectosView({user,mob,onAddProject,onUpdProject,onDelProject,onAddTask,onUpdTask,onDelTask,onAddBudget,onUpdBudget,onDelBudget}:any){
+  const projects = useDataStore(s => s.projects);
+  const projTasks = useDataStore(s => s.projTasks);
+  const projBudgets = useDataStore(s => s.projBudgets);
+  const users = useDataStore(s => s.users);
   const{colors,isDark,cardBg}=useC();
   const [mode,sMode]=useState<"list"|"form"|"view">("list");
   const [selProj,sSelProj]=useState<any>(null);

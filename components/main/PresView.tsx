@@ -1,14 +1,21 @@
 "use client";
 import { useState } from "react";
-import { T, PSC, PST, MONEDAS, RUBROS, ST, fn, isOD, daysDiff } from "@/lib/constants";
+import { T, PSC, PST, MONEDAS, RUBROS, ST, fn, isOD, daysDiff, AREAS, DEPTOS } from "@/lib/constants";
 import { fmtD } from "@/lib/mappers";
 import { Btn, Card, PBadge, FileField } from "@/components/ui";
 import { exportCSV, exportPDF } from "@/lib/export";
 import { useC } from "@/lib/theme-context";
+import { useDataStore } from "@/lib/store";
 
 const TODAY = new Date().toISOString().slice(0,10);
 
-export default function PresView({presu,provs,peds,users,areas,deptos,user,onAddPresu,onUpdPresu,onDelPresu,onAddProv,onSel,mob,UserPicker}:any){
+export default function PresView({user,onAddPresu,onUpdPresu,onDelPresu,onAddProv,onSel,mob,UserPicker}:any){
+  const presu = useDataStore(s => s.presu);
+  const provs = useDataStore(s => s.provs);
+  const peds = useDataStore(s => s.peds);
+  const users = useDataStore(s => s.users);
+  const areas = AREAS;
+  const deptos = DEPTOS;
   const {colors,isDark,cardBg}=useC();
   const [tab,sTab]=useState("todos");const [fSt,sFSt]=useState("all");const [fProv,sFProv]=useState("");const [fArea,sFArea]=useState("");const [search,sSr]=useState("");
   const [pvMode,sPvMode]=useState("list");const [pvF,sPvF]=useState({nombre:"",contacto:"",email:"",telefono:"",rubro:"",notas:""});

@@ -1,9 +1,13 @@
 "use client";
-import { ST } from "@/lib/constants";
+import { ST, AREAS, DEPTOS } from "@/lib/constants";
 import { useC } from "@/lib/theme-context";
 import { Ring } from "@/components/ui";
+import { useDataStore } from "@/lib/store";
 
-export function Circles({areas,deptos,pedidos,onAC,mob}:any){
+export function Circles({onAC,mob}:any){
+  const pedidos = useDataStore(s => s.peds);
+  const areas = AREAS;
+  const deptos = DEPTOS;
   const{colors,cardBg}=useC();
   return(<div style={{display:"grid",gridTemplateColumns:mob?"repeat(auto-fit,minmax(140px,1fr))":"repeat(auto-fit,minmax(180px,1fr))",gap:mob?8:14}}>
     {areas.map((ar:any)=>{const ids=deptos.filter((d:any)=>d.aId===ar.id).map((d:any)=>d.id),ap=pedidos.filter((p:any)=>ids.indexOf(p.dId)>=0),tot=ap.length,ok=ap.filter((p:any)=>p.st===ST.OK).length,pe=ap.filter((p:any)=>p.st===ST.P).length,cu=ap.filter((p:any)=>[ST.C,ST.E,ST.V].indexOf(p.st)>=0).length,pct=tot?Math.round(ok/tot*100):0;

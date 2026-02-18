@@ -1,8 +1,12 @@
 "use client";
-import { ST, SC } from "@/lib/constants";
+import { ST, SC, AREAS, DEPTOS } from "@/lib/constants";
 import { useC } from "@/lib/theme-context";
+import { useDataStore } from "@/lib/store";
 
-export function SB({areas,deptos,pedidos,aA,aD,onAC,onDC,col,onCol,isPersonal,mob,sbOpen,onClose,vw,onNav,user}:any){
+export function SB({aA,aD,onAC,onDC,col,onCol,isPersonal,mob,sbOpen,onClose,vw,onNav,user}:any){
+  const pedidos = useDataStore(s => s.peds);
+  const areas = AREAS;
+  const deptos = DEPTOS;
   const {colors,isDark,cardBg}=useC();
   const sbContent=(<div style={{flex:1,overflowY:"auto" as const,padding:"8px 6px"}}>
     {!isPersonal&&areas.map((ar:any)=>{const ds=deptos.filter((d:any)=>d.aId===ar.id),ids=ds.map((d:any)=>d.id),ap=pedidos.filter((p:any)=>ids.indexOf(p.dId)>=0),pe=ap.filter((p:any)=>p.st===ST.P).length,cu=ap.filter((p:any)=>[ST.C,ST.E,ST.V].indexOf(p.st)>=0).length,ok=ap.filter((p:any)=>p.st===ST.OK).length;

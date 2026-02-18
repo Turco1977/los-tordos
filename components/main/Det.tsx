@@ -5,10 +5,15 @@ import { rlv } from "@/lib/mappers";
 import { Btn, FileField, Badge, PBadge, UserPicker } from "@/components/ui";
 import { useC } from "@/lib/theme-context";
 import { Thread } from "./Thread";
+import { useDataStore } from "@/lib/store";
 
 const TODAY = new Date().toISOString().slice(0,10);
 
-export function Det({p,user,users,onX,onTk,onAs,onRe,onSE,onEO,onFi,onVa,onMsg,onMonto,onDel,onEditSave,presu,provs,onAddPresu,onUpdPresu,onDelPresu,onDup,onCheck,mob,sponsors}:any){
+export function Det({p,user,onX,onTk,onAs,onRe,onSE,onEO,onFi,onVa,onMsg,onMonto,onDel,onEditSave,onAddPresu,onUpdPresu,onDelPresu,onDup,onCheck,mob}:any){
+  const users = useDataStore(s => s.users);
+  const presu = useDataStore(s => s.presu);
+  const provs = useDataStore(s => s.provs);
+  const sponsors = useDataStore(s => s.sponsors);
   const {colors,isDark,cardBg}=useC();
   const [at,sAt]=useState("");const [mt,sMt]=useState(p.monto||"");const [tab,sTab]=useState("chat");const [rp,sRp]=useState(p.resp||"");
   const [editing,sEditing]=useState(false);const [ef,sEf]=useState({tipo:p.tipo,desc:p.desc,fReq:p.fReq,urg:p.urg,div:p.div||"",rG:p.rG});

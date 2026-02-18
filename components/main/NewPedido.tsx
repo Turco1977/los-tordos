@@ -1,11 +1,17 @@
 "use client";
 import { useState } from "react";
-import { T, DIV, TIPOS, MONEDAS, ST, fn } from "@/lib/constants";
+import { T, DIV, TIPOS, MONEDAS, ST, fn, AREAS, DEPTOS } from "@/lib/constants";
 import { Btn, Card, FileField } from "@/components/ui";
+import { useDataStore } from "@/lib/store";
 
 const TODAY = new Date().toISOString().slice(0,10);
 
-export function NP({user,users,deptos,areas,onSub,onX,preAssign,mob,provs,sponsors,canjeUsado}:any){
+export function NP({user,onSub,onX,preAssign,mob,canjeUsado}:any){
+  const users = useDataStore(s => s.users);
+  const provs = useDataStore(s => s.provs);
+  const sponsors = useDataStore(s => s.sponsors);
+  const areas = AREAS;
+  const deptos = DEPTOS;
   const isE=["enlace","manager","usuario","embudo"].indexOf(user.role)>=0;
   const isHigh=["superadmin","admin","coordinador"].indexOf(user.role)>=0;
   const [f,sF]=useState({aId:"",dId:isE?String(user.dId):"",div:isE?user.div:"",asTo:"",tipo:"",desc:"",fReq:"",urg:"Normal",rG:false});

@@ -2,8 +2,10 @@
 import { ST, PST, isOD } from "@/lib/constants";
 import { useC } from "@/lib/theme-context";
 import { Card } from "@/components/ui";
+import { useDataStore } from "@/lib/store";
 
-export function KPIs({peds,mob,presu,onFilter}:{peds:any[];mob?:boolean;presu?:any[];onFilter?:(key:string)=>void}){
+export function KPIs({peds,mob,onFilter}:{peds:any[];mob?:boolean;onFilter?:(key:string)=>void}){
+  const presu = useDataStore(s => s.presu);
   const{colors}=useC();
   const tot=peds.length,ok=peds.filter(p=>p.st===ST.OK).length,pe=peds.filter(p=>p.st===ST.P).length;
   const active=peds.filter(p=>p.st!==ST.OK),overdue=active.filter(p=>isOD(p.fReq)).length;

@@ -1,15 +1,23 @@
 "use client";
 import { useState } from "react";
-import { ST, AGT, DIV, fn, isOD } from "@/lib/constants";
+import { ST, AGT, DIV, fn, isOD, AREAS, DEPTOS } from "@/lib/constants";
 import { fmtD } from "@/lib/mappers";
 import { useC } from "@/lib/theme-context";
 import { Btn, Card } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
+import { useDataStore } from "@/lib/store";
 
 const supabase = createClient();
 const TODAY = new Date().toISOString().slice(0,10);
 
-export function CommView({peds,presu,agendas,minutas,users,areas,deptos,user,mob}:any){
+export function CommView({user,mob}:any){
+  const peds = useDataStore(s => s.peds);
+  const presu = useDataStore(s => s.presu);
+  const agendas = useDataStore(s => s.agendas);
+  const minutas = useDataStore(s => s.minutas);
+  const users = useDataStore(s => s.users);
+  const areas = AREAS;
+  const deptos = DEPTOS;
   const{colors,cardBg}=useC();
   const [tmpl,sTmpl]=useState("");const [msg,sMsg]=useState("");const [copied,sCopied]=useState(false);
   const [showPlus,sShowPlus]=useState(false);

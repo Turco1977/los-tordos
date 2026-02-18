@@ -2,8 +2,10 @@
 import { useState } from "react";
 import { useC } from "@/lib/theme-context";
 import { Btn, Card, Ring } from "@/components/ui";
+import { useDataStore } from "@/lib/store";
 
-export function Proyecto({hitos,setHitos,isAd,mob}:any){
+export function Proyecto({setHitos,isAd,mob}:any){
+  const hitos = useDataStore(s => s.hitos);
   const{colors,isDark,cardBg}=useC();
   const [subTab,sSubTab]=useState("list");
   /* Gantt: parse periodo strings like "2024-2026" into start/end years */

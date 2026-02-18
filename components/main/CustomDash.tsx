@@ -1,10 +1,11 @@
 "use client";
 import { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import { useC } from "@/lib/theme-context";
-import { ST, SC, fn, isOD, daysDiff, BOOK_FAC, BOOK_ST } from "@/lib/constants";
+import { ST, SC, fn, isOD, daysDiff, BOOK_FAC, BOOK_ST, AREAS, DEPTOS } from "@/lib/constants";
 import { rlv } from "@/lib/mappers";
 import { Card, Btn } from "@/components/ui";
 import { ProfileActivity } from "@/components/main/ProfileActivity";
+import { useDataStore } from "@/lib/store";
 
 /* Division color map (mirrors ReservasView) */
 const DIV_COL:Record<string,string>={};
@@ -49,7 +50,15 @@ function saveLayout(userId:string,layout:Layout){
   try{localStorage.setItem("dash-layout-"+userId,JSON.stringify(layout));}catch{}
 }
 
-export function CustomDash({peds,presu,agendas,minutas,users,areas,deptos,user,mob,bookings,onSel,onFilter,onNav,onExportWeekly,onExportMonthly,onAC,isSA}:any){
+export function CustomDash({user,mob,onSel,onFilter,onNav,onExportWeekly,onExportMonthly,onAC,isSA}:any){
+  const peds = useDataStore(s => s.peds);
+  const presu = useDataStore(s => s.presu);
+  const agendas = useDataStore(s => s.agendas);
+  const minutas = useDataStore(s => s.minutas);
+  const users = useDataStore(s => s.users);
+  const bookings = useDataStore(s => s.bookings);
+  const areas = AREAS;
+  const deptos = DEPTOS;
   const{colors,isDark,cardBg}=useC();
   const [layout,sLayout]=useState<Layout>(()=>loadLayout(user?.id||""));
   const [editing,sEditing]=useState(false);
@@ -292,7 +301,7 @@ export function CustomDash({peds,presu,agendas,minutas,users,areas,deptos,user,m
         </div>}
       </Card>);}
 
-      case "perfiles": return <ProfileActivity peds={peds} users={users} onSel={onSel} mob={mob}/>;
+      case "perfiles": return <ProfileActivity onSel={onSel} mob={mob}/>;
 
       default: return null;
     }

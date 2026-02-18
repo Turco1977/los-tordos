@@ -1,9 +1,13 @@
 "use client";
 import { useState } from "react";
-import { T, ROLES, RK, fn } from "@/lib/constants";
+import { T, ROLES, RK, fn, AREAS, DEPTOS } from "@/lib/constants";
 import { Btn, Card } from "@/components/ui";
+import { useDataStore } from "@/lib/store";
 
-export function Profs({users,deptos,areas,onDel,onAdd,onEditUser,isAd,onAssignTask,mob}:any){
+export function Profs({onDel,onAdd,onEditUser,isAd,onAssignTask,mob}:any){
+  const users = useDataStore(s => s.users);
+  const areas = AREAS;
+  const deptos = DEPTOS;
   const [adding,sAdding]=useState(false);const [editing,sEditing]=useState<any>(null);
   const [nf,sNf]=useState({n:"",a:"",role:"usuario",dId:"",div:"",mail:"",tel:""});
   const [ef,sEf]=useState({n:"",a:"",role:"",dId:"",div:"",mail:"",tel:""});

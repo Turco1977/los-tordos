@@ -4,6 +4,7 @@ import { useC } from "@/lib/theme-context";
 import { Card, Btn } from "@/components/ui";
 import { ST, SC, fn, isOD, ROLES } from "@/lib/constants";
 import { rlv } from "@/lib/mappers";
+import { useDataStore } from "@/lib/store";
 
 /* Relative time in Spanish (copied from ActivityFeed) */
 function timeAgo(dt:string){
@@ -53,7 +54,9 @@ function dateLabel(dt:string){
   return parts[2]+"/"+parts[1]+"/"+parts[0];
 }
 
-export function ProfileActivity({peds,users,onSel,mob}:any){
+export function ProfileActivity({onSel,mob}:any){
+  const peds = useDataStore(s => s.peds);
+  const users = useDataStore(s => s.users);
   const{colors,isDark,cardBg}=useC();
   const [selUser,sSelUser]=useState<string|null>(null);
   const [limit,sLimit]=useState(50);

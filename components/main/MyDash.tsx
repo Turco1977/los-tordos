@@ -2,8 +2,12 @@
 import { useState } from "react";
 import { T, ST, SC, fn, isOD } from "@/lib/constants";
 import { Card, Ring, Badge } from "@/components/ui";
+import { useDataStore } from "@/lib/store";
 
-export function MyDash({user,peds,users,onSel,mob,search,presu}:any){
+export function MyDash({user,onSel,mob,search}:any){
+  const peds = useDataStore(s => s.peds);
+  const users = useDataStore(s => s.users);
+  const presu = useDataStore(s => s.presu);
   const [tab,sTab]=useState("active");
   const [subFilt,sSubFilt]=useState<string|null>(null);
   const isEnl=user.role==="enlace"||user.role==="manager";

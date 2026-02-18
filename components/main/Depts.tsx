@@ -1,9 +1,14 @@
 "use client";
 import { useState } from "react";
-import { T, ST } from "@/lib/constants";
+import { T, ST, AREAS, DEPTOS } from "@/lib/constants";
 import { Btn, Card } from "@/components/ui";
+import { useDataStore } from "@/lib/store";
 
-export function Depts({areas,deptos,pedidos,users,onSel,mob,TList}:any){
+export function Depts({onSel,mob,TList}:any){
+  const pedidos = useDataStore(s => s.peds);
+  const users = useDataStore(s => s.users);
+  const areas = AREAS;
+  const deptos = DEPTOS;
   const [selA,sSelA]=useState<number|null>(null);
   const [selD,sSelD]=useState<number|null>(null);
   const fDeptos=selA?deptos.filter((d:any)=>d.aId===selA):deptos;
@@ -13,7 +18,7 @@ export function Depts({areas,deptos,pedidos,users,onSel,mob,TList}:any){
   if(selD&&selDepto){
     return(<div style={{maxWidth:720}}>
       <Btn v="g" s="s" onClick={()=>sSelD(null)} style={{marginBottom:12}}>← Volver a Departamentos</Btn>
-      {TList&&<TList title={selDepto.name} icon="📂" color={selArea?selArea.color:T.nv} peds={dPeds} users={users} onSel={onSel} search="" mob={mob}/>}
+      {TList&&<TList title={selDepto.name} icon="📂" color={selArea?selArea.color:T.nv} peds={dPeds} onSel={onSel} search="" mob={mob}/>}
     </div>);
   }
   return(<div style={{maxWidth:720}}>

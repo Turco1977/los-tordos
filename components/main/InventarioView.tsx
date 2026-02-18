@@ -3,12 +3,15 @@ import { useState, useMemo } from "react";
 import { INV_CAT, INV_COND, fn } from "@/lib/constants";
 import { Btn, Card } from "@/components/ui";
 import { useC } from "@/lib/theme-context";
+import { useDataStore } from "@/lib/store";
 
 const CATS=Object.keys(INV_CAT) as string[];
 const CONDS=Object.keys(INV_COND) as string[];
 const emptyForm=()=>({name:"",category:"deportivo",location:"",quantity:1,condition:"bueno",responsible_id:"",notes:""});
 
-export function InventarioView({items,users,user,mob,onAdd,onUpd,onDel}:any){
+export function InventarioView({user,mob,onAdd,onUpd,onDel}:any){
+  const items = useDataStore(s => s.inventory);
+  const users = useDataStore(s => s.users);
   const{colors,isDark,cardBg}=useC();
   const [search,sSr]=useState("");const [fCat,sFCat]=useState("all");const [fCond,sFCond]=useState("all");
   const [form,sForm]=useState<any>(null);const [editId,sEditId]=useState<number|null>(null);

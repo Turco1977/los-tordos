@@ -1,9 +1,14 @@
 "use client";
 import { useState } from "react";
-import { T, ST, fn, isOD } from "@/lib/constants";
+import { T, ST, fn, isOD, AREAS, DEPTOS } from "@/lib/constants";
 import { useC } from "@/lib/theme-context";
+import { useDataStore } from "@/lib/store";
 
-export function KanbanView({peds,users,user,onSel,onStatusChange,areas,deptos,mob}:any){
+export function KanbanView({user,onSel,onStatusChange,mob}:any){
+  const peds = useDataStore(s => s.peds);
+  const users = useDataStore(s => s.users);
+  const areas = AREAS;
+  const deptos = DEPTOS;
   const{colors,isDark,cardBg}=useC();
   const [dragId,sDragId]=useState<number|null>(null);
   const [dragOver,sDragOver]=useState<string|null>(null);

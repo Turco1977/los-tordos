@@ -6,8 +6,10 @@ import { useC } from "@/lib/theme-context";
 import { Btn, Card, Pager, Badge, UserPicker } from "@/components/ui";
 import { paginate } from "@/lib/pagination";
 import { exportCSV, exportPDF } from "@/lib/export";
+import { useDataStore } from "@/lib/store";
 
-export function TList({title,icon,color,peds,users,onSel,search,mob,onBulk,onImport,user}:any){
+export function TList({title,icon,color,peds,onSel,search,mob,onBulk,onImport,user}:any){
+  const users = useDataStore(s => s.users);
   const{colors,isDark,cardBg}=useC();
   const [f,sF]=useState("all");
   const [pg,sPg]=useState(1);

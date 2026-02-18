@@ -5,6 +5,7 @@ import { fmtD } from "@/lib/mappers";
 import { Btn, Card } from "@/components/ui";
 import { useC } from "@/lib/theme-context";
 import { ClubMap } from "./ClubMap";
+import { useDataStore } from "@/lib/store";
 
 const TODAY=new Date().toISOString().slice(0,10);
 const FKEYS=Object.keys(BOOK_FAC);
@@ -73,7 +74,9 @@ const DIV_LIST=["","Escuelita","M5","M6","M7","M8","M9","M10","M11","M12","M13",
 const emptyForm=()=>({facility:"cancha1",date:TODAY,time_start:"09:00",time_end:"10:00",title:"",division:"",description:"",notes:"",status:"pendiente",recurrence:"none",recDays:[] as number[]});
 const genSeriesId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 
-export function ReservasView({bookings,users,user,mob,onAdd,onUpd,onDel,onDelMulti,onUpdMulti}:any){
+export function ReservasView({user,mob,onAdd,onUpd,onDel,onDelMulti,onUpdMulti}:any){
+  const bookings = useDataStore(s => s.bookings);
+  const users = useDataStore(s => s.users);
   const {colors,isDark,cardBg}=useC();
 
   /* tabs */

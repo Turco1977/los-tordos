@@ -1,9 +1,12 @@
 "use client";
-import { ST } from "@/lib/constants";
+import { ST, DEPTOS } from "@/lib/constants";
 import { useC } from "@/lib/theme-context";
 import { Ring } from "@/components/ui";
+import { useDataStore } from "@/lib/store";
 
-export function DeptCircles({area,deptos,pedidos,onDC,mob}:any){
+export function DeptCircles({area,onDC,mob}:any){
+  const pedidos = useDataStore(s => s.peds);
+  const deptos = DEPTOS;
   const{colors,cardBg}=useC();
   const ds=deptos.filter((d:any)=>d.aId===area.id);
   return(<div style={{display:"grid",gridTemplateColumns:mob?"repeat(auto-fit,minmax(140px,1fr))":"repeat(auto-fit,minmax(180px,1fr))",gap:mob?8:14}}>

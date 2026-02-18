@@ -1,8 +1,9 @@
 "use client";
 import { useState, useMemo } from "react";
 import { useC } from "@/lib/theme-context";
-import { FREQ, TIPOS, fn } from "@/lib/constants";
+import { FREQ, TIPOS, fn, AREAS, DEPTOS } from "@/lib/constants";
 import { UserPicker } from "@/components/ui";
+import { useDataStore } from "@/lib/store";
 
 const DOW=["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
 
@@ -37,7 +38,12 @@ function lastGenLabel(d:string|null){
   return d.split("-").reverse().join("/");
 }
 
-export function RecurrentTasks({templates,users,deptos,areas,user,mob,peds,onAdd,onUpd,onDel}:any){
+export function RecurrentTasks({user,mob,onAdd,onUpd,onDel}:any){
+  const templates = useDataStore(s => s.taskTemplates);
+  const users = useDataStore(s => s.users);
+  const peds = useDataStore(s => s.peds);
+  const areas = AREAS;
+  const deptos = DEPTOS;
   const{colors,isDark,cardBg}=useC();
   const [mode,sMode]=useState<"list"|"form">("list");
   const [editing,sEditing]=useState<any>(null);

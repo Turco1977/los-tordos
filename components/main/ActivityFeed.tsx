@@ -2,6 +2,7 @@
 import { useState, useMemo } from "react";
 import { useC } from "@/lib/theme-context";
 import { Card, Btn } from "@/components/ui";
+import { useDataStore } from "@/lib/store";
 
 /* Relative time in Spanish */
 function timeAgo(dt:string){
@@ -51,7 +52,9 @@ function dateLabel(dt:string){
   return parts[2]+"/"+parts[1]+"/"+parts[0];
 }
 
-export function ActivityFeed({peds,users,onSel,mob}:any){
+export function ActivityFeed({onSel,mob}:any){
+  const peds = useDataStore(s => s.peds);
+  const users = useDataStore(s => s.users);
   const{colors,isDark,cardBg}=useC();
   const [filter,sFilter]=useState("all");
   const [limit,sLimit]=useState(50);

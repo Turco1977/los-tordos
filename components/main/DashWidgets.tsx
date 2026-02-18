@@ -1,13 +1,21 @@
 "use client";
 import { useMemo } from "react";
 import { useC } from "@/lib/theme-context";
-import { ST, fn, isOD, daysDiff } from "@/lib/constants";
+import { ST, fn, isOD, daysDiff, AREAS, DEPTOS } from "@/lib/constants";
 import { rlv } from "@/lib/mappers";
 import { Card } from "@/components/ui";
+import { useDataStore } from "@/lib/store";
 
 const TODAY = new Date().toISOString().slice(0,10);
 
-export function DashWidgets({peds,presu,agendas,minutas,users,areas,deptos,onSel,mob,onNav}:any){
+export function DashWidgets({onSel,mob,onNav}:any){
+  const peds = useDataStore(s => s.peds);
+  const presu = useDataStore(s => s.presu);
+  const agendas = useDataStore(s => s.agendas);
+  const minutas = useDataStore(s => s.minutas);
+  const users = useDataStore(s => s.users);
+  const areas = AREAS;
+  const deptos = DEPTOS;
   const{colors,isDark,cardBg}=useC();
   const waStr=useMemo(()=>{const d=new Date();d.setDate(d.getDate()-7);return d.toISOString().slice(0,10);},[]);
   const active=useMemo(()=>peds.filter((p:any)=>p.st!==ST.OK),[peds]);

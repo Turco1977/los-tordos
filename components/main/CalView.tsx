@@ -1,14 +1,23 @@
 "use client";
 import { useState, useRef, useCallback } from "react";
-import { T, SC, PSC, AGT, ST, isOD, daysDiff, fn } from "@/lib/constants";
+import { T, SC, PSC, AGT, ST, isOD, daysDiff, fn, AREAS, DEPTOS } from "@/lib/constants";
 import { fmtD } from "@/lib/mappers";
 import { Btn, Card } from "@/components/ui";
 import { exportICal } from "@/lib/export";
 import { useC } from "@/lib/theme-context";
+import { useDataStore } from "@/lib/store";
 
 const TODAY = new Date().toISOString().slice(0,10);
 
-export default function CalView({peds,agendas,minutas,presu,reminders,areas,deptos,users,user,onSel,onAddReminder,onDelReminder,onNav,onDateChange,mob}:any){
+export default function CalView({user,onSel,onAddReminder,onDelReminder,onNav,onDateChange,mob}:any){
+  const peds = useDataStore(s => s.peds);
+  const agendas = useDataStore(s => s.agendas);
+  const minutas = useDataStore(s => s.minutas);
+  const presu = useDataStore(s => s.presu);
+  const reminders = useDataStore(s => s.reminders);
+  const users = useDataStore(s => s.users);
+  const areas = AREAS;
+  const deptos = DEPTOS;
   const {colors,isDark,cardBg}=useC();
   const MESES=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
   const DIAS_SEM=["Lu","Ma","Mi","Ju","Vi","Sá","Do"];
