@@ -237,7 +237,14 @@ export default function App(){
   /* ── Realtime: auto-refresh on DB changes (only when online) ── */
   useRealtime([
     {table:"tasks",onChange:()=>fetchAll()},
-    {table:"task_messages",onChange:()=>fetchAll()},
+    {table:"task_messages",onInsert:(msg:any)=>{
+      sPd(p=>p.map(x=>{
+        if(x.id!==msg.task_id) return x;
+        const dup=(x.log||[]).some((l:any)=>l.uid===msg.user_id&&l.act===msg.content&&l.dt?.slice(0,16)===msg.created_at?.slice(0,16));
+        if(dup) return x;
+        return{...x,log:[...(x.log||[]),{dt:msg.created_at||"",uid:msg.user_id,by:msg.user_name,act:msg.content,t:msg.type}]};
+      }));
+    },onChange:()=>fetchAll()},
     {table:"presupuestos",onChange:()=>fetchAll()},
     {table:"projects",onChange:()=>fetchAll()},
     {table:"project_tasks",onChange:()=>fetchAll()},
