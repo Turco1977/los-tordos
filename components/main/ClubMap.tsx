@@ -15,6 +15,7 @@ type Zone = {
   type: "cancha" | "hockey" | "pool" | "building" | "parking" | "label";
   facKey?: string;
   rotate?: boolean;
+  bg?: string;
 };
 
 /* ── Zone definitions: Mapa Urquiza (main club area) ── */
@@ -25,15 +26,16 @@ const ZONES_URQUIZA: Zone[] = [
   { k: "cancha2",  l: "CANCHA 2",        x: 55, y: 22, w: 32, h: 24, type: "cancha",   facKey: "cancha2", rotate: true },
   { k: "pileta",   l: "PILETA",          x: 34, y: 30, w: 10, h: 8,  type: "pool",     facKey: "pileta" },
   { k: "pajarera", l: "PAJARERA",        x: 46, y: 30, w: 5,  h: 8,  type: "building", facKey: "pajarera" },
-  { k: "cantina",  l: "CANTINA",         x: 2,  y: 42, w: 16, h: 5,  type: "building", facKey: "cantina" },
-  { k: "gym",      l: "GYM",             x: 20, y: 42, w: 20, h: 5,  type: "building", facKey: "gimnasio" },
-  { k: "secre",    l: "SECRETARIA",      x: 2,  y: 49, w: 4,  h: 10, type: "label" },
-  { k: "shop",     l: "TORDOS\nSHOP",    x: 7,  y: 49, w: 5,  h: 7,  type: "label" },
+  { k: "pergola",  l: "PÉRGOLA",         x: 2,  y: 42, w: 12, h: 5,  type: "building", facKey: "pergola" },
+  { k: "salon",    l: "SALON\nBLANCO",   x: 15, y: 42, w: 12, h: 5,  type: "building", facKey: "salon" },
+  { k: "cantina",  l: "CANTINA",         x: 28, y: 42, w: 13, h: 5,  type: "building", facKey: "cantina" },
+  { k: "gym",      l: "GYM",             x: 42, y: 42, w: 14, h: 5,  type: "building", facKey: "gimnasio" },
+  { k: "secre",    l: "SECRETARIA",      x: 2,  y: 49, w: 4,  h: 10, type: "label", bg: "#3B82F6" },
+  { k: "shop",     l: "TORDOS\nSHOP",    x: 7,  y: 49, w: 5,  h: 7,  type: "label", bg: "#DC2626" },
+  { k: "estMadU",  l: "EST.\nMADRE SELVA", x: 2, y: 60, w: 10, h: 8, type: "parking" },
   { k: "cancha3",  l: "CANCHA 3",        x: 14, y: 50, w: 28, h: 16, type: "cancha",   facKey: "cancha3" },
   { k: "cancha4",  l: "CANCHA 4",        x: 14, y: 68, w: 28, h: 16, type: "cancha",   facKey: "cancha4" },
   { k: "hockey2",  l: "HOCKEY 2",        x: 48, y: 52, w: 22, h: 18, type: "hockey",   facKey: "hockey2" },
-  { k: "salon",    l: "SALON\nBLANCO",   x: 42, y: 42, w: 12, h: 5,  type: "building", facKey: "salon" },
-  { k: "pergola",  l: "PÉRGOLA",         x: 52, y: 30, w: 8,  h: 8,  type: "building", facKey: "pergola" },
 ];
 
 /* ── Zone definitions: Mapa Anexo (separate area) ── */
@@ -63,6 +65,22 @@ const BUILDING_FREE = "#475569";
 const BUILDING_BOOKED = "#334155";
 const PARKING_BG = "#6B7280";
 const LABEL_BG = "#64748B";
+
+/* ── Division colors (mirrors ReservasView) ── */
+const DIV_COL: Record<string, string> = {};
+["Escuelita","M5","M6","M7","M8","M9","M10","M11","M12"].forEach(d => { DIV_COL[d] = "#10B981"; });
+["M13","M14"].forEach(d => { DIV_COL[d] = "#3B82F6"; });
+["M15","M16","M17","M18","M19"].forEach(d => { DIV_COL[d] = "#F59E0B"; });
+["Plantel Superior","Intermedia","Primera"].forEach(d => { DIV_COL[d] = "#DC2626"; });
+const DIV_KEYS = Object.keys(DIV_COL).sort((a, b) => b.length - a.length);
+const extractDiv = (title: string) => {
+  if (!title) return null;
+  const t = title.trim();
+  for (const d of DIV_KEYS) { if (t.includes(d)) return d; }
+  const m = t.match(/M\d+/i);
+  if (m) return m[0].toUpperCase();
+  return null;
+};
 
 /* ── Status color mapping ── */
 const statusOverlayColor = (st: string) => {
@@ -140,6 +158,7 @@ export function ClubMap({ bookings, date, mob, onSelectFacility, onSelectBooking
 
   /* ── get background color for a zone ── */
   const zoneBg = (z: Zone, booked: boolean) => {
+    if (z.bg) return z.bg;
     switch (z.type) {
       case "cancha": return booked ? CANCHA_BOOKED : CANCHA_FREE;
       case "hockey": return booked ? HOCKEY_BOOKED : HOCKEY_FREE;
@@ -171,9 +190,8 @@ export function ClubMap({ bookings, date, mob, onSelectFacility, onSelectBooking
     const firstBooking = zoneBookings[0];
     const statusInfo = firstBooking ? BOOK_ST[firstBooking.status] : null;
     const isSmall = z.w < 8 || z.h < 8;
-    const fontSize = mob
-      ? (isSmall ? 7 : z.type === "building" ? 8 : 9)
-      : (isSmall ? 7 : z.type === "building" ? 9 : 10);
+    const fontSize = Math.max(6, Math.min(z.w * 0.7, z.h * 1.2, mob ? 10 : 12));
+    const isCancha = z.type === "cancha" || z.type === "hockey";
 
     return (
       <div
@@ -199,7 +217,7 @@ export function ClubMap({ bookings, date, mob, onSelectFacility, onSelectBooking
           display: "flex",
           flexDirection: "column" as const,
           alignItems: "center",
-          justifyContent: "center",
+          justifyContent: isCancha && booked ? "flex-start" : "center",
           userSelect: "none" as const
         }}
         onMouseEnter={e => { if (isBookable) (e.currentTarget as HTMLDivElement).style.filter = "brightness(1.12)"; }}
@@ -216,8 +234,8 @@ export function ClubMap({ bookings, date, mob, onSelectFacility, onSelectBooking
           </svg>
         )}
 
-        {/* Booking overlay */}
-        {booked && statusInfo && (
+        {/* Booking overlay (only for non-cancha or empty) */}
+        {booked && statusInfo && !(isCancha && zoneBookings.length > 0) && (
           <div style={{
             position: "absolute" as const,
             top: 0, left: 0, right: 0, bottom: 0,
@@ -233,12 +251,13 @@ export function ClubMap({ bookings, date, mob, onSelectFacility, onSelectBooking
           zIndex: 2,
           display: "flex",
           flexDirection: "column" as const,
-          alignItems: "center",
-          justifyContent: "center",
+          alignItems: isCancha && booked ? "stretch" : "center",
+          justifyContent: isCancha && booked ? "flex-start" : "center",
           textAlign: "center" as const,
           padding: mob ? 2 : 4,
           width: "100%",
-          height: "100%"
+          height: "100%",
+          overflow: "hidden"
         }}>
           {/* Zone name */}
           <div style={{
@@ -248,13 +267,68 @@ export function ClubMap({ bookings, date, mob, onSelectFacility, onSelectBooking
             textShadow: "0 1px 3px rgba(0,0,0,0.5)",
             letterSpacing: 0.5,
             lineHeight: 1.2,
-            whiteSpace: "pre-line" as const
+            whiteSpace: "pre-line" as const,
+            textAlign: "center",
+            flexShrink: 0
           }}>
             {z.l}
           </div>
 
-          {/* Booking info (if booked) */}
-          {booked && firstBooking && !isSmall && (
+          {/* Division strips for canchas/hockey with bookings */}
+          {isCancha && booked && !isSmall && (
+            <div style={{
+              display: "flex",
+              flexDirection: "column" as const,
+              gap: 1,
+              marginTop: mob ? 2 : 3,
+              flex: 1,
+              overflow: "hidden",
+              width: "100%"
+            }}>
+              {zoneBookings.map((b: any, i: number) => {
+                const div = extractDiv(b.title);
+                const divColor = div ? (DIV_COL[div] || "#9CA3AF") : (BOOK_ST[b.status]?.c || "#9CA3AF");
+                const divLabel = div || b.title?.slice(0, 12) || "";
+                return (
+                  <div key={b.id || i} style={{
+                    background: divColor + "30",
+                    borderLeft: `3px solid ${divColor}`,
+                    borderRadius: 3,
+                    padding: mob ? "1px 3px" : "2px 4px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 2,
+                    minHeight: 0
+                  }}>
+                    <span style={{
+                      fontSize: mob ? 6 : 7,
+                      fontWeight: 700,
+                      color: "#fff",
+                      textShadow: "0 1px 2px rgba(0,0,0,0.5)",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap" as const
+                    }}>
+                      {divLabel}
+                    </span>
+                    <span style={{
+                      fontSize: mob ? 5 : 6,
+                      color: "#CBD5E1",
+                      fontWeight: 500,
+                      whiteSpace: "nowrap" as const,
+                      flexShrink: 0
+                    }}>
+                      {b.time_start}-{b.time_end}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Booking info for non-cancha zones (buildings, pool, etc.) */}
+          {booked && firstBooking && !isSmall && !isCancha && (
             <div style={{
               marginTop: mob ? 2 : 3,
               background: "rgba(0,0,0,0.45)",
@@ -476,6 +550,32 @@ export function ClubMap({ bookings, date, mob, onSelectFacility, onSelectBooking
           <div style={{ width: mob ? 8 : 10, height: mob ? 8 : 10, borderRadius: "50%", background: PARKING_BG, border: "1px solid rgba(0,0,0,0.1)" }} />
           <span style={{ fontSize: mob ? 9 : 11, color: colors.g5, fontWeight: 600 }}>No reservable</span>
         </div>
+      </div>
+
+      {/* ── Division color legend ── */}
+      <div style={{
+        display: "flex",
+        justifyContent: "center",
+        gap: mob ? 8 : 14,
+        marginTop: 6,
+        padding: mob ? "5px 8px" : "6px 14px",
+        background: isDark ? "#0F172A" : "#F8FAFC",
+        borderRadius: 8,
+        border: `1px solid ${isDark ? "#334155" : "#E2E8F0"}`,
+        flexWrap: "wrap" as const
+      }}>
+        <span style={{ fontSize: mob ? 9 : 11, color: colors.g5, fontWeight: 700 }}>Divisiones:</span>
+        {[
+          { label: "Escuelita–M12", color: "#10B981" },
+          { label: "M13–M14", color: "#3B82F6" },
+          { label: "M15–M19", color: "#F59E0B" },
+          { label: "PS/Inter/1ra", color: "#DC2626" }
+        ].map(d => (
+          <div key={d.label} style={{ display: "flex", alignItems: "center", gap: 3 }}>
+            <div style={{ width: mob ? 8 : 10, height: mob ? 8 : 10, borderRadius: 2, background: d.color, border: "1px solid rgba(0,0,0,0.1)" }} />
+            <span style={{ fontSize: mob ? 8 : 10, color: colors.g5, fontWeight: 600 }}>{d.label}</span>
+          </div>
+        ))}
       </div>
 
       {/* ── Day summary ── */}
