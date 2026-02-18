@@ -1,8 +1,9 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useC } from "@/lib/theme-context";
 import { BOOK_FAC, BOOK_ST } from "@/lib/constants";
 import { fmtD } from "@/lib/mappers";
+import { exportMapImage } from "@/lib/export";
 
 /* ── Zone type ── */
 type Zone = {
@@ -139,6 +140,8 @@ function HockeyMarkings({ w, h }: { w: number; h: number }) {
 export function ClubMap({ bookings, date, mob, onSelectFacility, onSelectBooking }: any) {
   const { colors, isDark, cardBg } = useC();
   const [mapTab, setMapTab] = useState<MapTab>("urquiza");
+  const [exporting, setExporting] = useState(false);
+  const mapRef = useRef<HTMLDivElement>(null);
 
   /* ── bookings for the selected date ── */
   const dayBookings = useMemo(() => {
@@ -371,8 +374,21 @@ export function ClubMap({ bookings, date, mob, onSelectFacility, onSelectBooking
   const activeZones = mapTab === "urquiza" ? ZONES_URQUIZA : mapTab === "anexo" ? ZONES_ANEXO : ZONES_HOCKEY;
   const aspectPadding = mapTab === "urquiza" ? "100%" : "65%";
 
+  const handleExport = async (share: boolean) => {
+    if (!mapRef.current || !date) return;
+    setExporting(true);
+    try {
+      await exportMapImage(mapRef.current, date, share);
+    } catch (e) {
+      console.error("Export error:", e);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div style={{ width: "100%", maxWidth: maxW, margin: "0 auto" }}>
+     <div ref={mapRef}>
       {/* ── Title ── */}
       <div style={{
         textAlign: "center" as const,
@@ -550,6 +566,55 @@ export function ClubMap({ bookings, date, mob, onSelectFacility, onSelectBooking
             <span style={{ fontSize: mob ? 8 : 10, color: colors.g5, fontWeight: 600 }}>{d.label}</span>
           </div>
         ))}
+      </div>
+
+     </div>{/* close mapRef */}
+
+      {/* ── Export buttons ── */}
+      <div data-export-btn style={{
+        display: "flex",
+        justifyContent: "center",
+        gap: 10,
+        marginTop: 8
+      }}>
+        <button
+          data-export-btn
+          onClick={() => handleExport(false)}
+          disabled={exporting || !date}
+          style={{
+            padding: mob ? "8px 16px" : "7px 18px",
+            borderRadius: 8,
+            border: `1px solid ${isDark ? "#334155" : "#CBD5E1"}`,
+            background: isDark ? "#1E293B" : "#F1F5F9",
+            color: isDark ? "#94A3B8" : "#475569",
+            fontSize: mob ? 12 : 13,
+            fontWeight: 700,
+            cursor: exporting || !date ? "not-allowed" : "pointer",
+            opacity: exporting || !date ? 0.5 : 1,
+            transition: "background 0.15s"
+          }}
+        >
+          {exporting ? "⏳" : "📥"} Descargar
+        </button>
+        <button
+          data-export-btn
+          onClick={() => handleExport(true)}
+          disabled={exporting || !date}
+          style={{
+            padding: mob ? "8px 16px" : "7px 18px",
+            borderRadius: 8,
+            border: `1px solid ${isDark ? "#334155" : "#CBD5E1"}`,
+            background: isDark ? "#1E293B" : "#F1F5F9",
+            color: isDark ? "#94A3B8" : "#475569",
+            fontSize: mob ? 12 : 13,
+            fontWeight: 700,
+            cursor: exporting || !date ? "not-allowed" : "pointer",
+            opacity: exporting || !date ? 0.5 : 1,
+            transition: "background 0.15s"
+          }}
+        >
+          {exporting ? "⏳" : "📤"} Compartir
+        </button>
       </div>
 
       {/* ── Day summary ── */}

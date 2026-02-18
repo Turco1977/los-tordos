@@ -226,7 +226,22 @@ Todo lo del Coordinador, más capacidades de gestión:
 - **Eliminar tareas**: Borrar tareas definitivamente
 - **Eliminar usuarios**: Borrar perfiles y cuentas
 - **Reordenar organigrama**: Cambiar el orden de miembros en la estructura
+- **Actividad por Perfil**: Widget exclusivo en el Dashboard (ver abajo)
 - Toda otra acción del sistema
+
+### Widget: Actividad por Perfil
+Visible solo para Super Admin en el Dashboard (se puede ocultar/reordenar desde "Personalizar").
+
+**Panel izquierdo — Ranking**
+- Lista de todos los usuarios ordenados por cantidad de actividad (acciones registradas)
+- Cada fila muestra: posición, nombre, rol, tareas activas, completadas, vencidas, y última actividad
+- Los usuarios con rol Compras/Tesorería también muestran las tareas en su pipeline (estado "Compras")
+
+**Panel derecho — Timeline**
+- Seleccioná un usuario del ranking para ver su timeline personal
+- Muestra todas sus acciones agrupadas por fecha (igual que el Feed de Actividad pero filtrado)
+- Click en una tarea desde el timeline abre su detalle
+- Botón "Volver" para deseleccionar
 
 ---
 
@@ -252,10 +267,37 @@ El campo de búsqueda en el header busca en:
 - Presupuestos (por proveedor, descripción)
 
 ## Notificaciones
-- Campana (🔔) en el header muestra notificaciones en tiempo real
-- Badge rojo con cantidad de notificaciones pendientes
-- Tipos: tareas asignadas, gastos aprobados/rechazados, @menciones, tareas vencidas
-- Notificaciones push opcionales (activar desde el panel de notificaciones)
+- Campana (🔔) en el header abre el **Centro de Notificaciones** (panel lateral)
+- Badge rojo con cantidad de notificaciones no leídas
+- Notificaciones push opcionales (activar desde el pie del panel)
+
+### Centro de Notificaciones
+Al tocar la campana se abre un panel lateral con:
+- **Filtros**: Todas, No leídas, Tareas, Compras, Vencimientos
+- **Notificaciones en tiempo real** (arriba): alertas computadas del estado actual (tareas pendientes, vencidas, etc.)
+- **Historial** (abajo): todas las notificaciones recibidas, agrupadas por fecha (Hoy, Ayer, dd/mm/aaaa)
+- Las **no leídas** se destacan con borde de color y fondo
+- Click en una notificación la marca como leída y navega al item relacionado
+- **"Cargar más"** para ver notificaciones anteriores
+- **"Marcar todas como leídas"** al pie del panel
+
+### Eventos que generan notificación in-app
+| Evento | Quién recibe |
+|--------|-------------|
+| Te asignan una tarea | El asignado |
+| Tarea enviada a Compras | Todos los usuarios con rol Compras/Tesorería |
+| Gasto aprobado o rechazado | El asignado y el creador de la tarea |
+| Tarea lista para validar | El creador de la tarea |
+| Tarea completada o rechazada | El asignado |
+| Nuevo comentario en una tarea | El asignado (si no es quien comenta) |
+| @Mención en un comentario | La persona mencionada |
+| Tarea vence mañana | El asignado y el creador |
+| Tarea vencida | El asignado y el creador |
+| Presupuesto cambia de estado | El solicitante del presupuesto |
+
+### Emails
+- Solo se envía email cuando **te asignan una tarea**
+- El resto de las notificaciones son únicamente in-app para no saturar la bandeja de entrada
 
 ## @Menciones
 En los mensajes de una tarea, escribí `@Nombre Apellido` para notificar a esa persona.
@@ -460,6 +502,11 @@ El Super Admin tiene acceso a reportes completos:
 - Timeline cronológico de toda la actividad: tareas creadas, asignadas, completadas, mensajes, etc.
 - Filtrable por tipo de actividad
 
+**Actividad por Perfil** (Solo Super Admin)
+- Widget en el Dashboard con ranking de productividad por usuario
+- Seleccionar un perfil para ver su timeline individual
+- Permite evaluar la carga y actividad de cada persona del equipo
+
 ---
 
 ### Configuración inicial (Super Admin)
@@ -532,6 +579,7 @@ Plantel Superior, M19, M17
 | Mis Tareas | x | x | x | x | x | x |
 | Kanban | x | x | x | x | - | - |
 | Actividad (feed) | x | x | x | x | - | - |
+| Actividad por Perfil | x | - | - | - | - | - |
 | Calendario | x | x | x | x | x | x |
 | Crear tarea | x | x | x | x | x | x |
 | Editar tarea | x | x | - | - | - | - |

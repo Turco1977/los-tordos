@@ -2,23 +2,35 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyUser } from "@/lib/api/auth";
 import { createAdminClient } from "@/lib/supabase/server";
 
-/* GET — fetch unread notifications for the calling user */
+/* GET — fetch notifications for the calling user (supports pagination & filters) */
 export async function GET(req: NextRequest) {
   const auth = await verifyUser(req);
   if ("error" in auth)
     return NextResponse.json({ error: auth.error }, { status: auth.status });
 
+  const url = req.nextUrl;
+  const limit = Math.min(Number(url.searchParams.get("limit")) || 30, 100);
+  const offset = Number(url.searchParams.get("offset")) || 0;
+  const typeFilter = url.searchParams.get("type") || "";
+  const readFilter = url.searchParams.get("read"); // "true","false", or null (all)
+
   const db = createAdminClient();
-  const { data, error } = await db
+  let q = db
     .from("notifications")
-    .select("*")
+    .select("*", { count: "exact" })
     .eq("user_id", auth.user.id)
     .order("created_at", { ascending: false })
-    .limit(50);
+    .range(offset, offset + limit - 1);
+
+  if (typeFilter) q = q.eq("type", typeFilter);
+  if (readFilter === "true") q = q.eq("read", true);
+  else if (readFilter === "false") q = q.eq("read", false);
+
+  const { data, error, count } = await q;
 
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ notifications: data });
+  return NextResponse.json({ notifications: data, total: count ?? 0 });
 }
 
 /* POST — create a notification (and optionally send email) */
@@ -28,7 +40,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const body = await req.json();
-  const { user_id, title, message, type, link } = body;
+  const { user_id, title, message, type, link, send_email } = body;
 
   if (!user_id || !title)
     return NextResponse.json(
@@ -53,8 +65,8 @@ export async function POST(req: NextRequest) {
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
 
-  /* Try sending email if RESEND_API_KEY is configured */
-  if (process.env.RESEND_API_KEY) {
+  /* Try sending email only when explicitly requested (e.g. task assignment) */
+  if (send_email && process.env.RESEND_API_KEY) {
     try {
       const { data: profile } = await db
         .from("profiles")

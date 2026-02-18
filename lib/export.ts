@@ -443,6 +443,64 @@ ${tasks.length ? `<h2 style="font-size:14px;color:#0A1628;border-bottom:2px soli
   }
 }
 
+/* ── Map Image Export (PNG) ── */
+export async function exportMapImage(mapEl: HTMLElement, date: string, share: boolean) {
+  const html2pdf = await loadHtml2Pdf();
+  const html2canvas = (window as any).html2canvas;
+  if (!html2canvas) throw new Error("html2canvas not loaded");
+
+  // Format date in Spanish
+  const d = new Date(date + "T12:00:00");
+  const dias = ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
+  const meses = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+  const dateStr = `${dias[d.getDay()]} ${d.getDate()} de ${meses[d.getMonth()]} ${d.getFullYear()}`;
+
+  // Create offscreen container
+  const wrapper = document.createElement("div");
+  wrapper.style.cssText = "position:fixed;left:-9999px;top:0;width:800px;background:#fff;padding:0;";
+  document.body.appendChild(wrapper);
+
+  // Institutional header
+  const header = document.createElement("div");
+  header.style.cssText = "background:#D4D4D4;padding:16px 24px;display:flex;align-items:center;justify-content:space-between;";
+  header.innerHTML = `
+    <div>
+      <div style="font-family:Georgia,serif;font-size:22px;font-weight:700;color:#1B2A4A;line-height:1.2;">DISPOSICIÓN CANCHAS</div>
+      <div style="font-family:Georgia,serif;font-size:22px;font-weight:700;color:#1B2A4A;line-height:1.2;">RUGBY INFANTIL</div>
+      <div style="font-family:-apple-system,sans-serif;font-size:13px;color:#475569;margin-top:6px;font-weight:500;">${dateStr}</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <img src="/logo.jpg" style="width:60px;height:60px;object-fit:contain;border-radius:6px;" crossorigin="anonymous" />
+      <div style="text-align:right;">
+        <div style="font-family:Georgia,serif;font-size:14px;font-weight:700;color:#1B2A4A;line-height:1.2;">LOS TORDOS</div>
+        <div style="font-family:Georgia,serif;font-size:14px;font-weight:700;color:#1B2A4A;line-height:1.2;">RUGBY CLUB</div>
+      </div>
+    </div>
+  `;
+  wrapper.appendChild(header);
+
+  // Clone the map element
+  const clone = mapEl.cloneNode(true) as HTMLElement;
+  clone.style.cssText = "width:100%;padding:12px;box-sizing:border-box;background:#fff;";
+  // Remove any export buttons from the clone
+  clone.querySelectorAll("[data-export-btn]").forEach(el => el.remove());
+  wrapper.appendChild(clone);
+
+  try {
+    const canvas = await html2canvas(wrapper, { scale: 2, useCORS: true, allowTaint: true, backgroundColor: "#fff" });
+    const blob: Blob = await new Promise((resolve) => canvas.toBlob((b: Blob) => resolve(b), "image/png"));
+    const file = new File([blob], `Mapa_Canchas_${date}.png`, { type: "image/png" });
+
+    if (share && navigator.share && navigator.canShare?.({ files: [file] })) {
+      await navigator.share({ files: [file], title: "Disposición Canchas", text: dateStr });
+    } else {
+      downloadBlob(blob, `Mapa_Canchas_${date}.png`);
+    }
+  } finally {
+    document.body.removeChild(wrapper);
+  }
+}
+
 /* ── iCal ── */
 export function exportICal(filename: string, events: {title:string;date:string;description?:string;type?:string}[]) {
   const esc = (s: string) => String(s ?? "").replace(/[\;,]/g, (m) => "\\" + m).replace(/\n/g, "\\n");

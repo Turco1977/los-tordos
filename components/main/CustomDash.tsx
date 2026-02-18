@@ -4,6 +4,7 @@ import { useC } from "@/lib/theme-context";
 import { ST, SC, fn, isOD, daysDiff, BOOK_FAC, BOOK_ST } from "@/lib/constants";
 import { rlv } from "@/lib/mappers";
 import { Card, Btn } from "@/components/ui";
+import { ProfileActivity } from "@/components/main/ProfileActivity";
 
 /* Division color map (mirrors ReservasView) */
 const DIV_COL:Record<string,string>={};
@@ -33,8 +34,9 @@ const WIDGET_META:Record<string,{title:string;icon:string;cols?:number}>={
   areas:{title:"Áreas",icon:"🏉",cols:2},
   reports:{title:"Reportes",icon:"📄",cols:2},
   espacios:{title:"Espacios",icon:"🏟️",cols:2},
+  perfiles:{title:"Actividad por Perfil",icon:"👤",cols:2},
 };
-const DEFAULT_ORDER=["kpis","deadlines","activity","workload","weekly","areas","espacios","reports"];
+const DEFAULT_ORDER=["kpis","deadlines","activity","workload","weekly","areas","espacios","reports","perfiles"];
 
 type Layout={order:string[];hidden:string[]};
 
@@ -47,7 +49,7 @@ function saveLayout(userId:string,layout:Layout){
   try{localStorage.setItem("dash-layout-"+userId,JSON.stringify(layout));}catch{}
 }
 
-export function CustomDash({peds,presu,agendas,minutas,users,areas,deptos,user,mob,bookings,onSel,onFilter,onNav,onExportWeekly,onExportMonthly,onAC}:any){
+export function CustomDash({peds,presu,agendas,minutas,users,areas,deptos,user,mob,bookings,onSel,onFilter,onNav,onExportWeekly,onExportMonthly,onAC,isSA}:any){
   const{colors,isDark,cardBg}=useC();
   const [layout,sLayout]=useState<Layout>(()=>loadLayout(user?.id||""));
   const [editing,sEditing]=useState(false);
@@ -290,11 +292,13 @@ export function CustomDash({peds,presu,agendas,minutas,users,areas,deptos,user,m
         </div>}
       </Card>);}
 
+      case "perfiles": return <ProfileActivity peds={peds} users={users} onSel={onSel} mob={mob}/>;
+
       default: return null;
     }
   };
 
-  const visibleWidgets=layout.order.filter(id=>isVisible(id));
+  const visibleWidgets=layout.order.filter(id=>isVisible(id)&&(id!=="perfiles"||isSA));
 
   return(<div>
     {/* Header */}
@@ -314,7 +318,7 @@ export function CustomDash({peds,presu,agendas,minutas,users,areas,deptos,user,m
       </div>
       <div style={{fontSize:10,color:colors.g4,marginBottom:8}}>Arrastrá para reordenar · Click para mostrar/ocultar</div>
       <div style={{display:"flex",gap:6,flexWrap:"wrap" as const}}>
-        {layout.order.map(id=>{
+        {layout.order.filter(id=>id!=="perfiles"||isSA).map(id=>{
           const meta=WIDGET_META[id];if(!meta)return null;
           const vis=isVisible(id);
           return(<button key={id} onClick={()=>toggleWidget(id)} style={{padding:"5px 10px",borderRadius:8,border:"1px solid "+(vis?colors.gn+"40":"#FCA5A5"),background:vis?"#D1FAE5":"#FEE2E2",color:vis?"#059669":"#DC2626",fontSize:10,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:4}}>

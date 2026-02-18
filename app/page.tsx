@@ -253,17 +253,62 @@ export default function App(){
   const getToken=async()=>{const{data:{session}}=await supabase.auth.getSession();return session?.access_token||"";};
 
   /* ── Fetch persistent notifications ── */
-  const refreshNotifs=useCallback(async()=>{
+  const [notifTotal,sNotifTotal]=useState(0);
+  const [notifFilter,sNotifFilter]=useState<string>("all");
+  const [notifPage,sNotifPage]=useState(0);
+  const NOTIF_LIMIT=30;
+  const refreshNotifs=useCallback(async(opts?:{filter?:string;offset?:number;append?:boolean})=>{
     const tok=await getToken();
-    if(tok){const n=await fetchNotifications(tok);sDbNotifs(n);}
+    if(!tok)return;
+    const f=opts?.filter||"all";
+    const offset=opts?.offset||0;
+    const typeParam=f==="task"||f==="budget"||f==="deadline"?f:"";
+    const readParam=f==="unread"?false:null;
+    const{notifications:n,total}=await fetchNotifications(tok,{limit:NOTIF_LIMIT,offset,type:typeParam,read:readParam});
+    if(opts?.append)sDbNotifs(prev=>[...prev,...n]);
+    else sDbNotifs(n);
+    sNotifTotal(total);
   },[]);
-  useEffect(()=>{if(user){refreshNotifs();const iv=setInterval(refreshNotifs,60000);return()=>clearInterval(iv);}},[user,refreshNotifs]);
+  useEffect(()=>{if(user){refreshNotifs();const iv=setInterval(()=>refreshNotifs(),60000);return()=>clearInterval(iv);}},[user,refreshNotifs]);
 
   /* ── Send notification helper ── */
-  const sendNotif=async(userId:string,title:string,message:string,type:"task"|"budget"|"deadline"|"injury"|"info"="task",link="")=>{
+  const sendNotif=async(userId:string,title:string,message:string,type:"task"|"budget"|"deadline"|"injury"|"info"="task",link="",sendEmail=false)=>{
     const tok=await getToken();
-    if(tok) await notify({token:tok,user_id:userId,title,message,type,link});
+    if(tok) await notify({token:tok,user_id:userId,title,message,type,link,send_email:sendEmail});
   };
+
+  /* ── Periodic deadline & overdue notifications (once per task per day) ── */
+  useEffect(()=>{
+    if(!user||!peds.length)return;
+    const check=async()=>{
+      const today=new Date().toISOString().slice(0,10);
+      const key="notif-dl-"+today;
+      let sent:string[];
+      try{sent=JSON.parse(localStorage.getItem(key)||"[]");}catch{sent=[];}
+      const tomorrow=new Date(Date.now()+86400000).toISOString().slice(0,10);
+      const toSend:Array<{uid:string;title:string;msg:string;tag:string}>=[];
+      peds.forEach((p:any)=>{
+        if(p.st===ST.OK)return;
+        /* Overdue: notify assignee + creator */
+        if(p.fReq&&isOD(p.fReq)){
+          if(p.asTo&&!sent.includes("od-"+p.id+"-"+p.asTo))toSend.push({uid:p.asTo,title:"Tarea vencida #"+p.id,msg:(p.desc||"").slice(0,60),tag:"od-"+p.id+"-"+p.asTo});
+          if(p.cId&&p.cId!==p.asTo&&!sent.includes("od-"+p.id+"-"+p.cId))toSend.push({uid:p.cId,title:"Tarea vencida #"+p.id,msg:(p.desc||"").slice(0,60),tag:"od-"+p.id+"-"+p.cId});
+        }
+        /* Approaching deadline (within 24h) */
+        if(p.fReq&&p.fReq===tomorrow){
+          if(p.asTo&&!sent.includes("dl-"+p.id+"-"+p.asTo))toSend.push({uid:p.asTo,title:"Tarea vence mañana #"+p.id,msg:(p.desc||"").slice(0,60),tag:"dl-"+p.id+"-"+p.asTo});
+          if(p.cId&&p.cId!==p.asTo&&!sent.includes("dl-"+p.id+"-"+p.cId))toSend.push({uid:p.cId,title:"Tarea vence mañana #"+p.id,msg:(p.desc||"").slice(0,60),tag:"dl-"+p.id+"-"+p.cId});
+        }
+      });
+      if(!toSend.length)return;
+      const newSent=[...sent];
+      for(const s of toSend.slice(0,20)){await sendNotif(s.uid,s.title,s.msg,"deadline");newSent.push(s.tag);}
+      try{localStorage.setItem(key,JSON.stringify(newSent));}catch{}
+    };
+    const t=setTimeout(check,5000);/* run 5s after mount */
+    const iv=setInterval(check,300000);/* then every 5min */
+    return()=>{clearTimeout(t);clearInterval(iv);};
+  },[user,peds]);
 
   const out=async()=>{await supabase.auth.signOut();try{await clearOfflineDB();}catch{}sU(null);sVw("dash");sSl(null);sAA(null);sAD(null);sSr("");sPd([]);sUs([]);sOm([]);sHi([]);sAgs([]);sMins([]);sPr([]);sPv([]);sRems([]);sDbNotifs([]);sProjects([]);sProjTasks([]);sProjBudgets([]);sTaskTemplates([]);sInventory([]);sBookings([]);sSponsors([]);};
   const isAd=user&&(user.role==="admin"||user.role==="superadmin");
@@ -402,7 +447,12 @@ export default function App(){
 
   const computedNts=notifs(user,peds);
   const unreadDb=dbNotifs.filter((n:any)=>!n.read);
-  const nts=[...computedNts,...unreadDb.slice(0,10).map((n:any)=>({t:n.title,c:n.type==="task"?T.bl:n.type==="budget"?T.pr:n.type==="deadline"?T.rd:T.gn,act:n.link?"":"dash",link:n.link,dbId:n.id}))];
+  const badgeCount=computedNts.length+unreadDb.length;
+  const ntColor=(type:string)=>type==="task"?T.bl:type==="budget"?T.pr:type==="deadline"?T.rd:T.gn;
+  /* Date label for notification grouping */
+  const ntDateLabel=(dt:string)=>{if(!dt)return"Sin fecha";const d=dt.slice(0,10);const today=new Date().toISOString().slice(0,10);const yd=new Date(Date.now()-86400000).toISOString().slice(0,10);if(d===today)return"Hoy";if(d===yd)return"Ayer";const p=d.split("-");return p[2]+"/"+p[1]+"/"+p[0];};
+  /* Group dbNotifs by date */
+  const ntGrouped=useMemo(()=>{const map=new Map<string,any[]>();dbNotifs.forEach((n:any)=>{const key=ntDateLabel(n.created_at);if(!map.has(key))map.set(key,[]);map.get(key)!.push(n);});return Array.from(map.entries());},[dbNotifs]);
   const hAC=(id:number)=>{sAA(aA===id?null:id);sAD(null);sKpiFilt(null);sVw("dash");};
   const hDC=(id:number)=>sAD(aD===id?null:id);
 
@@ -445,7 +495,7 @@ export default function App(){
               </div>:<div style={{position:"absolute" as const,top:32,right:0,background:cardBg,borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,.12)",border:"1px solid "+colors.g2,width:280,zIndex:100,padding:"16px 12px",textAlign:"center" as const}}><div style={{fontSize:11,color:colors.g4}}>Sin resultados para &ldquo;{search}&rdquo;</div></div>;})()}
             </div>
             <OfflineIndicator state={offlineState} onSync={async()=>{const r=await sync();if(r.processed>0)showT(r.processed+" cambio"+(r.processed>1?"s":"")+" sincronizado"+(r.processed>1?"s":""));}}/>
-            <div style={{position:"relative" as const}}><button aria-label="Notificaciones" onClick={()=>sShNot(!shNot)} title="Notificaciones" style={{background:"none",border:"none",fontSize:mob?18:16,cursor:"pointer",position:"relative" as const,minWidth:mob?40:undefined,minHeight:mob?40:undefined,display:"flex",alignItems:"center",justifyContent:"center"}}>🔔{nts.length>0&&<span style={{position:"absolute" as const,top:-4,right:-4,width:14,height:14,borderRadius:7,background:colors.rd,color:"#fff",fontSize:8,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>{nts.length}</span>}</button>{shNot&&<div style={{position:"absolute" as const,right:0,top:32,background:cardBg,borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,.12)",border:"1px solid "+colors.g2,width:280,zIndex:100,padding:8,maxHeight:360,overflowY:"auto" as const}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}><div style={{fontSize:11,fontWeight:700,color:colors.nv}}>Notificaciones</div>{unreadDb.length>0&&<button onClick={async()=>{const tok=await getToken();await markRead(tok);sDbNotifs(prev=>prev.map((n:any)=>({...n,read:true})));}} style={{background:"none",border:"none",fontSize:10,color:colors.bl,cursor:"pointer",fontWeight:600}}>Marcar leídas</button>}</div>{nts.length===0&&<div style={{fontSize:11,color:colors.g4,padding:8}}>Todo al día ✅</div>}{nts.map((n,i)=><div key={i} onClick={()=>{sShNot(false);if(n.dbId){getToken().then(tok=>markRead(tok,[n.dbId]));sDbNotifs(prev=>prev.map((x:any)=>x.id===n.dbId?{...x,read:true}:x));}if(n.first){sSl(n.first);}else if(n.link){window.location.hash=n.link;}else if(n.act){sVw(n.act);sAA(null);sAD(null);}}} style={{padding:"6px 8px",borderRadius:6,background:n.c+"10",marginBottom:3,fontSize:11,color:n.c,fontWeight:600,cursor:"pointer"}}>{n.t}</div>)}{!pushEnabled&&"Notification" in (typeof window!=="undefined"?window:{})&&<div style={{borderTop:"1px solid "+colors.g2,padding:"6px 8px",marginTop:4}}><button onClick={requestPush} style={{width:"100%",padding:"6px 0",border:"1px solid "+colors.bl,borderRadius:6,background:"transparent",color:colors.bl,fontSize:10,fontWeight:600,cursor:"pointer"}}>🔔 Activar notificaciones push</button></div>}</div>}</div>
+            <button aria-label="Notificaciones" onClick={()=>{sShNot(!shNot);if(!shNot){sNotifFilter("all");sNotifPage(0);refreshNotifs();}}} title="Notificaciones" style={{background:"none",border:"none",fontSize:mob?18:16,cursor:"pointer",position:"relative" as const,minWidth:mob?40:undefined,minHeight:mob?40:undefined,display:"flex",alignItems:"center",justifyContent:"center"}}>🔔{badgeCount>0&&<span style={{position:"absolute" as const,top:-4,right:-4,minWidth:14,height:14,borderRadius:7,background:colors.rd,color:"#fff",fontSize:8,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 2px"}}>{badgeCount>99?"99+":badgeCount}</span>}</button>
             {!mob&&<div style={{textAlign:"right" as const}}><div style={{fontSize:11,fontWeight:700,color:colors.nv}}>{fn(user)}</div><div style={{fontSize:9,color:colors.g4}}>{ROLES[user.role]?.i} {ROLES[user.role]?.l}{user.div?" · "+user.div:""}</div></div>}
             <button aria-label="Cambiar tema" onClick={toggleTheme} title={isDark?"Modo claro":"Modo oscuro"} style={{width:mob?40:28,height:mob?40:28,borderRadius:7,border:"1px solid "+colors.g2,background:cardBg,cursor:"pointer",fontSize:mob?14:12,display:"flex",alignItems:"center",justifyContent:"center"}}>{isDark?"☀️":"🌙"}</button>
             <button aria-label="Cambiar contraseña" onClick={()=>sShowPw(true)} title="Cambiar contraseña" style={{width:mob?40:28,height:mob?40:28,borderRadius:7,border:"1px solid "+colors.g2,background:cardBg,cursor:"pointer",fontSize:mob?14:12,display:"flex",alignItems:"center",justifyContent:"center"}}>🔒</button>
@@ -512,7 +562,7 @@ export default function App(){
           {vw==="presu"&&(isAd||user.role==="coordinador"||user.role==="embudo")&&<div>{prevVw==="cal"&&<button onClick={()=>sVw("cal")} style={{display:"inline-flex",alignItems:"center",gap:4,padding:"5px 12px",borderRadius:8,border:"1px solid "+colors.g3,background:colors.g1,color:colors.nv,fontSize:11,fontWeight:600,cursor:"pointer",marginBottom:10}}>← Volver al Calendario</button>}<PresView presu={presu} provs={provs} peds={peds} users={users} areas={areas} deptos={deptos} user={user} mob={mob}
             onSel={(p:any)=>sSl(p)}
             onAddPresu={async(d:any)=>{try{const row=presuToDB(d);const{data,error}=await supabase.from("presupuestos").insert(row).select().single();if(error)throw new Error(error.message);sPr(p=>[presuFromDB(data),...p]);showT("Presupuesto agregado");}catch(e:any){showT(e.message||"Error","err");}}}
-            onUpdPresu={async(id:number,d:any)=>{try{sPr(p=>p.map(x=>x.id===id?{...x,...d}:x));await supabase.from("presupuestos").update(d).eq("id",id);showT("Presupuesto actualizado");}catch(e:any){showT(e.message||"Error","err");}}}
+            onUpdPresu={async(id:number,d:any)=>{try{const prev=presu.find(x=>x.id===id);sPr(p=>p.map(x=>x.id===id?{...x,...d}:x));await supabase.from("presupuestos").update(d).eq("id",id);if(d.status&&prev&&d.status!==prev.status&&prev.solicitado_por){const stLabel=d.status==="aprobado"?"aprobado":d.status==="rechazado"?"rechazado":d.status==="recibido"?"recibido":"actualizado";const reqUser=users.find((u:any)=>fn(u)===prev.solicitado_por||u.id===prev.solicitado_por);if(reqUser&&reqUser.id!==user.id)sendNotif(reqUser.id,"Presupuesto "+stLabel,prev.descripcion?.slice(0,60)||"","budget");}showT("Presupuesto actualizado");}catch(e:any){showT(e.message||"Error","err");}}}
             onDelPresu={async(id:number)=>{try{sPr(p=>p.filter(x=>x.id!==id));await supabase.from("presupuestos").delete().eq("id",id);showT("Presupuesto eliminado");}catch(e:any){showT(e.message||"Error","err");}}}
             onAddProv={async(d:any)=>{try{const{data,error}=await supabase.from("proveedores").insert(d).select().single();if(error)throw new Error(error.message);sPv(p=>[provFromDB(data),...p]);showT("Proveedor agregado");}catch(e:any){showT(e.message||"Error","err");}}}
           /></div>}
@@ -551,7 +601,7 @@ export default function App(){
             sPreAT(null);sVw(isPersonal?"my":"dash");sAA(null);sAD(null);showT(p._presu?(p._presu.is_canje?"Tarea creada con canje":"Tarea creada con presupuesto"):"Tarea creada");}catch(e:any){showT(e.message||"Error al crear tarea","err");}
           }} onX={()=>{sPreAT(null);sVw(isPersonal?"my":"dash");}}/>}
           {vw==="proy"&&<Proyecto hitos={hitos} setHitos={(updater:any)=>{sHi((prev:any)=>{const next=typeof updater==="function"?updater(prev):updater;next.forEach((h:any)=>{supabase.from("milestones").update({pct:h.pct}).eq("id",h.id);});return next;});}} isAd={isAd} mob={mob}/>}
-          {vw==="dash"&&!isPersonal&&!aA&&!aD&&!kpiFilt&&<CustomDash peds={peds} presu={presu} agendas={agendas} minutas={minutas} users={users} areas={areas} deptos={deptos} user={user} mob={mob} bookings={bookings} onSel={(p:any)=>sSl(p)} onFilter={(k:string)=>sKpiFilt(k)} onAC={hAC} onNav={(view:string,filt?:string)=>{if(view==="filter"&&filt){sKpiFilt(filt);}else{sVw(view);}}}
+          {vw==="dash"&&!isPersonal&&!aA&&!aD&&!kpiFilt&&<CustomDash peds={peds} presu={presu} agendas={agendas} minutas={minutas} users={users} areas={areas} deptos={deptos} user={user} mob={mob} bookings={bookings} onSel={(p:any)=>sSl(p)} onFilter={(k:string)=>sKpiFilt(k)} onAC={hAC} isSA={isSA} onNav={(view:string,filt?:string)=>{if(view==="filter"&&filt){sKpiFilt(filt);}else{sVw(view);}}}
             onExportWeekly={()=>{const today=new Date();const weekAgo=new Date(today.getTime()-7*86400000);const fmtD2=(d:Date)=>d.toISOString().slice(0,10);const range=fmtD2(weekAgo)+" al "+fmtD2(today);const ok=peds.filter((p:any)=>p.st===ST.OK);const pend=peds.filter((p:any)=>p.st===ST.P);const od=peds.filter((p:any)=>p.st!==ST.OK&&isOD(p.fReq));const approvedPr=presu.filter((pr:any)=>pr.status==="aprobado");const pendPr=presu.filter((pr:any)=>pr.status!=="aprobado"&&pr.status!=="rechazado");const topAreas=areas.map((a:any)=>{const dIds=deptos.filter((d:any)=>d.aId===a.id).map((d:any)=>d.id);const aP=peds.filter((p:any)=>dIds.indexOf(p.dId)>=0);const aOk=aP.filter((p:any)=>p.st===ST.OK).length;return{name:a.name,total:aP.length,completed:aOk,pct:aP.length?Math.round(aOk/aP.length*100):0};}).filter((a:any)=>a.total>0);exportReportPDF({period:"Semanal",dateRange:range,stats:[{label:"Total tareas",value:String(peds.length),color:"#0A1628"},{label:"Completadas",value:String(ok.length),color:"#10B981"},{label:"Pendientes",value:String(pend.length),color:"#DC2626"},{label:"Vencidas",value:String(od.length),color:"#7C3AED"}],tasksByStatus:Object.keys(SC).map(k=>({status:SC[k].l,icon:SC[k].i,count:peds.filter((p:any)=>p.st===k).length,color:SC[k].c})),completedTasks:ok.slice(0,20).map((p:any)=>{const ag=users.find((u:any)=>u.id===p.asTo);return{id:p.id,desc:p.desc,assignee:ag?fn(ag):"–",date:p.fReq};}),pendingTasks:[...od,...pend].slice(0,20).map((p:any)=>{const ag=users.find((u:any)=>u.id===p.asTo);return{id:p.id,desc:p.desc,assignee:ag?fn(ag):"–",date:p.fReq,overdue:p.st!==ST.OK&&isOD(p.fReq)};}),budgetSummary:{total:presu.reduce((s:number,p:any)=>s+Number(p.monto||0),0),approved:approvedPr.reduce((s:number,p:any)=>s+Number(p.monto||0),0),pending:pendPr.reduce((s:number,p:any)=>s+Number(p.monto||0),0),currency:"ARS"},topAreas});}}
             onExportMonthly={()=>{const today=new Date();const monthAgo=new Date(today.getFullYear(),today.getMonth()-1,today.getDate());const fmtD2=(d:Date)=>d.toISOString().slice(0,10);const range=fmtD2(monthAgo)+" al "+fmtD2(today);const ok=peds.filter((p:any)=>p.st===ST.OK);const pend=peds.filter((p:any)=>p.st===ST.P);const od=peds.filter((p:any)=>p.st!==ST.OK&&isOD(p.fReq));const approvedPr=presu.filter((pr:any)=>pr.status==="aprobado");const pendPr=presu.filter((pr:any)=>pr.status!=="aprobado"&&pr.status!=="rechazado");const topAreas=areas.map((a:any)=>{const dIds=deptos.filter((d:any)=>d.aId===a.id).map((d:any)=>d.id);const aP=peds.filter((p:any)=>dIds.indexOf(p.dId)>=0);const aOk=aP.filter((p:any)=>p.st===ST.OK).length;return{name:a.name,total:aP.length,completed:aOk,pct:aP.length?Math.round(aOk/aP.length*100):0};}).filter((a:any)=>a.total>0);exportReportPDF({period:"Mensual",dateRange:range,stats:[{label:"Total tareas",value:String(peds.length),color:"#0A1628"},{label:"Completadas",value:String(ok.length),color:"#10B981"},{label:"Pendientes",value:String(pend.length),color:"#DC2626"},{label:"Vencidas",value:String(od.length),color:"#7C3AED"}],tasksByStatus:Object.keys(SC).map(k=>({status:SC[k].l,icon:SC[k].i,count:peds.filter((p:any)=>p.st===k).length,color:SC[k].c})),completedTasks:ok.slice(0,20).map((p:any)=>{const ag=users.find((u:any)=>u.id===p.asTo);return{id:p.id,desc:p.desc,assignee:ag?fn(ag):"–",date:p.fReq};}),pendingTasks:[...od,...pend].slice(0,20).map((p:any)=>{const ag=users.find((u:any)=>u.id===p.asTo);return{id:p.id,desc:p.desc,assignee:ag?fn(ag):"–",date:p.fReq,overdue:p.st!==ST.OK&&isOD(p.fReq)};}),budgetSummary:{total:presu.reduce((s:number,p:any)=>s+Number(p.monto||0),0),approved:approvedPr.reduce((s:number,p:any)=>s+Number(p.monto||0),0),pending:pendPr.reduce((s:number,p:any)=>s+Number(p.monto||0),0),currency:"ARS"},topAreas});}}
           />}
@@ -567,20 +617,74 @@ export default function App(){
         onDup={async(p:any)=>{try{const ts=TODAY+" "+new Date().toTimeString().slice(0,5);const row:any=taskToDB({...p,st:ST.P,asTo:null,resp:"",monto:null,eOk:null,cAt:TODAY,cId:user.id,cN:fn(user)});const{data,error}=await supabase.from("tasks").insert(row).select().single();if(error)throw new Error(error.message);const tid=data?.id||0;const newP={...p,id:tid,st:ST.P,asTo:null,resp:"",monto:null,eOk:null,cAt:TODAY,cId:user.id,cN:fn(user),log:[{dt:ts,uid:user.id,by:fn(user),act:"Creó tarea (duplicada de #"+p.id+")",t:"sys"}]};sPd(ps=>[newP,...ps]);await supabase.from("task_messages").insert({task_id:tid,user_id:user.id,user_name:fn(user),content:"Creó tarea (duplicada de #"+p.id+")",type:"sys"});sSl(newP);showT("Tarea duplicada");}catch(e:any){showT(e.message||"Error","err");}}}
         onCheck={async(id:number,items:any[])=>{try{/* save checklist as special log entries */for(const item of items){await supabase.from("task_messages").upsert({task_id:id,user_id:user.id,user_name:fn(user),content:JSON.stringify(item),type:"check"});}/* update local */const ts=TODAY+" "+new Date().toTimeString().slice(0,5);sPd(p=>p.map(x=>x.id===id?{...x,log:[...(x.log||[]).filter((l:any)=>l.t!=="check"),...items.map(item=>({dt:ts,uid:user.id,by:fn(user),act:JSON.stringify(item),t:"check"}))]}:x));}catch(e:any){showT(e.message||"Error","err");}}}
         onAddPresu={async(d:any)=>{try{const row=presuToDB(d);const{data,error}=await supabase.from("presupuestos").insert(row).select().single();if(error)throw new Error(error.message);sPr(p=>[presuFromDB(data),...p]);showT("Presupuesto agregado");}catch(e:any){showT(e.message||"Error","err");}}}
-        onUpdPresu={async(id:number,d:any)=>{try{sPr(p=>p.map(x=>x.id===id?{...x,...d}:x));await supabase.from("presupuestos").update(d).eq("id",id);showT("Presupuesto actualizado");}catch(e:any){showT(e.message||"Error","err");}}}
+        onUpdPresu={async(id:number,d:any)=>{try{const prev=presu.find(x=>x.id===id);sPr(p=>p.map(x=>x.id===id?{...x,...d}:x));await supabase.from("presupuestos").update(d).eq("id",id);if(d.status&&prev&&d.status!==prev.status&&prev.solicitado_por){const stLabel=d.status==="aprobado"?"aprobado":d.status==="rechazado"?"rechazado":d.status==="recibido"?"recibido":"actualizado";const reqUser=users.find((u:any)=>fn(u)===prev.solicitado_por||u.id===prev.solicitado_por);if(reqUser&&reqUser.id!==user.id)sendNotif(reqUser.id,"Presupuesto "+stLabel,prev.descripcion?.slice(0,60)||"","budget");}showT("Presupuesto actualizado");}catch(e:any){showT(e.message||"Error","err");}}}
         onDelPresu={async(id:number)=>{try{sPr(p=>p.filter(x=>x.id!==id));await supabase.from("presupuestos").delete().eq("id",id);showT("Presupuesto eliminado");}catch(e:any){showT(e.message||"Error","err");}}}
         onTk={async(id:number)=>{try{sPd(p=>p.map(x=>x.id===id?{...x,asTo:user.id,st:ST.C}:x));await supabase.from("tasks").update({assigned_to:user.id,status:ST.C}).eq("id",id);addLog(id,user.id,fn(user),"Tomó la tarea","sys");showT("Tarea tomada");}catch(e:any){showT(e.message||"Error","err");}}}
-        onAs={async(id:number,uid:string)=>{try{const ag=users.find(u=>u.id===uid);const p2=peds.find(x=>x.id===id);const newSt=p2?.st===ST.P?ST.C:p2?.st;sPd(p=>p.map(x=>x.id===id?{...x,asTo:uid,st:x.st===ST.P?ST.C:x.st}:x));await supabase.from("tasks").update({assigned_to:uid,status:newSt}).eq("id",id);addLog(id,user.id,fn(user),"Asignó a "+(ag?fn(ag):""),"sys");sendNotif(uid,"Te asignaron una tarea",p2?.desc||"","task");showT("Tarea asignada");}catch(e:any){showT(e.message||"Error","err");}}}
+        onAs={async(id:number,uid:string)=>{try{const ag=users.find(u=>u.id===uid);const p2=peds.find(x=>x.id===id);const newSt=p2?.st===ST.P?ST.C:p2?.st;sPd(p=>p.map(x=>x.id===id?{...x,asTo:uid,st:x.st===ST.P?ST.C:x.st}:x));await supabase.from("tasks").update({assigned_to:uid,status:newSt}).eq("id",id);addLog(id,user.id,fn(user),"Asignó a "+(ag?fn(ag):""),"sys");sendNotif(uid,"Te asignaron una tarea",p2?.desc||"","task","",true);showT("Tarea asignada");}catch(e:any){showT(e.message||"Error","err");}}}
         onRe={async(id:number,r:string)=>{try{const sr=sanitize(r);sPd(p=>p.map(x=>x.id===id?{...x,resp:sr}:x));await supabase.from("tasks").update({resolution:sr}).eq("id",id);showT("Resolución guardada");}catch(e:any){showT(e.message||"Error","err");}}}
         onSE={async(id:number)=>{try{sPd(p=>p.map(x=>x.id===id?{...x,st:ST.E}:x));await supabase.from("tasks").update({status:ST.E}).eq("id",id);addLog(id,user.id,fn(user),"Envió a Compras","sys");users.filter(u=>u.role==="embudo").forEach(u=>sendNotif(u.id,"Nueva tarea en Compras",peds.find(x=>x.id===id)?.desc||"","budget"));showT("Enviado a Compras");sSl(null);}catch(e:any){showT(e.message||"Error","err");}}}
         onEO={async(id:number,ok:boolean)=>{try{const p2=peds.find(x=>x.id===id);sPd(p=>p.map(x=>x.id===id?{...x,st:ST.C,eOk:ok}:x));await supabase.from("tasks").update({status:ST.C,expense_ok:ok}).eq("id",id);addLog(id,user.id,fn(user),ok?"Compras aprobó":"Compras rechazó","sys");if(p2?.asTo)sendNotif(p2.asTo,ok?"Gasto aprobado":"Gasto rechazado",p2.desc||"","budget");if(p2?.cId&&p2.cId!==p2.asTo)sendNotif(p2.cId,ok?"Gasto aprobado":"Gasto rechazado",p2.desc||"","budget");showT(ok?"Gasto aprobado":"Gasto rechazado");sSl(null);}catch(e:any){showT(e.message||"Error","err");}}}
         onFi={async(id:number)=>{try{const p2=peds.find(x=>x.id===id);sPd(p=>p.map(x=>x.id===id?{...x,st:ST.V}:x));await supabase.from("tasks").update({status:ST.V}).eq("id",id);addLog(id,user.id,fn(user),"Envió a validación","sys");if(p2?.cId)sendNotif(p2.cId,"Tarea lista para validar",p2.desc||"","task");showT("Enviado a validación");sSl(null);}catch(e:any){showT(e.message||"Error","err");}}}
         onVa={async(id:number,ok:boolean)=>{try{const p2=peds.find(x=>x.id===id);const ns=ok?ST.OK:ST.C;sPd(p=>p.map(x=>x.id===id?{...x,st:ns}:x));await supabase.from("tasks").update({status:ns}).eq("id",id);addLog(id,user.id,fn(user),ok?"Validó OK ✅":"Rechazó","sys");if(p2?.asTo)sendNotif(p2.asTo,ok?"Tarea completada":"Tarea rechazada",p2.desc||"","task");let autoInv=false;if(ok&&p2?.rG&&p2?.tipo==="Material deportivo"){const ag=users.find((u:any)=>u.id===p2.asTo);const{data:invD}=await supabase.from("inventory").insert({name:p2.desc||"Material",category:"deportivo",quantity:1,condition:"nuevo",responsible_id:p2.asTo||null,responsible_name:ag?fn(ag):"",notes:"Auto tarea #"+id}).select().single();if(invD){sInventory(prev=>[invD,...prev]);autoInv=true;}}showT(ok?(autoInv?"Completada + Inventario":"Tarea completada"):"Tarea rechazada");sSl(null);}catch(e:any){showT(e.message||"Error","err");}}}
-        onMsg={async(id:number,txt:string)=>{try{const safe=sanitize(txt);if(!safe)return;await addLog(id,user.id,fn(user),safe,"msg");/* @mention notifications (Feature 7) */const mentionRx=/@([\w\s]+?)(?=\s@|$)/g;let match;while((match=mentionRx.exec(txt))!==null){const mName=match[1].trim();const mUser=users.find((u:any)=>(fn(u)).toLowerCase()===mName.toLowerCase());if(mUser&&mUser.id!==user.id){sendNotif(mUser.id,"Te mencionaron en tarea #"+id,txt.slice(0,80),"task");}}}catch(e:any){showT("Error al enviar mensaje","err");}}}
+        onMsg={async(id:number,txt:string)=>{try{const safe=sanitize(txt);if(!safe)return;await addLog(id,user.id,fn(user),safe,"msg");/* Notify assignee on new comment */const p2=peds.find(x=>x.id===id);if(p2?.asTo&&p2.asTo!==user.id){sendNotif(p2.asTo,"Nuevo comentario en tarea #"+id,txt.slice(0,80),"task");}/* @mention notifications (Feature 7) */const mentionRx=/@([\w\s]+?)(?=\s@|$)/g;let match;while((match=mentionRx.exec(txt))!==null){const mName=match[1].trim();const mUser=users.find((u:any)=>(fn(u)).toLowerCase()===mName.toLowerCase());if(mUser&&mUser.id!==user.id&&mUser.id!==p2?.asTo){sendNotif(mUser.id,"Te mencionaron en tarea #"+id,txt.slice(0,80),"task");}}}catch(e:any){showT("Error al enviar mensaje","err");}}}
         onMonto={async(id:number,m:number)=>{try{sPd(p=>p.map(x=>x.id===id?{...x,monto:m}:x));await supabase.from("tasks").update({amount:m}).eq("id",id);}catch(e:any){showT(e.message||"Error","err");}}}
         onDel={async(id:number)=>{try{sPd(p=>p.filter(x=>x.id!==id));await supabase.from("tasks").delete().eq("id",id);showT("Tarea eliminada");sSl(null);}catch(e:any){showT(e.message||"Error","err");}}}
         onEditSave={async(id:number,d:any)=>{try{const sd={...d,desc:sanitize(d.desc||"")};sPd(p=>p.map(x=>x.id===id?{...x,...sd}:x));await supabase.from("tasks").update({tipo:sd.tipo,description:sd.desc,due_date:sd.fReq,urgency:sd.urg,division:sd.div||"",requires_expense:sd.rG}).eq("id",id);addLog(id,user.id,fn(user),"Editó la tarea","sys");showT("Tarea actualizada");}catch(e:any){showT(e.message||"Error","err");}}}
       />}
+      {/* ── Notification Center Panel ── */}
+      {shNot&&<>
+        <div onClick={()=>sShNot(false)} style={{position:"fixed" as const,inset:0,background:"rgba(0,0,0,.3)",zIndex:200}}/>
+        <div style={{position:"fixed" as const,top:0,right:0,bottom:0,width:mob?"100%":360,background:cardBg,zIndex:201,boxShadow:"-4px 0 24px rgba(0,0,0,.12)",display:"flex",flexDirection:"column" as const,borderLeft:"1px solid "+colors.g2}}>
+          {/* Header */}
+          <div style={{padding:"14px 16px",borderBottom:"1px solid "+colors.g2,display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0}}>
+            <div style={{fontSize:15,fontWeight:800,color:colors.nv}}>Notificaciones</div>
+            <button onClick={()=>sShNot(false)} style={{background:"none",border:"none",fontSize:18,cursor:"pointer",color:colors.g4,padding:4,minWidth:36,minHeight:36,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+          </div>
+          {/* Filters */}
+          <div style={{padding:"8px 16px",borderBottom:"1px solid "+colors.g2,display:"flex",gap:4,flexWrap:"wrap" as const,flexShrink:0}}>
+            {[{k:"all",l:"Todas"},{k:"unread",l:"No leidas"},{k:"task",l:"Tareas"},{k:"budget",l:"Compras"},{k:"deadline",l:"Vencimientos"}].map(f=>
+              <button key={f.k} onClick={()=>{sNotifFilter(f.k);sNotifPage(0);refreshNotifs({filter:f.k,offset:0});}} style={{padding:"5px 10px",borderRadius:6,border:"1px solid "+(notifFilter===f.k?colors.bl:colors.g3),background:notifFilter===f.k?colors.bl+"15":"transparent",color:notifFilter===f.k?colors.bl:colors.g5,fontSize:10,fontWeight:600,cursor:"pointer"}}>{f.l}</button>
+            )}
+          </div>
+          {/* Computed notifications (real-time) */}
+          {computedNts.length>0&&<div style={{padding:"8px 16px",borderBottom:"1px solid "+colors.g2,flexShrink:0}}>
+            <div style={{fontSize:9,fontWeight:700,color:colors.g4,textTransform:"uppercase" as const,letterSpacing:1,marginBottom:4}}>En tiempo real</div>
+            {computedNts.map((n:any,i:number)=><div key={"c"+i} onClick={()=>{sShNot(false);if(n.first)sSl(n.first);else if(n.act){sVw(n.act);sAA(null);sAD(null);}}} style={{padding:"8px 10px",borderRadius:8,background:n.c+"10",marginBottom:3,fontSize:11,color:n.c,fontWeight:600,cursor:"pointer",borderLeft:"3px solid "+n.c}}>{n.t}</div>)}
+          </div>}
+          {/* DB notifications grouped by date */}
+          <div style={{flex:1,overflowY:"auto" as const,padding:"8px 16px"}}>
+            {dbNotifs.length===0&&<div style={{textAlign:"center" as const,padding:24,color:colors.g4,fontSize:11}}>Sin notificaciones{notifFilter!=="all"?" con este filtro":""}</div>}
+            {ntGrouped.map(([dateKey,items])=>(
+              <div key={dateKey} style={{marginBottom:12}}>
+                <div style={{fontSize:9,fontWeight:700,color:colors.g4,textTransform:"uppercase" as const,letterSpacing:1,marginBottom:4,padding:"0 2px"}}>{dateKey}</div>
+                {items.map((n:any)=>{const c=ntColor(n.type);const unread=!n.read;return(
+                  <div key={n.id} onClick={()=>{if(unread){getToken().then(tok=>markRead(tok,[n.id]));sDbNotifs(prev=>prev.map(x=>x.id===n.id?{...x,read:true}:x));}sShNot(false);if(n.link){window.location.hash=n.link;}else{sVw("dash");sAA(null);sAD(null);}}} style={{padding:"8px 10px",borderRadius:8,background:unread?c+"10":"transparent",marginBottom:3,cursor:"pointer",borderLeft:unread?"3px solid "+c:"3px solid transparent",transition:"background .15s"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:6}}>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:11,fontWeight:unread?700:500,color:unread?colors.nv:colors.g5}}>{n.title}</div>
+                        {n.message&&<div style={{fontSize:10,color:colors.g4,marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{n.message}</div>}
+                      </div>
+                      <div style={{display:"flex",alignItems:"center",gap:4,flexShrink:0}}>
+                        {unread&&<span style={{width:6,height:6,borderRadius:3,background:c,flexShrink:0}}/>}
+                        <span style={{fontSize:9,color:colors.g4,whiteSpace:"nowrap" as const}}>{n.created_at?n.created_at.slice(11,16):""}</span>
+                      </div>
+                    </div>
+                  </div>
+                );})}
+              </div>
+            ))}
+            {/* Load more */}
+            {dbNotifs.length<notifTotal&&<div style={{textAlign:"center",padding:"8px 0"}}>
+              <button onClick={()=>{const next=notifPage+1;sNotifPage(next);refreshNotifs({filter:notifFilter,offset:next*NOTIF_LIMIT,append:true});}} style={{padding:"6px 16px",borderRadius:6,border:"1px solid "+colors.g3,background:"transparent",color:colors.bl,fontSize:10,fontWeight:600,cursor:"pointer"}}>Cargar mas ({notifTotal-dbNotifs.length} restantes)</button>
+            </div>}
+          </div>
+          {/* Footer actions */}
+          <div style={{padding:"10px 16px",borderTop:"1px solid "+colors.g2,display:"flex",gap:6,flexShrink:0,flexWrap:"wrap" as const}}>
+            {unreadDb.length>0&&<button onClick={async()=>{const tok=await getToken();await markRead(tok);sDbNotifs(prev=>prev.map((n:any)=>({...n,read:true})));}} style={{flex:1,padding:"8px 0",borderRadius:6,border:"1px solid "+colors.g3,background:"transparent",color:colors.bl,fontSize:10,fontWeight:600,cursor:"pointer"}}>Marcar todas como leidas</button>}
+            {!pushEnabled&&"Notification" in (typeof window!=="undefined"?window:{})&&<button onClick={requestPush} style={{flex:1,padding:"8px 0",borderRadius:6,border:"1px solid "+colors.bl,background:"transparent",color:colors.bl,fontSize:10,fontWeight:600,cursor:"pointer"}}>Activar push</button>}
+          </div>
+        </div>
+      </>}
       <CommandPalette open={cmdOpen} onClose={()=>sCmdOpen(false)} items={cmdItems}/>
       {toast&&<Toast msg={toast.msg} type={toast.type} onDone={()=>sToast(null)}/>}
     </div>
