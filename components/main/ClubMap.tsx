@@ -281,45 +281,50 @@ export function ClubMap({ bookings, date, mob, onSelectFacility, onSelectBooking
             <div style={{
               display: "flex",
               flexDirection: "column" as const,
-              gap: mob ? 2 : 3,
+              gap: mob ? 3 : 4,
               width: "100%",
               height: "100%",
-              overflow: "hidden",
-              justifyContent: "center",
-              padding: mob ? 1 : 2
+              overflow: "auto",
+              justifyContent: zoneBookings.length <= 3 ? "center" : "flex-start",
+              padding: mob ? 3 : 5
             }}>
               {zoneBookings.map((b: any, i: number) => {
                 const div = extractDiv(b.title);
                 const divColor = div ? (DIV_COL[div] || "#9CA3AF") : (BOOK_ST[b.status]?.c || "#9CA3AF");
                 const divLabel = div || b.title?.slice(0, 12) || "";
+                // Calendar-style: white base + color tint
+                const cardBgMap: Record<string,string> = {
+                  "#10B981": "#D1FAE5", // green
+                  "#3B82F6": "#DBEAFE", // blue
+                  "#F59E0B": "#FEF3C7", // amber
+                  "#DC2626": "#FEE2E2", // red
+                };
+                const cardBg = cardBgMap[divColor] || "#F1F5F9";
                 return (
                   <div key={b.id || i} style={{
-                    background: divColor + "20",
-                    border: `1.5px solid ${divColor}40`,
-                    borderRadius: mob ? 4 : 6,
-                    padding: mob ? "2px 4px" : "3px 6px",
+                    background: cardBg,
+                    border: `2px solid ${divColor}50`,
+                    borderRadius: mob ? 6 : 8,
+                    padding: mob ? "4px 6px" : "5px 8px",
                     display: "flex",
                     flexDirection: "column" as const,
                     alignItems: "flex-start",
-                    minHeight: 0
+                    minHeight: 0,
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
                   }}>
                     <span style={{
-                      fontSize: mob ? 8 : 10,
+                      fontSize: mob ? 10 : 13,
                       fontWeight: 800,
                       color: divColor,
-                      lineHeight: 1.2,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap" as const
+                      lineHeight: 1.2
                     }}>
                       {divLabel}
                     </span>
                     <span style={{
-                      fontSize: mob ? 6 : 8,
+                      fontSize: mob ? 8 : 10,
                       color: divColor,
                       fontWeight: 600,
-                      opacity: 0.8,
-                      whiteSpace: "nowrap" as const
+                      opacity: 0.85
                     }}>
                       {b.time_start}
                     </span>
