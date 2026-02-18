@@ -11,7 +11,8 @@ import { uploadFile, getFileIcon, formatFileSize } from "@/lib/storage";
 import { useTheme, darkCSS } from "@/lib/theme";
 import { ThemeCtx, useC } from "@/lib/theme-context";
 import { Toast, useMobile, Btn, Card, Ring, Pager, FileField, Bread, Badge, OfflineIndicator } from "@/components/ui";
-import { profileToUser, taskToDB, presuFromDB, presuToDB, provFromDB } from "@/lib/mappers";
+import { profileToUser, taskFromDB, taskToDB, presuFromDB, presuToDB, provFromDB } from "@/lib/mappers";
+import { useDataStore } from "@/lib/store";
 import { useOfflineData } from "@/lib/use-offline";
 import { clearAll as clearOfflineDB } from "@/lib/offline-store";
 import { Login } from "@/components/main/Login";
@@ -94,13 +95,7 @@ function notifs(user:any,peds:any[]){const n:any[]=[];if(["coordinador","admin",
 /* ── MAIN APP ── */
 export default function App(){
   const [areas]=useState(AREAS);const [deptos]=useState(DEPTOS);
-  const [users,sUs]=useState<any[]>([]);const [om,sOm]=useState<any[]>([]);const [peds,sPd]=useState<any[]>([]);const [hitos,sHi]=useState<any[]>([]);const [agendas,sAgs]=useState<any[]>([]);const [minutas,sMins]=useState<any[]>([]);
-  const [presu,sPr]=useState<any[]>([]);const [provs,sPv]=useState<any[]>([]);const [reminders,sRems]=useState<any[]>([]);
-  const [projects,sProjects]=useState<any[]>([]);const [projTasks,sProjTasks]=useState<any[]>([]);
-  const [taskTemplates,sTaskTemplates]=useState<any[]>([]);
-  const [projBudgets,sProjBudgets]=useState<any[]>([]);
-  const [inventory,sInventory]=useState<any[]>([]);const [bookings,sBookings]=useState<any[]>([]);const [sponsors,sSponsors]=useState<any[]>([]);
-  const [dbNotifs,sDbNotifs]=useState<any[]>([]);
+  const {users,om,peds,hitos,agendas,minutas,presu,provs,reminders,projects,projTasks,taskTemplates,projBudgets,inventory,bookings,sponsors,dbNotifs,setAll,sUs,sOm,sPd,sHi,sAgs,sMins,sPr,sPv,sRems,sProjects,sProjTasks,sTaskTemplates,sProjBudgets,sInventory,sBookings,sSponsors,sDbNotifs,clear:clearStore}=useDataStore();
   const [user,sU]=useState<any>(null);const [authChecked,sAuthChecked]=useState(false);
   const [vw,sVw_]=useState("dash");const [prevVw,sPrevVw]=useState<string|null>(null);
   const sVw=(v:string)=>{sPrevVw(vw);sVw_(v);};const [sel,sSl]=useState<any>(null);const [aA,sAA]=useState<number|null>(null);const [aD,sAD]=useState<number|null>(null);const [sbCol,sSbCol]=useState(false);const [search,sSr]=useState("");const [shNot,sShNot]=useState(false);const [preAT,sPreAT]=useState<any>(null);const [showPw,sShowPw]=useState(false);const [toast,sToast]=useState<{msg:string;type:"ok"|"err"}|null>(null);const [kpiFilt,sKpiFilt]=useState<string|null>(null);
@@ -140,32 +135,34 @@ export default function App(){
     if(omRes.error) errors.push("Organigrama: "+omRes.error.message);
     if(prRes.error) errors.push("Presupuestos: "+prRes.error.message);
     if(errors.length) showT(errors.join("; "),"err");
-    if(pRes.data) sUs(pRes.data.map((p:any)=>profileToUser(p)));
-    if(omRes.data) sOm(omRes.data.map((m:any)=>({id:m.id,t:m.type,cargo:m.cargo,n:m.first_name,a:m.last_name,mail:m.email,tel:m.phone,so:m.sort_order||0})));
-    if(msRes.data) sHi(msRes.data.map((h:any)=>({id:h.id,fase:h.phase,name:h.name,periodo:h.period,pct:h.pct,color:h.color})));
-    if(agRes.data) sAgs(agRes.data.map((a:any)=>({id:a.id,type:a.type,areaName:a.area_name,date:a.date,sections:a.sections,presentes:a.presentes||[],status:a.status,createdAt:a.created_at})));
-    if(miRes.data) sMins(miRes.data.map((m:any)=>({id:m.id,type:m.type,areaName:m.area_name,agendaId:m.agenda_id,date:m.date,horaInicio:m.hora_inicio,horaCierre:m.hora_cierre,lugar:m.lugar,presentes:m.presentes,ausentes:m.ausentes,sections:m.sections,tareas:m.tareas,status:m.status,createdAt:m.created_at})));
-    if(prRes.data) sPr(prRes.data.map(presuFromDB));
-    if(pvRes.data) sPv(pvRes.data.map(provFromDB));
-    if(remRes.data) sRems(remRes.data);
-    if(projRes.data) sProjects(projRes.data);
-    if(ptRes.data) sProjTasks(ptRes.data);
-    if(ttRes.data) sTaskTemplates(ttRes.data);
-    if(invRes.data) sInventory(invRes.data);
-    if(bkRes.data) sBookings(bkRes.data);
-    if(spRes.data) sSponsors(spRes.data);
-    if(pbRes.data) sProjBudgets(pbRes.data);
     // Tasks + messages
     let tmData:any[]=[];
+    let mappedPeds:any[]|undefined;
     if(mRes.data){
       const tmRes=await supabase.from("task_messages").select("*").order("created_at");
       const msgs:any[]=tmRes.data||[];
       tmData=msgs;
-      sPd(mRes.data.map((t:any)=>{
-        const tMsgs=msgs.filter((m:any)=>m.task_id===t.id).map((m:any)=>({dt:m.created_at||"",uid:m.user_id,by:m.user_name,act:m.content,t:m.type}));
-        return{id:t.id,div:t.division,cId:t.creator_id,cN:t.creator_name,dId:t.dept_id,tipo:t.tipo,desc:t.description,fReq:t.due_date,urg:t.urgency,st:t.status,asTo:t.assigned_to,rG:t.requires_expense,eOk:t.expense_ok,resp:t.resolution,cAt:t.created_at,monto:t.amount,log:tMsgs};
-      }));
+      mappedPeds=mRes.data.map((t:any)=>taskFromDB(t,msgs.filter((m:any)=>m.task_id===t.id)));
     }
+    // Batch update: single store write instead of 17 setState calls
+    setAll({
+      ...(pRes.data?{users:pRes.data.map((p:any)=>profileToUser(p))}:{}),
+      ...(omRes.data?{om:omRes.data.map((m:any)=>({id:m.id,t:m.type,cargo:m.cargo,n:m.first_name,a:m.last_name,mail:m.email,tel:m.phone,so:m.sort_order||0}))}:{}),
+      ...(msRes.data?{hitos:msRes.data.map((h:any)=>({id:h.id,fase:h.phase,name:h.name,periodo:h.period,pct:h.pct,color:h.color}))}:{}),
+      ...(agRes.data?{agendas:agRes.data.map((a:any)=>({id:a.id,type:a.type,areaName:a.area_name,date:a.date,sections:a.sections,presentes:a.presentes||[],status:a.status,createdAt:a.created_at}))}:{}),
+      ...(miRes.data?{minutas:miRes.data.map((m:any)=>({id:m.id,type:m.type,areaName:m.area_name,agendaId:m.agenda_id,date:m.date,horaInicio:m.hora_inicio,horaCierre:m.hora_cierre,lugar:m.lugar,presentes:m.presentes,ausentes:m.ausentes,sections:m.sections,tareas:m.tareas,status:m.status,createdAt:m.created_at}))}:{}),
+      ...(prRes.data?{presu:prRes.data.map(presuFromDB)}:{}),
+      ...(pvRes.data?{provs:pvRes.data.map(provFromDB)}:{}),
+      ...(remRes.data?{reminders:remRes.data}:{}),
+      ...(projRes.data?{projects:projRes.data}:{}),
+      ...(ptRes.data?{projTasks:ptRes.data}:{}),
+      ...(ttRes.data?{taskTemplates:ttRes.data}:{}),
+      ...(invRes.data?{inventory:invRes.data}:{}),
+      ...(bkRes.data?{bookings:bkRes.data}:{}),
+      ...(spRes.data?{sponsors:spRes.data}:{}),
+      ...(pbRes.data?{projBudgets:pbRes.data}:{}),
+      ...(mappedPeds?{peds:mappedPeds}:{}),
+    });
     sDataLoading(false);
     // Save raw Supabase data to IndexedDB for offline use
     const anyData=pRes.data||mRes.data||omRes.data;
@@ -199,32 +196,29 @@ export default function App(){
   useEffect(()=>{
     if(!user||cacheLoaded)return;
     loadFromCache({
-      profiles:(d:any[])=>sUs(d.map((p:any)=>profileToUser(p))),
+      profiles:(d:any[])=>sUs(()=>d.map((p:any)=>profileToUser(p))),
       tasks:(d:any[])=>{/* handled with task_messages below */},
-      org_members:(d:any[])=>sOm(d.map((m:any)=>({id:m.id,t:m.type,cargo:m.cargo,n:m.first_name,a:m.last_name,mail:m.email,tel:m.phone,so:m.sort_order||0}))),
-      milestones:(d:any[])=>sHi(d.map((h:any)=>({id:h.id,fase:h.phase,name:h.name,periodo:h.period,pct:h.pct,color:h.color}))),
-      agendas:(d:any[])=>sAgs(d.map((a:any)=>({id:a.id,type:a.type,areaName:a.area_name,date:a.date,sections:a.sections,presentes:a.presentes||[],status:a.status,createdAt:a.created_at}))),
-      minutas:(d:any[])=>sMins(d.map((m:any)=>({id:m.id,type:m.type,areaName:m.area_name,agendaId:m.agenda_id,date:m.date,horaInicio:m.hora_inicio,horaCierre:m.hora_cierre,lugar:m.lugar,presentes:m.presentes,ausentes:m.ausentes,sections:m.sections,tareas:m.tareas,status:m.status,createdAt:m.created_at}))),
-      presupuestos:(d:any[])=>sPr(d.map(presuFromDB)),
-      proveedores:(d:any[])=>sPv(d.map(provFromDB)),
-      reminders:(d:any[])=>sRems(d),
-      projects:(d:any[])=>sProjects(d),
-      project_tasks:(d:any[])=>sProjTasks(d),
-      task_templates:(d:any[])=>sTaskTemplates(d),
-      inventory:(d:any[])=>sInventory(d),
-      bookings:(d:any[])=>sBookings(d),
-      sponsors:(d:any[])=>sSponsors(d),
-      project_budgets:(d:any[])=>sProjBudgets(d),
+      org_members:(d:any[])=>sOm(()=>d.map((m:any)=>({id:m.id,t:m.type,cargo:m.cargo,n:m.first_name,a:m.last_name,mail:m.email,tel:m.phone,so:m.sort_order||0}))),
+      milestones:(d:any[])=>sHi(()=>d.map((h:any)=>({id:h.id,fase:h.phase,name:h.name,periodo:h.period,pct:h.pct,color:h.color}))),
+      agendas:(d:any[])=>sAgs(()=>d.map((a:any)=>({id:a.id,type:a.type,areaName:a.area_name,date:a.date,sections:a.sections,presentes:a.presentes||[],status:a.status,createdAt:a.created_at}))),
+      minutas:(d:any[])=>sMins(()=>d.map((m:any)=>({id:m.id,type:m.type,areaName:m.area_name,agendaId:m.agenda_id,date:m.date,horaInicio:m.hora_inicio,horaCierre:m.hora_cierre,lugar:m.lugar,presentes:m.presentes,ausentes:m.ausentes,sections:m.sections,tareas:m.tareas,status:m.status,createdAt:m.created_at}))),
+      presupuestos:(d:any[])=>sPr(()=>d.map(presuFromDB)),
+      proveedores:(d:any[])=>sPv(()=>d.map(provFromDB)),
+      reminders:(d:any[])=>sRems(()=>d),
+      projects:(d:any[])=>sProjects(()=>d),
+      project_tasks:(d:any[])=>sProjTasks(()=>d),
+      task_templates:(d:any[])=>sTaskTemplates(()=>d),
+      inventory:(d:any[])=>sInventory(()=>d),
+      bookings:(d:any[])=>sBookings(()=>d),
+      sponsors:(d:any[])=>sSponsors(()=>d),
+      project_budgets:(d:any[])=>sProjBudgets(()=>d),
     }).then(async()=>{
       // Load tasks + messages from cache together
       try{
         const{getAll}=await import("@/lib/offline-store");
         const[cachedTasks,cachedMsgs]=await Promise.all([getAll("tasks"),getAll("task_messages")]);
         if(cachedTasks.length){
-          sPd(cachedTasks.map((t:any)=>{
-            const tMsgs=(cachedMsgs||[]).filter((m:any)=>m.task_id===t.id).map((m:any)=>({dt:m.created_at||"",uid:m.user_id,by:m.user_name,act:m.content,t:m.type}));
-            return{id:t.id,div:t.division,cId:t.creator_id,cN:t.creator_name,dId:t.dept_id,tipo:t.tipo,desc:t.description,fReq:t.due_date,urg:t.urgency,st:t.status,asTo:t.assigned_to,rG:t.requires_expense,eOk:t.expense_ok,resp:t.resolution,cAt:t.created_at,monto:t.amount,log:tMsgs};
-          }));
+          sPd(()=>cachedTasks.map((t:any)=>taskFromDB(t,(cachedMsgs||[]).filter((m:any)=>m.task_id===t.id))));
           sDataLoading(false);
         }
       }catch{}
@@ -234,9 +228,13 @@ export default function App(){
   /* ── Fetch data when user logs in ── */
   useEffect(()=>{if(user) fetchAll();},[user,fetchAll]);
 
-  /* ── Realtime: auto-refresh on DB changes (only when online) ── */
+  /* ── Realtime: incremental updates per table (no more fetchAll on every change) ── */
   useRealtime([
-    {table:"tasks",onChange:()=>fetchAll()},
+    {table:"tasks",
+      onInsert:(row:any)=>sPd(p=>[taskFromDB(row,[]),...p]),
+      onUpdate:(row:any)=>sPd(p=>p.map(x=>x.id===row.id?{...x,div:row.division,cId:row.creator_id,cN:row.creator_name,dId:row.dept_id,tipo:row.tipo,desc:row.description,fReq:row.due_date,urg:row.urgency,st:row.status,asTo:row.assigned_to,rG:row.requires_expense,eOk:row.expense_ok,resp:row.resolution,monto:row.amount}:x)),
+      onDelete:(row:any)=>sPd(p=>p.filter(x=>x.id!==row.id)),
+    },
     {table:"task_messages",onInsert:(msg:any)=>{
       sPd(p=>p.map(x=>{
         if(x.id!==msg.task_id) return x;
@@ -244,15 +242,47 @@ export default function App(){
         if(dup) return x;
         return{...x,log:[...(x.log||[]),{dt:msg.created_at||"",uid:msg.user_id,by:msg.user_name,act:msg.content,t:msg.type}]};
       }));
-    },onChange:()=>fetchAll()},
-    {table:"presupuestos",onChange:()=>fetchAll()},
-    {table:"projects",onChange:()=>fetchAll()},
-    {table:"project_tasks",onChange:()=>fetchAll()},
-    {table:"task_templates",onChange:()=>fetchAll()},
-    {table:"inventory",onChange:()=>fetchAll()},
-    {table:"bookings",onChange:()=>fetchAll()},
-    {table:"sponsors",onChange:()=>fetchAll()},
-    {table:"project_budgets",onChange:()=>fetchAll()},
+    }},
+    {table:"presupuestos",
+      onInsert:(row:any)=>sPr(p=>[presuFromDB(row),...p]),
+      onUpdate:(row:any)=>sPr(p=>p.map(x=>x.id===row.id?presuFromDB(row):x)),
+      onDelete:(row:any)=>sPr(p=>p.filter(x=>x.id!==row.id)),
+    },
+    {table:"projects",
+      onInsert:(row:any)=>sProjects(p=>[row,...p]),
+      onUpdate:(row:any)=>sProjects(p=>p.map(x=>x.id===row.id?row:x)),
+      onDelete:(row:any)=>sProjects(p=>p.filter(x=>x.id!==row.id)),
+    },
+    {table:"project_tasks",
+      onInsert:(row:any)=>sProjTasks(p=>[row,...p]),
+      onUpdate:(row:any)=>sProjTasks(p=>p.map(x=>x.id===row.id?row:x)),
+      onDelete:(row:any)=>sProjTasks(p=>p.filter(x=>x.id!==row.id)),
+    },
+    {table:"task_templates",
+      onInsert:(row:any)=>sTaskTemplates(p=>[row,...p]),
+      onUpdate:(row:any)=>sTaskTemplates(p=>p.map(x=>x.id===row.id?row:x)),
+      onDelete:(row:any)=>sTaskTemplates(p=>p.filter(x=>x.id!==row.id)),
+    },
+    {table:"inventory",
+      onInsert:(row:any)=>sInventory(p=>[row,...p]),
+      onUpdate:(row:any)=>sInventory(p=>p.map(x=>x.id===row.id?row:x)),
+      onDelete:(row:any)=>sInventory(p=>p.filter(x=>x.id!==row.id)),
+    },
+    {table:"bookings",
+      onInsert:(row:any)=>sBookings(p=>[row,...p]),
+      onUpdate:(row:any)=>sBookings(p=>p.map(x=>x.id===row.id?row:x)),
+      onDelete:(row:any)=>sBookings(p=>p.filter(x=>x.id!==row.id)),
+    },
+    {table:"sponsors",
+      onInsert:(row:any)=>sSponsors(p=>[row,...p]),
+      onUpdate:(row:any)=>sSponsors(p=>p.map(x=>x.id===row.id?row:x)),
+      onDelete:(row:any)=>sSponsors(p=>p.filter(x=>x.id!==row.id)),
+    },
+    {table:"project_budgets",
+      onInsert:(row:any)=>sProjBudgets(p=>[row,...p]),
+      onUpdate:(row:any)=>sProjBudgets(p=>p.map(x=>x.id===row.id?row:x)),
+      onDelete:(row:any)=>sProjBudgets(p=>p.filter(x=>x.id!==row.id)),
+    },
     {table:"notifications",onChange:()=>refreshNotifs()},
   ],!!user&&offlineState.isOnline);
 
@@ -273,7 +303,7 @@ export default function App(){
     const readParam=f==="unread"?false:null;
     const{notifications:n,total}=await fetchNotifications(tok,{limit:NOTIF_LIMIT,offset,type:typeParam,read:readParam});
     if(opts?.append)sDbNotifs(prev=>[...prev,...n]);
-    else sDbNotifs(n);
+    else sDbNotifs(()=>n);
     sNotifTotal(total);
   },[]);
   useEffect(()=>{if(user){refreshNotifs();const iv=setInterval(()=>refreshNotifs(),60000);return()=>clearInterval(iv);}},[user,refreshNotifs]);
@@ -317,7 +347,7 @@ export default function App(){
     return()=>{clearTimeout(t);clearInterval(iv);};
   },[user,peds]);
 
-  const out=async()=>{await supabase.auth.signOut();try{await clearOfflineDB();}catch{}sU(null);sVw("dash");sSl(null);sAA(null);sAD(null);sSr("");sPd([]);sUs([]);sOm([]);sHi([]);sAgs([]);sMins([]);sPr([]);sPv([]);sRems([]);sDbNotifs([]);sProjects([]);sProjTasks([]);sProjBudgets([]);sTaskTemplates([]);sInventory([]);sBookings([]);sSponsors([]);};
+  const out=async()=>{await supabase.auth.signOut();try{await clearOfflineDB();}catch{}clearStore();sU(null);sVw("dash");sSl(null);sAA(null);sAD(null);sSr("");};
   const isAd=user&&(user.role==="admin"||user.role==="superadmin");
   const isSA=user&&user.role==="superadmin";
   const isPersonal=user&&(user.role==="enlace"||user.role==="manager"||user.role==="usuario");
