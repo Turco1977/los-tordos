@@ -89,15 +89,41 @@ interface RingProps {
   color: string;
   size: number;
   icon?: string;
+  pe?: number;
+  cu?: number;
+  ok?: number;
+  tot?: number;
 }
-export function Ring({ pct, color, size, icon }: RingProps) {
+export function Ring({ pct, color, size, icon, pe, cu, ok, tot }: RingProps) {
   const { colors } = useC();
-  const r = (size / 2) - 6, ci = 2 * Math.PI * r, of2 = ci - (pct / 100) * ci;
+  const cx = size / 2, sw = size * 0.07;
+  if (tot != null && tot > 0) {
+    const rExt = cx - sw / 2 - 1, rMid = rExt - sw - 2, rInt = rMid - sw - 2;
+    const ciExt = 2 * Math.PI * rExt, ciMid = 2 * Math.PI * rMid, ciInt = 2 * Math.PI * rInt;
+    const pePct = (pe ?? 0) / tot, cuPct = (cu ?? 0) / tot, okPct = (ok ?? 0) / tot;
+    return (
+      <div style={{ position: "relative", width: size, height: size }}>
+        <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
+          <circle cx={cx} cy={cx} r={rExt} fill="none" stroke={colors.g2} strokeWidth={sw} />
+          <circle cx={cx} cy={cx} r={rExt} fill="none" stroke={colors.rd} strokeWidth={sw} strokeDasharray={ciExt} strokeDashoffset={ciExt - pePct * ciExt} strokeLinecap="round" />
+          <circle cx={cx} cy={cx} r={rMid} fill="none" stroke={colors.g2} strokeWidth={sw} />
+          <circle cx={cx} cy={cx} r={rMid} fill="none" stroke={colors.yl} strokeWidth={sw} strokeDasharray={ciMid} strokeDashoffset={ciMid - cuPct * ciMid} strokeLinecap="round" />
+          <circle cx={cx} cy={cx} r={rInt} fill="none" stroke={colors.g2} strokeWidth={sw} />
+          <circle cx={cx} cy={cx} r={rInt} fill="none" stroke={colors.gn} strokeWidth={sw} strokeDasharray={ciInt} strokeDashoffset={ciInt - okPct * ciInt} strokeLinecap="round" />
+        </svg>
+        <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+          {icon && <span style={{ fontSize: size / 5 }}>{icon}</span>}
+          <span style={{ fontSize: size / 7, fontWeight: 800, color }}>{pct}%</span>
+        </div>
+      </div>
+    );
+  }
+  const r = cx - 6, ci = 2 * Math.PI * r, of2 = ci - (pct / 100) * ci;
   return (
     <div style={{ position: "relative", width: size, height: size }}>
       <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={colors.g2} strokeWidth="5" />
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth="5" strokeDasharray={ci} strokeDashoffset={of2} strokeLinecap="round" />
+        <circle cx={cx} cy={cx} r={r} fill="none" stroke={colors.g2} strokeWidth="5" />
+        <circle cx={cx} cy={cx} r={r} fill="none" stroke={color} strokeWidth="5" strokeDasharray={ci} strokeDashoffset={of2} strokeLinecap="round" />
       </svg>
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
         {icon && <span style={{ fontSize: size / 4 }}>{icon}</span>}
