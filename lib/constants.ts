@@ -84,7 +84,7 @@ export const DEP_CUERPO_TECNICO:{label:string;icon:string;color:string;members:s
   {label:"Head Coach",icon:"🏉",color:"#C8102E",members:["Nicolás Ranieri"]},
   {label:"Coord. Forwards",icon:"💪",color:"#F97316",members:["Lucas de Rosas","Fernando Halpern","Francisco Puldain"]},
   {label:"Coord. Backs",icon:"⚡",color:"#3B82F6",members:["Patricio Bruno","Fernando Higgs","Martín Isola","Bautista Mora","Bruno Terrera","Ezequiel Viejobueno","Segundo Viejobueno"]},
-  {label:"Preparador Físico",icon:"🏋️",color:"#10B981",members:[]},
+  {label:"Preparador Físico",icon:"🏋️",color:"#10B981",members:["Luis Puebla"]},
 ];
 
 // Tareas Recurrentes constants
