@@ -4,6 +4,7 @@ import { ST, AGT, DIV, fn, isOD, AREAS, DEPTOS } from "@/lib/constants";
 import { fmtD } from "@/lib/mappers";
 import { useC } from "@/lib/theme-context";
 import { Btn, Card } from "@/components/ui";
+import { MentionInput } from "@/components/MentionInput";
 import { createClient } from "@/lib/supabase/client";
 import { useDataStore } from "@/lib/store";
 
@@ -104,7 +105,7 @@ export function CommView({user,mob}:any){
         </div>
       </div>
       {uploading&&<div style={{padding:8,background:"#FEF3C7",borderRadius:8,fontSize:11,color:"#92400E",marginBottom:6}}>⏳ Subiendo archivo...</div>}
-      <textarea value={msg} onChange={e=>sMsg(e.target.value)} rows={10} placeholder="Seleccioná una plantilla o escribí un mensaje libre..." style={{width:"100%",padding:10,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,resize:"vertical" as const,boxSizing:"border-box" as const,fontFamily:"monospace"}}/>
+      <MentionInput users={users} value={msg} onChange={sMsg} rows={10} placeholder="Seleccioná una plantilla o escribí un mensaje libre..." style={{width:"100%",padding:10,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,resize:"vertical" as const,boxSizing:"border-box" as const,fontFamily:"monospace"}}/>
       <div style={{display:"flex",gap:8,marginTop:10,justifyContent:"flex-end"}}>
         <Btn v="g" onClick={copyMsg}>{copied?"✅ Copiado":"📋 Copiar"}</Btn>
         <Btn v="s" onClick={sendWA} disabled={!msg.trim()}>📱 Enviar por WhatsApp</Btn>

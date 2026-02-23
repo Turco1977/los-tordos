@@ -1,17 +1,14 @@
 "use client";
-import { useState, useRef } from "react";
-import { T, ROLES, fn } from "@/lib/constants";
+import { useState } from "react";
+import { T } from "@/lib/constants";
 import { Btn } from "@/components/ui";
+import { MentionInput, renderMentions } from "@/components/MentionInput";
 
 export function Thread({log,userId,onSend,users}:{log:any[];userId:string;onSend:any;users?:any[]}){
   const [msg,sMsg]=useState("");const [showAtt,sShowAtt]=useState(false);const [attType,sAttType]=useState("");const [attVal,sAttVal]=useState("");
-  const [mentionOpen,sMentionOpen]=useState(false);const [mentionQ,sMentionQ]=useState("");const mentionRef=useRef<HTMLInputElement>(null);
   const attTypes=[{k:"link",l:"\u{1F517} Link",ph:"https://..."},{k:"video",l:"\u{1F3AC} Video",ph:"URL del video..."},{k:"foto",l:"\u{1F4F7} Foto",ph:"URL de la imagen..."},{k:"ubi",l:"\u{1F4CD} Ubicaci\u00F3n",ph:"Direcci\u00F3n o link de Maps..."},{k:"doc",l:"\u{1F4C4} Documento",ph:"URL del documento..."}];
   const sendAtt=()=>{if(attVal.trim()){const at=attTypes.find(a=>a.k===attType);onSend((at?at.l+": ":"\u{1F4CE} ")+attVal.trim());sAttVal("");sAttType("");sShowAtt(false);}};
-  const handleMsgChange=(val:string)=>{sMsg(val);const atIdx=val.lastIndexOf("@");if(atIdx>=0&&(atIdx===0||val[atIdx-1]===" ")){const q=val.slice(atIdx+1);if(!q.includes(" ")){sMentionOpen(true);sMentionQ(q.toLowerCase());return;}}sMentionOpen(false);};
-  const insertMention=(u:any)=>{const atIdx=msg.lastIndexOf("@");const before=msg.slice(0,atIdx);sMsg(before+"@"+fn(u)+" ");sMentionOpen(false);mentionRef.current?.focus();};
-  const filtUsers=(users||[]).filter((u:any)=>(fn(u)).toLowerCase().includes(mentionQ)).slice(0,5);
-  const renderMsg=(act:string)=>{const m=act.match(/(https?:\/\/\S+)/);if(m){const parts=act.split(m[1]);return <>{parts[0]}<a href={m[1]} target="_blank" rel="noopener noreferrer" style={{color:T.bl,textDecoration:"underline",wordBreak:"break-all" as const}}>{m[1]}</a>{parts[1]}</>;}/* highlight @mentions */const mentionRx=/@[\w\s]+/g;const parts2=act.split(mentionRx);const mentions=act.match(mentionRx);if(mentions){return <>{parts2.map((pt,i)=><span key={i}>{pt}{mentions[i]?<span style={{color:T.bl,fontWeight:700}}>{mentions[i]}</span>:null}</span>)}</>;}return act;};
+  const renderMsg=(act:string)=>{const m=act.match(/(https?:\/\/\S+)/);if(m){const parts=act.split(m[1]);return <>{parts[0]}<a href={m[1]} target="_blank" rel="noopener noreferrer" style={{color:T.bl,textDecoration:"underline",wordBreak:"break-all" as const}}>{m[1]}</a>{parts[1]}</>;}return renderMentions(act);};
   return(<div style={{display:"flex",flexDirection:"column" as const,height:"100%"}}>
     <div style={{flex:1,overflowY:"auto" as const,padding:"8px 0",display:"flex",flexDirection:"column" as const,gap:6}}>
       {(log||[]).map((l:any,i:number)=>{
@@ -38,15 +35,10 @@ export function Thread({log,userId,onSend,users}:{log:any[];userId:string;onSend
         <Btn v="g" s="s" onClick={()=>{sAttType("");sAttVal("");}}>←</Btn>
       </div>}
     </div>}
-    <div style={{position:"relative" as const}}>
-      {mentionOpen&&filtUsers.length>0&&<div style={{position:"absolute" as const,bottom:"100%",left:40,background:"#fff",border:"1px solid "+T.g3,borderRadius:8,boxShadow:"0 4px 12px rgba(0,0,0,.1)",maxHeight:140,overflowY:"auto" as const,zIndex:10,width:200}}>
-        {filtUsers.map((u:any)=><div key={u.id} onClick={()=>insertMention(u)} style={{padding:"6px 10px",fontSize:11,cursor:"pointer",borderBottom:"1px solid "+T.g1,fontWeight:600,color:T.nv}}>{"\u{1F464}"} {fn(u)} <span style={{color:T.g4,fontWeight:400}}>({ROLES[u.role]?.l||""})</span></div>)}
-      </div>}
-      <div style={{display:"flex",gap:6,paddingTop:8,borderTop:"1px solid "+T.g2}}>
-        <button onClick={()=>{sShowAtt(!showAtt);sAttType("");sAttVal("");}} style={{width:36,height:36,borderRadius:18,background:showAtt?T.bl+"15":"#fff",border:"1px solid "+(showAtt?T.bl:T.g3),cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,color:showAtt?T.bl:T.g4}}>+</button>
-        <input ref={mentionRef} value={msg} onChange={e=>handleMsgChange(e.target.value)} onKeyDown={e=>{if(e.key==="Escape")sMentionOpen(false);if(e.key==="Enter"&&msg.trim()&&!mentionOpen){onSend(msg.trim());sMsg("");}}} placeholder="Escrib\u00ED un mensaje... (@menci\u00F3n)" style={{flex:1,padding:"8px 12px",borderRadius:20,border:"1px solid "+T.g3,fontSize:12,outline:"none"}}/>
-        <button onClick={()=>{if(msg.trim()){onSend(msg.trim());sMsg("");}}} disabled={!msg.trim()} style={{width:36,height:36,borderRadius:18,background:msg.trim()?T.nv:T.g2,color:"#fff",border:"none",cursor:msg.trim()?"pointer":"default",fontSize:14}}>{"\u27A4"}</button>
-      </div>
+    <div style={{display:"flex",gap:6,paddingTop:8,borderTop:"1px solid "+T.g2}}>
+      <button onClick={()=>{sShowAtt(!showAtt);sAttType("");sAttVal("");}} style={{width:36,height:36,borderRadius:18,background:showAtt?T.bl+"15":"#fff",border:"1px solid "+(showAtt?T.bl:T.g3),cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,color:showAtt?T.bl:T.g4}}>+</button>
+      <MentionInput as="input" users={users||[]} value={msg} onChange={sMsg} onKeyDown={e=>{if(e.key==="Enter"&&msg.trim()){onSend(msg.trim());sMsg("");}}} placeholder="Escribi\u00B4 un mensaje... (@menci\u00F3n)" style={{width:"100%",padding:"8px 12px",borderRadius:20,border:"1px solid "+T.g3,fontSize:12,outline:"none"}} containerStyle={{flex:1}}/>
+      <button onClick={()=>{if(msg.trim()){onSend(msg.trim());sMsg("");}}} disabled={!msg.trim()} style={{width:36,height:36,borderRadius:18,background:msg.trim()?T.nv:T.g2,color:"#fff",border:"none",cursor:msg.trim()?"pointer":"default",fontSize:14}}>{"\u27A4"}</button>
     </div>
   </div>);
 }

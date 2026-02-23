@@ -5,6 +5,7 @@ import { rlv } from "@/lib/mappers";
 import { Btn, FileField, Badge, PBadge, UserPicker } from "@/components/ui";
 import { useC } from "@/lib/theme-context";
 import { Thread } from "./Thread";
+import { MentionInput } from "@/components/MentionInput";
 import { useDataStore } from "@/lib/store";
 
 const TODAY = new Date().toISOString().slice(0,10);
@@ -59,7 +60,7 @@ export function Det({p,user,onX,onTk,onAs,onRe,onSE,onEO,onFi,onVa,onMsg,onMonto
           <div style={{padding:10,background:"#FFFBEB",borderRadius:8,border:"1px solid #FDE68A"}}><span style={{fontSize:11,fontWeight:700,color:"#92400E"}}>👑 Edición Administrativa</span></div>
           <div><label style={{fontSize:11,fontWeight:600,color:colors.g5}}>Tipo</label><div style={{display:"flex",flexWrap:"wrap" as const,gap:mob?6:4,marginTop:3}}>{TIPOS.map(t=><button key={t} onClick={()=>sEf(prev=>({...prev,tipo:t}))} style={{padding:mob?"8px 14px":"4px 10px",borderRadius:16,fontSize:mob?12:10,border:ef.tipo===t?"2px solid "+colors.nv:"1px solid "+colors.g3,background:ef.tipo===t?colors.nv:(isDark?"#1E293B":"#fff"),color:ef.tipo===t?"#fff":colors.g5,cursor:"pointer",minHeight:mob?40:undefined}}>{t}</button>)}</div></div>
           <div><label style={{fontSize:11,fontWeight:600,color:colors.g5}}>Título</label><input value={ef.tit} onChange={e=>sEf(prev=>({...prev,tit:e.target.value}))} placeholder="Título corto" style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:3}}/></div>
-          <div><label style={{fontSize:11,fontWeight:600,color:colors.g5}}>Descripción</label><textarea value={ef.desc} onChange={e=>sEf(prev=>({...prev,desc:e.target.value}))} rows={3} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,resize:"vertical" as const,boxSizing:"border-box" as const,marginTop:3}}/></div>
+          <div><label style={{fontSize:11,fontWeight:600,color:colors.g5}}>Descripción</label><MentionInput users={users} value={ef.desc} onChange={(val:string)=>sEf(prev=>({...prev,desc:val}))} rows={3} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,resize:"vertical" as const,boxSizing:"border-box" as const,marginTop:3}}/></div>
           <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8}}>
             <div><label style={{fontSize:11,fontWeight:600,color:colors.g5}}>División</label><input value={ef.div} onChange={e=>sEf(prev=>({...prev,div:e.target.value}))} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:3}}/></div>
             <div><label style={{fontSize:11,fontWeight:600,color:colors.g5}}>Fecha límite</label><input type="date" value={ef.fReq} onChange={e=>sEf(prev=>({...prev,fReq:e.target.value}))} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:3}}/></div>
@@ -82,7 +83,7 @@ export function Det({p,user,onX,onTk,onAs,onRe,onSE,onEO,onFi,onVa,onMsg,onMonto
           {canT&&<Btn v="w" onClick={()=>{onTk(p.id);onX();}}>🙋 Tomar esta tarea</Btn>}
           {isCo&&(p.st===ST.P||p.st===ST.C)&&<div><div style={{fontSize:11,fontWeight:600,color:colors.g5,marginBottom:4}}>Asignar a:</div><div style={{display:"flex",gap:4}}><UserPicker users={stf} value={at} onChange={(id)=>sAt(id)} placeholder="Buscar persona..." labelFn={(u:any)=>fn(u)+" ("+((ROLES[u.role]||{}).l||"")+")"}  style={{flex:1}}/><Btn disabled={!at} onClick={()=>{onAs(p.id,at);onX();}}>Asignar</Btn></div></div>}
           {(isM||isSA)&&p.st===ST.C&&<div style={{display:"flex",flexDirection:"column" as const,gap:6}}>
-            <textarea value={rp} onChange={(e:any)=>sRp(e.target.value)} rows={2} placeholder="Resolución..." style={{padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,resize:"vertical" as const}}/>
+            <MentionInput users={users} value={rp} onChange={sRp} rows={2} placeholder="Resolución..." style={{padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,resize:"vertical" as const}}/>
             {p.rG&&!p.eOk&&<div><label style={{fontSize:11,color:colors.g5}}>Monto ($)</label><input type="number" value={mt} onChange={(e:any)=>sMt(e.target.value)} style={{width:mob?"100%":160,padding:mob?"10px 10px":"6px 8px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:mob?14:12,marginLeft:mob?0:6,marginTop:mob?4:0,boxSizing:"border-box" as const,minHeight:mob?44:undefined}}/></div>}
             <div style={{display:"flex",gap:4,flexWrap:"wrap" as const}}>
               <Btn v="g" s="s" onClick={()=>onRe(p.id,rp)}>💾 Guardar</Btn>
