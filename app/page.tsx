@@ -38,6 +38,7 @@ import { ProyectosView } from "@/components/main/ProyectosView";
 import { KanbanView } from "@/components/main/KanbanView";
 import { ActivityFeed } from "@/components/main/ActivityFeed";
 import { CommView } from "@/components/main/CommView";
+import { CommReq } from "@/components/main/CommReq";
 import { CommandPalette } from "@/components/main/CommandPalette";
 import { RecurrentTasks } from "@/components/main/RecurrentTasks";
 import { InventarioView } from "@/components/main/InventarioView";
@@ -547,7 +548,7 @@ export default function App(){
           {vw==="my"&&isPersonal&&<MyDash user={user} onSel={(p:any)=>sSl(p)} mob={mob} search={search}/>}
           {/* All Tasks View */}
           {vw==="tasks"&&!isPersonal&&(()=>{const tot=peds.length,pe=peds.filter((p:any)=>p.st===ST.P).length,cu=peds.filter((p:any)=>[ST.C,ST.E,ST.V].indexOf(p.st)>=0).length,ok=peds.filter((p:any)=>p.st===ST.OK).length;const pePct=tot?Math.round(pe/tot*100):0,cuPct=tot?Math.round(cu/tot*100):0,okPct=tot?Math.round(ok/tot*100):0;return<div>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}><div><h2 style={{margin:0,fontSize:mob?16:19,color:colors.nv,fontWeight:800}}>📋 Todas las tareas</h2><p style={{margin:0,fontSize:11,color:colors.g4}}>{tot} tareas</p></div><Btn v="p" s="s" onClick={()=>sVw("new")}>+ Nueva</Btn></div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}><div><h2 style={{margin:0,fontSize:mob?16:19,color:colors.nv,fontWeight:800}}>📋 Todas las tareas</h2><p style={{margin:0,fontSize:11,color:colors.g4}}>{tot} tareas</p></div><div style={{display:"flex",gap:6}}><Btn v="p" s="s" onClick={()=>sVw("new")}>+ Nueva</Btn><Btn v="pu" s="s" onClick={()=>sVw("comm-req")}>📣 + Comunicación</Btn></div></div>
             <div style={{display:"flex",justifyContent:"center",gap:mob?24:40,marginBottom:20}}>
               <div style={{textAlign:"center" as const}}><Ring pct={pePct} color={colors.rd} size={mob?70:80}/><div style={{fontSize:11,fontWeight:700,color:colors.rd,marginTop:4}}>Pendientes</div><div style={{fontSize:13,fontWeight:800,color:colors.nv}}>{pe}</div></div>
               <div style={{textAlign:"center" as const}}><Ring pct={cuPct} color={colors.yl} size={mob?70:80}/><div style={{fontSize:11,fontWeight:700,color:colors.yl,marginTop:4}}>En curso</div><div style={{fontSize:13,fontWeight:800,color:colors.nv}}>{cu}</div></div>
@@ -650,6 +651,16 @@ export default function App(){
             if(p._presu&&tid){const prRow=presuToDB({...p._presu,task_id:tid,status:PST.SOL,solicitado_por:fn(user),solicitado_at:TODAY});const{data:prData}=await supabase.from("presupuestos").insert(prRow).select().single();if(prData)sPr(prev=>[presuFromDB(prData),...prev]);}
             sPreAT(null);sVw(isPersonal?"my":"tasks");sAA(null);sAD(null);showT(p._presu?(p._presu.is_canje?"Tarea creada con canje":"Tarea creada con presupuesto"):"Tarea creada");}catch(e:any){showT(e.message||"Error al crear tarea","err");}
           }} onX={()=>{sPreAT(null);sVw(isPersonal?"my":"tasks");}}/>}
+          {vw==="comm-req"&&<CommReq user={user} mob={mob} onSub={async(p:any)=>{
+            try{const row:any=taskToDB(p);
+            const{data,error}=await supabase.from("tasks").insert(row).select().single();
+            if(error)throw new Error(error.message);
+            const tid=data?.id||p.id;
+            const localP={...p,id:tid};
+            sPd(ps=>[localP,...ps]);
+            for(const l of (p.log||[])){await supabase.from("task_messages").insert({task_id:tid,user_id:l.uid,user_name:l.by,content:l.act,type:l.t});}
+            sVw(isPersonal?"my":"tasks");showT("Pedido de comunicación creado");}catch(e:any){showT(e.message||"Error al crear pedido","err");}
+          }} onX={()=>sVw(isPersonal?"my":"tasks")}/>}
           {vw==="proy"&&<Proyecto setHitos={(updater:any)=>{sHi((prev:any)=>{const next=typeof updater==="function"?updater(prev):updater;next.forEach((h:any)=>{supabase.from("milestones").update({pct:h.pct}).eq("id",h.id);});return next;});}} isAd={isAd} mob={mob}/>}
           {vw==="dash"&&!isPersonal&&!aA&&!aD&&!kpiFilt&&<CustomDash user={user} mob={mob} onSel={(p:any)=>sSl(p)} onFilter={(k:string)=>sKpiFilt(k)} onAC={hAC} isSA={isSA} onNav={(view:string,filt?:string)=>{if(view==="filter"&&filt){sKpiFilt(filt);}else{sVw(view);}}}
             onExportWeekly={()=>{const today=new Date();const weekAgo=new Date(today.getTime()-7*86400000);const fmtD2=(d:Date)=>d.toISOString().slice(0,10);const range=fmtD2(weekAgo)+" al "+fmtD2(today);const ok=peds.filter((p:any)=>p.st===ST.OK);const pend=peds.filter((p:any)=>p.st===ST.P);const od=peds.filter((p:any)=>p.st!==ST.OK&&isOD(p.fReq));const approvedPr=presu.filter((pr:any)=>pr.status==="aprobado");const pendPr=presu.filter((pr:any)=>pr.status!=="aprobado"&&pr.status!=="rechazado");const topAreas=areas.map((a:any)=>{const dIds=deptos.filter((d:any)=>d.aId===a.id).map((d:any)=>d.id);const aP=peds.filter((p:any)=>dIds.indexOf(p.dId)>=0);const aOk=aP.filter((p:any)=>p.st===ST.OK).length;return{name:a.name,total:aP.length,completed:aOk,pct:aP.length?Math.round(aOk/aP.length*100):0};}).filter((a:any)=>a.total>0);exportReportPDF({period:"Semanal",dateRange:range,stats:[{label:"Total tareas",value:String(peds.length),color:"#0A1628"},{label:"Completadas",value:String(ok.length),color:"#10B981"},{label:"Pendientes",value:String(pend.length),color:"#DC2626"},{label:"Vencidas",value:String(od.length),color:"#7C3AED"}],tasksByStatus:Object.keys(SC).map(k=>({status:SC[k].l,icon:SC[k].i,count:peds.filter((p:any)=>p.st===k).length,color:SC[k].c})),completedTasks:ok.slice(0,20).map((p:any)=>{const ag=users.find((u:any)=>u.id===p.asTo);return{id:p.id,desc:p.desc,assignee:ag?fn(ag):"–",date:p.fReq};}),pendingTasks:[...od,...pend].slice(0,20).map((p:any)=>{const ag=users.find((u:any)=>u.id===p.asTo);return{id:p.id,desc:p.desc,assignee:ag?fn(ag):"–",date:p.fReq,overdue:p.st!==ST.OK&&isOD(p.fReq)};}),budgetSummary:{total:presu.reduce((s:number,p:any)=>s+Number(p.monto||0),0),approved:approvedPr.reduce((s:number,p:any)=>s+Number(p.monto||0),0),pending:pendPr.reduce((s:number,p:any)=>s+Number(p.monto||0),0),currency:"ARS"},topAreas});}}
