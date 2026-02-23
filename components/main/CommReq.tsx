@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { T, fn, ST } from "@/lib/constants";
-import { Btn, Card } from "@/components/ui";
+import { Btn, Card, FileField } from "@/components/ui";
 import { MentionInput } from "@/components/MentionInput";
 import { useDataStore } from "@/lib/store";
 
@@ -25,11 +25,13 @@ function Chips({label,items,sel,onTog,multi=true,mob}:{label:string;items:string
 
 export function CommReq({user,mob,onSub,onX}:any){
   const users = useDataStore(s => s.users);
-  const [f,sF]=useState({area:"",fechaPub:"",piezas:[] as string[],desc:"",fecha:"",hora:"",lugar:"",responsable:"",costo:"",objetivos:[] as string[],publicos:[] as string[],tono:"",materiales:[] as string[],aprueba:""});
+  const leo=users.find((u:any)=>(u.n+" "+u.a).toLowerCase().includes("leo sturniolo")||(fn(u)).toLowerCase().includes("leo sturniolo"));
+  const [f,sF]=useState({area:"",fechaPub:"",piezas:[] as string[],desc:"",fecha:"",hora:"",lugar:"",responsable:"",costo:"",objetivos:[] as string[],publicos:[] as string[],tono:"",materiales:[] as string[],aprueba:"Leo Sturniolo"});
   const up=(k:string,v:any)=>sF((p:any)=>({...p,[k]:v}));
   const togArr=(k:string,v:string)=>sF((p:any)=>{const arr:string[]=p[k]||[];return{...p,[k]:arr.indexOf(v)>=0?arr.filter((x:string)=>x!==v):[...arr,v]};});
   const togSingle=(k:string,v:string)=>sF((p:any)=>({...p,[k]:p[k]===v?"":v}));
 
+  const [archivos,sArchivos]=useState<string[]>([]);
   const ok=f.area&&f.piezas.length>0&&f.desc.trim()&&f.fechaPub;
 
   const buildDesc=()=>{
@@ -59,6 +61,7 @@ export function CommReq({user,mob,onSub,onX}:any){
     if(f.tono){lines.push("");lines.push("🎨 Tono: "+f.tono);}
     if(f.materiales.length>0){lines.push("");lines.push("📎 Material adjunto: "+f.materiales.join(", "));}
     if(f.aprueba){lines.push("");lines.push("✅ Aprueba: "+f.aprueba);}
+    if(archivos.length>0){lines.push("");lines.push("📁 Archivos adjuntos:");archivos.forEach((url,i)=>lines.push("  • Archivo "+(i+1)+": "+url));}
     return lines.join("\n");
   };
 
@@ -93,7 +96,7 @@ export function CommReq({user,mob,onSub,onX}:any){
         <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Fecha del evento</label><input value={f.fecha} onChange={(e:any)=>up("fecha",e.target.value)} placeholder="ej: Sábado 15/3" style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
         <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Hora</label><input value={f.hora} onChange={(e:any)=>up("hora",e.target.value)} placeholder="ej: 10:00 hs" style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
         <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Lugar</label><input value={f.lugar} onChange={(e:any)=>up("lugar",e.target.value)} placeholder="ej: Cancha principal" style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
-        <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Responsable/Contacto</label><input value={f.responsable} onChange={(e:any)=>up("responsable",e.target.value)} placeholder="Nombre y teléfono" style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+        <div><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Responsable/Contacto</label>{(()=>{const areaUsers=f.area&&f.area!=="Otro"?users.filter((u:any)=>u.div===f.area):[];return areaUsers.length>0?<select value={f.responsable} onChange={(e:any)=>up("responsable",e.target.value)} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,marginTop:2}}><option value="">Seleccionar...</option>{areaUsers.map((u:any)=><option key={u.id} value={fn(u)}>{fn(u)}</option>)}</select>:<input value={f.responsable} onChange={(e:any)=>up("responsable",e.target.value)} placeholder="Nombre y teléfono" style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/>;})()}</div>
       </div>
       <div style={{marginTop:8}}><label style={{fontSize:10,fontWeight:600,color:T.g5}}>Costo (si aplica)</label><input value={f.costo} onChange={(e:any)=>up("costo",e.target.value)} placeholder="ej: $5.000 por persona" style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
     </div>
@@ -110,6 +113,20 @@ export function CommReq({user,mob,onSub,onX}:any){
     {/* Material */}
     <Chips label="Material adjunto (podés elegir varios)" items={MATERIALES} sel={f.materiales} onTog={v=>togArr("materiales",v)} mob={mob}/>
 
+    {/* Archivos de referencia */}
+    <div style={{marginBottom:12}}>
+      <label style={{fontSize:12,fontWeight:600,color:T.g5}}>📁 Archivos de referencia</label>
+      <div style={{marginTop:4}}>
+        <FileField value="" onChange={(url:string)=>{if(url)sArchivos(prev=>[...prev,url]);}} folder="comunicacion"/>
+      </div>
+      {archivos.length>0&&<div style={{display:"flex",flexWrap:"wrap" as const,gap:4,marginTop:6}}>
+        {archivos.map((url,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:4,padding:"4px 10px",background:"#E8F4FD",borderRadius:16,fontSize:10,border:"1px solid #B3D9F2"}}>
+          <span>📎</span><a href={url} target="_blank" rel="noopener noreferrer" style={{color:T.bl,maxWidth:140,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>Archivo {i+1}</a>
+          <button onClick={()=>sArchivos(p=>p.filter((_,j)=>j!==i))} style={{background:"none",border:"none",cursor:"pointer",fontSize:10,color:T.g4,padding:0}} title="Quitar">✕</button>
+        </div>)}
+      </div>}
+    </div>
+
     {/* Quién aprueba */}
     <div style={{marginBottom:12}}>
       <label style={{fontSize:12,fontWeight:600,color:T.g5}}>¿Quién aprueba el contenido final?</label>
@@ -122,6 +139,7 @@ export function CommReq({user,mob,onSub,onX}:any){
       <Btn v="r" disabled={!ok} onClick={()=>{
         const ts=TODAY+" "+new Date().toTimeString().slice(0,5);
         const piezasTit=f.piezas.length<=2?f.piezas.join(", "):f.piezas.slice(0,2).join(", ")+" +"+String(f.piezas.length-2);
+        const asTo=leo?.id||null;
         onSub({
           id:0,
           div:f.area,
@@ -133,14 +151,14 @@ export function CommReq({user,mob,onSub,onX}:any){
           desc:buildDesc(),
           fReq:f.fechaPub,
           urg:"Normal",
-          st:ST.P,
-          asTo:null,
+          st:asTo?ST.C:ST.P,
+          asTo,
           rG:false,
           eOk:null,
           resp:"",
           cAt:TODAY,
           monto:null,
-          log:[{dt:ts,uid:user.id,by:fn(user),act:"Creó pedido de comunicación",t:"sys"}],
+          log:[{dt:ts,uid:user.id,by:fn(user),act:"Creó pedido de comunicación",t:"sys"},...(asTo?[{dt:ts,uid:user.id,by:fn(user),act:"Asignó a "+(leo?fn(leo):"Leo Sturniolo"),t:"sys"}]:[]),...archivos.map((url,i)=>({dt:ts,uid:user.id,by:fn(user),act:"📎 Archivo "+(i+1)+": "+url,t:"msg"}))],
           _presu:null
         });
       }}>📨 Enviar pedido</Btn>
