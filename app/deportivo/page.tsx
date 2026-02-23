@@ -356,21 +356,21 @@ export default function DeportivoApp(){
     try{
       const{error}=await supabase.from("dep_seasons").insert({name:s.name,division:s.division||"M19",start_date:s.start_date,end_date:s.end_date,status:s.status||"planificada",objectives:s.objectives||"",created_by:user.id});
       if(error) throw error;
-      showT("Temporada creada");fetchAll();
+      showT("Entrenamiento creado");fetchAll();
     }catch(e:any){showT(e.message||"Error","err");}
   };
   const onUpdSeason=async(id:number,s:Partial<DepSeason>)=>{
     try{
       const{error}=await supabase.from("dep_seasons").update(s).eq("id",id);
       if(error) throw error;
-      showT("Temporada actualizada");fetchAll();
+      showT("Entrenamiento actualizado");fetchAll();
     }catch(e:any){showT(e.message||"Error","err");}
   };
   const onDelSeason=async(id:number)=>{
     try{
       const{error}=await supabase.from("dep_seasons").delete().eq("id",id);
       if(error) throw error;
-      showT("Temporada eliminada");fetchAll();
+      showT("Entrenamiento eliminado");fetchAll();
     }catch(e:any){showT(e.message||"Error","err");}
   };
 
@@ -1579,7 +1579,7 @@ function PlanificacionTab({seasons,phases,microcycles,onAddSeason,onUpdSeason,on
   if(ph&&selSeason){
     const pt=DEP_PHASE_TYPES[ph.type]||DEP_PHASE_TYPES.pretemporada;
     return <div>
-      <Btn v="g" s="s" onClick={()=>sSelPhase(null)} style={{marginBottom:12}}>← Volver a temporada</Btn>
+      <Btn v="g" s="s" onClick={()=>sSelPhase(null)} style={{marginBottom:12}}>← Volver a entrenamiento</Btn>
       <Card style={{marginBottom:14,borderLeft:"4px solid "+pt.c}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div>
@@ -1658,7 +1658,7 @@ function PlanificacionTab({seasons,phases,microcycles,onAddSeason,onUpdSeason,on
           </div>
           {canEdit&&<div style={{display:"flex",gap:4}}>
             <Btn v="g" s="s" onClick={()=>onUpdSeason(sea.id,{status:sea.status==="planificada"?"activa":sea.status==="activa"?"finalizada":"planificada"})}>{sea.status==="planificada"?"Activar":sea.status==="activa"?"Finalizar":"Reactivar"}</Btn>
-            <Btn v="r" s="s" onClick={()=>{if(confirm("¿Eliminar temporada y todo su contenido?"))onDelSeason(sea.id);}}>Eliminar</Btn>
+            <Btn v="r" s="s" onClick={()=>{if(confirm("¿Eliminar entrenamiento y todo su contenido?"))onDelSeason(sea.id);}}>Eliminar</Btn>
           </div>}
         </div>
       </Card>
@@ -1727,49 +1727,80 @@ function PlanificacionTab({seasons,phases,microcycles,onAddSeason,onUpdSeason,on
   return <div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
       <h2 style={{margin:0,fontSize:18,color:colors.nv}}>📅 Planificación</h2>
-      {canEdit&&<Btn v="p" s="s" onClick={()=>sShowAddSeason(!showAddSeason)}>+ Temporada</Btn>}
+      {canEdit&&<Btn v="p" s="s" onClick={()=>sShowAddSeason(!showAddSeason)}>+ Entrenamiento</Btn>}
     </div>
 
     {showAddSeason&&canEdit&&<Card style={{marginBottom:14,background:cardBg,border:"1px solid "+colors.g3}}>
-      <h3 style={{margin:"0 0 10px",fontSize:13,color:colors.nv}}>Nueva temporada</h3>
+      <h3 style={{margin:"0 0 10px",fontSize:13,color:colors.nv}}>Nuevo entrenamiento</h3>
       <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:10}}>
-        <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Nombre</label><input value={sf.name} onChange={e=>sSf(p=>({...p,name:e.target.value}))} placeholder="Ej: Temporada 2025" style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
-        <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Estado</label><select value={sf.status} onChange={e=>sSf(p=>({...p,status:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,marginTop:2}}><option value="planificada">Planificada</option><option value="activa">Activa</option></select></div>
-        <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Inicio</label><input type="date" value={sf.start_date} onChange={e=>sSf(p=>({...p,start_date:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
-        <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Fin</label><input type="date" value={sf.end_date} onChange={e=>sSf(p=>({...p,end_date:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
-        <div style={{gridColumn:mob?"1":"1 / -1"}}><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Objetivos</label><textarea value={sf.objectives} onChange={e=>sSf(p=>({...p,objectives:e.target.value}))} rows={2} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,resize:"vertical" as const,boxSizing:"border-box" as const,marginTop:2}}/></div>
+        <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Nombre</label><input value={sf.name} onChange={e=>sSf(p=>({...p,name:e.target.value}))} placeholder="Ej: Martes Forwards" style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+        <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Fecha</label><input type="date" value={sf.start_date} onChange={e=>sSf(p=>({...p,start_date:e.target.value,end_date:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
       </div>
-      <div style={{display:"flex",gap:8,marginTop:10}}><Btn v="p" onClick={()=>{onAddSeason(sf);sShowAddSeason(false);sSf({name:"",start_date:"",end_date:"",objectives:"",status:"planificada"});}} disabled={!sf.name||!sf.start_date||!sf.end_date}>Crear</Btn><Btn v="g" onClick={()=>sShowAddSeason(false)}>Cancelar</Btn></div>
+
+      {/* Bloques de actividades */}
+      <div style={{marginTop:14}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+          <label style={{fontSize:11,fontWeight:700,color:colors.nv}}>Actividades</label>
+          <button onClick={()=>sSf(p=>({...p,objectives:JSON.stringify([...(JSON.parse(p.objectives||"[]")),{actividad:"",responsable:"",tiempo:""}])}))} style={{background:colors.nv+"10",border:"1px solid "+colors.nv+"30",borderRadius:6,padding:"3px 10px",fontSize:10,fontWeight:600,color:colors.nv,cursor:"pointer"}}>+ Bloque</button>
+        </div>
+        {(()=>{let blocks:{actividad:string;responsable:string;tiempo:string}[]=[];try{blocks=JSON.parse(sf.objectives||"[]");}catch{blocks=[];}if(!Array.isArray(blocks))blocks=[];
+        return blocks.length===0?<div style={{fontSize:11,color:colors.g4,padding:"8px 0"}}>Sin actividades aún. Agregá un bloque.</div>
+        :<div style={{display:"flex",flexDirection:"column" as const,gap:6}}>
+          {/* Header */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 60px 24px",gap:6,padding:"0 2px"}}>
+            <span style={{fontSize:9,fontWeight:700,color:colors.g4,textTransform:"uppercase" as const}}>Actividad</span>
+            <span style={{fontSize:9,fontWeight:700,color:colors.g4,textTransform:"uppercase" as const}}>Responsable</span>
+            <span style={{fontSize:9,fontWeight:700,color:colors.g4,textTransform:"uppercase" as const}}>Tiempo</span>
+            <span></span>
+          </div>
+          {blocks.map((b,i)=><div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr 60px 24px",gap:6,alignItems:"center"}}>
+            <input value={b.actividad} placeholder="Ej: Activación" onChange={e=>{const nb=[...blocks];nb[i]={...nb[i],actividad:e.target.value};sSf(p=>({...p,objectives:JSON.stringify(nb)}));}} style={{padding:6,borderRadius:6,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const}}/>
+            <input value={b.responsable} placeholder="Ej: Nico" onChange={e=>{const nb=[...blocks];nb[i]={...nb[i],responsable:e.target.value};sSf(p=>({...p,objectives:JSON.stringify(nb)}));}} style={{padding:6,borderRadius:6,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const}}/>
+            <input value={b.tiempo} placeholder="5'" onChange={e=>{const nb=[...blocks];nb[i]={...nb[i],tiempo:e.target.value};sSf(p=>({...p,objectives:JSON.stringify(nb)}));}} style={{padding:6,borderRadius:6,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,textAlign:"center" as const}}/>
+            <button onClick={()=>{const nb=blocks.filter((_,j)=>j!==i);sSf(p=>({...p,objectives:JSON.stringify(nb)}));}} style={{background:"none",border:"none",color:T.rd,cursor:"pointer",fontSize:14,padding:0}}>×</button>
+          </div>)}
+          <div style={{fontSize:10,color:colors.g5,textAlign:"right" as const,marginTop:2}}>Total: {blocks.reduce((s,b)=>{const n=parseInt(b.tiempo)||0;return s+n;},0)} min</div>
+        </div>;})()}
+      </div>
+
+      <div style={{display:"flex",gap:8,marginTop:12}}><Btn v="p" onClick={()=>{onAddSeason(sf);sShowAddSeason(false);sSf({name:"",start_date:"",end_date:"",objectives:"",status:"planificada"});}} disabled={!sf.name||!sf.start_date}>Crear</Btn><Btn v="g" onClick={()=>sShowAddSeason(false)}>Cancelar</Btn></div>
     </Card>}
 
     {activeSea.length>0&&<div style={{marginBottom:14}}>
-      <h3 style={{fontSize:13,color:colors.nv,margin:"0 0 8px"}}>Temporada activa</h3>
+      <h3 style={{fontSize:13,color:colors.nv,margin:"0 0 8px"}}>Entrenamientos activos</h3>
       {activeSea.map((s:any)=>{
-        const sPhases=phases.filter((p:any)=>p.season_id===s.id);
+        let blocks:{actividad:string;responsable:string;tiempo:string}[]=[];try{blocks=JSON.parse(s.objectives||"[]");}catch{blocks=[];}if(!Array.isArray(blocks))blocks=[];
         return <Card key={s.id} onClick={()=>sSelSeason(s.id)} style={{cursor:"pointer",borderLeft:"4px solid "+T.gn}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <div>
+            <div style={{flex:1}}>
               <div style={{fontSize:15,fontWeight:700,color:colors.nv}}>{s.name}</div>
-              <div style={{fontSize:11,color:colors.g5}}>{fmtD(s.start_date)} → {fmtD(s.end_date)} · {sPhases.length} fases</div>
-              {s.objectives&&<div style={{fontSize:11,color:colors.g4,marginTop:2}}>{s.objectives.slice(0,100)}</div>}
+              <div style={{fontSize:11,color:colors.g5}}>{fmtD(s.start_date)}</div>
             </div>
             <span style={{background:"#D1FAE5",color:T.gn,padding:"4px 12px",borderRadius:12,fontSize:11,fontWeight:700}}>Activa</span>
           </div>
+          {blocks.length>0&&<div style={{marginTop:8,borderTop:"1px solid "+colors.g2,paddingTop:8}}>
+            {blocks.map((b,i)=><div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr 50px",gap:6,fontSize:12,padding:"3px 0",borderBottom:i<blocks.length-1?"1px solid "+colors.g1:"none"}}>
+              <span style={{fontWeight:600,color:colors.nv}}>{b.actividad}</span>
+              <span style={{color:colors.g5}}>{b.responsable}</span>
+              <span style={{color:colors.g4,textAlign:"right" as const,fontWeight:600}}>{b.tiempo}</span>
+            </div>)}
+            <div style={{fontSize:10,color:colors.g5,textAlign:"right" as const,marginTop:4,fontWeight:700}}>Total: {blocks.reduce((s,b)=>{const n=parseInt(b.tiempo)||0;return s+n;},0)} min</div>
+          </div>}
         </Card>;
       })}
     </div>}
 
     {otherSea.length>0&&<div>
-      <h3 style={{fontSize:13,color:colors.g5,margin:"0 0 8px"}}>Otras temporadas</h3>
+      <h3 style={{fontSize:13,color:colors.g5,margin:"0 0 8px"}}>Otros entrenamientos</h3>
       <div style={{display:"flex",flexDirection:"column" as const,gap:8}}>
         {otherSea.map((s:any)=>{
-          const sPhases=phases.filter((p:any)=>p.season_id===s.id);
+          let blocks:{actividad:string;responsable:string;tiempo:string}[]=[];try{blocks=JSON.parse(s.objectives||"[]");}catch{blocks=[];}if(!Array.isArray(blocks))blocks=[];
           const stCol=s.status==="finalizada"?T.g4:T.bl;
           return <Card key={s.id} onClick={()=>sSelSeason(s.id)} style={{cursor:"pointer"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <div>
                 <div style={{fontSize:14,fontWeight:700,color:colors.nv}}>{s.name}</div>
-                <div style={{fontSize:11,color:colors.g5}}>{fmtD(s.start_date)} → {fmtD(s.end_date)} · {sPhases.length} fases</div>
+                <div style={{fontSize:11,color:colors.g5}}>{fmtD(s.start_date)} · {blocks.length} actividades</div>
               </div>
               <span style={{color:stCol,fontSize:11,fontWeight:700}}>{s.status}</span>
             </div>
