@@ -1,8 +1,8 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { T, TD, DEP_ROLES, DEP_POSITIONS, DEP_INJ_TYPES, DEP_INJ_ZONES, DEP_INJ_SEV, DEP_WK, DEP_SEM, DEP_DIV, fn } from "@/lib/constants";
-import type { DepStaff, DepAthlete, DepInjury, DepCheckin } from "@/lib/supabase/types";
+import { T, TD, DEP_ROLES, DEP_POSITIONS, DEP_INJ_TYPES, DEP_INJ_ZONES, DEP_INJ_SEV, DEP_WK, DEP_SEM, DEP_DIV, DEP_PHASE_TYPES, DEP_LINEUP_POS, DEP_TEST_CATS, DEP_CUERPO_TECNICO, fn } from "@/lib/constants";
+import type { DepStaff, DepAthlete, DepInjury, DepCheckin, DepSeason, DepPhase, DepMicrocycle, DepTestType, DepTest, DepLineup } from "@/lib/supabase/types";
 import { exportCSV, exportPDF } from "@/lib/export";
 import { useRealtime } from "@/lib/realtime";
 import { useTheme, darkCSS } from "@/lib/theme";
@@ -83,9 +83,17 @@ export default function DeportivoApp(){
   const [injuries,sInjuries]=useState<DepInjury[]>([]);
   const [checkins,sCheckins]=useState<DepCheckin[]>([]);
   const [staffList,sStaffList]=useState<DepStaff[]>([]);
+  const [seasons,sSeasons]=useState<DepSeason[]>([]);
+  const [phases,sPhases]=useState<DepPhase[]>([]);
+  const [microcycles,sMicrocycles]=useState<DepMicrocycle[]>([]);
+  const [testTypes,sTestTypes]=useState<DepTestType[]>([]);
+  const [tests,sTests]=useState<DepTest[]>([]);
+  const [lineups,sLineups]=useState<DepLineup[]>([]);
 
   // UI
   const [tab,sTab]=useState("dash");
+  const [sbOpen,sSbOpen]=useState(false);
+  const [sbCol,sSbCol]=useState(false);
   const [toast,sToast]=useState<{msg:string;type:"ok"|"err"}|null>(null);
   const showT=(msg:string,type:"ok"|"err"="ok")=>sToast({msg,type});
 
@@ -115,11 +123,17 @@ export default function DeportivoApp(){
   const fetchAll=useCallback(async()=>{
     if(!user) return;
     sLoading(true);
-    const [stRes,athRes,injRes,ckRes]=await Promise.all([
+    const [stRes,athRes,injRes,ckRes,seaRes,phRes,mcRes,ttRes,tsRes,luRes]=await Promise.all([
       supabase.from("dep_staff").select("*"),
       supabase.from("dep_athletes").select("*").order("last_name"),
       supabase.from("dep_injuries").select("*").order("id",{ascending:false}),
       supabase.from("dep_checkins").select("*").order("date",{ascending:false}),
+      supabase.from("dep_seasons").select("*").order("start_date",{ascending:false}),
+      supabase.from("dep_phases").select("*").order("sort_order"),
+      supabase.from("dep_microcycles").select("*").order("week_number"),
+      supabase.from("dep_test_types").select("*").order("name"),
+      supabase.from("dep_tests").select("*").order("date",{ascending:false}),
+      supabase.from("dep_lineups").select("*").order("date",{ascending:false}),
     ]);
     console.log("[dep] dep_staff query:",stRes.data?.length,"rows, error:",stRes.error?.message||"none");
     if(stRes.data){
@@ -155,6 +169,19 @@ export default function DeportivoApp(){
         return{...c,athlete_name:a?a.first_name+" "+a.last_name:"?"};
       }));
     }
+    if(seaRes.data) sSeasons(seaRes.data);
+    if(phRes.data) sPhases(phRes.data);
+    if(mcRes.data) sMicrocycles(mcRes.data);
+    if(ttRes.data) sTestTypes(ttRes.data);
+    if(tsRes.data){
+      const aths=athRes.data||[];const tts=ttRes.data||[];
+      sTests(tsRes.data.map((t:any)=>{
+        const a=aths.find((at:any)=>at.id===t.athlete_id);
+        const tt=tts.find((tp:any)=>tp.id===t.test_type_id);
+        return{...t,athlete_name:a?a.first_name+" "+a.last_name:"?",test_name:tt?.name||"?",test_unit:tt?.unit||""};
+      }));
+    }
+    if(luRes.data) sLineups(luRes.data);
     sLoading(false);
   },[user]);
 
@@ -166,6 +193,11 @@ export default function DeportivoApp(){
     {table:"dep_injuries",onChange:()=>fetchAll()},
     {table:"dep_checkins",onChange:()=>fetchAll()},
     {table:"dep_staff",onChange:()=>fetchAll()},
+    {table:"dep_seasons",onChange:()=>fetchAll()},
+    {table:"dep_phases",onChange:()=>fetchAll()},
+    {table:"dep_microcycles",onChange:()=>fetchAll()},
+    {table:"dep_tests",onChange:()=>fetchAll()},
+    {table:"dep_lineups",onChange:()=>fetchAll()},
   ],!!user);
 
   const out=async()=>{await supabase.auth.signOut();sUser(null);sProfile(null);sMyStaff(null);};
@@ -214,9 +246,13 @@ export default function DeportivoApp(){
   const tabs=[
     {k:"dash",l:"📊",f:"Dashboard"},
     {k:"plantel",l:"👥",f:"Plantel"},
+    {k:"planif",l:"📅",f:"Planificación"},
+    {k:"pretemp",l:"🏋️‍♂️",f:"Pretemporada"},
+    {k:"equipo",l:"🏉",f:"Equipo"},
     {k:"injuries",l:"🩹",f:"Lesiones"},
     {k:"wellness",l:"💚",f:"Wellness"},
     {k:"training",l:"🏋️",f:"Entrenamientos"},
+    {k:"comm",l:"📱",f:"WhatsApp"},
     ...(canManageStaff?[{k:"perfiles",l:"👤",f:"Perfiles"}]:[]),
   ];
 
@@ -228,6 +264,9 @@ export default function DeportivoApp(){
       const{error}=await supabase.from("dep_athletes").insert({
         first_name:a.first_name,last_name:a.last_name,division:a.division,position:a.position||"",
         birth_date:a.birth_date||null,dni:a.dni||"",phone:a.phone||"",email:a.email||"",
+        sexo:a.sexo||"",categoria:a.categoria||"",obra_social:a.obra_social||"",
+        peso:a.peso||null,estatura:a.estatura||null,celular:a.celular||"",
+        tel_emergencia:a.tel_emergencia||"",ult_fichaje:a.ult_fichaje||null,
         emergency_contact:a.emergency_contact||{},medical_info:a.medical_info||{},
         season:new Date().getFullYear().toString(),active:true,
       });
@@ -242,6 +281,9 @@ export default function DeportivoApp(){
       const{error}=await supabase.from("dep_athletes").update({
         first_name:a.first_name,last_name:a.last_name,division:a.division,position:a.position,
         birth_date:a.birth_date||null,dni:a.dni,phone:a.phone,email:a.email,
+        sexo:a.sexo,categoria:a.categoria,obra_social:a.obra_social,
+        peso:a.peso,estatura:a.estatura,celular:a.celular,
+        tel_emergencia:a.tel_emergencia,ult_fichaje:a.ult_fichaje||null,
         emergency_contact:a.emergency_contact,medical_info:a.medical_info,
       }).eq("id",id);
       if(error) throw error;
@@ -308,42 +350,221 @@ export default function DeportivoApp(){
     }catch(e:any){showT(e.message||"Error","err");}
   };
 
+  /* ── Season CRUD ── */
+  const onAddSeason=async(s:Partial<DepSeason>)=>{
+    try{
+      const{error}=await supabase.from("dep_seasons").insert({name:s.name,division:s.division||"M19",start_date:s.start_date,end_date:s.end_date,status:s.status||"planificada",objectives:s.objectives||"",created_by:user.id});
+      if(error) throw error;
+      showT("Temporada creada");fetchAll();
+    }catch(e:any){showT(e.message||"Error","err");}
+  };
+  const onUpdSeason=async(id:number,s:Partial<DepSeason>)=>{
+    try{
+      const{error}=await supabase.from("dep_seasons").update(s).eq("id",id);
+      if(error) throw error;
+      showT("Temporada actualizada");fetchAll();
+    }catch(e:any){showT(e.message||"Error","err");}
+  };
+  const onDelSeason=async(id:number)=>{
+    try{
+      const{error}=await supabase.from("dep_seasons").delete().eq("id",id);
+      if(error) throw error;
+      showT("Temporada eliminada");fetchAll();
+    }catch(e:any){showT(e.message||"Error","err");}
+  };
+
+  /* ── Phase CRUD ── */
+  const onAddPhase=async(p:Partial<DepPhase>)=>{
+    try{
+      const{error}=await supabase.from("dep_phases").insert({season_id:p.season_id,name:p.name,type:p.type||"pretemporada",start_date:p.start_date,end_date:p.end_date,objectives:p.objectives||"",color:p.color||"#3B82F6",sort_order:p.sort_order||0});
+      if(error) throw error;
+      showT("Fase creada");fetchAll();
+    }catch(e:any){showT(e.message||"Error","err");}
+  };
+  const onUpdPhase=async(id:number,p:Partial<DepPhase>)=>{
+    try{
+      const{error}=await supabase.from("dep_phases").update(p).eq("id",id);
+      if(error) throw error;
+      showT("Fase actualizada");fetchAll();
+    }catch(e:any){showT(e.message||"Error","err");}
+  };
+  const onDelPhase=async(id:number)=>{
+    try{
+      const{error}=await supabase.from("dep_phases").delete().eq("id",id);
+      if(error) throw error;
+      showT("Fase eliminada");fetchAll();
+    }catch(e:any){showT(e.message||"Error","err");}
+  };
+
+  /* ── Microcycle CRUD ── */
+  const onAddMicro=async(m:Partial<DepMicrocycle>)=>{
+    try{
+      const{error}=await supabase.from("dep_microcycles").insert({phase_id:m.phase_id,week_number:m.week_number,week_start:m.week_start,focus:m.focus||"",intensity:m.intensity||5,notes:m.notes||""});
+      if(error) throw error;
+      showT("Microciclo creado");fetchAll();
+    }catch(e:any){showT(e.message||"Error","err");}
+  };
+  const onUpdMicro=async(id:number,m:Partial<DepMicrocycle>)=>{
+    try{
+      const{error}=await supabase.from("dep_microcycles").update(m).eq("id",id);
+      if(error) throw error;
+      showT("Microciclo actualizado");fetchAll();
+    }catch(e:any){showT(e.message||"Error","err");}
+  };
+  const onDelMicro=async(id:number)=>{
+    try{
+      const{error}=await supabase.from("dep_microcycles").delete().eq("id",id);
+      if(error) throw error;
+      showT("Microciclo eliminado");fetchAll();
+    }catch(e:any){showT(e.message||"Error","err");}
+  };
+
+  /* ── Test CRUD ── */
+  const onAddTest=async(t:Partial<DepTest>)=>{
+    try{
+      const{error}=await supabase.from("dep_tests").insert({athlete_id:t.athlete_id,test_type_id:t.test_type_id,date:t.date||TODAY,value:t.value,notes:t.notes||"",recorded_by:user.id});
+      if(error) throw error;
+      showT("Test registrado");fetchAll();
+    }catch(e:any){showT(e.message||"Error","err");}
+  };
+  const onAddTestBatch=async(rows:{athlete_id:number;test_type_id:number;date:string;value:number}[])=>{
+    try{
+      const payload=rows.map(r=>({...r,notes:"",recorded_by:user.id}));
+      const{error}=await supabase.from("dep_tests").insert(payload);
+      if(error) throw error;
+      showT(rows.length+" test"+(rows.length>1?"s":"")+" registrado"+(rows.length>1?"s":""));fetchAll();
+    }catch(e:any){showT(e.message||"Error","err");}
+  };
+  const onDelTest=async(id:number)=>{
+    try{
+      const{error}=await supabase.from("dep_tests").delete().eq("id",id);
+      if(error) throw error;
+      showT("Test eliminado");fetchAll();
+    }catch(e:any){showT(e.message||"Error","err");}
+  };
+
+  /* ── Lineup CRUD ── */
+  const onAddLineup=async(l:Partial<DepLineup>)=>{
+    try{
+      const{error}=await supabase.from("dep_lineups").insert({date:l.date,match_name:l.match_name||"",division:l.division||"M19",formation:l.formation||{titulares:{},suplentes:[]},notes:l.notes||"",created_by:user.id});
+      if(error) throw error;
+      showT("Formación guardada");fetchAll();
+    }catch(e:any){showT(e.message||"Error","err");}
+  };
+  const onUpdLineup=async(id:number,l:Partial<DepLineup>)=>{
+    try{
+      const{error}=await supabase.from("dep_lineups").update(l).eq("id",id);
+      if(error) throw error;
+      showT("Formación actualizada");fetchAll();
+    }catch(e:any){showT(e.message||"Error","err");}
+  };
+  const onDelLineup=async(id:number)=>{
+    try{
+      const{error}=await supabase.from("dep_lineups").delete().eq("id",id);
+      if(error) throw error;
+      showT("Formación eliminada");fetchAll();
+    }catch(e:any){showT(e.message||"Error","err");}
+  };
+
   /* ══════════════════════════ RENDER ══════════════════════════ */
+
+  /* ── Cuerpo técnico from constants ── */
+
+  const navTo=(k:string)=>{sTab(k);sShowForm(null);sSelAth(null);sSelInj(null);if(mob)sSbOpen(false);};
+  const sbBg=isDark?"#1E293B":T.nv;
+
+  const sbContent=(<div style={{flex:1,overflowY:"auto" as const,padding:"8px 6px"}}>
+    {/* Cuerpo Técnico */}
+    <div style={{marginBottom:10}}>
+      <div style={{fontSize:9,fontWeight:700,color:colors.g4,textTransform:"uppercase" as const,marginBottom:6,padding:"0 6px",letterSpacing:1}}>Cuerpo Técnico</div>
+      {DEP_CUERPO_TECNICO.map(sec=><div key={sec.label} style={{marginBottom:4,padding:"4px 6px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
+          <span style={{fontSize:11}}>{sec.icon}</span>
+          <span style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,.6)"}}>{sec.label}</span>
+        </div>
+        {sec.members.length===0&&<div style={{fontSize:9,color:"rgba(255,255,255,.25)",marginLeft:18}}>– vacante –</div>}
+        {sec.members.map((name,i)=><div key={i} style={{marginLeft:18,fontSize:10,color:"rgba(255,255,255,.75)",padding:"1px 0",display:"flex",alignItems:"center",gap:4}}>
+          <span style={{width:5,height:5,borderRadius:3,background:sec.color,display:"inline-block",flexShrink:0}}/>
+          {name}
+        </div>)}
+      </div>)}
+    </div>
+
+    <div style={{height:1,background:"rgba(255,255,255,.08)",margin:"8px 6px"}}/>
+
+    {/* Módulos (navigation) */}
+    <div style={{marginBottom:10}}>
+      <div style={{fontSize:9,fontWeight:700,color:colors.g4,textTransform:"uppercase" as const,marginBottom:4,padding:"0 6px",letterSpacing:1}}>Módulos</div>
+      {tabs.map(t=><div key={t.k} onClick={()=>navTo(t.k)} style={{display:"flex",alignItems:"center",gap:8,padding:mob?"10px 10px":"7px 8px",borderRadius:7,cursor:"pointer",background:tab===t.k?"rgba(255,255,255,.1)":"transparent",fontSize:mob?13:11,fontWeight:tab===t.k?700:500,color:tab===t.k?"#fff":"rgba(255,255,255,.55)",marginBottom:1,minHeight:mob?44:undefined}}>
+        <span style={{fontSize:mob?15:13}}>{t.l}</span>{t.f}
+      </div>)}
+    </div>
+
+    <div style={{height:1,background:"rgba(255,255,255,.08)",margin:"8px 6px"}}/>
+
+    {/* Plantel stats */}
+    <div style={{padding:"4px 6px"}}>
+      <div style={{fontSize:9,fontWeight:700,color:colors.g4,textTransform:"uppercase" as const,marginBottom:4,letterSpacing:1}}>Plantel M19</div>
+      <div style={{display:"flex",justifyContent:"space-between",fontSize:10,padding:"1px 0"}}><span style={{color:"rgba(255,255,255,.45)"}}>👥 Jugadores</span><span style={{fontWeight:700,color:"rgba(255,255,255,.8)"}}>{athletes.filter(a=>a.active).length}</span></div>
+      <div style={{display:"flex",justifyContent:"space-between",fontSize:10,padding:"1px 0"}}><span style={{color:"rgba(255,255,255,.45)"}}>🩹 Lesionados</span><span style={{fontWeight:700,color:T.rd}}>{injuries.filter(i=>i.status!=="alta").length}</span></div>
+      <div style={{display:"flex",justifyContent:"space-between",fontSize:10,padding:"1px 0"}}><span style={{color:"rgba(255,255,255,.45)"}}>🏉 Formaciones</span><span style={{fontWeight:700,color:"rgba(255,255,255,.8)"}}>{lineups.length}</span></div>
+    </div>
+  </div>);
 
   return(<ThemeCtx.Provider value={{colors,isDark,cardBg}}>
     <style dangerouslySetInnerHTML={{__html:darkCSS}}/>
-    <div style={{minHeight:"100vh",background:colors.g1,color:colors.nv}}>
-    {/* Header */}
-    <div style={{background:isDark?colors.g2:T.nv,padding:mob?"10px 12px":"12px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky" as const,top:0,zIndex:100}}>
-      <div style={{display:"flex",alignItems:"center",gap:mob?8:12}}>
-        <img src="/logo.jpg" alt="Los Tordos" style={{width:mob?32:40,height:mob?32:40,borderRadius:8,objectFit:"contain"}}/>
-        <div>
-          <div style={{color:isDark?colors.nv:"#fff",fontSize:mob?14:18,fontWeight:800}}>Deportivo</div>
-          <div style={{color:isDark?"rgba(148,163,184,.7)":"rgba(255,255,255,.5)",fontSize:10}}>{myStaff?DEP_ROLES[depRole]?.l:"Admin"} · {profile?.first_name} {profile?.last_name}</div>
+    <div style={{minHeight:"100vh",background:colors.g1,color:colors.nv,display:"flex"}}>
+
+    {/* ── SIDEBAR (desktop) ── */}
+    {!mob&&!sbCol&&<div style={{width:250,minWidth:250,background:sbBg,color:"#fff",display:"flex",flexDirection:"column" as const,borderRight:isDark?"1px solid "+colors.g3:"none",position:"sticky" as const,top:0,height:"100vh",overflowY:"auto" as const}}>
+      <div style={{padding:"14px 12px",borderBottom:"1px solid rgba(255,255,255,.08)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <img src="/logo.jpg" alt="Los Tordos" style={{width:32,height:32,borderRadius:6,objectFit:"contain"}}/>
+          <div><div style={{fontSize:13,fontWeight:800}}>Deportivo</div><div style={{fontSize:9,color:colors.g4,letterSpacing:1,textTransform:"uppercase" as const}}>Los Tordos RC</div></div>
+        </div>
+        <button onClick={()=>sSbCol(true)} style={{background:"none",border:"none",color:colors.g4,fontSize:14,cursor:"pointer"}} title="Colapsar">◀</button>
+      </div>
+      {sbContent}
+      <div style={{padding:"10px 12px",borderTop:"1px solid rgba(255,255,255,.08)",fontSize:10,color:"rgba(255,255,255,.4)"}}>
+        <div>{profile?.first_name} {profile?.last_name}</div>
+        <div style={{fontSize:9}}>{myStaff?DEP_ROLES[depRole]?.l:"Admin"}</div>
+      </div>
+    </div>}
+
+    {/* Collapsed sidebar (desktop) */}
+    {!mob&&sbCol&&<div style={{width:48,minWidth:48,background:sbBg,display:"flex",flexDirection:"column" as const,alignItems:"center",paddingTop:10,borderRight:isDark?"1px solid "+colors.g3:"none",position:"sticky" as const,top:0,height:"100vh"}}>
+      <button onClick={()=>sSbCol(false)} style={{background:"none",border:"none",color:"#fff",fontSize:18,cursor:"pointer",marginBottom:14}} title="Expandir">☰</button>
+      <img src="/logo.jpg" alt="" style={{width:28,height:28,borderRadius:6,objectFit:"contain",marginBottom:10}}/>
+      {tabs.map(t=><button key={t.k} onClick={()=>navTo(t.k)} title={t.f} style={{background:tab===t.k?"rgba(255,255,255,.15)":"none",border:"none",color:tab===t.k?"#fff":"rgba(255,255,255,.5)",fontSize:16,cursor:"pointer",padding:"8px 0",width:"100%"}}>{t.l}</button>)}
+    </div>}
+
+    {/* Mobile sidebar overlay */}
+    {mob&&sbOpen&&<><div onClick={()=>sSbOpen(false)} style={{position:"fixed" as const,inset:0,background:"rgba(0,0,0,.5)",zIndex:99}}/>
+    <div style={{position:"fixed" as const,top:0,left:0,bottom:0,width:260,background:sbBg,color:"#fff",display:"flex",flexDirection:"column" as const,zIndex:100,boxShadow:"4px 0 20px rgba(0,0,0,.3)"}}>
+      <div style={{padding:"14px 12px",borderBottom:"1px solid rgba(255,255,255,.08)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div style={{display:"flex",alignItems:"center",gap:6}}><img src="/logo.jpg" alt="" style={{width:28,height:28,borderRadius:6,objectFit:"contain"}}/><span style={{fontSize:13,fontWeight:800}}>Deportivo</span></div>
+        <button onClick={()=>sSbOpen(false)} style={{background:"none",border:"none",color:"#fff",fontSize:20,cursor:"pointer",minWidth:44,minHeight:44,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+      </div>
+      {sbContent}
+    </div></>}
+
+    {/* ── MAIN CONTENT ── */}
+    <div style={{flex:1,display:"flex",flexDirection:"column" as const,minWidth:0}}>
+      {/* Top bar */}
+      <div style={{background:isDark?colors.g2:T.nv,padding:mob?"10px 12px":"10px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky" as const,top:0,zIndex:50}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          {mob&&<button onClick={()=>sSbOpen(true)} style={{background:"rgba(255,255,255,.1)",border:"none",borderRadius:8,padding:"6px 10px",color:"#fff",fontSize:16,cursor:"pointer"}}>☰</button>}
+          <div style={{color:isDark?colors.nv:"#fff",fontSize:mob?13:15,fontWeight:700}}>{tabs.find(t=>t.k===tab)?.l} {tabs.find(t=>t.k===tab)?.f}</div>
+        </div>
+        <div style={{display:"flex",gap:6,alignItems:"center"}}>
+          <input value={search} onChange={e=>sSearch(e.target.value)} placeholder="Buscar..." style={{padding:"5px 10px",borderRadius:8,border:"1px solid rgba(255,255,255,.15)",fontSize:11,width:mob?100:160,background:"rgba(255,255,255,.08)",color:"#fff"}}/>
+          <button onClick={toggleTheme} title={isDark?"Modo claro":"Modo oscuro"} style={{background:"rgba(255,255,255,.1)",border:"none",borderRadius:8,padding:"6px 10px",color:isDark?colors.nv:"rgba(255,255,255,.7)",fontSize:14,cursor:"pointer"}}>{isDark?"☀️":"🌙"}</button>
+          <button onClick={out} style={{background:"rgba(255,255,255,.1)",border:"none",borderRadius:8,padding:"6px 12px",color:isDark?colors.nv:"rgba(255,255,255,.7)",fontSize:11,cursor:"pointer",fontWeight:600}}>Salir</button>
         </div>
       </div>
-      <div style={{display:"flex",gap:8,alignItems:"center"}}>
-        <button onClick={toggleTheme} title={isDark?"Modo claro":"Modo oscuro"} style={{background:"rgba(255,255,255,.1)",border:"none",borderRadius:8,padding:"6px 10px",color:isDark?colors.nv:"rgba(255,255,255,.7)",fontSize:14,cursor:"pointer"}}>{isDark?"☀️":"🌙"}</button>
-        <button onClick={out} style={{background:"rgba(255,255,255,.1)",border:"none",borderRadius:8,padding:"6px 12px",color:isDark?colors.nv:"rgba(255,255,255,.7)",fontSize:11,cursor:"pointer",fontWeight:600}}>Salir</button>
-      </div>
-    </div>
 
-    {/* Tab bar */}
-    <div style={{background:cardBg,borderBottom:"1px solid "+colors.g2,padding:"0 "+( mob?"8px":"24px"),display:"flex",gap:0,overflowX:"auto" as const}}>
-      {tabs.map(t=><button key={t.k} onClick={()=>{sTab(t.k);sShowForm(null);sSelAth(null);sSelInj(null);}} style={{padding:mob?"10px 12px":"12px 20px",border:"none",borderBottom:tab===t.k?"3px solid "+colors.rd:"3px solid transparent",background:"none",color:tab===t.k?colors.nv:colors.g4,fontSize:mob?12:13,fontWeight:tab===t.k?700:500,cursor:"pointer",whiteSpace:"nowrap" as const}}>{t.l} {!mob&&t.f}</button>)}
-    </div>
-
-    {/* Division filter + search */}
-    <div style={{padding:mob?"10px 12px":"12px 24px",display:"flex",gap:8,flexWrap:"wrap" as const,alignItems:"center"}}>
-      <select value={divF} onChange={e=>sDivF(e.target.value)} style={{padding:"6px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,background:cardBg,color:colors.nv}}>
-        <option value="all">Todas las divisiones</option>
-        {DEP_DIV.map(d=><option key={d} value={d}>{d}</option>)}
-      </select>
-      <input value={search} onChange={e=>sSearch(e.target.value)} placeholder="Buscar..." style={{padding:"6px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,width:mob?120:180}}/>
-    </div>
-
-    {/* Content */}
-    <div style={{padding:mob?"0 12px 80px":"0 24px 40px"}}>
+    {/* Content area */}
+    <div style={{flex:1,padding:mob?"12px 12px 80px":"16px 24px 40px"}}>
 
       {/* ════════ DASHBOARD ════════ */}
       {tab==="dash"&&<DashboardTab athletes={filteredAthletes} checkins={checkins} injuries={injuries} latestCheckin={latestCheckin} activeInjuries={activeInjuries} mob={mob} onSelectAth={(a:DepAthlete)=>{sSelAth(a);sTab("plantel");}}/>}
@@ -354,16 +575,24 @@ export default function DeportivoApp(){
         :showForm==="athlete"?<AthleteForm onSave={onAddAthlete} onCancel={()=>sShowForm(null)} mob={mob}/>
         :showForm==="bulk"?<BulkAthleteForm onSave={async(rows:Partial<DepAthlete>[])=>{
           try{
-            const payload=rows.map(r=>({first_name:r.first_name,last_name:r.last_name,division:r.division||DEP_DIV[0],position:r.position||"",season:new Date().getFullYear().toString(),active:true,dni:"",phone:"",email:"",emergency_contact:{},medical_info:{},birth_date:null}));
+            const payload=rows.map(r=>({
+              first_name:r.first_name||"",last_name:r.last_name||"",division:r.division||DEP_DIV[0],
+              position:r.position||"",season:new Date().getFullYear().toString(),active:true,
+              dni:r.dni||"",phone:r.celular||r.phone||"",email:r.email||"",
+              birth_date:r.birth_date||null,sexo:r.sexo||"",categoria:r.categoria||"",
+              obra_social:r.obra_social||"",peso:r.peso??null,estatura:r.estatura??null,
+              celular:r.celular||"",tel_emergencia:r.tel_emergencia||"",ult_fichaje:r.ult_fichaje||null,
+              emergency_contact:{},medical_info:{},photo_url:"",
+            }));
             const{error}=await supabase.from("dep_athletes").insert(payload);
             if(error) throw error;
             showT(payload.length+" jugador"+(payload.length>1?"es":"")+" agregado"+(payload.length>1?"s":""));sShowForm(null);fetchAll();
-          }catch(e:any){showT(e.message||"Error","err");}
+          }catch(e:any){console.error("Bulk insert error:",e);showT(e.message||"Error al guardar","err");}
         }} onCancel={()=>sShowForm(null)} mob={mob}/>
         :<div>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
             <h2 style={{margin:0,fontSize:18,color:colors.nv}}>👥 Plantel ({filteredAthletes.length})</h2>
-            <div style={{display:"flex",gap:6}}>{filteredAthletes.length>0&&<><Btn v="g" s="s" onClick={()=>{const h=["Apellido","Nombre","División","Posición","DNI","Email","Teléfono"];const r=filteredAthletes.map((a:DepAthlete)=>[a.last_name,a.first_name,a.division,a.position,a.dni,a.email,a.phone]);exportCSV("plantel",h,r);}}>CSV</Btn><Btn v="g" s="s" onClick={()=>{const h=["Apellido","Nombre","División","Posición","DNI","Email","Teléfono"];const r=filteredAthletes.map((a:DepAthlete)=>[a.last_name,a.first_name,a.division,a.position,a.dni,a.email,a.phone]);exportPDF("Plantel",h,r);}}>PDF</Btn></>}{canCreateAthlete&&<><Btn v="w" s="s" onClick={()=>sShowForm("bulk")}>⚡ Carga rápida</Btn><Btn v="p" s="s" onClick={()=>sShowForm("athlete")}>+ Jugador</Btn></>}</div>
+            <div style={{display:"flex",gap:6}}>{filteredAthletes.length>0&&<><Btn v="g" s="s" onClick={()=>{const h=["Apellido","Nombre","Fecha Nac.","DNI","Categoría","Sexo","O.Social","Peso","Estatura","Puesto","Email","Tel.Emergencia","Celular","Últ.Fichaje"];const r=filteredAthletes.map((a:DepAthlete)=>[a.last_name,a.first_name,fmtD(a.birth_date),a.dni,a.categoria||"",a.sexo||"",a.obra_social||"",a.peso?String(a.peso):"",a.estatura?String(a.estatura):"",a.position,a.email,a.tel_emergencia||"",a.celular||a.phone||"",a.ult_fichaje?fmtD(a.ult_fichaje):""]);exportCSV("plantel",h,r);}}>CSV</Btn><Btn v="g" s="s" onClick={()=>{const h=["Apellido","Nombre","Fecha Nac.","DNI","Categoría","Sexo","O.Social","Peso","Estatura","Puesto","Email","Tel.Emergencia","Celular","Últ.Fichaje"];const r=filteredAthletes.map((a:DepAthlete)=>[a.last_name,a.first_name,fmtD(a.birth_date),a.dni,a.categoria||"",a.sexo||"",a.obra_social||"",a.peso?String(a.peso):"",a.estatura?String(a.estatura):"",a.position,a.email,a.tel_emergencia||"",a.celular||a.phone||"",a.ult_fichaje?fmtD(a.ult_fichaje):""]);exportPDF("Plantel",h,r);}}>PDF</Btn></>}{canCreateAthlete&&<><Btn v="w" s="s" onClick={()=>sShowForm("bulk")}>⚡ Carga rápida</Btn><Btn v="p" s="s" onClick={()=>sShowForm("athlete")}>+ Jugador</Btn></>}</div>
           </div>
           <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr 1fr",gap:10}}>
             {filteredAthletes.map(a=>{
@@ -405,10 +634,23 @@ export default function DeportivoApp(){
       {/* ════════ ENTRENAMIENTOS ════════ */}
       {tab==="training"&&<TrainingTab athletes={filteredAthletes} division={divF} canCreate={canCreateTraining} userId={user.id} mob={mob} showT={showT}/>}
 
+      {/* ════════ PLANIFICACIÓN ════════ */}
+      {tab==="planif"&&<PlanificacionTab seasons={seasons} phases={phases} microcycles={microcycles} onAddSeason={onAddSeason} onUpdSeason={onUpdSeason} onDelSeason={onDelSeason} onAddPhase={onAddPhase} onUpdPhase={onUpdPhase} onDelPhase={onDelPhase} onAddMicro={onAddMicro} onUpdMicro={onUpdMicro} onDelMicro={onDelMicro} canEdit={depLv>=4} mob={mob}/>}
+
+      {/* ════════ PRETEMPORADA ════════ */}
+      {tab==="pretemp"&&<PretemporadaTab athletes={filteredAthletes} tests={tests} testTypes={testTypes} onAddTest={onAddTest} onAddTestBatch={onAddTestBatch} onDelTest={onDelTest} canEdit={depLv>=4||depRole==="pf"||depRole==="coord_pf"} mob={mob}/>}
+
+      {/* ════════ EQUIPO ════════ */}
+      {tab==="equipo"&&<LineupTab athletes={athletes.filter(a=>a.active)} lineups={lineups} injuries={injuries} checkins={checkins} onAdd={onAddLineup} onUpd={onUpdLineup} onDel={onDelLineup} canEdit={depLv>=4||depRole==="entrenador"} mob={mob} latestCheckin={latestCheckin}/>}
+
+      {/* ════════ WHATSAPP ════════ */}
+      {tab==="comm"&&<CommTab athletes={athletes.filter(a=>a.active)} lineups={lineups} seasons={seasons} phases={phases} mob={mob} showT={showT}/>}
+
       {/* ════════ PERFILES ════════ */}
       {tab==="perfiles"&&canManageStaff&&<PerfilesTab staffList={staffList} onUpdate={onUpdStaff} onDel={onDelStaff} mob={mob} showT={showT} fetchAll={fetchAll}/>}
 
     </div>
+    </div>{/* close main content flex:1 */}
     {toast&&<Toast msg={toast.msg} type={toast.type} onDone={()=>sToast(null)}/>}
   </div>
   </ThemeCtx.Provider>);
@@ -497,7 +739,7 @@ function DashboardTab({athletes,checkins,injuries,latestCheckin,activeInjuries,m
 function FichaJugador({ath,injuries,checkins,onBack,onEdit,onDeactivate,latestCheckin,mob}:any){
   const{colors,cardBg}=useC();
   const [editing,sEditing]=useState(false);
-  const [f,sF]=useState({first_name:ath.first_name,last_name:ath.last_name,division:ath.division,position:ath.position,birth_date:ath.birth_date||"",dni:ath.dni,phone:ath.phone,email:ath.email,emergency_contact:ath.emergency_contact||{},medical_info:ath.medical_info||{}});
+  const [f,sF]=useState({first_name:ath.first_name,last_name:ath.last_name,division:ath.division,position:ath.position,birth_date:ath.birth_date||"",dni:ath.dni,sexo:ath.sexo||"",categoria:ath.categoria||"",obra_social:ath.obra_social||"",peso:ath.peso||"",estatura:ath.estatura||"",celular:ath.celular||"",tel_emergencia:ath.tel_emergencia||"",ult_fichaje:ath.ult_fichaje||"",phone:ath.phone,email:ath.email,emergency_contact:ath.emergency_contact||{},medical_info:ath.medical_info||{}});
   const sem=latestCheckin?semScore(latestCheckin):null;
   const activeInj=injuries.filter((i:DepInjury)=>i.status!=="alta");
 
@@ -505,26 +747,17 @@ function FichaJugador({ath,injuries,checkins,onBack,onEdit,onDeactivate,latestCh
     <Btn v="g" s="s" onClick={()=>sEditing(false)} style={{marginBottom:12}}>← Cancelar</Btn>
     <h2 style={{fontSize:16,color:colors.nv,margin:"0 0 14px"}}>Editar: {ath.first_name} {ath.last_name}</h2>
     <Card>
-      <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:10}}>
-        {[["Nombre","first_name"],["Apellido","last_name"]].map(([l,k])=><div key={k}><label style={{fontSize:11,fontWeight:600,color:T.g5}}>{l}</label><input value={(f as any)[k]} onChange={e=>sF(prev=>({...prev,[k]:e.target.value}))} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:3}}/></div>)}
-        <div><label style={{fontSize:11,fontWeight:600,color:T.g5}}>División</label><select value={f.division} onChange={e=>sF(prev=>({...prev,division:e.target.value}))} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,marginTop:3}}>{DEP_DIV.map(d=><option key={d} value={d}>{d}</option>)}</select></div>
-        <div><label style={{fontSize:11,fontWeight:600,color:T.g5}}>Posición</label><select value={f.position} onChange={e=>sF(prev=>({...prev,position:e.target.value}))} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,marginTop:3}}><option value="">Seleccionar...</option>{DEP_POSITIONS.map(p=><option key={p} value={p}>{p}</option>)}</select></div>
-        <div><label style={{fontSize:11,fontWeight:600,color:T.g5}}>Fecha nacimiento</label><input type="date" value={f.birth_date} onChange={e=>sF(prev=>({...prev,birth_date:e.target.value}))} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:3}}/></div>
-        <div><label style={{fontSize:11,fontWeight:600,color:T.g5}}>DNI</label><input value={f.dni} onChange={e=>sF(prev=>({...prev,dni:e.target.value}))} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:3}}/></div>
-        <div><label style={{fontSize:11,fontWeight:600,color:T.g5}}>Teléfono</label><input value={f.phone} onChange={e=>sF(prev=>({...prev,phone:e.target.value}))} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:3}}/></div>
-        <div><label style={{fontSize:11,fontWeight:600,color:T.g5}}>Email</label><input value={f.email} onChange={e=>sF(prev=>({...prev,email:e.target.value}))} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:3}}/></div>
+      <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr 1fr",gap:10}}>
+        {[["Apellido","last_name"],["Nombre","first_name"],["Fecha Nac.","birth_date"],["Documento","dni"],["Categoría","categoria"],["Sexo","sexo"],["O. Social","obra_social"],["Peso (kg)","peso"],["Estatura (cm)","estatura"],["Email","email"],["Tel. Emergencia","tel_emergencia"],["Celular","celular"],["Últ. Fichaje","ult_fichaje"]].map(([l,k])=>{
+          const isDate=k==="birth_date"||k==="ult_fichaje";
+          const isNum=k==="peso"||k==="estatura";
+          const isSexo=k==="sexo";
+          if(isSexo) return <div key={k}><label style={{fontSize:11,fontWeight:600,color:T.g5}}>{l}</label><select value={(f as any)[k]||""} onChange={e=>sF(prev=>({...prev,[k]:e.target.value}))} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,marginTop:3}}><option value="">–</option><option value="M">M</option><option value="F">F</option></select></div>;
+          return <div key={k}><label style={{fontSize:11,fontWeight:600,color:T.g5}}>{l}</label><input type={isDate?"date":isNum?"number":"text"} step={isNum?"0.1":undefined} value={(f as any)[k]||""} onChange={e=>sF(prev=>({...prev,[k]:isNum?(e.target.value?+e.target.value:""):e.target.value}))} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:3}}/></div>;
+        })}
+        <div><label style={{fontSize:11,fontWeight:600,color:T.g5}}>Puesto</label><select value={f.position} onChange={e=>sF(prev=>({...prev,position:e.target.value}))} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,marginTop:3}}><option value="">Seleccionar...</option>{DEP_POSITIONS.map(p=><option key={p} value={p}>{p}</option>)}</select></div>
       </div>
-      <div style={{marginTop:12}}><h4 style={{fontSize:12,color:T.nv,margin:"0 0 8px"}}>Contacto de emergencia</h4>
-        <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr 1fr",gap:8}}>
-          {[["Nombre","name"],["Teléfono","phone"],["Relación","relation"]].map(([l,k])=><div key={k}><label style={{fontSize:10,color:T.g5}}>{l}</label><input value={(f.emergency_contact as any)?.[k]||""} onChange={e=>sF(prev=>({...prev,emergency_contact:{...prev.emergency_contact,[k]:e.target.value}}))} style={{width:"100%",padding:6,borderRadius:6,border:"1px solid "+T.g3,fontSize:11,boxSizing:"border-box" as const,marginTop:2}}/></div>)}
-        </div>
-      </div>
-      <div style={{marginTop:12}}><h4 style={{fontSize:12,color:T.nv,margin:"0 0 8px"}}>Información médica</h4>
-        <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr 1fr",gap:8}}>
-          {[["Grupo sanguíneo","blood_type"],["Alergias","allergies"],["Condiciones","conditions"]].map(([l,k])=><div key={k}><label style={{fontSize:10,color:T.g5}}>{l}</label><input value={(f.medical_info as any)?.[k]||""} onChange={e=>sF(prev=>({...prev,medical_info:{...prev.medical_info,[k]:e.target.value}}))} style={{width:"100%",padding:6,borderRadius:6,border:"1px solid "+T.g3,fontSize:11,boxSizing:"border-box" as const,marginTop:2}}/></div>)}
-        </div>
-      </div>
-      <div style={{display:"flex",gap:8,marginTop:14}}><Btn v="p" onClick={()=>{onEdit(f);sEditing(false);}}>💾 Guardar</Btn><Btn v="g" onClick={()=>sEditing(false)}>Cancelar</Btn></div>
+      <div style={{display:"flex",gap:8,marginTop:14}}><Btn v="p" onClick={()=>{onEdit({...f,peso:f.peso?+f.peso:null,estatura:f.estatura?+f.estatura:null});sEditing(false);}}>💾 Guardar</Btn><Btn v="g" onClick={()=>sEditing(false)}>Cancelar</Btn></div>
     </Card>
   </div>;
 
@@ -556,11 +789,11 @@ function FichaJugador({ath,injuries,checkins,onBack,onEdit,onDeactivate,latestCh
     <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:12,marginBottom:12}}>
       <Card>
         <h3 style={{margin:"0 0 8px",fontSize:13,color:T.nv}}>📋 Datos personales</h3>
-        {[["Fecha nacimiento",fmtD(ath.birth_date)],["DNI",ath.dni||"–"],["Teléfono",ath.phone||"–"],["Email",ath.email||"–"]].map(([l,v],i)=><div key={i} style={{display:"flex",justifyContent:"space-between",padding:"4px 0",borderBottom:"1px solid "+T.g1}}><span style={{fontSize:11,color:T.g5}}>{l}</span><span style={{fontSize:11,color:T.nv,fontWeight:600}}>{v}</span></div>)}
+        {[["Fecha nacimiento",fmtD(ath.birth_date)],["Documento",ath.dni||"–"],["Categoría",ath.categoria||"–"],["Sexo",ath.sexo||"–"],["O. Social",ath.obra_social||"–"],["Peso",ath.peso?ath.peso+" kg":"–"],["Estatura",ath.estatura?ath.estatura+" cm":"–"],["Email",ath.email||"–"],["Celular",ath.celular||ath.phone||"–"],["Tel. Emergencia",ath.tel_emergencia||"–"],["Últ. Fichaje",ath.ult_fichaje?fmtD(ath.ult_fichaje):"–"]].map(([l,v],i)=><div key={i} style={{display:"flex",justifyContent:"space-between",padding:"4px 0",borderBottom:"1px solid "+T.g1}}><span style={{fontSize:11,color:T.g5}}>{l}</span><span style={{fontSize:11,color:T.nv,fontWeight:600}}>{v}</span></div>)}
       </Card>
       <Card>
         <h3 style={{margin:"0 0 8px",fontSize:13,color:T.nv}}>🆘 Emergencia / Médico</h3>
-        {[["Contacto",ath.emergency_contact?.name||"–"],["Tel contacto",ath.emergency_contact?.phone||"–"],["Relación",ath.emergency_contact?.relation||"–"],["Grupo sanguíneo",ath.medical_info?.blood_type||"–"],["Alergias",ath.medical_info?.allergies||"–"],["Condiciones",ath.medical_info?.conditions||"–"]].map(([l,v],i)=><div key={i} style={{display:"flex",justifyContent:"space-between",padding:"4px 0",borderBottom:"1px solid "+T.g1}}><span style={{fontSize:11,color:T.g5}}>{l}</span><span style={{fontSize:11,color:T.nv,fontWeight:600}}>{v}</span></div>)}
+        {[["Contacto emerg.",ath.emergency_contact?.name||"–"],["Tel contacto",ath.emergency_contact?.phone||"–"],["Relación",ath.emergency_contact?.relation||"–"],["Grupo sanguíneo",ath.medical_info?.blood_type||"–"],["Alergias",ath.medical_info?.allergies||"–"],["Condiciones",ath.medical_info?.conditions||"–"]].map(([l,v],i)=><div key={i} style={{display:"flex",justifyContent:"space-between",padding:"4px 0",borderBottom:"1px solid "+T.g1}}><span style={{fontSize:11,color:T.g5}}>{l}</span><span style={{fontSize:11,color:T.nv,fontWeight:600}}>{v}</span></div>)}
       </Card>
     </div>
 
@@ -612,110 +845,175 @@ function FichaJugador({ath,injuries,checkins,onBack,onEdit,onDeactivate,latestCh
 }
 
 /* ══════════════════════════ BULK ATHLETE FORM ══════════════════════════ */
-type BulkRow={first_name:string;last_name:string;division:string;position:string;_err?:boolean};
-const emptyRow=():BulkRow=>({first_name:"",last_name:"",division:DEP_DIV[0],position:"",_err:false});
+const BULK_COLS=["last_name","first_name","birth_date","dni","categoria","sexo","obra_social","peso","estatura","position","email","tel_emergencia","celular","ult_fichaje"] as const;
+const BULK_HEADERS=["Apellido","Nombre","Fecha Nac.","Documento","Categoría","Sexo","O.Social","Peso","Estatura","Puesto","Email","Tel.Emerg.","Celular","Últ.Fichaje"];
+type BulkRow=Record<typeof BULK_COLS[number],string>&{_err?:boolean};
+const emptyRow=():BulkRow=>({last_name:"",first_name:"",birth_date:"",dni:"",categoria:"",sexo:"",obra_social:"",peso:"",estatura:"",position:"",email:"",tel_emergencia:"",celular:"",ult_fichaje:"",_err:false});
+
+/* Header aliases map — matches any common column name to our internal field */
+const HEADER_MAP:Record<string,typeof BULK_COLS[number]>={};
+(["apellido","last_name","apellidos"] as const).forEach(k=>HEADER_MAP[k]="last_name");
+(["nombre","first_name","nombres","name"] as const).forEach(k=>HEADER_MAP[k]="first_name");
+(["fecha_nac","fecha nac.","fecha nac","birth_date","fecha de nacimiento","nacimiento","fecha_nacimiento","fec. nac.","fec nac"] as const).forEach(k=>HEADER_MAP[k]="birth_date");
+(["documento","dni","doc","nro_doc","nro doc","nro documento","n° doc"] as const).forEach(k=>HEADER_MAP[k]="dni");
+(["categoria","categoría","cat"] as const).forEach(k=>HEADER_MAP[k]="categoria");
+(["sexo","genero","género","sex"] as const).forEach(k=>HEADER_MAP[k]="sexo");
+(["obra_social","o.social","obra social","os","o. social","obra soc"] as const).forEach(k=>HEADER_MAP[k]="obra_social");
+(["peso","weight","kg"] as const).forEach(k=>HEADER_MAP[k]="peso");
+(["estatura","altura","height","talla","cm"] as const).forEach(k=>HEADER_MAP[k]="estatura");
+(["puesto","position","posicion","posición","pos"] as const).forEach(k=>HEADER_MAP[k]="position");
+(["email","mail","correo","e-mail"] as const).forEach(k=>HEADER_MAP[k]="email");
+(["tel_emergencia","tel emergencia","tel.emergencia","tel. emergencia","emergencia","tel emerg","tel.emerg.","contacto emergencia"] as const).forEach(k=>HEADER_MAP[k]="tel_emergencia");
+(["celular","cel","telefono","teléfono","tel","phone","celular jugador"] as const).forEach(k=>HEADER_MAP[k]="celular");
+(["ult_fichaje","últ.fichaje","ult.fichaje","ult fichaje","fichaje","ultimo fichaje","último fichaje"] as const).forEach(k=>HEADER_MAP[k]="ult_fichaje");
+
+function matchHeaders(headerRow:string[]):(typeof BULK_COLS[number]|null)[]{
+  return headerRow.map(h=>{
+    const n=h.toLowerCase().trim().replace(/[*#]/g,"");
+    return HEADER_MAP[n]||null;
+  });
+}
 
 function BulkAthleteForm({onSave,onCancel,mob}:{onSave:(rows:Partial<DepAthlete>[])=>void;onCancel:()=>void;mob:boolean}){
-  const [mode,sMode]=useState<"paste"|"table">("paste");
-  const [rows,sRows]=useState<BulkRow[]>(Array.from({length:5},emptyRow));
-  const [pasteVal,sPasteVal]=useState("");
+  const [rows,sRows]=useState<BulkRow[]>([]);
   const [saving,sSaving]=useState(false);
+  const [status,sStatus]=useState<string>("");
+  const [fileName,sFileName]=useState("");
 
-  const divSet=new Set(DEP_DIV.map(d=>d.toLowerCase()));
-  const posSet=new Set(DEP_POSITIONS.map(p=>p.toLowerCase()));
-
-  const matchDiv=(v:string):string=>{
-    const low=v.trim().toLowerCase();
-    const exact=DEP_DIV.find(d=>d.toLowerCase()===low);
-    if(exact) return exact;
-    const partial=DEP_DIV.find(d=>d.toLowerCase().includes(low));
-    return partial||"";
-  };
-  const matchPos=(v:string):string=>{
-    const low=v.trim().toLowerCase();
-    const exact=DEP_POSITIONS.find(p=>p.toLowerCase()===low);
-    if(exact) return exact;
-    const partial=DEP_POSITIONS.find(p=>p.toLowerCase().includes(low));
-    return partial||v.trim();
+  const parseRowFromMap=(vals:string[],colMap:(typeof BULK_COLS[number]|null)[]):BulkRow=>{
+    const r=emptyRow();
+    colMap.forEach((field,i)=>{if(field&&vals[i])(r as any)[field]=vals[i].trim();});
+    if(!r.first_name&&!r.last_name) r._err=true;
+    return r;
   };
 
-  const parsePaste=()=>{
-    const lines=pasteVal.trim().split("\n").filter(l=>l.trim());
-    if(lines.length===0) return;
-    const parsed:BulkRow[]=lines.map(line=>{
-      const sep=line.includes("\t")?"\t":",";
-      const cols=line.split(sep).map(c=>c.trim());
-      const first_name=cols[0]||"";
-      const last_name=cols[1]||"";
-      const rawDiv=cols[2]||"";
-      const rawPos=cols[3]||"";
-      const division=matchDiv(rawDiv);
-      const position=matchPos(rawPos);
-      return{first_name,last_name,division:division||DEP_DIV[0],position,_err:rawDiv!==""&&!division};
-    });
-    sRows(parsed);
-    sMode("table");
+  const parseRowPositional=(cols:string[]):BulkRow=>{
+    const r=emptyRow();
+    BULK_COLS.forEach((k,i)=>{(r as any)[k]=(cols[i]||"").trim();});
+    if(!r.first_name&&!r.last_name) r._err=true;
+    return r;
   };
 
-  const updRow=(i:number,field:keyof BulkRow,val:string)=>{
+  const processData=(headerRow:string[]|null,dataRows:string[][])=>{
+    let parsed:BulkRow[];
+    if(headerRow){
+      const colMap=matchHeaders(headerRow);
+      const matched=colMap.filter(Boolean).length;
+      if(matched>=2){
+        sStatus(`✓ ${matched} columnas reconocidas de ${headerRow.length}`);
+        parsed=dataRows.map(vals=>parseRowFromMap(vals,colMap));
+      }else{
+        sStatus("⚠ Encabezados no reconocidos, usando orden de columnas");
+        parsed=dataRows.map(vals=>parseRowPositional(vals));
+      }
+    }else{
+      parsed=dataRows.map(vals=>parseRowPositional(vals));
+    }
+    sRows(parsed.filter(r=>r.first_name||r.last_name));
+  };
+
+  const handleFile=async(file:File)=>{
+    sFileName(file.name);
+    const ext=file.name.split(".").pop()?.toLowerCase()||"";
+    if(ext==="xlsx"||ext==="xls"){
+      const XLSX=await import("xlsx");
+      const buf=await file.arrayBuffer();
+      const wb=XLSX.read(buf,{type:"array"});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const raw:string[][]=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
+      if(raw.length<2){sStatus("Archivo vacío");return;}
+      const header=raw[0].map(String);
+      const data=raw.slice(1).map(r=>r.map(String));
+      processData(header,data);
+    }else{
+      const reader=new FileReader();
+      reader.onload=(e)=>{
+        const text=e.target?.result as string;
+        if(!text){sStatus("Archivo vacío");return;}
+        const lines=text.trim().split("\n").filter(l=>l.trim());
+        if(lines.length===0){sStatus("Archivo vacío");return;}
+        const sep=lines[0].includes("\t")?"\t":(lines[0].includes(";")?";":",");
+        const first=lines[0].split(sep);
+        const firstLow=first.map(s=>s.toLowerCase().trim());
+        const isHeader=firstLow.some(s=>HEADER_MAP[s.replace(/[*#]/g,"")]!==undefined);
+        if(isHeader){
+          processData(first,lines.slice(1).map(l=>l.split(sep)));
+        }else{
+          processData(null,lines.map(l=>l.split(sep)));
+        }
+      };
+      reader.readAsText(file);
+    }
+  };
+
+  const updRow=(i:number,field:string,val:string)=>{
     sRows(prev=>prev.map((r,j)=>j===i?{...r,[field]:val,_err:false}:r));
   };
   const addRow=()=>sRows(prev=>[...prev,emptyRow()]);
   const delRow=(i:number)=>sRows(prev=>prev.filter((_,j)=>j!==i));
 
-  const validRows=rows.filter(r=>r.first_name.trim()&&r.last_name.trim());
+  const validRows=rows.filter(r=>r.first_name.trim()||r.last_name.trim());
 
   const handleSave=async()=>{
     if(validRows.length===0) return;
     sSaving(true);
-    await onSave(validRows.map(r=>({first_name:r.first_name.trim(),last_name:r.last_name.trim(),division:r.division,position:r.position})));
+    await onSave(validRows.map(r=>({
+      last_name:r.last_name.trim(),first_name:r.first_name.trim(),
+      birth_date:r.birth_date||undefined,dni:r.dni,categoria:r.categoria,sexo:r.sexo,
+      obra_social:r.obra_social,peso:r.peso?+r.peso:null,estatura:r.estatura?+r.estatura:null,
+      position:r.position,email:r.email,tel_emergencia:r.tel_emergencia,celular:r.celular,
+      ult_fichaje:r.ult_fichaje||undefined,division:DEP_DIV[0],
+    })));
     sSaving(false);
   };
 
-  const inputSt:any={width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid "+T.g3,fontSize:11,boxSizing:"border-box" as const};
-  const selectSt:any={...inputSt,background:"#fff"};
+  const inputSt:any={width:"100%",padding:"5px 6px",borderRadius:6,border:"1px solid "+T.g3,fontSize:10,boxSizing:"border-box" as const};
 
   return <div>
     <Btn v="g" s="s" onClick={onCancel} style={{marginBottom:12}}>← Cancelar</Btn>
     <h2 style={{fontSize:16,color:T.nv,margin:"0 0 14px"}}>⚡ Carga rápida de jugadores</h2>
 
-    {/* Mode tabs */}
-    <div style={{display:"flex",gap:4,marginBottom:14}}>
-      {([["paste","Pegar datos"],["table","Tabla manual"]] as const).map(([k,l])=>
-        <button key={k} onClick={()=>sMode(k)} style={{padding:"6px 16px",borderRadius:8,border:mode===k?"2px solid "+T.nv:"1px solid "+T.g3,background:mode===k?T.nv+"10":"#fff",color:mode===k?T.nv:T.g5,fontSize:12,fontWeight:600,cursor:"pointer"}}>{l}</button>
-      )}
-    </div>
-
-    {/* Paste mode */}
-    {mode==="paste"&&<Card style={{marginBottom:14}}>
-      <h3 style={{margin:"0 0 8px",fontSize:13,color:T.nv}}>Pegá desde Excel o CSV</h3>
-      <p style={{fontSize:11,color:T.g5,margin:"0 0 8px"}}>Formato: Nombre, Apellido, División, Posición (una fila por jugador)</p>
-      <textarea value={pasteVal} onChange={e=>sPasteVal(e.target.value)} placeholder={"Juan\tPérez\tPrimera\tApertura\nMarcos\tGómez\tIntermedia\tPilar"} rows={8} style={{width:"100%",padding:10,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,fontFamily:"monospace",resize:"vertical" as const,boxSizing:"border-box" as const}}/>
-      <div style={{display:"flex",gap:8,marginTop:10}}>
-        <Btn v="p" onClick={parsePaste} disabled={!pasteVal.trim()}>Cargar en tabla</Btn>
-        <Btn v="g" onClick={onCancel}>Cancelar</Btn>
+    {/* Upload zone — always visible when no rows loaded */}
+    {rows.length===0?<Card style={{marginBottom:14}}>
+      <h3 style={{margin:"0 0 8px",fontSize:13,color:T.nv}}>Subí tu archivo Excel o CSV</h3>
+      <p style={{fontSize:11,color:T.g5,margin:"0 0 4px"}}>Se reconocen automáticamente las columnas por nombre de encabezado.</p>
+      <p style={{fontSize:10,color:T.g4,margin:"0 0 12px"}}>Formatos: .xlsx, .csv, .txt — Columnas posibles: {BULK_HEADERS.join(", ")}</p>
+      <div style={{border:"2px dashed "+T.g3,borderRadius:12,padding:40,textAlign:"center" as const,cursor:"pointer",background:T.g1,transition:"border-color .2s"}}
+        onDragOver={e=>{e.preventDefault();e.currentTarget.style.borderColor=T.nv;}}
+        onDragLeave={e=>{e.currentTarget.style.borderColor=T.g3;}}
+        onDrop={e=>{e.preventDefault();e.currentTarget.style.borderColor=T.g3;const f=e.dataTransfer.files[0];if(f) handleFile(f);}}
+        onClick={()=>{const inp=document.createElement("input");inp.type="file";inp.accept=".xlsx,.xls,.csv,.txt,.tsv";inp.onchange=(ev:any)=>{const f=ev.target.files?.[0];if(f) handleFile(f);};inp.click();}}>
+        <div style={{fontSize:40,marginBottom:8}}>📄</div>
+        <div style={{fontSize:14,fontWeight:700,color:T.nv}}>Arrastrá o hacé click para subir</div>
+        <div style={{fontSize:11,color:T.g4,marginTop:6}}>.xlsx, .csv, .txt</div>
       </div>
-    </Card>}
+      {status&&<p style={{fontSize:11,color:T.g5,marginTop:8,textAlign:"center" as const}}>{status}</p>}
+      <div style={{textAlign:"center" as const,marginTop:16}}>
+        <span style={{fontSize:11,color:T.g4}}>— o —</span>
+      </div>
+      <div style={{display:"flex",justifyContent:"center",marginTop:8}}>
+        <Btn v="g" s="s" onClick={()=>sRows(Array.from({length:3},emptyRow))}>Cargar manualmente</Btn>
+      </div>
+    </Card>
 
-    {/* Table mode */}
-    {mode==="table"&&<Card>
+    /* Table view — after file loaded or manual entry */
+    :<Card>
+      {fileName&&<div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+        <span style={{fontSize:12,color:T.nv,fontWeight:600}}>📄 {fileName}</span>
+        {status&&<span style={{fontSize:11,color:T.gn}}>{status}</span>}
+        <Btn v="g" s="s" onClick={()=>{sRows([]);sFileName("");sStatus("");}}>Cambiar archivo</Btn>
+      </div>}
       <div style={{overflowX:"auto" as const}}>
-        <table style={{width:"100%",borderCollapse:"collapse" as const,fontSize:11}}>
+        <table style={{borderCollapse:"collapse" as const,fontSize:10,minWidth:900}}>
           <thead><tr style={{borderBottom:"2px solid "+T.g2}}>
-            <th style={{textAlign:"left" as const,padding:"6px 4px",color:T.g5,fontWeight:700,width:"5%"}}>#</th>
-            <th style={{textAlign:"left" as const,padding:"6px 4px",color:T.g5,fontWeight:700,width:"25%"}}>Nombre *</th>
-            <th style={{textAlign:"left" as const,padding:"6px 4px",color:T.g5,fontWeight:700,width:"25%"}}>Apellido *</th>
-            <th style={{textAlign:"left" as const,padding:"6px 4px",color:T.g5,fontWeight:700,width:"20%"}}>División</th>
-            <th style={{textAlign:"left" as const,padding:"6px 4px",color:T.g5,fontWeight:700,width:"20%"}}>Posición</th>
-            <th style={{padding:"6px 4px",width:"5%"}}></th>
+            <th style={{textAlign:"left" as const,padding:"4px 3px",color:T.g5,fontWeight:700,width:24}}>#</th>
+            {BULK_HEADERS.map((h,i)=><th key={i} style={{textAlign:"left" as const,padding:"4px 3px",color:T.g5,fontWeight:700,fontSize:9,whiteSpace:"nowrap" as const}}>{h}</th>)}
+            <th style={{padding:"4px 3px",width:20}}></th>
           </tr></thead>
           <tbody>{rows.map((r,i)=><tr key={i} style={{borderBottom:"1px solid "+T.g1,background:r._err?"#FEF2F2":"transparent"}}>
-            <td style={{padding:"4px",color:T.g4,fontSize:10}}>{i+1}</td>
-            <td style={{padding:"4px"}}><input value={r.first_name} onChange={e=>updRow(i,"first_name",e.target.value)} style={inputSt}/></td>
-            <td style={{padding:"4px"}}><input value={r.last_name} onChange={e=>updRow(i,"last_name",e.target.value)} style={inputSt}/></td>
-            <td style={{padding:"4px"}}><select value={r.division} onChange={e=>updRow(i,"division",e.target.value)} style={{...selectSt,borderColor:r._err?T.rd:T.g3}}>{DEP_DIV.map(d=><option key={d} value={d}>{d}</option>)}</select></td>
-            <td style={{padding:"4px"}}><select value={r.position} onChange={e=>updRow(i,"position",e.target.value)} style={selectSt}><option value="">–</option>{DEP_POSITIONS.map(p=><option key={p} value={p}>{p}</option>)}</select></td>
-            <td style={{padding:"4px",textAlign:"center" as const}}><button onClick={()=>delRow(i)} style={{background:"none",border:"none",cursor:"pointer",color:T.rd,fontSize:14,padding:2}} title="Eliminar fila">×</button></td>
+            <td style={{padding:"3px",color:T.g4,fontSize:9}}>{i+1}</td>
+            {BULK_COLS.map(k=><td key={k} style={{padding:"3px"}}><input value={(r as any)[k]||""} onChange={e=>updRow(i,k,e.target.value)} style={inputSt}/></td>)}
+            <td style={{padding:"3px",textAlign:"center" as const}}><button onClick={()=>delRow(i)} style={{background:"none",border:"none",cursor:"pointer",color:T.rd,fontSize:13,padding:1}}>×</button></td>
           </tr>)}</tbody>
         </table>
       </div>
@@ -723,43 +1021,40 @@ function BulkAthleteForm({onSave,onCancel,mob}:{onSave:(rows:Partial<DepAthlete>
         <Btn v="g" s="s" onClick={addRow}>+ Fila</Btn>
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
           <span style={{fontSize:11,color:T.g5}}>{validRows.length} jugador{validRows.length!==1?"es":""} válido{validRows.length!==1?"s":""}</span>
-          <Btn v="p" onClick={handleSave} disabled={validRows.length===0||saving}>{saving?"Guardando...":"Guardar todos"}</Btn>
+          <Btn v="p" onClick={handleSave} disabled={validRows.length===0||saving}>{saving?"Guardando...":"Guardar "+validRows.length+" jugadores"}</Btn>
           <Btn v="g" onClick={onCancel}>Cancelar</Btn>
         </div>
       </div>
-      {rows.some(r=>r._err)&&<div style={{marginTop:8,fontSize:11,color:T.rd,fontWeight:600}}>⚠ Las filas en rojo tienen una división no reconocida. Revisá y corregí antes de guardar.</div>}
     </Card>}
   </div>;
 }
 
 /* ══════════════════════════ ATHLETE FORM ══════════════════════════ */
 function AthleteForm({onSave,onCancel,mob}:any){
-  const [f,sF]=useState({first_name:"",last_name:"",division:DEP_DIV[0],position:"",birth_date:"",dni:"",phone:"",email:"",emergency_contact:{name:"",phone:"",relation:""},medical_info:{blood_type:"",allergies:"",conditions:""}});
+  const [f,sF]=useState({last_name:"",first_name:"",birth_date:"",dni:"",categoria:"",sexo:"",obra_social:"",peso:"" as string|number,estatura:"" as string|number,position:"",email:"",tel_emergencia:"",celular:"",ult_fichaje:"",division:DEP_DIV[0],phone:"",emergency_contact:{name:"",phone:"",relation:""},medical_info:{blood_type:"",allergies:"",conditions:""}});
+  const inp=(l:string,k:string,opts?:{type?:string;step?:string})=><div key={k}><label style={{fontSize:11,fontWeight:600,color:T.g5}}>{l}</label><input type={opts?.type||"text"} step={opts?.step} value={(f as any)[k]||""} onChange={e=>sF(prev=>({...prev,[k]:e.target.value}))} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:3}}/></div>;
   return <div>
     <Btn v="g" s="s" onClick={onCancel} style={{marginBottom:12}}>← Cancelar</Btn>
     <h2 style={{fontSize:16,color:T.nv,margin:"0 0 14px"}}>+ Nuevo Jugador</h2>
     <Card>
-      <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:10}}>
-        {[["Nombre *","first_name"],["Apellido *","last_name"]].map(([l,k])=><div key={k}><label style={{fontSize:11,fontWeight:600,color:T.g5}}>{l}</label><input value={(f as any)[k]} onChange={e=>sF(prev=>({...prev,[k]:e.target.value}))} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:3}}/></div>)}
-        <div><label style={{fontSize:11,fontWeight:600,color:T.g5}}>División *</label><select value={f.division} onChange={e=>sF(prev=>({...prev,division:e.target.value}))} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,marginTop:3}}>{DEP_DIV.map(d=><option key={d} value={d}>{d}</option>)}</select></div>
-        <div><label style={{fontSize:11,fontWeight:600,color:T.g5}}>Posición</label><select value={f.position} onChange={e=>sF(prev=>({...prev,position:e.target.value}))} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,marginTop:3}}><option value="">Seleccionar...</option>{DEP_POSITIONS.map(p=><option key={p} value={p}>{p}</option>)}</select></div>
-        <div><label style={{fontSize:11,fontWeight:600,color:T.g5}}>Fecha nacimiento</label><input type="date" value={f.birth_date} onChange={e=>sF(prev=>({...prev,birth_date:e.target.value}))} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:3}}/></div>
-        <div><label style={{fontSize:11,fontWeight:600,color:T.g5}}>DNI</label><input value={f.dni} onChange={e=>sF(prev=>({...prev,dni:e.target.value}))} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:3}}/></div>
-        <div><label style={{fontSize:11,fontWeight:600,color:T.g5}}>Teléfono</label><input value={f.phone} onChange={e=>sF(prev=>({...prev,phone:e.target.value}))} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:3}}/></div>
-        <div><label style={{fontSize:11,fontWeight:600,color:T.g5}}>Email</label><input value={f.email} onChange={e=>sF(prev=>({...prev,email:e.target.value}))} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:3}}/></div>
-      </div>
-      <div style={{marginTop:12}}><h4 style={{fontSize:12,color:T.nv,margin:"0 0 8px"}}>Contacto de emergencia</h4>
-        <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr 1fr",gap:8}}>
-          {[["Nombre","name"],["Teléfono","phone"],["Relación","relation"]].map(([l,k])=><div key={k}><label style={{fontSize:10,color:T.g5}}>{l}</label><input value={(f.emergency_contact as any)[k]} onChange={e=>sF(prev=>({...prev,emergency_contact:{...prev.emergency_contact,[k]:e.target.value}}))} style={{width:"100%",padding:6,borderRadius:6,border:"1px solid "+T.g3,fontSize:11,boxSizing:"border-box" as const,marginTop:2}}/></div>)}
-        </div>
-      </div>
-      <div style={{marginTop:12}}><h4 style={{fontSize:12,color:T.nv,margin:"0 0 8px"}}>Información médica</h4>
-        <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr 1fr",gap:8}}>
-          {[["Grupo sanguíneo","blood_type"],["Alergias","allergies"],["Condiciones","conditions"]].map(([l,k])=><div key={k}><label style={{fontSize:10,color:T.g5}}>{l}</label><input value={(f.medical_info as any)[k]} onChange={e=>sF(prev=>({...prev,medical_info:{...prev.medical_info,[k]:e.target.value}}))} style={{width:"100%",padding:6,borderRadius:6,border:"1px solid "+T.g3,fontSize:11,boxSizing:"border-box" as const,marginTop:2}}/></div>)}
-        </div>
+      <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr 1fr",gap:10}}>
+        {inp("Apellido *","last_name")}
+        {inp("Nombre *","first_name")}
+        {inp("Fecha Nac.","birth_date",{type:"date"})}
+        {inp("Documento","dni")}
+        {inp("Categoría","categoria")}
+        <div><label style={{fontSize:11,fontWeight:600,color:T.g5}}>Sexo</label><select value={f.sexo} onChange={e=>sF(prev=>({...prev,sexo:e.target.value}))} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,marginTop:3}}><option value="">–</option><option value="M">M</option><option value="F">F</option></select></div>
+        {inp("O. Social","obra_social")}
+        {inp("Peso (kg)","peso",{type:"number",step:"0.1"})}
+        {inp("Estatura (cm)","estatura",{type:"number",step:"0.1"})}
+        <div><label style={{fontSize:11,fontWeight:600,color:T.g5}}>Puesto</label><select value={f.position} onChange={e=>sF(prev=>({...prev,position:e.target.value}))} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,marginTop:3}}><option value="">Seleccionar...</option>{DEP_POSITIONS.map(p=><option key={p} value={p}>{p}</option>)}</select></div>
+        {inp("Email","email",{type:"email"})}
+        {inp("Tel. Emergencia","tel_emergencia")}
+        {inp("Celular","celular")}
+        {inp("Últ. Fichaje","ult_fichaje",{type:"date"})}
       </div>
       <div style={{display:"flex",gap:8,marginTop:14}}>
-        <Btn v="p" onClick={()=>onSave(f)} disabled={!f.first_name||!f.last_name}>💾 Guardar</Btn>
+        <Btn v="p" onClick={()=>onSave({...f,peso:f.peso?+f.peso:null,estatura:f.estatura?+f.estatura:null})} disabled={!f.first_name||!f.last_name}>💾 Guardar</Btn>
         <Btn v="g" onClick={onCancel}>Cancelar</Btn>
       </div>
     </Card>
@@ -1255,6 +1550,753 @@ function PerfilesTab({staffList,onUpdate,onDel,mob,showT,fetchAll}:any){
         </Card>;
       })}
       {activeStaff.length===0&&<Card style={{textAlign:"center",padding:24,color:colors.g4}}><div style={{fontSize:32}}>👤</div><div style={{marginTop:8,fontSize:13}}>No hay perfiles deportivos. Creá el primero.</div></Card>}
+    </div>
+  </div>;
+}
+
+/* ══════════════════════════ PLANIFICACIÓN TAB ══════════════════════════ */
+function PlanificacionTab({seasons,phases,microcycles,onAddSeason,onUpdSeason,onDelSeason,onAddPhase,onUpdPhase,onDelPhase,onAddMicro,onUpdMicro,onDelMicro,canEdit,mob}:any){
+  const{colors,isDark,cardBg}=useC();
+  const [selSeason,sSelSeason]=useState<number|null>(null);
+  const [showAddSeason,sShowAddSeason]=useState(false);
+  const [showAddPhase,sShowAddPhase]=useState(false);
+  const [selPhase,sSelPhase]=useState<number|null>(null);
+  const [showAddMicro,sShowAddMicro]=useState(false);
+  const [sf,sSf]=useState({name:"",start_date:"",end_date:"",objectives:"",status:"planificada"});
+  const [pf,sPf]=useState({name:"",type:"pretemporada" as string,start_date:"",end_date:"",objectives:"",color:"#C8102E"});
+  const [mf,sMf]=useState({week_number:1,week_start:"",focus:"",intensity:5,notes:""});
+
+  const sea=selSeason?seasons.find((s:any)=>s.id===selSeason):null;
+  const seaPhases=phases.filter((p:any)=>p.season_id===selSeason).sort((a:any,b:any)=>a.sort_order-b.sort_order);
+  const ph=selPhase?phases.find((p:any)=>p.id===selPhase):null;
+  const phMicros=microcycles.filter((m:any)=>m.phase_id===selPhase).sort((a:any,b:any)=>a.week_number-b.week_number);
+
+  /* ── Phase detail + microcycles ── */
+  if(ph&&selSeason){
+    const pt=DEP_PHASE_TYPES[ph.type]||DEP_PHASE_TYPES.pretemporada;
+    return <div>
+      <Btn v="g" s="s" onClick={()=>sSelPhase(null)} style={{marginBottom:12}}>← Volver a temporada</Btn>
+      <Card style={{marginBottom:14,borderLeft:"4px solid "+pt.c}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div>
+            <h3 style={{margin:0,fontSize:16,color:colors.nv}}>{pt.i} {ph.name}</h3>
+            <div style={{fontSize:11,color:colors.g5}}>{pt.l} · {fmtD(ph.start_date)} → {fmtD(ph.end_date)}</div>
+            {ph.objectives&&<div style={{fontSize:12,color:colors.g5,marginTop:4}}>{ph.objectives}</div>}
+          </div>
+          {canEdit&&<Btn v="r" s="s" onClick={()=>{if(confirm("¿Eliminar fase y sus microciclos?"))onDelPhase(ph.id);}}>Eliminar</Btn>}
+        </div>
+      </Card>
+
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+        <h3 style={{margin:0,fontSize:14,color:colors.nv}}>Microciclos ({phMicros.length})</h3>
+        {canEdit&&<Btn v="p" s="s" onClick={()=>{sMf({week_number:phMicros.length+1,week_start:"",focus:"",intensity:5,notes:""});sShowAddMicro(!showAddMicro);}}>+ Microciclo</Btn>}
+      </div>
+
+      {showAddMicro&&canEdit&&<Card style={{marginBottom:14,background:isDark?colors.g2:"#FFFBEB",border:"1px solid "+(isDark?colors.g3:"#FDE68A")}}>
+        <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:10}}>
+          <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Semana #</label><input type="number" value={mf.week_number} onChange={e=>sMf(p=>({...p,week_number:+e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+          <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Inicio semana</label><input type="date" value={mf.week_start} onChange={e=>sMf(p=>({...p,week_start:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+          <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Foco</label><input value={mf.focus} onChange={e=>sMf(p=>({...p,focus:e.target.value}))} placeholder="Ej: Fuerza máxima" style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+          <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Intensidad (1-10): {mf.intensity}</label><input type="range" min={1} max={10} value={mf.intensity} onChange={e=>sMf(p=>({...p,intensity:+e.target.value}))} style={{width:"100%",marginTop:6}}/></div>
+          <div style={{gridColumn:mob?"1":"1 / -1"}}><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Notas</label><textarea value={mf.notes} onChange={e=>sMf(p=>({...p,notes:e.target.value}))} rows={2} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,resize:"vertical" as const,boxSizing:"border-box" as const,marginTop:2}}/></div>
+        </div>
+        <div style={{display:"flex",gap:8,marginTop:10}}><Btn v="p" onClick={()=>{onAddMicro({phase_id:ph.id,...mf});sShowAddMicro(false);}} disabled={!mf.week_start}>Crear</Btn><Btn v="g" onClick={()=>sShowAddMicro(false)}>Cancelar</Btn></div>
+      </Card>}
+
+      {phMicros.length===0&&<Card style={{textAlign:"center",padding:24,color:colors.g4}}><div style={{fontSize:24}}>📅</div><div style={{marginTop:6,fontSize:12}}>Sin microciclos. Agregá el primero.</div></Card>}
+      <div style={{display:"flex",flexDirection:"column" as const,gap:8}}>
+        {phMicros.map((m:any)=>{
+          const intColor=m.intensity<=3?T.gn:m.intensity<=6?T.yl:m.intensity<=8?"#F97316":T.rd;
+          return <Card key={m.id}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div style={{flex:1}}>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <span style={{background:intColor+"20",color:intColor,padding:"2px 10px",borderRadius:10,fontSize:11,fontWeight:700}}>S{m.week_number}</span>
+                  <span style={{fontSize:13,fontWeight:700,color:colors.nv}}>{m.focus||"Sin foco"}</span>
+                </div>
+                <div style={{fontSize:11,color:colors.g5,marginTop:4}}>Semana del {fmtD(m.week_start)} · Intensidad: {m.intensity}/10</div>
+                {m.notes&&<div style={{fontSize:11,color:colors.g4,marginTop:2}}>{m.notes}</div>}
+              </div>
+              <div style={{width:40,height:40,borderRadius:20,background:intColor+"15",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                <span style={{fontSize:14,fontWeight:800,color:intColor}}>{m.intensity}</span>
+              </div>
+            </div>
+            {canEdit&&<div style={{display:"flex",gap:4,marginTop:8}}><Btn v="r" s="s" onClick={()=>{if(confirm("¿Eliminar microciclo?"))onDelMicro(m.id);}}>Eliminar</Btn></div>}
+          </Card>;
+        })}
+      </div>
+
+      {/* Intensity chart */}
+      {phMicros.length>1&&<Card style={{marginTop:14}}>
+        <h4 style={{margin:"0 0 8px",fontSize:12,color:colors.nv}}>📈 Curva de intensidad</h4>
+        <div style={{display:"flex",gap:2,alignItems:"flex-end",height:60}}>
+          {phMicros.map((m:any)=>{
+            const intColor=m.intensity<=3?T.gn:m.intensity<=6?T.yl:m.intensity<=8?"#F97316":T.rd;
+            return <div key={m.id} style={{flex:1,height:(m.intensity/10)*100+"%",background:intColor,borderRadius:3,minWidth:8}} title={"S"+m.week_number+": "+m.intensity+"/10"}/>;
+          })}
+        </div>
+        <div style={{display:"flex",justifyContent:"space-between",marginTop:4}}><span style={{fontSize:9,color:colors.g4}}>S{phMicros[0]?.week_number}</span><span style={{fontSize:9,color:colors.g4}}>S{phMicros[phMicros.length-1]?.week_number}</span></div>
+      </Card>}
+    </div>;
+  }
+
+  /* ── Season detail + phases ── */
+  if(sea){
+    const stCol=sea.status==="activa"?T.gn:sea.status==="finalizada"?T.g4:T.bl;
+    return <div>
+      <Btn v="g" s="s" onClick={()=>sSelSeason(null)} style={{marginBottom:12}}>← Volver</Btn>
+      <Card style={{marginBottom:14}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div>
+            <h2 style={{margin:0,fontSize:18,color:colors.nv}}>{sea.name}</h2>
+            <div style={{fontSize:11,color:colors.g5}}>{fmtD(sea.start_date)} → {fmtD(sea.end_date)} · <span style={{color:stCol,fontWeight:700}}>{sea.status}</span></div>
+            {sea.objectives&&<div style={{fontSize:12,color:colors.g5,marginTop:4}}>{sea.objectives}</div>}
+          </div>
+          {canEdit&&<div style={{display:"flex",gap:4}}>
+            <Btn v="g" s="s" onClick={()=>onUpdSeason(sea.id,{status:sea.status==="planificada"?"activa":sea.status==="activa"?"finalizada":"planificada"})}>{sea.status==="planificada"?"Activar":sea.status==="activa"?"Finalizar":"Reactivar"}</Btn>
+            <Btn v="r" s="s" onClick={()=>{if(confirm("¿Eliminar temporada y todo su contenido?"))onDelSeason(sea.id);}}>Eliminar</Btn>
+          </div>}
+        </div>
+      </Card>
+
+      {/* Timeline visual */}
+      {seaPhases.length>0&&<Card style={{marginBottom:14}}>
+        <h3 style={{margin:"0 0 10px",fontSize:13,color:colors.nv}}>Timeline</h3>
+        <div style={{display:"flex",gap:2,borderRadius:8,overflow:"hidden",height:28}}>
+          {seaPhases.map((p:any)=>{
+            const seaStart=new Date(sea.start_date).getTime(),seaEnd=new Date(sea.end_date).getTime();
+            const pStart=new Date(p.start_date).getTime(),pEnd=new Date(p.end_date).getTime();
+            const totalDays=(seaEnd-seaStart)||1;
+            const w=Math.max(((pEnd-pStart)/totalDays)*100,5);
+            const pt=DEP_PHASE_TYPES[p.type]||DEP_PHASE_TYPES.pretemporada;
+            return <div key={p.id} onClick={()=>sSelPhase(p.id)} style={{width:w+"%",background:p.color||pt.c,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",minWidth:24}} title={p.name+": "+fmtD(p.start_date)+" → "+fmtD(p.end_date)}>
+              <span style={{fontSize:mob?8:9,color:"#fff",fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const,padding:"0 4px"}}>{p.name}</span>
+            </div>;
+          })}
+        </div>
+      </Card>}
+
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+        <h3 style={{margin:0,fontSize:14,color:colors.nv}}>Fases ({seaPhases.length})</h3>
+        {canEdit&&<Btn v="p" s="s" onClick={()=>{sPf({name:"",type:"pretemporada",start_date:sea.start_date,end_date:sea.end_date,objectives:"",color:"#C8102E"});sShowAddPhase(!showAddPhase);}}>+ Fase</Btn>}
+      </div>
+
+      {showAddPhase&&canEdit&&<Card style={{marginBottom:14,background:cardBg,border:"1px solid "+colors.g3}}>
+        <h4 style={{margin:"0 0 10px",fontSize:12,color:colors.nv}}>Nueva fase</h4>
+        <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:10}}>
+          <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Nombre</label><input value={pf.name} onChange={e=>sPf(p=>({...p,name:e.target.value}))} placeholder="Ej: Pretemporada I" style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+          <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Tipo</label><select value={pf.type} onChange={e=>sPf(p=>({...p,type:e.target.value,color:DEP_PHASE_TYPES[e.target.value]?.c||"#3B82F6"}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,marginTop:2}}>{Object.entries(DEP_PHASE_TYPES).map(([k,v])=><option key={k} value={k}>{(v as any).i} {(v as any).l}</option>)}</select></div>
+          <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Inicio</label><input type="date" value={pf.start_date} onChange={e=>sPf(p=>({...p,start_date:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+          <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Fin</label><input type="date" value={pf.end_date} onChange={e=>sPf(p=>({...p,end_date:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+          <div style={{gridColumn:mob?"1":"1 / -1"}}><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Objetivos</label><textarea value={pf.objectives} onChange={e=>sPf(p=>({...p,objectives:e.target.value}))} rows={2} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,resize:"vertical" as const,boxSizing:"border-box" as const,marginTop:2}}/></div>
+        </div>
+        <div style={{display:"flex",gap:8,marginTop:10}}><Btn v="p" onClick={()=>{onAddPhase({season_id:sea.id,...pf,sort_order:seaPhases.length});sShowAddPhase(false);}} disabled={!pf.name||!pf.start_date||!pf.end_date}>Crear</Btn><Btn v="g" onClick={()=>sShowAddPhase(false)}>Cancelar</Btn></div>
+      </Card>}
+
+      <div style={{display:"flex",flexDirection:"column" as const,gap:8}}>
+        {seaPhases.map((p:any)=>{
+          const pt=DEP_PHASE_TYPES[p.type]||DEP_PHASE_TYPES.pretemporada;
+          const pMicros=microcycles.filter((m:any)=>m.phase_id===p.id);
+          return <Card key={p.id} onClick={()=>sSelPhase(p.id)} style={{cursor:"pointer",borderLeft:"4px solid "+(p.color||pt.c)}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div>
+                <div style={{fontSize:14,fontWeight:700,color:colors.nv}}>{pt.i} {p.name}</div>
+                <div style={{fontSize:11,color:colors.g5}}>{pt.l} · {fmtD(p.start_date)} → {fmtD(p.end_date)}</div>
+                {p.objectives&&<div style={{fontSize:11,color:colors.g4,marginTop:2}}>{p.objectives.slice(0,80)}</div>}
+              </div>
+              <div style={{textAlign:"center" as const}}>
+                <div style={{fontSize:16,fontWeight:800,color:p.color||pt.c}}>{pMicros.length}</div>
+                <div style={{fontSize:9,color:colors.g5}}>semanas</div>
+              </div>
+            </div>
+          </Card>;
+        })}
+        {seaPhases.length===0&&<Card style={{textAlign:"center",padding:24,color:colors.g4}}><div style={{fontSize:24}}>📅</div><div style={{marginTop:6,fontSize:12}}>Sin fases. Agregá la primera.</div></Card>}
+      </div>
+    </div>;
+  }
+
+  /* ── Seasons list ── */
+  const activeSea=seasons.filter((s:any)=>s.status==="activa");
+  const otherSea=seasons.filter((s:any)=>s.status!=="activa");
+
+  return <div>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+      <h2 style={{margin:0,fontSize:18,color:colors.nv}}>📅 Planificación</h2>
+      {canEdit&&<Btn v="p" s="s" onClick={()=>sShowAddSeason(!showAddSeason)}>+ Temporada</Btn>}
+    </div>
+
+    {showAddSeason&&canEdit&&<Card style={{marginBottom:14,background:cardBg,border:"1px solid "+colors.g3}}>
+      <h3 style={{margin:"0 0 10px",fontSize:13,color:colors.nv}}>Nueva temporada</h3>
+      <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:10}}>
+        <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Nombre</label><input value={sf.name} onChange={e=>sSf(p=>({...p,name:e.target.value}))} placeholder="Ej: Temporada 2025" style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+        <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Estado</label><select value={sf.status} onChange={e=>sSf(p=>({...p,status:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,marginTop:2}}><option value="planificada">Planificada</option><option value="activa">Activa</option></select></div>
+        <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Inicio</label><input type="date" value={sf.start_date} onChange={e=>sSf(p=>({...p,start_date:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+        <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Fin</label><input type="date" value={sf.end_date} onChange={e=>sSf(p=>({...p,end_date:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+        <div style={{gridColumn:mob?"1":"1 / -1"}}><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Objetivos</label><textarea value={sf.objectives} onChange={e=>sSf(p=>({...p,objectives:e.target.value}))} rows={2} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,resize:"vertical" as const,boxSizing:"border-box" as const,marginTop:2}}/></div>
+      </div>
+      <div style={{display:"flex",gap:8,marginTop:10}}><Btn v="p" onClick={()=>{onAddSeason(sf);sShowAddSeason(false);sSf({name:"",start_date:"",end_date:"",objectives:"",status:"planificada"});}} disabled={!sf.name||!sf.start_date||!sf.end_date}>Crear</Btn><Btn v="g" onClick={()=>sShowAddSeason(false)}>Cancelar</Btn></div>
+    </Card>}
+
+    {activeSea.length>0&&<div style={{marginBottom:14}}>
+      <h3 style={{fontSize:13,color:colors.nv,margin:"0 0 8px"}}>Temporada activa</h3>
+      {activeSea.map((s:any)=>{
+        const sPhases=phases.filter((p:any)=>p.season_id===s.id);
+        return <Card key={s.id} onClick={()=>sSelSeason(s.id)} style={{cursor:"pointer",borderLeft:"4px solid "+T.gn}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div>
+              <div style={{fontSize:15,fontWeight:700,color:colors.nv}}>{s.name}</div>
+              <div style={{fontSize:11,color:colors.g5}}>{fmtD(s.start_date)} → {fmtD(s.end_date)} · {sPhases.length} fases</div>
+              {s.objectives&&<div style={{fontSize:11,color:colors.g4,marginTop:2}}>{s.objectives.slice(0,100)}</div>}
+            </div>
+            <span style={{background:"#D1FAE5",color:T.gn,padding:"4px 12px",borderRadius:12,fontSize:11,fontWeight:700}}>Activa</span>
+          </div>
+        </Card>;
+      })}
+    </div>}
+
+    {otherSea.length>0&&<div>
+      <h3 style={{fontSize:13,color:colors.g5,margin:"0 0 8px"}}>Otras temporadas</h3>
+      <div style={{display:"flex",flexDirection:"column" as const,gap:8}}>
+        {otherSea.map((s:any)=>{
+          const sPhases=phases.filter((p:any)=>p.season_id===s.id);
+          const stCol=s.status==="finalizada"?T.g4:T.bl;
+          return <Card key={s.id} onClick={()=>sSelSeason(s.id)} style={{cursor:"pointer"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div>
+                <div style={{fontSize:14,fontWeight:700,color:colors.nv}}>{s.name}</div>
+                <div style={{fontSize:11,color:colors.g5}}>{fmtD(s.start_date)} → {fmtD(s.end_date)} · {sPhases.length} fases</div>
+              </div>
+              <span style={{color:stCol,fontSize:11,fontWeight:700}}>{s.status}</span>
+            </div>
+          </Card>;
+        })}
+      </div>
+    </div>}
+
+    {seasons.length===0&&<Card style={{textAlign:"center",padding:32,color:colors.g4}}><div style={{fontSize:32}}>📅</div><div style={{marginTop:8,fontSize:13}}>No hay temporadas creadas. Empezá creando una.</div></Card>}
+  </div>;
+}
+
+/* ══════════════════════════ PRETEMPORADA TAB ══════════════════════════ */
+function PretemporadaTab({athletes,tests,testTypes,onAddTest,onAddTestBatch,onDelTest,canEdit,mob}:any){
+  const{colors,cardBg}=useC();
+  const [mode,sMode]=useState<"overview"|"batch"|"history">("overview");
+  const [selType,sSelType]=useState<number|null>(null);
+  const [batchDate,sBatchDate]=useState(TODAY);
+  const [batchType,sBatchType]=useState<number>(testTypes[0]?.id||0);
+  const [batchVals,sBatchVals]=useState<Record<number,string>>({});
+
+  const tt=selType?testTypes.find((t:any)=>t.id===selType):null;
+
+  /* Group tests by category */
+  const byCat:Record<string,any[]>={};
+  testTypes.forEach((t:any)=>{if(!byCat[t.category])byCat[t.category]=[];byCat[t.category].push(t);});
+
+  /* Latest test per athlete per type */
+  const latestVal=(athId:number,typeId:number)=>{
+    return tests.find((t:any)=>t.athlete_id===athId&&t.test_type_id===typeId);
+  };
+
+  /* Benchmark comparison */
+  const benchColor=(val:number,tt:any)=>{
+    if(!tt.benchmark_m19) return colors.g5;
+    if(tt.higher_is_better){
+      if(val>=tt.benchmark_m19) return T.gn;
+      if(val>=tt.benchmark_m19*0.85) return T.yl;
+      return T.rd;
+    }else{
+      if(val<=tt.benchmark_m19) return T.gn;
+      if(val<=tt.benchmark_m19*1.15) return T.yl;
+      return T.rd;
+    }
+  };
+
+  /* ── Batch entry ── */
+  if(mode==="batch"&&canEdit){
+    const bType=testTypes.find((t:any)=>t.id===batchType);
+    return <div>
+      <Btn v="g" s="s" onClick={()=>sMode("overview")} style={{marginBottom:12}}>← Volver</Btn>
+      <Card>
+        <h3 style={{margin:"0 0 10px",fontSize:14,color:colors.nv}}>🏋️ Carga de tests en lote</h3>
+        <div style={{display:"flex",gap:10,marginBottom:14,flexWrap:"wrap" as const}}>
+          <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Test</label><select value={batchType} onChange={e=>{sBatchType(+e.target.value);sBatchVals({});}} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,marginTop:2}}>{testTypes.map((t:any)=><option key={t.id} value={t.id}>{t.name} ({t.unit})</option>)}</select></div>
+          <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Fecha</label><input type="date" value={batchDate} onChange={e=>sBatchDate(e.target.value)} style={{padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+        </div>
+        {bType&&<div style={{fontSize:11,color:colors.g5,marginBottom:10}}>📏 Benchmark M19: {bType.benchmark_m19?bType.benchmark_m19+" "+bType.unit:"N/A"} {bType.higher_is_better===true?"(mayor = mejor)":bType.higher_is_better===false?"(menor = mejor)":""}</div>}
+        <div style={{display:"flex",flexDirection:"column" as const,gap:4}}>
+          {athletes.map((a:any)=>{
+            const prev=latestVal(a.id,batchType);
+            return <div key={a.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 8px",borderRadius:6,border:"1px solid "+colors.g1}}>
+              <div style={{flex:1,fontSize:12,fontWeight:600,color:colors.nv}}>{a.last_name}, {a.first_name}</div>
+              {prev&&<span style={{fontSize:10,color:colors.g4}}>Anterior: {prev.value} {prev.test_unit}</span>}
+              <input value={batchVals[a.id]||""} onChange={e=>sBatchVals(p=>({...p,[a.id]:e.target.value}))} placeholder={bType?.unit||"Valor"} type="number" step="0.1" style={{width:80,padding:"5px 8px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:12,textAlign:"center" as const}}/>
+            </div>;
+          })}
+        </div>
+        <div style={{display:"flex",gap:8,marginTop:14,alignItems:"center"}}>
+          <Btn v="p" onClick={()=>{
+            const rows=Object.entries(batchVals).filter(([,v])=>v&&+v>0).map(([id,v])=>({athlete_id:+id,test_type_id:batchType,date:batchDate,value:+v}));
+            if(rows.length===0) return;
+            onAddTestBatch(rows);sBatchVals({});
+          }} disabled={Object.values(batchVals).filter(v=>v&&+v>0).length===0}>💾 Guardar {Object.values(batchVals).filter(v=>v&&+v>0).length} tests</Btn>
+          <Btn v="g" onClick={()=>sMode("overview")}>Cancelar</Btn>
+        </div>
+      </Card>
+    </div>;
+  }
+
+  /* ── History view for a test type ── */
+  if(mode==="history"&&tt){
+    const typeTests=tests.filter((t:any)=>t.test_type_id===tt.id).sort((a:any,b:any)=>b.date.localeCompare(a.date));
+    const dates:string[]=[...new Set<string>(typeTests.map((t:any)=>t.date))].slice(0,10);
+    return <div>
+      <Btn v="g" s="s" onClick={()=>{sMode("overview");sSelType(null);}} style={{marginBottom:12}}>← Volver</Btn>
+      <Card style={{marginBottom:14}}>
+        <h3 style={{margin:"0 0 4px",fontSize:15,color:colors.nv}}>{tt.name}</h3>
+        <div style={{fontSize:11,color:colors.g5}}>{tt.description} · Unidad: {tt.unit} {tt.benchmark_m19?"· Benchmark M19: "+tt.benchmark_m19+" "+tt.unit:""}</div>
+      </Card>
+
+      {/* Comparison table */}
+      <Card>
+        <h4 style={{margin:"0 0 8px",fontSize:12,color:colors.nv}}>Historial por jugador</h4>
+        <div style={{overflowX:"auto" as const}}>
+          <table style={{width:"100%",borderCollapse:"collapse" as const,fontSize:11}}>
+            <thead><tr style={{borderBottom:"2px solid "+colors.g2}}>
+              <th style={{textAlign:"left" as const,padding:"6px 8px",color:colors.g5,fontWeight:700}}>Jugador</th>
+              {dates.map(d=><th key={d} style={{textAlign:"center" as const,padding:"6px 4px",color:colors.g5,fontWeight:700,fontSize:9}}>{d.slice(5)}</th>)}
+            </tr></thead>
+            <tbody>{athletes.map((a:any)=>{
+              const athTests=typeTests.filter((t:any)=>t.athlete_id===a.id);
+              if(athTests.length===0) return null;
+              return <tr key={a.id} style={{borderBottom:"1px solid "+colors.g1}}>
+                <td style={{padding:"6px 8px",fontWeight:600,color:colors.nv,whiteSpace:"nowrap" as const}}>{a.last_name}</td>
+                {dates.map(d=>{
+                  const t=athTests.find((t:any)=>t.date===d);
+                  return <td key={d} style={{textAlign:"center" as const,padding:"6px 4px",fontWeight:700,color:t?benchColor(t.value,tt):colors.g4}}>{t?t.value:"–"}</td>;
+                })}
+              </tr>;
+            })}</tbody>
+          </table>
+        </div>
+      </Card>
+    </div>;
+  }
+
+  /* ── Overview ── */
+  const totalTests=tests.length;
+  const testedAthletes=new Set(tests.map((t:any)=>t.athlete_id)).size;
+
+  return <div>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+      <h2 style={{margin:0,fontSize:18,color:colors.nv}}>🏋️ Pretemporada — Tests físicos</h2>
+      {canEdit&&<Btn v="p" s="s" onClick={()=>{sBatchType(testTypes[0]?.id||0);sBatchVals({});sMode("batch");}}>+ Cargar tests</Btn>}
+    </div>
+
+    <div style={{display:"grid",gridTemplateColumns:mob?"1fr 1fr":"repeat(4,1fr)",gap:10,marginBottom:14}}>
+      <Card style={{textAlign:"center",padding:12}}><div style={{fontSize:20,fontWeight:800,color:colors.bl}}>{testTypes.length}</div><div style={{fontSize:10,color:colors.g5}}>Tipos de test</div></Card>
+      <Card style={{textAlign:"center",padding:12}}><div style={{fontSize:20,fontWeight:800,color:colors.nv}}>{totalTests}</div><div style={{fontSize:10,color:colors.g5}}>Tests registrados</div></Card>
+      <Card style={{textAlign:"center",padding:12}}><div style={{fontSize:20,fontWeight:800,color:T.gn}}>{testedAthletes}</div><div style={{fontSize:10,color:colors.g5}}>Jugadores testeados</div></Card>
+      <Card style={{textAlign:"center",padding:12}}><div style={{fontSize:20,fontWeight:800,color:colors.g4}}>{athletes.length-testedAthletes}</div><div style={{fontSize:10,color:colors.g5}}>Sin tests</div></Card>
+    </div>
+
+    {/* Fitness semáforo */}
+    <Card style={{marginBottom:14}}>
+      <h3 style={{margin:"0 0 10px",fontSize:13,color:colors.nv}}>Semáforo fitness — últimos tests vs benchmark M19</h3>
+      <div style={{overflowX:"auto" as const}}>
+        <table style={{width:"100%",borderCollapse:"collapse" as const,fontSize:11}}>
+          <thead><tr style={{borderBottom:"2px solid "+colors.g2}}>
+            <th style={{textAlign:"left" as const,padding:"6px 8px",color:colors.g5,fontWeight:700}}>Jugador</th>
+            {testTypes.filter((t:any)=>t.benchmark_m19).map((t:any)=><th key={t.id} style={{textAlign:"center" as const,padding:"6px 4px",color:colors.g5,fontWeight:700,fontSize:9}}>{t.name}</th>)}
+          </tr></thead>
+          <tbody>{athletes.map((a:any)=>{
+            const hasAny=testTypes.some((tt:any)=>latestVal(a.id,tt.id));
+            if(!hasAny) return null;
+            return <tr key={a.id} style={{borderBottom:"1px solid "+colors.g1}}>
+              <td style={{padding:"6px 8px",fontWeight:600,color:colors.nv,whiteSpace:"nowrap" as const}}>{a.last_name}</td>
+              {testTypes.filter((t:any)=>t.benchmark_m19).map((tt:any)=>{
+                const v=latestVal(a.id,tt.id);
+                return <td key={tt.id} style={{textAlign:"center" as const,padding:"6px 4px"}}>
+                  {v?<span style={{background:benchColor(v.value,tt)+"20",color:benchColor(v.value,tt),padding:"2px 6px",borderRadius:8,fontWeight:700,fontSize:10}}>{v.value}</span>:<span style={{color:colors.g4}}>–</span>}
+                </td>;
+              })}
+            </tr>;
+          })}</tbody>
+        </table>
+      </div>
+    </Card>
+
+    {/* Test types by category */}
+    {Object.entries(byCat).map(([cat,types])=>{
+      const catInfo=DEP_TEST_CATS[cat]||{l:cat,i:"📊"};
+      return <div key={cat} style={{marginBottom:14}}>
+        <h3 style={{fontSize:13,color:colors.nv,margin:"0 0 8px"}}>{catInfo.i} {catInfo.l}</h3>
+        <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr 1fr",gap:8}}>
+          {types.map((t:any)=>{
+            const cnt=tests.filter((x:any)=>x.test_type_id===t.id).length;
+            return <Card key={t.id} onClick={()=>{sSelType(t.id);sMode("history");}} style={{cursor:"pointer",padding:mob?10:12}}>
+              <div style={{fontSize:13,fontWeight:700,color:colors.nv}}>{t.name}</div>
+              <div style={{fontSize:10,color:colors.g5}}>{t.unit} {t.benchmark_m19?"· Ref: "+t.benchmark_m19:""}</div>
+              <div style={{fontSize:11,color:colors.bl,fontWeight:600,marginTop:4}}>{cnt} registro{cnt!==1?"s":""}</div>
+            </Card>;
+          })}
+        </div>
+      </div>;
+    })}
+
+    {testTypes.length===0&&<Card style={{textAlign:"center",padding:32,color:colors.g4}}><div style={{fontSize:32}}>🏋️</div><div style={{marginTop:8,fontSize:13}}>No hay tipos de test configurados</div></Card>}
+  </div>;
+}
+
+/* ══════════════════════════ LINEUP TAB ══════════════════════════ */
+function LineupTab({athletes,lineups,injuries,checkins,onAdd,onUpd,onDel,canEdit,mob,latestCheckin}:any){
+  const{colors,cardBg}=useC();
+  const [selLineup,sSelLineup]=useState<number|null>(null);
+  const [editing,sEditing]=useState(false);
+  const [form,sForm]=useState({date:TODAY,match_name:"",division:"M19",notes:"",titulares:{} as Record<string,{athlete_id:number;name:string}>,suplentes:[] as {athlete_id:number;name:string;pos:string}[]});
+  const [pickPos,sPickPos]=useState<string|null>(null);
+
+  const lu=selLineup?lineups.find((l:any)=>l.id===selLineup):null;
+  const activeInj=injuries.filter((i:any)=>i.status!=="alta");
+  const injuredIds=new Set(activeInj.map((i:any)=>i.athlete_id));
+
+  const athName=(id:number)=>{const a=athletes.find((a:any)=>a.id===id);return a?a.last_name+", "+a.first_name:"?";};
+
+  const assignedIds=new Set([...Object.values(form.titulares).map((v:any)=>v.athlete_id),...form.suplentes.map((s:any)=>s.athlete_id)]);
+  const available=athletes.filter((a:any)=>!assignedIds.has(a.id));
+
+  const startNew=()=>{
+    sForm({date:TODAY,match_name:"",division:"M19",notes:"",titulares:{},suplentes:[]});
+    sEditing(true);sSelLineup(null);
+  };
+
+  const startEdit=(l:any)=>{
+    sForm({date:l.date,match_name:l.match_name,division:l.division,notes:l.notes,titulares:l.formation?.titulares||{},suplentes:l.formation?.suplentes||[]});
+    sEditing(true);
+  };
+
+  const saveLU=()=>{
+    const payload={date:form.date,match_name:form.match_name,division:form.division,notes:form.notes,formation:{titulares:form.titulares,suplentes:form.suplentes}};
+    if(lu) onUpd(lu.id,payload);
+    else onAdd(payload);
+    sEditing(false);sSelLineup(null);
+  };
+
+  const genWhatsApp=()=>{
+    const lines=["*🏉 FORMACIÓN — "+form.match_name+"*","📅 "+fmtD(form.date)+" · "+form.division,"","*TITULARES*"];
+    Object.entries(DEP_LINEUP_POS).forEach(([num,posName])=>{
+      const t=form.titulares[num];
+      lines.push(num+". "+posName+": "+(t?t.name:"—"));
+    });
+    if(form.suplentes.length>0){lines.push("");lines.push("*SUPLENTES*");form.suplentes.forEach((s:any,i:number)=>lines.push((16+i)+". "+s.name+" ("+s.pos+")"));}
+    if(form.notes){lines.push("");lines.push("📝 "+form.notes);}
+    lines.push("");lines.push("_Los Tordos RC_");
+    return lines.join("\n");
+  };
+
+  /* ── Editor ── */
+  if(editing){
+    return <div>
+      <Btn v="g" s="s" onClick={()=>{sEditing(false);if(lu)sSelLineup(lu.id);}} style={{marginBottom:12}}>← Cancelar</Btn>
+      <Card style={{marginBottom:14}}>
+        <h3 style={{margin:"0 0 10px",fontSize:14,color:colors.nv}}>{lu?"Editar formación":"Nueva formación"}</h3>
+        <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr 1fr",gap:10,marginBottom:14}}>
+          <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Partido</label><input value={form.match_name} onChange={e=>sForm(p=>({...p,match_name:e.target.value}))} placeholder="Ej: vs CUBA" style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+          <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Fecha</label><input type="date" value={form.date} onChange={e=>sForm(p=>({...p,date:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+          <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Notas</label><input value={form.notes} onChange={e=>sForm(p=>({...p,notes:e.target.value}))} placeholder="Observaciones..." style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+        </div>
+      </Card>
+
+      {/* Pitch layout */}
+      <Card style={{marginBottom:14,background:"#0D4A2B",borderRadius:14,padding:mob?12:20}}>
+        <h4 style={{margin:"0 0 12px",color:"rgba(255,255,255,.8)",fontSize:12,textAlign:"center" as const}}>🏉 Titulares (15)</h4>
+        {/* Forwards */}
+        <div style={{marginBottom:8}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:6}}>
+            {["1","2","3"].map(n=><PosSlot key={n} n={n} pos={DEP_LINEUP_POS[n]} val={form.titulares[n]} injured={form.titulares[n]?injuredIds.has(form.titulares[n].athlete_id):false} onClick={()=>sPickPos(n)} onClear={()=>sForm(p=>{const t={...p.titulares};delete t[n];return{...p,titulares:t};})} mob={mob}/>)}
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:6}}>
+            {["4","5"].map(n=><PosSlot key={n} n={n} pos={DEP_LINEUP_POS[n]} val={form.titulares[n]} injured={form.titulares[n]?injuredIds.has(form.titulares[n].athlete_id):false} onClick={()=>sPickPos(n)} onClear={()=>sForm(p=>{const t={...p.titulares};delete t[n];return{...p,titulares:t};})} mob={mob}/>)}
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
+            {["6","8","7"].map(n=><PosSlot key={n} n={n} pos={DEP_LINEUP_POS[n]} val={form.titulares[n]} injured={form.titulares[n]?injuredIds.has(form.titulares[n].athlete_id):false} onClick={()=>sPickPos(n)} onClear={()=>sForm(p=>{const t={...p.titulares};delete t[n];return{...p,titulares:t};})} mob={mob}/>)}
+          </div>
+        </div>
+        {/* Backs */}
+        <div style={{borderTop:"1px dashed rgba(255,255,255,.2)",paddingTop:8}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:6}}>
+            {["9","10"].map(n=><PosSlot key={n} n={n} pos={DEP_LINEUP_POS[n]} val={form.titulares[n]} injured={form.titulares[n]?injuredIds.has(form.titulares[n].athlete_id):false} onClick={()=>sPickPos(n)} onClear={()=>sForm(p=>{const t={...p.titulares};delete t[n];return{...p,titulares:t};})} mob={mob}/>)}
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6,marginBottom:6}}>
+            {["11","12","13","14"].map(n=><PosSlot key={n} n={n} pos={DEP_LINEUP_POS[n]} val={form.titulares[n]} injured={form.titulares[n]?injuredIds.has(form.titulares[n].athlete_id):false} onClick={()=>sPickPos(n)} onClear={()=>sForm(p=>{const t={...p.titulares};delete t[n];return{...p,titulares:t};})} mob={mob}/>)}
+          </div>
+          <div style={{display:"flex",justifyContent:"center"}}>
+            <div style={{width:mob?"60%":"30%"}}><PosSlot n="15" pos={DEP_LINEUP_POS["15"]} val={form.titulares["15"]} injured={form.titulares["15"]?injuredIds.has(form.titulares["15"].athlete_id):false} onClick={()=>sPickPos("15")} onClear={()=>sForm(p=>{const t={...p.titulares};delete t["15"];return{...p,titulares:t};})} mob={mob}/></div>
+          </div>
+        </div>
+      </Card>
+
+      {/* Athlete picker modal */}
+      {pickPos&&<Card style={{marginBottom:14,border:"2px solid "+colors.bl}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+          <h4 style={{margin:0,fontSize:13,color:colors.nv}}>Seleccionar jugador para #{pickPos} — {DEP_LINEUP_POS[pickPos]}</h4>
+          <Btn v="g" s="s" onClick={()=>sPickPos(null)}>✕</Btn>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr 1fr",gap:4,maxHeight:300,overflowY:"auto" as const}}>
+          {available.map((a:any)=>{
+            const isInj=injuredIds.has(a.id);
+            return <div key={a.id} onClick={()=>{sForm(p=>({...p,titulares:{...p.titulares,[pickPos]:{athlete_id:a.id,name:a.first_name+" "+a.last_name}}}));sPickPos(null);}} style={{padding:"6px 8px",borderRadius:6,border:"1px solid "+(isInj?"#FCA5A5":colors.g2),background:isInj?"#FEF2F2":cardBg,cursor:"pointer",fontSize:11,fontWeight:600,color:colors.nv}}>
+              {a.last_name}, {a.first_name} <span style={{color:colors.g4,fontWeight:400}}>({a.position||"–"})</span>
+              {isInj&&<span style={{color:T.rd,fontSize:9}}> 🩹</span>}
+            </div>;
+          })}
+        </div>
+      </Card>}
+
+      {/* Suplentes */}
+      <Card style={{marginBottom:14}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+          <h4 style={{margin:0,fontSize:13,color:colors.nv}}>Suplentes ({form.suplentes.length})</h4>
+          <Btn v="g" s="s" onClick={()=>sForm(p=>({...p,suplentes:[...p.suplentes,{athlete_id:0,name:"",pos:""}]}))}>+ Suplente</Btn>
+        </div>
+        {form.suplentes.map((_s:any,i:number)=><div key={i} style={{display:"flex",gap:6,alignItems:"center",marginBottom:6}}>
+          <select value={form.suplentes[i].athlete_id} onChange={e=>{const a=athletes.find((at:any)=>at.id===+e.target.value);sForm(p=>{const s=[...p.suplentes];s[i]={...s[i],athlete_id:+e.target.value,name:a?a.first_name+" "+a.last_name:""};return{...p,suplentes:s};});}} style={{flex:1,padding:6,borderRadius:6,border:"1px solid "+colors.g3,fontSize:11}}>
+            <option value={0}>Seleccionar...</option>
+            {available.concat(form.suplentes[i].athlete_id?[athletes.find((a:any)=>a.id===form.suplentes[i].athlete_id)].filter(Boolean):[]).map((a:any)=><option key={a.id} value={a.id}>{a.last_name}, {a.first_name}</option>)}
+          </select>
+          <input value={form.suplentes[i].pos} onChange={e=>sForm(p=>{const s=[...p.suplentes];s[i]={...s[i],pos:e.target.value};return{...p,suplentes:s};})} placeholder="Posición" style={{width:80,padding:6,borderRadius:6,border:"1px solid "+colors.g3,fontSize:11}}/>
+          <button onClick={()=>sForm(p=>({...p,suplentes:p.suplentes.filter((_:any,j:number)=>j!==i)}))} style={{background:"none",border:"none",color:T.rd,cursor:"pointer",fontSize:14}}>×</button>
+        </div>)}
+      </Card>
+
+      <div style={{display:"flex",gap:8}}>
+        <Btn v="p" onClick={saveLU}>💾 Guardar formación</Btn>
+        <Btn v="s" onClick={()=>{const txt=genWhatsApp();const url="https://wa.me/?text="+encodeURIComponent(txt);window.open(url,"_blank");}} disabled={Object.keys(form.titulares).length===0}>📱 Enviar por WhatsApp</Btn>
+        <Btn v="g" onClick={()=>{sEditing(false);if(lu)sSelLineup(lu.id);}}>Cancelar</Btn>
+      </div>
+    </div>;
+  }
+
+  /* ── Lineup detail ── */
+  if(lu){
+    const tit=lu.formation?.titulares||{};
+    const sup=lu.formation?.suplentes||[];
+    return <div>
+      <Btn v="g" s="s" onClick={()=>sSelLineup(null)} style={{marginBottom:12}}>← Volver</Btn>
+      <Card style={{marginBottom:14}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div>
+            <h2 style={{margin:0,fontSize:18,color:colors.nv}}>{lu.match_name||"Sin nombre"}</h2>
+            <div style={{fontSize:11,color:colors.g5}}>{fmtD(lu.date)} · {lu.division}</div>
+            {lu.notes&&<div style={{fontSize:11,color:colors.g4,marginTop:2}}>{lu.notes}</div>}
+          </div>
+          {canEdit&&<div style={{display:"flex",gap:4}}>
+            <Btn v="g" s="s" onClick={()=>startEdit(lu)}>✏️ Editar</Btn>
+            <Btn v="r" s="s" onClick={()=>{if(confirm("¿Eliminar formación?")){onDel(lu.id);sSelLineup(null);}}}>Eliminar</Btn>
+          </div>}
+        </div>
+      </Card>
+
+      <Card style={{marginBottom:14}}>
+        <h3 style={{margin:"0 0 10px",fontSize:13,color:colors.nv}}>Titulares</h3>
+        <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:6}}>
+          {Object.entries(DEP_LINEUP_POS).map(([num,posName])=>{
+            const t=tit[num];
+            const isInj=t&&injuredIds.has(t.athlete_id);
+            return <div key={num} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",borderRadius:6,border:"1px solid "+(isInj?"#FCA5A5":colors.g1),background:isInj?"#FEF2F2":cardBg}}>
+              <span style={{width:24,height:24,borderRadius:12,background:colors.nv,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:800,flexShrink:0}}>{num}</span>
+              <div style={{flex:1}}>
+                <div style={{fontSize:9,color:colors.g4}}>{posName}</div>
+                <div style={{fontSize:12,fontWeight:600,color:t?colors.nv:colors.g4}}>{t?t.name:"— vacante —"}</div>
+              </div>
+              {isInj&&<span style={{fontSize:10}}>🩹</span>}
+            </div>;
+          })}
+        </div>
+      </Card>
+
+      {sup.length>0&&<Card style={{marginBottom:14}}>
+        <h3 style={{margin:"0 0 8px",fontSize:13,color:colors.nv}}>Suplentes ({sup.length})</h3>
+        {sup.map((s:any,i:number)=><div key={i} style={{padding:"4px 0",borderBottom:"1px solid "+colors.g1,display:"flex",gap:6,alignItems:"center",fontSize:12}}>
+          <span style={{fontWeight:700,color:colors.g5}}>{16+i}.</span>
+          <span style={{fontWeight:600,color:colors.nv}}>{s.name}</span>
+          <span style={{color:colors.g4}}>({s.pos})</span>
+        </div>)}
+      </Card>}
+
+      <Btn v="s" onClick={()=>{
+        sForm({date:lu.date,match_name:lu.match_name,division:lu.division,notes:lu.notes,titulares:lu.formation?.titulares||{},suplentes:lu.formation?.suplentes||[]});
+        const txt=genWhatsApp();const url="https://wa.me/?text="+encodeURIComponent(txt);window.open(url,"_blank");
+      }}>📱 Enviar por WhatsApp</Btn>
+    </div>;
+  }
+
+  /* ── Lineups list ── */
+  return <div>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+      <h2 style={{margin:0,fontSize:18,color:colors.nv}}>🏉 Formaciones</h2>
+      {canEdit&&<Btn v="p" s="s" onClick={startNew}>+ Nueva formación</Btn>}
+    </div>
+
+    {lineups.length===0&&<Card style={{textAlign:"center",padding:32,color:colors.g4}}><div style={{fontSize:32}}>🏉</div><div style={{marginTop:8,fontSize:13}}>No hay formaciones guardadas. Creá la primera.</div></Card>}
+
+    <div style={{display:"flex",flexDirection:"column" as const,gap:8}}>
+      {lineups.map((l:any)=>{
+        const tCount=Object.keys(l.formation?.titulares||{}).length;
+        const sCount=(l.formation?.suplentes||[]).length;
+        return <Card key={l.id} onClick={()=>sSelLineup(l.id)} style={{cursor:"pointer"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div>
+              <div style={{fontSize:14,fontWeight:700,color:colors.nv}}>{l.match_name||"Sin nombre"}</div>
+              <div style={{fontSize:11,color:colors.g5}}>{fmtD(l.date)} · {l.division}</div>
+            </div>
+            <div style={{textAlign:"center" as const}}>
+              <div style={{fontSize:16,fontWeight:800,color:colors.nv}}>{tCount}/15</div>
+              <div style={{fontSize:9,color:colors.g5}}>+{sCount} sup</div>
+            </div>
+          </div>
+        </Card>;
+      })}
+    </div>
+  </div>;
+}
+
+/* ── Position slot helper ── */
+function PosSlot({n,pos,val,injured,onClick,onClear,mob}:{n:string;pos:string;val?:{athlete_id:number;name:string};injured:boolean;onClick:()=>void;onClear:()=>void;mob:boolean}){
+  return <div onClick={val?undefined:onClick} style={{background:val?(injured?"rgba(220,38,38,.3)":"rgba(255,255,255,.15)"):"rgba(255,255,255,.06)",border:"1px dashed "+(val?"rgba(255,255,255,.3)":"rgba(255,255,255,.15)"),borderRadius:8,padding:mob?"8px 4px":"10px 6px",textAlign:"center" as const,cursor:val?"default":"pointer",position:"relative" as const}}>
+    <div style={{fontSize:10,fontWeight:800,color:"rgba(255,255,255,.5)"}}>{n}</div>
+    <div style={{fontSize:mob?9:10,color:"rgba(255,255,255,.7)",fontWeight:600}}>{val?val.name:pos}</div>
+    {injured&&<div style={{fontSize:8,color:"#FCA5A5"}}>🩹 Lesionado</div>}
+    {val&&<button onClick={e=>{e.stopPropagation();onClear();}} style={{position:"absolute" as const,top:2,right:4,background:"none",border:"none",color:"rgba(255,255,255,.4)",cursor:"pointer",fontSize:10}}>×</button>}
+  </div>;
+}
+
+/* ══════════════════════════ COMUNICACIÓN WHATSAPP TAB ══════════════════════════ */
+function CommTab({athletes,lineups,seasons,phases,mob,showT}:any){
+  const{colors,isDark,cardBg}=useC();
+  const [tpl,sTpl]=useState<"lineup"|"citacion"|"horarios"|"custom">("citacion");
+  const [msg,sMsg]=useState("");
+  const [selLU,sSelLU]=useState<number|null>(null);
+
+  /* ── Citación template ── */
+  const genCitacion=(dia:string,hora:string,lugar:string,tipo:string)=>{
+    const lines=["*🏉 CITACIÓN — Los Tordos M19*","","📅 "+dia,"⏰ "+hora,"📍 "+lugar,"🏋️ "+tipo,"","*Jugadores citados:*"];
+    athletes.forEach((a:any,i:number)=>{lines.push((i+1)+". "+a.first_name+" "+a.last_name);});
+    lines.push("","⚠️ Confirmar asistencia respondiendo este mensaje.","","_Los Tordos RC_");
+    return lines.join("\n");
+  };
+
+  /* ── Schedule template ── */
+  const genSchedule=(semana:string,items:{dia:string;hora:string;tipo:string;lugar:string}[])=>{
+    const lines=["*📅 CRONOGRAMA SEMANAL — Los Tordos M19*","Semana: "+semana,""];
+    items.forEach(item=>{lines.push("▸ *"+item.dia+"* "+item.hora+" — "+item.tipo+(item.lugar?" ("+item.lugar+")":""));});
+    lines.push("","_Los Tordos RC_");
+    return lines.join("\n");
+  };
+
+  const [citF,sCitF]=useState({dia:TODAY,hora:"09:00",lugar:"Club Los Tordos",tipo:"Entrenamiento"});
+  const [schItems,sSchItems]=useState([{dia:"Lunes",hora:"09:00",tipo:"Entrenamiento",lugar:"Cancha 1"}]);
+
+  const [customMsg,sCustomMsg]=useState("");
+
+  const preview=()=>{
+    if(tpl==="citacion") return genCitacion(fmtD(citF.dia),citF.hora,citF.lugar,citF.tipo);
+    if(tpl==="horarios") return genSchedule("Actual",schItems);
+    if(tpl==="lineup"&&selLU){
+      const lu=lineups.find((l:any)=>l.id===selLU);
+      if(!lu) return "";
+      const lines=["*🏉 FORMACIÓN — "+(lu.match_name||"Partido")+"*","📅 "+fmtD(lu.date),"","*TITULARES*"];
+      Object.entries(DEP_LINEUP_POS).forEach(([num,posName])=>{
+        const t=(lu.formation?.titulares||{})[num];
+        lines.push(num+". "+posName+": "+(t?t.name:"—"));
+      });
+      const sup=lu.formation?.suplentes||[];
+      if(sup.length>0){lines.push("");lines.push("*SUPLENTES*");sup.forEach((s:any,i:number)=>lines.push((16+i)+". "+s.name+" ("+s.pos+")"));}
+      lines.push("","_Los Tordos RC_");
+      return lines.join("\n");
+    }
+    if(tpl==="custom") return customMsg;
+    return "";
+  };
+
+  const sendWA=()=>{
+    const txt=preview();
+    if(!txt) return;
+    const url="https://wa.me/?text="+encodeURIComponent(txt);
+    window.open(url,"_blank");
+  };
+
+  const copyClip=()=>{
+    const txt=preview();
+    if(!txt) return;
+    navigator.clipboard.writeText(txt);
+    showT("Copiado al portapapeles");
+  };
+
+  return <div>
+    <h2 style={{margin:"0 0 14px",fontSize:18,color:colors.nv}}>📱 Comunicación WhatsApp</h2>
+
+    {/* Template selector */}
+    <div style={{display:"flex",gap:4,marginBottom:14,flexWrap:"wrap" as const}}>
+      {([["citacion","📋 Citación"],["horarios","📅 Horarios"],["lineup","🏉 Formación"],["custom","✏️ Libre"]] as const).map(([k,l])=>
+        <button key={k} onClick={()=>sTpl(k)} style={{padding:"7px 14px",borderRadius:8,border:tpl===k?"2px solid "+colors.nv:"1px solid "+colors.g3,background:tpl===k?colors.nv+"10":cardBg,color:tpl===k?colors.nv:colors.g5,fontSize:12,fontWeight:600,cursor:"pointer"}}>{l}</button>
+      )}
+    </div>
+
+    {/* ── Citación form ── */}
+    {tpl==="citacion"&&<Card style={{marginBottom:14}}>
+      <h3 style={{margin:"0 0 10px",fontSize:13,color:colors.nv}}>📋 Generar citación</h3>
+      <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:10}}>
+        <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Fecha</label><input type="date" value={citF.dia} onChange={e=>sCitF(p=>({...p,dia:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+        <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Hora</label><input type="time" value={citF.hora} onChange={e=>sCitF(p=>({...p,hora:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+        <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Lugar</label><input value={citF.lugar} onChange={e=>sCitF(p=>({...p,lugar:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+        <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Tipo</label><select value={citF.tipo} onChange={e=>sCitF(p=>({...p,tipo:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,marginTop:2}}><option>Entrenamiento</option><option>Partido</option><option>Gimnasio</option><option>Reunión</option></select></div>
+      </div>
+    </Card>}
+
+    {/* ── Horarios form ── */}
+    {tpl==="horarios"&&<Card style={{marginBottom:14}}>
+      <h3 style={{margin:"0 0 10px",fontSize:13,color:colors.nv}}>📅 Armar cronograma semanal</h3>
+      {schItems.map((item,i)=><div key={i} style={{display:"flex",gap:6,marginBottom:6,alignItems:"center",flexWrap:"wrap" as const}}>
+        <select value={item.dia} onChange={e=>sSchItems(p=>p.map((it,j)=>j===i?{...it,dia:e.target.value}:it))} style={{padding:6,borderRadius:6,border:"1px solid "+colors.g3,fontSize:11}}>
+          {["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"].map(d=><option key={d}>{d}</option>)}
+        </select>
+        <input type="time" value={item.hora} onChange={e=>sSchItems(p=>p.map((it,j)=>j===i?{...it,hora:e.target.value}:it))} style={{padding:6,borderRadius:6,border:"1px solid "+colors.g3,fontSize:11}}/>
+        <input value={item.tipo} onChange={e=>sSchItems(p=>p.map((it,j)=>j===i?{...it,tipo:e.target.value}:it))} placeholder="Tipo" style={{flex:1,padding:6,borderRadius:6,border:"1px solid "+colors.g3,fontSize:11,minWidth:80}}/>
+        <input value={item.lugar} onChange={e=>sSchItems(p=>p.map((it,j)=>j===i?{...it,lugar:e.target.value}:it))} placeholder="Lugar" style={{flex:1,padding:6,borderRadius:6,border:"1px solid "+colors.g3,fontSize:11,minWidth:80}}/>
+        <button onClick={()=>sSchItems(p=>p.filter((_,j)=>j!==i))} style={{background:"none",border:"none",color:T.rd,cursor:"pointer",fontSize:14}}>×</button>
+      </div>)}
+      <Btn v="g" s="s" onClick={()=>sSchItems(p=>[...p,{dia:"Lunes",hora:"09:00",tipo:"Entrenamiento",lugar:""}])}>+ Agregar</Btn>
+    </Card>}
+
+    {/* ── Lineup selector ── */}
+    {tpl==="lineup"&&<Card style={{marginBottom:14}}>
+      <h3 style={{margin:"0 0 10px",fontSize:13,color:colors.nv}}>🏉 Seleccionar formación</h3>
+      {lineups.length===0&&<div style={{fontSize:12,color:colors.g4}}>No hay formaciones guardadas. Creá una en la pestaña Equipo.</div>}
+      <div style={{display:"flex",flexDirection:"column" as const,gap:4}}>
+        {lineups.map((l:any)=><div key={l.id} onClick={()=>sSelLU(l.id)} style={{padding:"8px 10px",borderRadius:6,border:selLU===l.id?"2px solid "+colors.nv:"1px solid "+colors.g3,background:selLU===l.id?colors.nv+"10":cardBg,cursor:"pointer"}}>
+          <div style={{fontSize:12,fontWeight:600,color:colors.nv}}>{l.match_name||"Sin nombre"} — {fmtD(l.date)}</div>
+          <div style={{fontSize:10,color:colors.g5}}>{Object.keys(l.formation?.titulares||{}).length}/15 titulares</div>
+        </div>)}
+      </div>
+    </Card>}
+
+    {/* ── Custom message ── */}
+    {tpl==="custom"&&<Card style={{marginBottom:14}}>
+      <h3 style={{margin:"0 0 10px",fontSize:13,color:colors.nv}}>✏️ Mensaje libre</h3>
+      <textarea value={customMsg} onChange={e=>sCustomMsg(e.target.value)} rows={6} placeholder="Escribí tu mensaje..." style={{width:"100%",padding:10,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,resize:"vertical" as const,boxSizing:"border-box" as const}}/>
+    </Card>}
+
+    {/* ── Preview ── */}
+    {preview()&&<Card style={{marginBottom:14,background:isDark?colors.g2:"#F0FDF4",border:"1px solid "+(isDark?colors.g3:"#BBF7D0")}}>
+      <h4 style={{margin:"0 0 8px",fontSize:12,color:colors.nv}}>Vista previa</h4>
+      <pre style={{fontSize:11,color:colors.nv,whiteSpace:"pre-wrap" as const,fontFamily:"inherit",margin:0,lineHeight:1.6}}>{preview()}</pre>
+    </Card>}
+
+    {/* ── Actions ── */}
+    <div style={{display:"flex",gap:8}}>
+      <Btn v="s" onClick={sendWA} disabled={!preview()}>📱 Enviar por WhatsApp</Btn>
+      <Btn v="g" onClick={copyClip} disabled={!preview()}>📋 Copiar texto</Btn>
     </div>
   </div>;
 }

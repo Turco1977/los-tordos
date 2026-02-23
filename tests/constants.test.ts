@@ -152,8 +152,8 @@ describe("Deportivo constants", () => {
     expect(DEP_POSITIONS.length).toBe(13);
   });
 
-  it("DEP_DIV has at least Plantel Superior", () => {
-    expect(DEP_DIV).toContain("Plantel Superior");
+  it("DEP_DIV has M19", () => {
+    expect(DEP_DIV).toContain("M19");
   });
 });
 

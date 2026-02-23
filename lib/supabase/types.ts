@@ -107,6 +107,14 @@ export interface DepAthlete {
   position: string;
   birth_date: string;
   dni: string;
+  sexo: string;
+  categoria: string;
+  obra_social: string;
+  peso: number | null;
+  estatura: number | null;
+  celular: string;
+  tel_emergencia: string;
+  ult_fichaje: string;
   phone: string;
   email: string;
   emergency_contact: { name?: string; phone?: string; relation?: string };
@@ -191,6 +199,81 @@ export interface DepAttendance {
   status: "presente" | "ausente" | "tarde" | "justificado";
   notes: string;
   recorded_by: string;
+  created_at?: string;
+}
+
+export interface DepSeason {
+  id: number;
+  name: string;
+  division: string;
+  start_date: string;
+  end_date: string;
+  status: "activa" | "finalizada" | "planificada";
+  objectives: string;
+  created_by: string;
+  created_at?: string;
+}
+
+export interface DepPhase {
+  id: number;
+  season_id: number;
+  name: string;
+  type: "pretemporada" | "competencia" | "transicion";
+  start_date: string;
+  end_date: string;
+  objectives: string;
+  color: string;
+  sort_order: number;
+  created_at?: string;
+}
+
+export interface DepMicrocycle {
+  id: number;
+  phase_id: number;
+  week_number: number;
+  week_start: string;
+  focus: string;
+  intensity: number;
+  notes: string;
+  created_at?: string;
+}
+
+export interface DepTestType {
+  id: number;
+  name: string;
+  unit: string;
+  description: string;
+  benchmark_m19: number | null;
+  higher_is_better: boolean | null;
+  category: string;
+  created_at?: string;
+}
+
+export interface DepTest {
+  id: number;
+  athlete_id: number;
+  test_type_id: number;
+  date: string;
+  value: number;
+  notes: string;
+  recorded_by: string;
+  created_at?: string;
+  athlete_name?: string;
+  test_name?: string;
+  test_unit?: string;
+}
+
+export interface DepLineup {
+  id: number;
+  date: string;
+  match_name: string;
+  division: string;
+  formation: {
+    titulares: Record<string, { athlete_id: number; name: string }>;
+    suplentes: { athlete_id: number; name: string; pos: string }[];
+  };
+  notes: string;
+  created_by: string;
   created_at?: string;
 }
 

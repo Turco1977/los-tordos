@@ -75,7 +75,17 @@ export const DEP_INJ_ZONES=["Cabeza","Cuello","Hombro","Brazo","Codo","Muñeca",
 export const DEP_INJ_SEV: Record<string,{l:string;c:string;bg:string}>={leve:{l:"Leve",c:"#10B981",bg:"#D1FAE5"},moderada:{l:"Moderada",c:"#F59E0B",bg:"#FEF3C7"},grave:{l:"Grave",c:"#C8102E",bg:"#FEE2E2"}};
 export const DEP_WK={sleep:{l:"Sueño",i:"😴",labels:["Muy malo","Malo","Regular","Bueno","Excelente"]},fatigue:{l:"Fatiga",i:"🔋",labels:["Exhausto","Cansado","Normal","Descansado","Muy descansado"]},stress:{l:"Estrés",i:"🧠",labels:["Muy alto","Alto","Normal","Bajo","Muy bajo"]},soreness:{l:"Dolor muscular",i:"💢",labels:["Muy alto","Alto","Normal","Bajo","Ninguno"]},mood:{l:"Ánimo",i:"😊",labels:["Muy malo","Malo","Normal","Bueno","Muy bueno"]}};
 export const DEP_SEM={red:{max:2.5,l:"Alerta",c:"#C8102E",bg:"#FEE2E2"},yellow:{max:3.5,l:"Precaución",c:"#F59E0B",bg:"#FEF3C7"},green:{max:5,l:"Óptimo",c:"#10B981",bg:"#D1FAE5"}};
-export const DEP_DIV=["Plantel Superior","M19","M17"];
+export const DEP_DIV=["M19"];
+export const DEP_PHASE_TYPES:{[k:string]:{l:string;c:string;bg:string;i:string}}={pretemporada:{l:"Pretemporada",c:"#C8102E",bg:"#FEE2E2",i:"🏋️"},competencia:{l:"Competencia",c:"#3B82F6",bg:"#DBEAFE",i:"🏉"},transicion:{l:"Transición",c:"#6B7280",bg:"#F3F4F6",i:"🔄"}};
+export const DEP_LINEUP_POS:{[k:string]:string}={"1":"Pilar Izq","2":"Hooker","3":"Pilar Der","4":"2da Línea","5":"2da Línea","6":"Ala","7":"Ala","8":"8","9":"Medio Scrum","10":"Apertura","11":"Wing Izq","12":"Centro Int","13":"Centro Ext","14":"Wing Der","15":"Fullback"};
+export const DEP_TEST_CATS:{[k:string]:{l:string;i:string}}={resistencia:{l:"Resistencia",i:"❤️"},velocidad:{l:"Velocidad",i:"⚡"},fuerza:{l:"Fuerza",i:"💪"},potencia:{l:"Potencia",i:"🚀"},flexibilidad:{l:"Flexibilidad",i:"🧘"},antropometria:{l:"Antropometría",i:"📏"}};
+
+export const DEP_CUERPO_TECNICO:{label:string;icon:string;color:string;members:string[]}[]=[
+  {label:"Head Coach",icon:"🏉",color:"#C8102E",members:["Nicolás Ranieri"]},
+  {label:"Coord. Forwards",icon:"💪",color:"#F97316",members:["Lucas de Rosas","Fernando Halpern","Francisco Puldain"]},
+  {label:"Coord. Backs",icon:"⚡",color:"#3B82F6",members:["Bautista Mora","Bruno Terrera","Martín Isola","Ezequiel Viejobueno","Segundo Viejobueno","Patricio Bruno","Fernando Higgs"]},
+  {label:"Preparador Físico",icon:"🏋️",color:"#10B981",members:[]},
+];
 
 // Tareas Recurrentes constants
 export const FREQ: Record<string,{l:string;i:string;days:number}>={
