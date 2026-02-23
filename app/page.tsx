@@ -377,7 +377,8 @@ export default function App(){
       if((e.metaKey||e.ctrlKey)&&e.key==="k"){e.preventDefault();sCmdOpen(o=>!o);return;}
       // Shortcuts only when not typing in an input and palette is closed
       if(inInput||cmdOpen||sel||showPw)return;
-      if(e.key==="n"||e.key==="N"){e.preventDefault();sVw("new");}
+      if(e.key==="t"||e.key==="T"){e.preventDefault();sVw("tasks");}
+      else if(e.key==="n"||e.key==="N"){e.preventDefault();sVw("new");}
       else if(e.key==="d"||e.key==="D"){e.preventDefault();sVw(isPersonal?"my":"dash");sAA(null);sAD(null);sKpiFilt(null);}
       else if(e.key==="k"||e.key==="K"){e.preventDefault();sVw("kanban");}
       else if(e.key==="c"||e.key==="C"){e.preventDefault();sVw("cal");}
@@ -455,6 +456,7 @@ export default function App(){
     const items:any[]=[];
     const navItems=[
       {id:"nav-dash",label:isPersonal_?"Mis Tareas":"Dashboard",icon:isPersonal_?"📋":"📊",keywords:"d,inicio,home",action:()=>{sVw(isPersonal_?"my":"dash");sAA(null);sAD(null);sKpiFilt(null);}},
+      {id:"nav-tasks",label:"Tareas",icon:"📋",keywords:"t,tareas,tasks,lista,all",action:()=>sVw("tasks")},
       {id:"nav-kanban",label:"Kanban",icon:"📊",keywords:"k,tablero,board",action:()=>sVw("kanban")},
       {id:"nav-cal",label:"Calendario",icon:"📅",keywords:"c,calendar,fecha",action:()=>sVw("cal")},
       {id:"nav-reun",label:"Reuniones",icon:"🤝",keywords:"r,agenda,minuta",action:()=>sVw("reun")},
@@ -500,7 +502,7 @@ export default function App(){
 
   let nav:any[]=[];
   if(isPersonal){nav=[{k:"my",l:"Mis Tareas",sh:true},{k:"cal",l:"📅 Calendario",sh:true},{k:"new",l:"+ Tarea",sh:true}];}
-  else{nav=[{k:"dash",l:"Dashboard",sh:true},{k:"kanban",l:"📊 Kanban",sh:true},{k:"feed",l:"📰 Actividad",sh:true},{k:"cal",l:"📅 Calendario",sh:true},{k:"new",l:"+ Tarea",sh:true}];}
+  else{nav=[{k:"dash",l:"Dashboard",sh:true},{k:"tasks",l:"📋 Tareas",sh:true},{k:"kanban",l:"📊 Kanban",sh:true},{k:"feed",l:"📰 Actividad",sh:true},{k:"cal",l:"📅 Calendario",sh:true}];}
 
   /* ── addLog: optimistic local + persist to Supabase ── */
   const addLog=async(id:number,uid:string,by:string,act:string,t?:string)=>{
@@ -543,6 +545,16 @@ export default function App(){
         <div style={{flex:1,padding:mob?"12px 8px":"20px 16px",overflowY:"auto" as const,marginTop:4}}>
           {dataLoading?<div style={{display:"flex",flexDirection:"column" as const,gap:12,padding:16}}>{[1,2,3,4].map(i=><div key={i} style={{background:cardBg,borderRadius:14,padding:18,border:"1px solid "+colors.g2}}><div style={{height:12,width:i%2?"60%":"40%",background:colors.g2,borderRadius:6,marginBottom:10}}/><div style={{height:8,width:"80%",background:colors.g2,borderRadius:4,marginBottom:6}}/><div style={{height:8,width:"50%",background:colors.g2,borderRadius:4}}/></div>)}</div>:<>
           {vw==="my"&&isPersonal&&<MyDash user={user} onSel={(p:any)=>sSl(p)} mob={mob} search={search}/>}
+          {/* All Tasks View */}
+          {vw==="tasks"&&!isPersonal&&(()=>{const tot=peds.length,pe=peds.filter((p:any)=>p.st===ST.P).length,cu=peds.filter((p:any)=>[ST.C,ST.E,ST.V].indexOf(p.st)>=0).length,ok=peds.filter((p:any)=>p.st===ST.OK).length;const pePct=tot?Math.round(pe/tot*100):0,cuPct=tot?Math.round(cu/tot*100):0,okPct=tot?Math.round(ok/tot*100):0;return<div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}><div><h2 style={{margin:0,fontSize:mob?16:19,color:colors.nv,fontWeight:800}}>📋 Todas las tareas</h2><p style={{margin:0,fontSize:11,color:colors.g4}}>{tot} tareas</p></div><Btn v="p" s="s" onClick={()=>sVw("new")}>+ Nueva</Btn></div>
+            <div style={{display:"flex",justifyContent:"center",gap:mob?24:40,marginBottom:20}}>
+              <div style={{textAlign:"center" as const}}><Ring pct={pePct} color={colors.rd} size={mob?70:80}/><div style={{fontSize:11,fontWeight:700,color:colors.rd,marginTop:4}}>Pendientes</div><div style={{fontSize:13,fontWeight:800,color:colors.nv}}>{pe}</div></div>
+              <div style={{textAlign:"center" as const}}><Ring pct={cuPct} color={colors.yl} size={mob?70:80}/><div style={{fontSize:11,fontWeight:700,color:colors.yl,marginTop:4}}>En curso</div><div style={{fontSize:13,fontWeight:800,color:colors.nv}}>{cu}</div></div>
+              <div style={{textAlign:"center" as const}}><Ring pct={okPct} color={colors.gn} size={mob?70:80}/><div style={{fontSize:11,fontWeight:700,color:colors.gn,marginTop:4}}>Completadas</div><div style={{fontSize:13,fontWeight:800,color:colors.nv}}>{ok}</div></div>
+            </div>
+            <TList title="Tareas" icon="📋" color={T.nv} peds={peds} onSel={(p:any)=>sSl(p)} search={search} mob={mob} onBulk={handleBulk} onImport={handleImport} user={user}/>
+          </div>;})()}
           {/* Kanban View (Feature 4) */}
           {vw==="kanban"&&!isPersonal&&<KanbanView user={user} onSel={(p:any)=>sSl(p)} mob={mob} onStatusChange={async(id:number,newSt:string)=>{try{sPd(p=>p.map(x=>x.id===id?{...x,st:newSt}:x));await supabase.from("tasks").update({status:newSt}).eq("id",id);addLog(id,user.id,fn(user),"Cambió estado a "+SC[newSt]?.l,"sys");showT("Estado actualizado");}catch(e:any){showT(e.message||"Error","err");}}}/>}
           {/* Activity Feed (Feature 5) */}
@@ -636,8 +648,8 @@ export default function App(){
             for(const l of (p.log||[])){await supabase.from("task_messages").insert({task_id:tid,user_id:l.uid,user_name:l.by,content:l.act,type:l.t});}
             /* Auto-create presupuesto if rG */
             if(p._presu&&tid){const prRow=presuToDB({...p._presu,task_id:tid,status:PST.SOL,solicitado_por:fn(user),solicitado_at:TODAY});const{data:prData}=await supabase.from("presupuestos").insert(prRow).select().single();if(prData)sPr(prev=>[presuFromDB(prData),...prev]);}
-            sPreAT(null);sVw(isPersonal?"my":"dash");sAA(null);sAD(null);showT(p._presu?(p._presu.is_canje?"Tarea creada con canje":"Tarea creada con presupuesto"):"Tarea creada");}catch(e:any){showT(e.message||"Error al crear tarea","err");}
-          }} onX={()=>{sPreAT(null);sVw(isPersonal?"my":"dash");}}/>}
+            sPreAT(null);sVw(isPersonal?"my":"tasks");sAA(null);sAD(null);showT(p._presu?(p._presu.is_canje?"Tarea creada con canje":"Tarea creada con presupuesto"):"Tarea creada");}catch(e:any){showT(e.message||"Error al crear tarea","err");}
+          }} onX={()=>{sPreAT(null);sVw(isPersonal?"my":"tasks");}}/>}
           {vw==="proy"&&<Proyecto setHitos={(updater:any)=>{sHi((prev:any)=>{const next=typeof updater==="function"?updater(prev):updater;next.forEach((h:any)=>{supabase.from("milestones").update({pct:h.pct}).eq("id",h.id);});return next;});}} isAd={isAd} mob={mob}/>}
           {vw==="dash"&&!isPersonal&&!aA&&!aD&&!kpiFilt&&<CustomDash user={user} mob={mob} onSel={(p:any)=>sSl(p)} onFilter={(k:string)=>sKpiFilt(k)} onAC={hAC} isSA={isSA} onNav={(view:string,filt?:string)=>{if(view==="filter"&&filt){sKpiFilt(filt);}else{sVw(view);}}}
             onExportWeekly={()=>{const today=new Date();const weekAgo=new Date(today.getTime()-7*86400000);const fmtD2=(d:Date)=>d.toISOString().slice(0,10);const range=fmtD2(weekAgo)+" al "+fmtD2(today);const ok=peds.filter((p:any)=>p.st===ST.OK);const pend=peds.filter((p:any)=>p.st===ST.P);const od=peds.filter((p:any)=>p.st!==ST.OK&&isOD(p.fReq));const approvedPr=presu.filter((pr:any)=>pr.status==="aprobado");const pendPr=presu.filter((pr:any)=>pr.status!=="aprobado"&&pr.status!=="rechazado");const topAreas=areas.map((a:any)=>{const dIds=deptos.filter((d:any)=>d.aId===a.id).map((d:any)=>d.id);const aP=peds.filter((p:any)=>dIds.indexOf(p.dId)>=0);const aOk=aP.filter((p:any)=>p.st===ST.OK).length;return{name:a.name,total:aP.length,completed:aOk,pct:aP.length?Math.round(aOk/aP.length*100):0};}).filter((a:any)=>a.total>0);exportReportPDF({period:"Semanal",dateRange:range,stats:[{label:"Total tareas",value:String(peds.length),color:"#0A1628"},{label:"Completadas",value:String(ok.length),color:"#10B981"},{label:"Pendientes",value:String(pend.length),color:"#DC2626"},{label:"Vencidas",value:String(od.length),color:"#7C3AED"}],tasksByStatus:Object.keys(SC).map(k=>({status:SC[k].l,icon:SC[k].i,count:peds.filter((p:any)=>p.st===k).length,color:SC[k].c})),completedTasks:ok.slice(0,20).map((p:any)=>{const ag=users.find((u:any)=>u.id===p.asTo);return{id:p.id,desc:p.desc,assignee:ag?fn(ag):"–",date:p.fReq};}),pendingTasks:[...od,...pend].slice(0,20).map((p:any)=>{const ag=users.find((u:any)=>u.id===p.asTo);return{id:p.id,desc:p.desc,assignee:ag?fn(ag):"–",date:p.fReq,overdue:p.st!==ST.OK&&isOD(p.fReq)};}),budgetSummary:{total:presu.reduce((s:number,p:any)=>s+Number(p.monto||0),0),approved:approvedPr.reduce((s:number,p:any)=>s+Number(p.monto||0),0),pending:pendPr.reduce((s:number,p:any)=>s+Number(p.monto||0),0),currency:"ARS"},topAreas});}}
