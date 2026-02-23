@@ -1,6 +1,6 @@
-const CACHE_VERSION = 'los-tordos-v5';
-const STATIC_CACHE = 'los-tordos-static-v5';
-const API_CACHE = 'los-tordos-api-v5';
+const CACHE_VERSION = 'los-tordos-v6';
+const STATIC_CACHE = 'los-tordos-static-v6';
+const API_CACHE = 'los-tordos-api-v6';
 
 // App shell - always cache these
 const APP_SHELL = [
