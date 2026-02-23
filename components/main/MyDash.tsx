@@ -12,7 +12,7 @@ export function MyDash({user,onSel,mob,search}:any){
   const [subFilt,sSubFilt]=useState<string|null>(null);
   const isEnl=user.role==="enlace"||user.role==="manager";
   let myPeds=peds.filter((p:any)=>p.cId===user.id||p.asTo===user.id);
-  if(search){const s=search.toLowerCase();myPeds=myPeds.filter((p:any)=>(p.desc+p.cN+p.tipo+p.div+(p.id+"")).toLowerCase().includes(s));}
+  if(search){const s=search.toLowerCase();myPeds=myPeds.filter((p:any)=>(p.tit+p.desc+p.cN+p.tipo+p.div+(p.id+"")).toLowerCase().includes(s));}
   const active=myPeds.filter((p:any)=>p.st!==ST.OK),done=myPeds.filter((p:any)=>p.st===ST.OK);
   const total=myPeds.length,okC=done.length,pct=total?Math.round(okC/total*100):0;
   const overdue=active.filter((p:any)=>isOD(p.fReq));
@@ -35,7 +35,8 @@ export function MyDash({user,onSel,mob,search}:any){
       {vis.map((p:any)=>{const od2=p.st!==ST.OK&&isOD(p.fReq),msgs=(p.log||[]).filter((l:any)=>l.t==="msg").length,nPr=(presu||[]).filter((pr:any)=>pr.task_id===p.id).length;
         return(<Card key={p.id} style={{padding:"14px 16px",cursor:"pointer",borderLeft:"4px solid "+SC[p.st].c,background:od2?"#FEF2F2":"#fff"}} onClick={()=>onSel(p)}>
           <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}><Badge s={p.st} sm/>{od2&&<span style={{fontSize:9,color:"#DC2626",fontWeight:700}}>⏰</span>}{p.urg==="Urgente"&&<span style={{fontSize:9,color:T.rd,fontWeight:700}}>🔥</span>}<span style={{fontSize:10,color:T.g4}}>#{p.id}</span>{nPr>0&&<span style={{background:T.pr+"20",color:T.pr,padding:"1px 6px",borderRadius:10,fontSize:9,fontWeight:700}}>💰 {nPr}</span>}</div>
-          <div style={{fontSize:13,fontWeight:700,color:T.nv}}>{p.desc}</div>
+          <div style={{fontSize:13,fontWeight:700,color:T.nv}}>{p.tit||p.desc}</div>
+          {p.tit&&<div style={{fontSize:10,color:T.g4,marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{p.desc.slice(0,60)}</div>}
           <div style={{fontSize:11,color:T.g5,marginTop:3}}>{p.div&&<span>📍 {p.div} · </span>}{p.tipo} · 📅 {p.fReq} · 💬 {msgs}{p.rG&&nPr===0&&<span style={{color:T.pr,fontWeight:600}}> · 💰 Sin presupuesto</span>}</div>
         </Card>);})}
     </div>

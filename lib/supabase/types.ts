@@ -27,6 +27,7 @@ export interface Task {
   creator_name: string;
   dept_id: number;
   tipo: string;
+  title: string;
   description: string;
   due_date: string;
   urgency: string;

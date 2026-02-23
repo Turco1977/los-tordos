@@ -232,7 +232,7 @@ export default function App(){
   useRealtime([
     {table:"tasks",
       onInsert:(row:any)=>sPd(p=>[taskFromDB(row,[]),...p]),
-      onUpdate:(row:any)=>sPd(p=>p.map(x=>x.id===row.id?{...x,div:row.division,cId:row.creator_id,cN:row.creator_name,dId:row.dept_id,tipo:row.tipo,desc:row.description,fReq:row.due_date,urg:row.urgency,st:row.status,asTo:row.assigned_to,rG:row.requires_expense,eOk:row.expense_ok,resp:row.resolution,monto:row.amount}:x)),
+      onUpdate:(row:any)=>sPd(p=>p.map(x=>x.id===row.id?{...x,div:row.division,cId:row.creator_id,cN:row.creator_name,dId:row.dept_id,tipo:row.tipo,tit:row.title||"",desc:row.description,fReq:row.due_date,urg:row.urgency,st:row.status,asTo:row.assigned_to,rG:row.requires_expense,eOk:row.expense_ok,resp:row.resolution,monto:row.amount}:x)),
       onDelete:(row:any)=>sPd(p=>p.filter(x=>x.id!==row.id)),
     },
     {table:"task_messages",onInsert:(msg:any)=>{
@@ -328,13 +328,13 @@ export default function App(){
         if(p.st===ST.OK)return;
         /* Overdue: notify assignee + creator */
         if(p.fReq&&isOD(p.fReq)){
-          if(p.asTo&&!sent.includes("od-"+p.id+"-"+p.asTo))toSend.push({uid:p.asTo,title:"Tarea vencida #"+p.id,msg:(p.desc||"").slice(0,60),tag:"od-"+p.id+"-"+p.asTo});
-          if(p.cId&&p.cId!==p.asTo&&!sent.includes("od-"+p.id+"-"+p.cId))toSend.push({uid:p.cId,title:"Tarea vencida #"+p.id,msg:(p.desc||"").slice(0,60),tag:"od-"+p.id+"-"+p.cId});
+          if(p.asTo&&!sent.includes("od-"+p.id+"-"+p.asTo))toSend.push({uid:p.asTo,title:"Tarea vencida #"+p.id,msg:(p.tit||p.desc||"").slice(0,60),tag:"od-"+p.id+"-"+p.asTo});
+          if(p.cId&&p.cId!==p.asTo&&!sent.includes("od-"+p.id+"-"+p.cId))toSend.push({uid:p.cId,title:"Tarea vencida #"+p.id,msg:(p.tit||p.desc||"").slice(0,60),tag:"od-"+p.id+"-"+p.cId});
         }
         /* Approaching deadline (within 24h) */
         if(p.fReq&&p.fReq===tomorrow){
-          if(p.asTo&&!sent.includes("dl-"+p.id+"-"+p.asTo))toSend.push({uid:p.asTo,title:"Tarea vence mañana #"+p.id,msg:(p.desc||"").slice(0,60),tag:"dl-"+p.id+"-"+p.asTo});
-          if(p.cId&&p.cId!==p.asTo&&!sent.includes("dl-"+p.id+"-"+p.cId))toSend.push({uid:p.cId,title:"Tarea vence mañana #"+p.id,msg:(p.desc||"").slice(0,60),tag:"dl-"+p.id+"-"+p.cId});
+          if(p.asTo&&!sent.includes("dl-"+p.id+"-"+p.asTo))toSend.push({uid:p.asTo,title:"Tarea vence mañana #"+p.id,msg:(p.tit||p.desc||"").slice(0,60),tag:"dl-"+p.id+"-"+p.asTo});
+          if(p.cId&&p.cId!==p.asTo&&!sent.includes("dl-"+p.id+"-"+p.cId))toSend.push({uid:p.cId,title:"Tarea vence mañana #"+p.id,msg:(p.tit||p.desc||"").slice(0,60),tag:"dl-"+p.id+"-"+p.cId});
         }
       });
       if(!toSend.length)return;
@@ -359,7 +359,7 @@ export default function App(){
   const gsResults=useCallback(()=>{
     if(!search||search.length<2)return{tasks:[],users:[],presu:[]};
     const s=search.toLowerCase();
-    const tasks=peds.filter((p:any)=>(p.desc+p.cN+p.tipo+(p.id+"")).toLowerCase().includes(s)).slice(0,5);
+    const tasks=peds.filter((p:any)=>(p.tit+p.desc+p.cN+p.tipo+(p.id+"")).toLowerCase().includes(s)).slice(0,5);
     const usrs=users.filter((u:any)=>(u.n+" "+u.a).toLowerCase().includes(s)).slice(0,5);
     const pres=presu.filter((pr:any)=>(pr.proveedor_nombre+pr.descripcion).toLowerCase().includes(s)).slice(0,5);
     return{tasks,users:usrs,presu:pres};
@@ -476,7 +476,7 @@ export default function App(){
     items.push({id:"act-theme",label:isDark?"Modo claro":"Modo oscuro",icon:isDark?"☀️":"🌙",category:"action",keywords:"tema,theme,dark,light",action:toggleTheme});
     items.push({id:"act-pw",label:"Cambiar contrasena",icon:"🔒",category:"action",keywords:"password,clave",action:()=>sShowPw(true)});
     items.push({id:"act-logout",label:"Cerrar sesion",icon:"↩",category:"action",keywords:"salir,logout",action:out});
-    peds.slice(0,8).forEach(p=>items.push({id:"task-"+p.id,label:"#"+p.id+" "+p.desc?.slice(0,40),icon:SC[p.st]?.i||"📌",category:"task",badge:p.st,keywords:p.tipo+","+p.cN,action:()=>sSl(p)}));
+    peds.slice(0,8).forEach(p=>items.push({id:"task-"+p.id,label:"#"+p.id+" "+(p.tit||p.desc?.slice(0,40)),icon:SC[p.st]?.i||"📌",category:"task",badge:p.st,keywords:p.tipo+","+p.cN,action:()=>sSl(p)}));
     users.slice(0,5).forEach(u=>items.push({id:"user-"+u.id,label:fn(u),icon:"👤",category:"user",keywords:u.role+","+(ROLES[u.role]?.l||""),action:()=>{sVw("profs");}}));
     return items;
   },[user,isPersonal_,isDark,peds,users,toggleTheme]);
@@ -529,7 +529,7 @@ export default function App(){
           <div style={{display:"flex",alignItems:"center",gap:mob?6:10,flexShrink:0}}>
             <div ref={gsRef} style={{position:"relative" as const}}><input value={search} onChange={e=>{sSr(e.target.value);sGsOpen(true);}} onFocus={()=>{if(search.length>=2)sGsOpen(true);}} onKeyDown={e=>{if(e.key==="Escape")sGsOpen(false);}} placeholder="Buscar..." style={{padding:mob?"8px 10px":"5px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:mob?13:11,width:mob?100:140,minHeight:mob?40:undefined}}/>
               {gsOpen&&search.length>=2&&(()=>{const r=gsResults();const hasR=r.tasks.length||r.users.length||r.presu.length;return hasR?<div style={{position:"absolute" as const,top:32,right:0,background:cardBg,borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,.12)",border:"1px solid "+colors.g2,width:280,zIndex:100,maxHeight:360,overflowY:"auto" as const,padding:6}}>
-                {r.tasks.length>0&&<div><div style={{fontSize:9,fontWeight:700,color:colors.g4,padding:"4px 8px",textTransform:"uppercase" as const}}>Tareas</div>{r.tasks.map((p:any)=><div key={p.id} onClick={()=>{sSl(p);sGsOpen(false);sSr("");}} style={{padding:"5px 8px",borderRadius:6,cursor:"pointer",fontSize:11,color:colors.nv,fontWeight:600}}><span style={{color:colors.g4}}>#{p.id}</span> {p.desc?.slice(0,35)} <Badge s={p.st} sm/></div>)}</div>}
+                {r.tasks.length>0&&<div><div style={{fontSize:9,fontWeight:700,color:colors.g4,padding:"4px 8px",textTransform:"uppercase" as const}}>Tareas</div>{r.tasks.map((p:any)=><div key={p.id} onClick={()=>{sSl(p);sGsOpen(false);sSr("");}} style={{padding:"5px 8px",borderRadius:6,cursor:"pointer",fontSize:11,color:colors.nv,fontWeight:600}}><span style={{color:colors.g4}}>#{p.id}</span> {p.tit||p.desc?.slice(0,35)} <Badge s={p.st} sm/></div>)}</div>}
                 {r.users.length>0&&<div><div style={{fontSize:9,fontWeight:700,color:colors.g4,padding:"4px 8px",textTransform:"uppercase" as const}}>Personas</div>{r.users.map((u:any)=><div key={u.id} onClick={()=>{sVw("profs");sGsOpen(false);sSr("");}} style={{padding:"5px 8px",borderRadius:6,cursor:"pointer",fontSize:11,color:colors.nv}}>👤 {fn(u)} <span style={{color:colors.g4,fontSize:9}}>{ROLES[u.role]?.l}</span></div>)}</div>}
                 {r.presu.length>0&&<div><div style={{fontSize:9,fontWeight:700,color:colors.g4,padding:"4px 8px",textTransform:"uppercase" as const}}>Presupuestos</div>{r.presu.map((pr:any)=><div key={pr.id} onClick={()=>{sVw("presu");sGsOpen(false);sSr("");}} style={{padding:"5px 8px",borderRadius:6,cursor:"pointer",fontSize:11,color:colors.nv}}>💰 {pr.proveedor_nombre} <span style={{color:colors.g4,fontSize:9}}>${Number(pr.monto).toLocaleString()}</span></div>)}</div>}
               </div>:<div style={{position:"absolute" as const,top:32,right:0,background:cardBg,borderRadius:10,boxShadow:"0 4px 16px rgba(0,0,0,.12)",border:"1px solid "+colors.g2,width:280,zIndex:100,padding:"16px 12px",textAlign:"center" as const}}><div style={{fontSize:11,color:colors.g4}}>Sin resultados para &ldquo;{search}&rdquo;</div></div>;})()}
@@ -679,7 +679,7 @@ export default function App(){
         onMsg={async(id:number,txt:string)=>{try{const safe=sanitize(txt);if(!safe)return;await addLog(id,user.id,fn(user),safe,"msg");/* Notify assignee on new comment */const p2=peds.find(x=>x.id===id);if(p2?.asTo&&p2.asTo!==user.id){sendNotif(p2.asTo,"Nuevo comentario en tarea #"+id,txt.slice(0,80),"task");}/* @mention notifications (Feature 7) */const mentionRx=/@([\w\s]+?)(?=\s@|$)/g;let match;while((match=mentionRx.exec(txt))!==null){const mName=match[1].trim();const mUser=users.find((u:any)=>(fn(u)).toLowerCase()===mName.toLowerCase());if(mUser&&mUser.id!==user.id&&mUser.id!==p2?.asTo){sendNotif(mUser.id,"Te mencionaron en tarea #"+id,txt.slice(0,80),"task");}}}catch(e:any){showT("Error al enviar mensaje","err");}}}
         onMonto={async(id:number,m:number)=>{try{sPd(p=>p.map(x=>x.id===id?{...x,monto:m}:x));await supabase.from("tasks").update({amount:m}).eq("id",id);}catch(e:any){showT(e.message||"Error","err");}}}
         onDel={async(id:number)=>{try{sPd(p=>p.filter(x=>x.id!==id));await supabase.from("tasks").delete().eq("id",id);showT("Tarea eliminada");sSl(null);}catch(e:any){showT(e.message||"Error","err");}}}
-        onEditSave={async(id:number,d:any)=>{try{const sd={...d,desc:sanitize(d.desc||"")};sPd(p=>p.map(x=>x.id===id?{...x,...sd}:x));await supabase.from("tasks").update({tipo:sd.tipo,description:sd.desc,due_date:sd.fReq,urgency:sd.urg,division:sd.div||"",requires_expense:sd.rG}).eq("id",id);addLog(id,user.id,fn(user),"Editó la tarea","sys");showT("Tarea actualizada");}catch(e:any){showT(e.message||"Error","err");}}}
+        onEditSave={async(id:number,d:any)=>{try{const sd={...d,tit:(d.tit||"").trim(),desc:sanitize(d.desc||"")};sPd(p=>p.map(x=>x.id===id?{...x,...sd}:x));await supabase.from("tasks").update({title:sd.tit,tipo:sd.tipo,description:sd.desc,due_date:sd.fReq,urgency:sd.urg,division:sd.div||"",requires_expense:sd.rG}).eq("id",id);addLog(id,user.id,fn(user),"Editó la tarea","sys");showT("Tarea actualizada");}catch(e:any){showT(e.message||"Error","err");}}}
       />}
       {/* ── Notification Center Panel ── */}
       {shNot&&<>

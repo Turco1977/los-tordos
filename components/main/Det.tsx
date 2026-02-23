@@ -16,7 +16,7 @@ export function Det({p,user,onX,onTk,onAs,onRe,onSE,onEO,onFi,onVa,onMsg,onMonto
   const sponsors = useDataStore(s => s.sponsors);
   const {colors,isDark,cardBg}=useC();
   const [at,sAt]=useState("");const [mt,sMt]=useState(p.monto||"");const [tab,sTab]=useState("chat");const [rp,sRp]=useState(p.resp||"");
-  const [editing,sEditing]=useState(false);const [ef,sEf]=useState({tipo:p.tipo,desc:p.desc,fReq:p.fReq,urg:p.urg,div:p.div||"",rG:p.rG});
+  const [editing,sEditing]=useState(false);const [ef,sEf]=useState({tipo:p.tipo,tit:p.tit||"",desc:p.desc,fReq:p.fReq,urg:p.urg,div:p.div||"",rG:p.rG});
   /* Checklist state (Feature 6) */
   const checkLogs=(p.log||[]).filter((l:any)=>l.t==="check");
   const [chkItems,sChkItems]=useState<{text:string;done:boolean}[]>(checkLogs.map((l:any)=>{try{return JSON.parse(l.act);}catch{return{text:l.act,done:false};}}).filter(Boolean));
@@ -43,7 +43,7 @@ export function Det({p,user,onX,onTk,onAs,onRe,onSE,onEO,onFi,onVa,onMsg,onMonto
     <div onClick={(e:any)=>e.stopPropagation()} style={{background:cardBg,borderRadius:mob?0:14,maxWidth:mob?undefined:640,width:"100%",height:mob?"100vh":"85vh",display:"flex",flexDirection:"column" as const,overflow:"hidden"}}>
       <div style={{padding:"16px 20px 12px",borderBottom:"1px solid "+colors.g2,flexShrink:0}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"start"}}>
-          <div><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:10,color:colors.g4}}>#{p.id}</span><Badge s={p.st} sm/>{od&&<span style={{fontSize:10,color:"#DC2626",fontWeight:700}}>⏰ VENCIDA</span>}{p.urg==="Urgente"&&<span style={{fontSize:10,color:colors.rd,fontWeight:700}}>🔥 URGENTE</span>}</div><h2 style={{margin:"4px 0 0",fontSize:15,color:colors.nv,fontWeight:800}}>{p.tipo}: {p.desc.slice(0,60)}</h2></div>
+          <div><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:10,color:colors.g4}}>#{p.id}</span><Badge s={p.st} sm/>{od&&<span style={{fontSize:10,color:"#DC2626",fontWeight:700}}>⏰ VENCIDA</span>}{p.urg==="Urgente"&&<span style={{fontSize:10,color:colors.rd,fontWeight:700}}>🔥 URGENTE</span>}</div><h2 style={{margin:"4px 0 0",fontSize:15,color:colors.nv,fontWeight:800}}>{p.tit||p.tipo+": "+p.desc.slice(0,60)}</h2></div>
           <div style={{display:"flex",gap:4,alignItems:"center"}}>{rlv(user.role)>=4&&<Btn v="g" s="s" onClick={()=>{sEditing(true);sTab("edit");}} title="Editar tarea">✏️</Btn>}{onDup&&rlv(user.role)>=3&&<Btn v="g" s="s" onClick={()=>onDup(p)} title="Duplicar tarea">📋</Btn>}{isSA&&<Btn v="g" s="s" onClick={()=>{if(confirm("¿Eliminar esta tarea?")){onDel(p.id);onX();}}} style={{color:colors.rd}} title="Eliminar tarea">🗑️</Btn>}<button onClick={onX} style={{background:"none",border:"none",fontSize:18,cursor:"pointer",color:colors.g4}} title="Cerrar">✕</button></div>
         </div>
         <div style={{display:"flex",gap:12,marginTop:8,flexWrap:"wrap" as const,fontSize:11,color:colors.g5}}>
@@ -58,6 +58,7 @@ export function Det({p,user,onX,onTk,onAs,onRe,onSE,onEO,onFi,onVa,onMsg,onMonto
         {tab==="edit"&&rlv(user.role)>=4&&<div style={{display:"flex",flexDirection:"column" as const,gap:10}}>
           <div style={{padding:10,background:"#FFFBEB",borderRadius:8,border:"1px solid #FDE68A"}}><span style={{fontSize:11,fontWeight:700,color:"#92400E"}}>👑 Edición Administrativa</span></div>
           <div><label style={{fontSize:11,fontWeight:600,color:colors.g5}}>Tipo</label><div style={{display:"flex",flexWrap:"wrap" as const,gap:mob?6:4,marginTop:3}}>{TIPOS.map(t=><button key={t} onClick={()=>sEf(prev=>({...prev,tipo:t}))} style={{padding:mob?"8px 14px":"4px 10px",borderRadius:16,fontSize:mob?12:10,border:ef.tipo===t?"2px solid "+colors.nv:"1px solid "+colors.g3,background:ef.tipo===t?colors.nv:(isDark?"#1E293B":"#fff"),color:ef.tipo===t?"#fff":colors.g5,cursor:"pointer",minHeight:mob?40:undefined}}>{t}</button>)}</div></div>
+          <div><label style={{fontSize:11,fontWeight:600,color:colors.g5}}>Título</label><input value={ef.tit} onChange={e=>sEf(prev=>({...prev,tit:e.target.value}))} placeholder="Título corto" style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:3}}/></div>
           <div><label style={{fontSize:11,fontWeight:600,color:colors.g5}}>Descripción</label><textarea value={ef.desc} onChange={e=>sEf(prev=>({...prev,desc:e.target.value}))} rows={3} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,resize:"vertical" as const,boxSizing:"border-box" as const,marginTop:3}}/></div>
           <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8}}>
             <div><label style={{fontSize:11,fontWeight:600,color:colors.g5}}>División</label><input value={ef.div} onChange={e=>sEf(prev=>({...prev,div:e.target.value}))} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:3}}/></div>
@@ -68,7 +69,7 @@ export function Det({p,user,onX,onTk,onAs,onRe,onSE,onEO,onFi,onVa,onMsg,onMonto
         </div>}
         {tab==="info"&&<div>
           <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:10,marginBottom:12}}>
-            {[["DIVISIÓN",p.div||"–"],["SOLICITANTE",p.cN],["TIPO",p.tipo],["URGENCIA",p.urg],["FECHA LÍMITE",p.fReq],["CREADO",p.cAt],["REQUIERE GASTO",p.rG?"Sí 💰":"No"],["MONTO",p.monto?"$"+p.monto.toLocaleString():"–"]].map(([l,v],i)=>
+            {[...(p.tit?[["TÍTULO",p.tit]]:[]),["DIVISIÓN",p.div||"–"],["SOLICITANTE",p.cN],["TIPO",p.tipo],["URGENCIA",p.urg],["FECHA LÍMITE",p.fReq],["CREADO",p.cAt],["REQUIERE GASTO",p.rG?"Sí 💰":"No"],["MONTO",p.monto?"$"+p.monto.toLocaleString():"–"]].map(([l,v],i)=>
               <div key={i}><div style={{fontSize:9,color:colors.g4,fontWeight:700}}>{l}</div><div style={{fontSize:12,color:colors.nv}}>{v}</div></div>
             )}
           </div>

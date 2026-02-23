@@ -31,7 +31,7 @@ export function KanbanView({user,onSel,onStatusChange,mob}:any){
             <div style={{fontSize:9,color:colors.g4,fontWeight:600}}>#{p.id}{p.urg==="Urgente"?" 🔥":""}{od?" ⏰":""}</div>
             {col.st!==ST.OK&&<button onClick={(e:any)=>{e.stopPropagation();onStatusChange(p.id,nextSt(col.st));}} style={{background:"none",border:"1px solid "+colors.g3,borderRadius:4,cursor:"pointer",fontSize:mob?12:10,color:colors.g5,padding:mob?"6px 8px":"2px 4px",flexShrink:0,marginLeft:4,minWidth:mob?36:undefined,minHeight:mob?36:undefined}} title="Avanzar estado">→</button>}
           </div>
-          <div style={{fontSize:11,fontWeight:700,color:colors.nv,lineHeight:1.3,marginBottom:4,wordBreak:"break-word" as const,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical" as const,overflow:"hidden"}}>{p.desc}</div>
+          <div style={{fontSize:11,fontWeight:700,color:colors.nv,lineHeight:1.3,marginBottom:4,wordBreak:"break-word" as const,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical" as const,overflow:"hidden"}}>{p.tit||p.desc}</div>
           {area&&<div style={{display:"inline-block",fontSize:9,fontWeight:600,color:area.color,background:area.color+"15",padding:"1px 6px",borderRadius:8,marginBottom:4}}>{area.icon} {area.name}</div>}
           <div style={{fontSize:9,color:colors.g5}}>{p.tipo} · 📅 {p.fReq}</div>
           {ag&&<div style={{display:"flex",alignItems:"center",gap:4,marginTop:3}}><div style={{width:16,height:16,borderRadius:8,background:colors.nv+"20",display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,color:colors.nv,fontWeight:700}}>{fn(ag).charAt(0)}</div><span style={{fontSize:10,fontWeight:600,color:colors.nv}}>{fn(ag)}</span></div>}
