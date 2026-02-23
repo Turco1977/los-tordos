@@ -94,6 +94,7 @@ export default function DeportivoApp(){
   const [tab,sTab]=useState("dash");
   const [sbOpen,sSbOpen]=useState(false);
   const [sbCol,sSbCol]=useState(false);
+  const [sbSec,sSbSec]=useState<string|null>(null);
   const [toast,sToast]=useState<{msg:string;type:"ok"|"err"}|null>(null);
   const showT=(msg:string,type:"ok"|"err"="ok")=>sToast({msg,type});
 
@@ -120,39 +121,37 @@ export default function DeportivoApp(){
   },[]);
 
   /* ── Fetch all deportivo data ── */
+  const safeFetch=async(query:any)=>{try{return await query;}catch{return{data:null,error:{message:"table missing"}};}};
   const fetchAll=useCallback(async()=>{
     if(!user) return;
     sLoading(true);
-    const [stRes,athRes,injRes,ckRes,seaRes,phRes,mcRes,ttRes,tsRes,luRes]=await Promise.all([
+    const [stRes,athRes,injRes,ckRes]=await Promise.all([
       supabase.from("dep_staff").select("*"),
       supabase.from("dep_athletes").select("*").order("last_name"),
       supabase.from("dep_injuries").select("*").order("id",{ascending:false}),
       supabase.from("dep_checkins").select("*").order("date",{ascending:false}),
-      supabase.from("dep_seasons").select("*").order("start_date",{ascending:false}),
-      supabase.from("dep_phases").select("*").order("sort_order"),
-      supabase.from("dep_microcycles").select("*").order("week_number"),
-      supabase.from("dep_test_types").select("*").order("name"),
-      supabase.from("dep_tests").select("*").order("date",{ascending:false}),
-      supabase.from("dep_lineups").select("*").order("date",{ascending:false}),
     ]);
-    console.log("[dep] dep_staff query:",stRes.data?.length,"rows, error:",stRes.error?.message||"none");
+    // Optional tables — may not exist yet
+    const [seaRes,phRes,mcRes,ttRes,tsRes,luRes]=await Promise.all([
+      safeFetch(supabase.from("dep_seasons").select("*").order("start_date",{ascending:false})),
+      safeFetch(supabase.from("dep_phases").select("*").order("sort_order")),
+      safeFetch(supabase.from("dep_microcycles").select("*").order("week_number")),
+      safeFetch(supabase.from("dep_test_types").select("*").order("name")),
+      safeFetch(supabase.from("dep_tests").select("*").order("date",{ascending:false})),
+      safeFetch(supabase.from("dep_lineups").select("*").order("date",{ascending:false})),
+    ]);
     if(stRes.data){
-      // Fetch only profiles that belong to dep_staff
       const staffUserIds=stRes.data.map((s:any)=>s.user_id);
-      const{data:profiles,error:prErr}=staffUserIds.length>0
+      const{data:profiles}=staffUserIds.length>0
         ?await supabase.from("profiles").select("id,first_name,last_name,role,email").in("id",staffUserIds)
-        :{data:[] as any[],error:null};
-      console.log("[dep] profiles query:",profiles?.length,"rows for",staffUserIds.length,"staff, error:",prErr?.message||"none");
+        :{data:[] as any[]};
       const pMap=new Map((profiles||[]).map((p:any)=>[p.id,p]));
       const staff=stRes.data.map((s:any)=>{
         const pr=pMap.get(s.user_id);
         return{...s,first_name:pr?.first_name||"",last_name:pr?.last_name||"",email:pr?.email||""};
       });
       sStaffList(staff);
-      const me=staff.find((s:any)=>s.user_id===user.id&&s.active);
-      sMyStaff(me||null);
-    } else {
-      console.error("[dep] dep_staff query failed:",JSON.stringify(stRes.error),"status:",stRes.status,"statusText:",stRes.statusText);
+      sMyStaff(staff.find((s:any)=>s.user_id===user.id&&s.active)||null);
     }
     if(athRes.data) sAthletes(athRes.data);
     if(injRes.data){
@@ -244,7 +243,6 @@ export default function DeportivoApp(){
 
   /* ── TABS ── */
   const tabs=[
-    {k:"dash",l:"📊",f:"Dashboard"},
     {k:"plantel",l:"👥",f:"Plantel"},
     {k:"planif",l:"📅",f:"Planificación"},
     {k:"pretemp",l:"🏋️‍♂️",f:"Pretemporada"},
@@ -474,40 +472,42 @@ export default function DeportivoApp(){
   const sbBg=isDark?"#1E293B":T.nv;
 
   const sbContent=(<div style={{flex:1,overflowY:"auto" as const,padding:"8px 6px"}}>
-    {/* Cuerpo Técnico */}
-    <div style={{marginBottom:10}}>
-      <div style={{fontSize:9,fontWeight:700,color:colors.g4,textTransform:"uppercase" as const,marginBottom:6,padding:"0 6px",letterSpacing:1}}>Cuerpo Técnico</div>
-      {DEP_CUERPO_TECNICO.map(sec=><div key={sec.label} style={{marginBottom:4,padding:"4px 6px"}}>
-        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
-          <span style={{fontSize:11}}>{sec.icon}</span>
-          <span style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,.6)"}}>{sec.label}</span>
+    {/* Cuerpo Técnico — accordion style like main app */}
+    <div style={{marginBottom:6}}>
+      <div style={{fontSize:10,fontWeight:700,color:colors.g4,textTransform:"uppercase" as const,marginBottom:8,padding:"0 8px",letterSpacing:1}}>Cuerpo Técnico</div>
+      {DEP_CUERPO_TECNICO.map(sec=><div key={sec.label} style={{marginBottom:3}}>
+        <div onClick={()=>sSbSec(sbSec===sec.label?null:sec.label)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:mob?"12px 12px":"9px 10px",borderRadius:7,cursor:"pointer",background:sbSec===sec.label?"rgba(255,255,255,.1)":"transparent",borderLeft:"3px solid "+sec.color,minHeight:mob?48:undefined}}>
+          <span style={{fontSize:mob?15:13,fontWeight:600}}>{sec.icon} {sec.label}</span>
+          <span style={{fontSize:mob?12:11,color:"rgba(255,255,255,.4)"}}>{sec.members.length>0?sec.members.length:"–"}</span>
         </div>
-        {sec.members.length===0&&<div style={{fontSize:9,color:"rgba(255,255,255,.25)",marginLeft:18}}>– vacante –</div>}
-        {sec.members.map((name,i)=><div key={i} style={{marginLeft:18,fontSize:10,color:"rgba(255,255,255,.75)",padding:"1px 0",display:"flex",alignItems:"center",gap:4}}>
-          <span style={{width:5,height:5,borderRadius:3,background:sec.color,display:"inline-block",flexShrink:0}}/>
-          {name}
-        </div>)}
+        {sbSec===sec.label&&<div style={{marginTop:3}}>
+          {sec.members.length===0&&<div style={{marginLeft:16,padding:mob?"10px 12px":"6px 10px",fontSize:mob?14:12,color:"rgba(255,255,255,.3)",fontStyle:"italic"}}>– vacante –</div>}
+          {[...sec.members].sort((a,b)=>a.split(" ").slice(-1)[0].localeCompare(b.split(" ").slice(-1)[0])).map((name,i)=><div key={i} style={{marginLeft:16,padding:mob?"10px 12px":"5px 10px",borderRadius:5,fontSize:mob?14:12,color:"rgba(255,255,255,.7)",display:"flex",alignItems:"center",gap:7,minHeight:mob?44:undefined}}>
+            <span style={{width:6,height:6,borderRadius:3,background:sec.color,display:"inline-block",flexShrink:0}}/>
+            {name}
+          </div>)}
+        </div>}
       </div>)}
     </div>
 
-    <div style={{height:1,background:"rgba(255,255,255,.08)",margin:"8px 6px"}}/>
+    <div style={{height:1,background:"rgba(255,255,255,.08)",margin:"10px 8px"}}/>
 
     {/* Módulos (navigation) */}
-    <div style={{marginBottom:10}}>
-      <div style={{fontSize:9,fontWeight:700,color:colors.g4,textTransform:"uppercase" as const,marginBottom:4,padding:"0 6px",letterSpacing:1}}>Módulos</div>
-      {tabs.map(t=><div key={t.k} onClick={()=>navTo(t.k)} style={{display:"flex",alignItems:"center",gap:8,padding:mob?"10px 10px":"7px 8px",borderRadius:7,cursor:"pointer",background:tab===t.k?"rgba(255,255,255,.1)":"transparent",fontSize:mob?13:11,fontWeight:tab===t.k?700:500,color:tab===t.k?"#fff":"rgba(255,255,255,.55)",marginBottom:1,minHeight:mob?44:undefined}}>
-        <span style={{fontSize:mob?15:13}}>{t.l}</span>{t.f}
+    <div style={{marginBottom:6}}>
+      <div style={{fontSize:10,fontWeight:700,color:colors.g4,textTransform:"uppercase" as const,marginBottom:6,padding:"0 8px",letterSpacing:1}}>Módulos</div>
+      {tabs.map(t=><div key={t.k} onClick={()=>navTo(t.k)} style={{display:"flex",alignItems:"center",gap:8,padding:mob?"12px 12px":"9px 10px",borderRadius:7,cursor:"pointer",background:tab===t.k?"rgba(255,255,255,.1)":"transparent",fontSize:mob?15:13,fontWeight:tab===t.k?700:500,color:tab===t.k?"#fff":"rgba(255,255,255,.55)",marginBottom:2,minHeight:mob?48:undefined}}>
+        <span style={{fontSize:mob?16:14}}>{t.l}</span>{t.f}
       </div>)}
     </div>
 
-    <div style={{height:1,background:"rgba(255,255,255,.08)",margin:"8px 6px"}}/>
+    <div style={{height:1,background:"rgba(255,255,255,.08)",margin:"10px 8px"}}/>
 
     {/* Plantel stats */}
-    <div style={{padding:"4px 6px"}}>
-      <div style={{fontSize:9,fontWeight:700,color:colors.g4,textTransform:"uppercase" as const,marginBottom:4,letterSpacing:1}}>Plantel M19</div>
-      <div style={{display:"flex",justifyContent:"space-between",fontSize:10,padding:"1px 0"}}><span style={{color:"rgba(255,255,255,.45)"}}>👥 Jugadores</span><span style={{fontWeight:700,color:"rgba(255,255,255,.8)"}}>{athletes.filter(a=>a.active).length}</span></div>
-      <div style={{display:"flex",justifyContent:"space-between",fontSize:10,padding:"1px 0"}}><span style={{color:"rgba(255,255,255,.45)"}}>🩹 Lesionados</span><span style={{fontWeight:700,color:T.rd}}>{injuries.filter(i=>i.status!=="alta").length}</span></div>
-      <div style={{display:"flex",justifyContent:"space-between",fontSize:10,padding:"1px 0"}}><span style={{color:"rgba(255,255,255,.45)"}}>🏉 Formaciones</span><span style={{fontWeight:700,color:"rgba(255,255,255,.8)"}}>{lineups.length}</span></div>
+    <div style={{marginTop:6,padding:"8px 10px",background:"rgba(255,255,255,.04)",borderRadius:7}}>
+      <div style={{fontSize:10,fontWeight:700,color:colors.g4,textTransform:"uppercase" as const,marginBottom:6}}>Plantel M19</div>
+      <div style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"2px 0"}}><span style={{color:"rgba(255,255,255,.45)"}}>👥 Jugadores</span><span style={{fontWeight:700,color:"rgba(255,255,255,.8)"}}>{athletes.filter(a=>a.active).length}</span></div>
+      <div style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"2px 0"}}><span style={{color:"rgba(255,255,255,.45)"}}>🩹 Lesionados</span><span style={{fontWeight:700,color:T.rd}}>{injuries.filter(i=>i.status!=="alta").length}</span></div>
+      <div style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"2px 0"}}><span style={{color:"rgba(255,255,255,.45)"}}>🏉 Formaciones</span><span style={{fontWeight:700,color:"rgba(255,255,255,.8)"}}>{lineups.length}</span></div>
     </div>
   </div>);
 
@@ -518,7 +518,7 @@ export default function DeportivoApp(){
     {/* ── SIDEBAR (desktop) ── */}
     {!mob&&!sbCol&&<div style={{width:250,minWidth:250,background:sbBg,color:"#fff",display:"flex",flexDirection:"column" as const,borderRight:isDark?"1px solid "+colors.g3:"none",position:"sticky" as const,top:0,height:"100vh",overflowY:"auto" as const}}>
       <div style={{padding:"14px 12px",borderBottom:"1px solid rgba(255,255,255,.08)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        <div style={{display:"flex",alignItems:"center",gap:8}}>
+        <div onClick={()=>sTab("dash")} style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
           <img src="/logo.jpg" alt="Los Tordos" style={{width:32,height:32,borderRadius:6,objectFit:"contain"}}/>
           <div><div style={{fontSize:13,fontWeight:800}}>Deportivo</div><div style={{fontSize:9,color:colors.g4,letterSpacing:1,textTransform:"uppercase" as const}}>Los Tordos RC</div></div>
         </div>
@@ -534,7 +534,7 @@ export default function DeportivoApp(){
     {/* Collapsed sidebar (desktop) */}
     {!mob&&sbCol&&<div style={{width:48,minWidth:48,background:sbBg,display:"flex",flexDirection:"column" as const,alignItems:"center",paddingTop:10,borderRight:isDark?"1px solid "+colors.g3:"none",position:"sticky" as const,top:0,height:"100vh"}}>
       <button onClick={()=>sSbCol(false)} style={{background:"none",border:"none",color:"#fff",fontSize:18,cursor:"pointer",marginBottom:14}} title="Expandir">☰</button>
-      <img src="/logo.jpg" alt="" style={{width:28,height:28,borderRadius:6,objectFit:"contain",marginBottom:10}}/>
+      <img src="/logo.jpg" alt="" onClick={()=>sTab("dash")} style={{width:28,height:28,borderRadius:6,objectFit:"contain",marginBottom:10,cursor:"pointer"}}/>
       {tabs.map(t=><button key={t.k} onClick={()=>navTo(t.k)} title={t.f} style={{background:tab===t.k?"rgba(255,255,255,.15)":"none",border:"none",color:tab===t.k?"#fff":"rgba(255,255,255,.5)",fontSize:16,cursor:"pointer",padding:"8px 0",width:"100%"}}>{t.l}</button>)}
     </div>}
 
@@ -542,7 +542,7 @@ export default function DeportivoApp(){
     {mob&&sbOpen&&<><div onClick={()=>sSbOpen(false)} style={{position:"fixed" as const,inset:0,background:"rgba(0,0,0,.5)",zIndex:99}}/>
     <div style={{position:"fixed" as const,top:0,left:0,bottom:0,width:260,background:sbBg,color:"#fff",display:"flex",flexDirection:"column" as const,zIndex:100,boxShadow:"4px 0 20px rgba(0,0,0,.3)"}}>
       <div style={{padding:"14px 12px",borderBottom:"1px solid rgba(255,255,255,.08)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        <div style={{display:"flex",alignItems:"center",gap:6}}><img src="/logo.jpg" alt="" style={{width:28,height:28,borderRadius:6,objectFit:"contain"}}/><span style={{fontSize:13,fontWeight:800}}>Deportivo</span></div>
+        <div onClick={()=>{sTab("dash");sSbOpen(false);}} style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer"}}><img src="/logo.jpg" alt="" style={{width:28,height:28,borderRadius:6,objectFit:"contain"}}/><span style={{fontSize:13,fontWeight:800}}>Deportivo</span></div>
         <button onClick={()=>sSbOpen(false)} style={{background:"none",border:"none",color:"#fff",fontSize:20,cursor:"pointer",minWidth:44,minHeight:44,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
       </div>
       {sbContent}
@@ -554,7 +554,8 @@ export default function DeportivoApp(){
       <div style={{background:isDark?colors.g2:T.nv,padding:mob?"10px 12px":"10px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky" as const,top:0,zIndex:50}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           {mob&&<button onClick={()=>sSbOpen(true)} style={{background:"rgba(255,255,255,.1)",border:"none",borderRadius:8,padding:"6px 10px",color:"#fff",fontSize:16,cursor:"pointer"}}>☰</button>}
-          <div style={{color:isDark?colors.nv:"#fff",fontSize:mob?13:15,fontWeight:700}}>{tabs.find(t=>t.k===tab)?.l} {tabs.find(t=>t.k===tab)?.f}</div>
+          <button onClick={()=>sTab("dash")} style={{background:tab==="dash"?"rgba(255,255,255,.15)":"rgba(255,255,255,.06)",border:"none",borderRadius:8,padding:"5px 12px",color:"#fff",fontSize:mob?11:12,cursor:"pointer",fontWeight:700,display:"flex",alignItems:"center",gap:4}}>📊 Dashboard</button>
+          {tab!=="dash"&&<div style={{color:isDark?colors.nv:"rgba(255,255,255,.7)",fontSize:mob?12:14,fontWeight:600}}>{tabs.find(t=>t.k===tab)?.l} {tabs.find(t=>t.k===tab)?.f}</div>}
         </div>
         <div style={{display:"flex",gap:6,alignItems:"center"}}>
           <input value={search} onChange={e=>sSearch(e.target.value)} placeholder="Buscar..." style={{padding:"5px 10px",borderRadius:8,border:"1px solid rgba(255,255,255,.15)",fontSize:11,width:mob?100:160,background:"rgba(255,255,255,.08)",color:"#fff"}}/>

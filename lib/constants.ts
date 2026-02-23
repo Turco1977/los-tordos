@@ -83,7 +83,7 @@ export const DEP_TEST_CATS:{[k:string]:{l:string;i:string}}={resistencia:{l:"Res
 export const DEP_CUERPO_TECNICO:{label:string;icon:string;color:string;members:string[]}[]=[
   {label:"Head Coach",icon:"🏉",color:"#C8102E",members:["Nicolás Ranieri"]},
   {label:"Coord. Forwards",icon:"💪",color:"#F97316",members:["Lucas de Rosas","Fernando Halpern","Francisco Puldain"]},
-  {label:"Coord. Backs",icon:"⚡",color:"#3B82F6",members:["Bautista Mora","Bruno Terrera","Martín Isola","Ezequiel Viejobueno","Segundo Viejobueno","Patricio Bruno","Fernando Higgs"]},
+  {label:"Coord. Backs",icon:"⚡",color:"#3B82F6",members:["Patricio Bruno","Fernando Higgs","Martín Isola","Bautista Mora","Bruno Terrera","Ezequiel Viejobueno","Segundo Viejobueno"]},
   {label:"Preparador Físico",icon:"🏋️",color:"#10B981",members:[]},
 ];
 
