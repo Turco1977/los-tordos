@@ -256,11 +256,14 @@ export default function DeportivoApp(){
 
   /* ══════════════════════════ HANDLERS ══════════════════════════ */
 
+  /* Title case: "juan perez" → "Juan Perez" */
+  const tc=(s:string|undefined)=>s?s.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase()):"";
+
   /* ── Add Athlete ── */
   const onAddAthlete=async(a:Partial<DepAthlete>)=>{
     try{
       const{error}=await supabase.from("dep_athletes").insert({
-        first_name:a.first_name,last_name:a.last_name,division:a.division,position:a.position||"",
+        first_name:tc(a.first_name),last_name:tc(a.last_name),division:a.division,position:a.position||"",
         birth_date:a.birth_date||null,dni:a.dni||"",phone:a.phone||"",email:a.email||"",
         sexo:a.sexo||"",categoria:a.categoria||"",obra_social:a.obra_social||"",
         peso:a.peso||null,estatura:a.estatura||null,celular:a.celular||"",
@@ -277,7 +280,7 @@ export default function DeportivoApp(){
   const onUpdAthlete=async(id:number,a:Partial<DepAthlete>)=>{
     try{
       const{error}=await supabase.from("dep_athletes").update({
-        first_name:a.first_name,last_name:a.last_name,division:a.division,position:a.position,
+        first_name:tc(a.first_name),last_name:tc(a.last_name),division:a.division,position:a.position,
         birth_date:a.birth_date||null,dni:a.dni,phone:a.phone,email:a.email,
         sexo:a.sexo,categoria:a.categoria,obra_social:a.obra_social,
         peso:a.peso,estatura:a.estatura,celular:a.celular,
@@ -577,7 +580,7 @@ export default function DeportivoApp(){
         :showForm==="bulk"?<BulkAthleteForm onSave={async(rows:Partial<DepAthlete>[])=>{
           try{
             const payload=rows.map(r=>({
-              first_name:r.first_name||"",last_name:r.last_name||"",division:r.division||DEP_DIV[0],
+              first_name:tc(r.first_name),last_name:tc(r.last_name),division:r.division||DEP_DIV[0],
               position:r.position||"",season:new Date().getFullYear().toString(),active:true,
               dni:r.dni||"",phone:r.celular||r.phone||"",email:r.email||"",
               birth_date:r.birth_date||null,sexo:r.sexo||"",categoria:r.categoria||"",
