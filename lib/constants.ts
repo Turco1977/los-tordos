@@ -9,7 +9,7 @@ export const DEPTOS=[
   {id:55,name:"Presidencia SE",aId:101},{id:56,name:"Coordinación General SE",aId:101},
   {id:1,name:"Coordinación General",aId:1},{id:2,name:"Eventos",aId:1},{id:3,name:"Comunicación",aId:1},{id:4,name:"Sponsoreo",aId:1},{id:5,name:"Gastronomía y Recepción",aId:1},{id:6,name:"Administración",aId:1,pId:1},{id:7,name:"Compras",aId:1},
   {id:8,name:"Intendencia",aId:1},{id:9,name:"Sistemas",aId:1,pId:1},{id:40,name:"Atención al Socio",aId:1,pId:1},{id:41,name:"Estandarización de Procesos",aId:1,pId:1},
-  {id:42,name:"Tordos TV",aId:1,pId:3},{id:43,name:"Diseño",aId:1,pId:3},{id:44,name:"Redes",aId:1,pId:3},{id:45,name:"Fotografía",aId:1,pId:3},{id:46,name:"Filmación",aId:1,pId:3},{id:47,name:"Edición",aId:1,pId:3},{id:48,name:"Prensa",aId:1,pId:3},{id:49,name:"Creatividad",aId:1,pId:3},{id:60,name:"Asesoría Comunicación",aId:1,pId:3},
+  {id:43,name:"Diseño",aId:1,pId:3},{id:42,name:"Tordos TV",aId:1,pId:3},{id:44,name:"Redes",aId:1,pId:3},{id:45,name:"Fotografía",aId:1,pId:3},{id:46,name:"Filmación",aId:1,pId:3},{id:47,name:"Edición",aId:1,pId:3},{id:48,name:"Prensa",aId:1,pId:3},{id:49,name:"Creatividad",aId:1,pId:3},{id:60,name:"Asesoría Comunicación",aId:1,pId:3},
   {id:61,name:"Tesorería",aId:1},{id:62,name:"Finanzas",aId:1},{id:63,name:"Financiamiento",aId:1},{id:65,name:"Tordos Shop",aId:1},
   {id:10,name:"Academia Tordos",aId:2},{id:11,name:"Soporte Adm. del Deporte",aId:2},{id:12,name:"Mejora Continua",aId:2},
   {id:20,name:"Solidario",aId:3},{id:21,name:"Conecta",aId:3},{id:22,name:"Captación",aId:3},{id:23,name:"Club del Ex",aId:3},
