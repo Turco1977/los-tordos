@@ -1850,6 +1850,9 @@ function PlanificacionTab({seasons,phases,microcycles,onAddSeason,onUpdSeason,on
             </div>)}
             <div style={{fontSize:10,color:colors.g5,textAlign:"right" as const,marginTop:4,fontWeight:700}}>Total: {blocks.reduce((s,b)=>{const n=parseInt(b.tiempo)||0;return s+n;},0)} min</div>
           </div>}
+          <div style={{marginTop:10,borderTop:"1px solid "+colors.g2,paddingTop:8}} onClick={e=>e.stopPropagation()}>
+            <Btn v="s" s="s" onClick={()=>{const lines=["*🏋️ ENTRENAMIENTO — "+s.name+"*","📅 "+fmtD(s.start_date),""];if(blocks.length>0){lines.push("*ACTIVIDADES*");blocks.forEach(b=>lines.push("• "+b.actividad+(b.responsable?" — "+b.responsable:"")+(b.tiempo?" — "+b.tiempo:"")));const total=blocks.reduce((t:number,b:any)=>{const n=parseInt(b.tiempo)||0;return t+n;},0);if(total>0){lines.push("");lines.push("⏱ Total: "+total+" min");}}lines.push("");lines.push("_Los Tordos RC_");window.open("https://wa.me/?text="+encodeURIComponent(lines.join("\n")),"_blank");}}>📱 Enviar por WhatsApp</Btn>
+          </div>
         </Card>;
       })}
     </div>}
