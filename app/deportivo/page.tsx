@@ -101,6 +101,7 @@ export default function DeportivoApp(){
 
   // Filters
   const [divF,sDivF]=useState("all");
+  const [posF,sPosF]=useState("all");
   const [search,sSearch]=useState("");
 
   // Forms
@@ -216,10 +217,17 @@ export default function DeportivoApp(){
   const seeAllDivs=canAll(depRole)||isAdmin;
 
   /* ── Filter athletes by division ── */
+  const FWD_POS=["Pilar Izq","Hooker","Pilar Der","2da Línea","Ala","8"];
+  const BACK_POS=["Medio Scrum","Apertura","Centro Int","Centro Ext","Wing Izq","Wing Der","Fullback"];
   const filteredAthletes=athletes.filter(a=>{
     if(!a.active) return false;
     if(divF!=="all"&&a.division!==divF) return false;
     if(!seeAllDivs&&myDivs.length>0&&!myDivs.includes(a.division)) return false;
+    if(posF!=="all"){
+      if(posF==="forwards"&&!FWD_POS.includes(a.position)) return false;
+      if(posF==="backs"&&!BACK_POS.includes(a.position)) return false;
+      if(posF!=="forwards"&&posF!=="backs"&&a.position!==posF) return false;
+    }
     if(search){const s=search.toLowerCase();return(a.first_name+" "+a.last_name+" "+a.position+" "+a.division).toLowerCase().includes(s);}
     return true;
   });
@@ -600,9 +608,17 @@ export default function DeportivoApp(){
           }catch(e:any){console.error("Bulk insert error:",e);showT(e.message||"Error al guardar","err");}
         }} onCancel={()=>sShowForm(null)} mob={mob}/>
         :<div>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
             <h2 style={{margin:0,fontSize:18,color:colors.nv}}>👥 Plantel ({filteredAthletes.length})</h2>
             <div style={{display:"flex",gap:6}}>{filteredAthletes.length>0&&<><Btn v="g" s="s" onClick={()=>{const h=["Apellido","Nombre","Fecha Nac.","DNI","Categoría","Sexo","O.Social","Peso","Estatura","Puesto","Email","Tel.Emergencia","Celular","Últ.Fichaje"];const r=filteredAthletes.map((a:DepAthlete)=>[a.last_name,a.first_name,fmtD(a.birth_date),a.dni,a.categoria||"",a.sexo||"",a.obra_social||"",a.peso?String(a.peso):"",a.estatura?String(a.estatura):"",a.position,a.email,a.tel_emergencia||"",a.celular||a.phone||"",a.ult_fichaje?fmtD(a.ult_fichaje):""]);exportCSV("plantel",h,r);}}>CSV</Btn><Btn v="g" s="s" onClick={()=>{const h=["Apellido","Nombre","Fecha Nac.","DNI","Categoría","Sexo","O.Social","Peso","Estatura","Puesto","Email","Tel.Emergencia","Celular","Últ.Fichaje"];const r=filteredAthletes.map((a:DepAthlete)=>[a.last_name,a.first_name,fmtD(a.birth_date),a.dni,a.categoria||"",a.sexo||"",a.obra_social||"",a.peso?String(a.peso):"",a.estatura?String(a.estatura):"",a.position,a.email,a.tel_emergencia||"",a.celular||a.phone||"",a.ult_fichaje?fmtD(a.ult_fichaje):""]);exportPDF("Plantel",h,r);}}>PDF</Btn></>}{canCreateAthlete&&<><Btn v="w" s="s" onClick={()=>sShowForm("bulk")}>⚡ Carga rápida</Btn><Btn v="p" s="s" onClick={()=>sShowForm("athlete")}>+ Jugador</Btn></>}</div>
+          </div>
+          {/* Position filter */}
+          <div style={{display:"flex",gap:4,flexWrap:"wrap" as const,marginBottom:12,alignItems:"center"}}>
+            <span style={{fontSize:10,fontWeight:700,color:colors.g4,marginRight:4}}>POSICIÓN:</span>
+            {[{k:"all",l:"Todos"},{k:"forwards",l:"💪 Forwards"},{k:"backs",l:"⚡ Backs"},...DEP_POSITIONS.map(p=>({k:p,l:p}))].map(o=>{
+              const cnt=o.k==="all"?athletes.filter(a=>a.active).length:o.k==="forwards"?athletes.filter(a=>a.active&&FWD_POS.includes(a.position)).length:o.k==="backs"?athletes.filter(a=>a.active&&BACK_POS.includes(a.position)).length:athletes.filter(a=>a.active&&a.position===o.k).length;
+              return <button key={o.k} onClick={()=>sPosF(o.k)} style={{padding:"4px 10px",borderRadius:14,fontSize:10,fontWeight:posF===o.k?700:500,border:posF===o.k?"2px solid "+colors.nv:"1px solid "+colors.g3,background:posF===o.k?colors.nv+"15":"transparent",color:posF===o.k?colors.nv:colors.g5,cursor:"pointer",transition:"all .15s"}}>{o.l}{cnt>0?` (${cnt})`:""}</button>;
+            })}
           </div>
           <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr 1fr",gap:10}}>
             {filteredAthletes.map(a=>{
@@ -627,7 +643,7 @@ export default function DeportivoApp(){
               </Card>;
             })}
           </div>
-          {filteredAthletes.length===0&&<Card style={{textAlign:"center",padding:32,color:colors.g4}}><div style={{fontSize:32}}>👥</div><div style={{marginTop:8,fontSize:13}}>No hay jugadores{divF!=="all"?" en "+divF:""}</div></Card>}
+          {filteredAthletes.length===0&&<Card style={{textAlign:"center",padding:32,color:colors.g4}}><div style={{fontSize:32}}>👥</div><div style={{marginTop:8,fontSize:13}}>No hay jugadores{divF!=="all"?" en "+divF:""}{posF!=="all"?" — "+posF:""}</div></Card>}
         </div>
       )}
 
