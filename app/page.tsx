@@ -498,7 +498,7 @@ export default function App(){
   const hDC=(id:number)=>sAD(aD===id?null:id);
 
   let vT="",vI="",vC=T.nv,vP=peds;
-  if(aD){const dd=deptos.find(x=>x.id===aD),aar=dd?areas.find(x=>x.id===dd.aId):null;vT=dd?dd.name:"";vI="📂";vC=aar?aar.color:T.nv;vP=peds.filter(p=>p.dId===aD);}
+  if(aD){const dd=deptos.find(x=>x.id===aD),aar=dd?areas.find(x=>x.id===dd.aId):null;vT=dd?dd.name:"";vI="📂";vC=aar?aar.color:T.nv;const chIds=deptos.filter(d=>d.pId===aD).map(d=>d.id),allIds=[aD,...chIds],inclEmb=allIds.indexOf(7)>=0;vP=peds.filter(p=>allIds.indexOf(p.dId)>=0||(inclEmb&&p.st===ST.E));}
   else if(aA){const aar2=areas.find(x=>x.id===aA),ids2=deptos.filter(d=>d.aId===aA).map(d=>d.id);vT=aar2?aar2.name:"";vI=aar2?aar2.icon:"";vC=aar2?aar2.color:T.nv;vP=peds.filter(p=>ids2.indexOf(p.dId)>=0);}
 
   let nav:any[]=[];
