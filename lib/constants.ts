@@ -7,10 +7,10 @@ export const AREAS=[{id:100,name:"Comisión Directiva",color:"#1E293B",icon:"�
 export const DEPTOS=[
   {id:50,name:"Presidente",aId:100},{id:51,name:"Vicepresidente",aId:100},{id:52,name:"Secretario",aId:100},{id:53,name:"Tesorero",aId:100},{id:54,name:"1er Vocal Titular",aId:100},{id:80,name:"2do Vocal Titular",aId:100},{id:81,name:"1er Vocal Suplente",aId:100},{id:82,name:"2do Vocal Suplente",aId:100},
   {id:55,name:"Presidencia SE",aId:101},{id:56,name:"Coordinación General SE",aId:101},
-  {id:1,name:"Coordinación General",aId:1},{id:2,name:"Eventos",aId:1},{id:3,name:"Comunicación",aId:1},{id:4,name:"Sponsoreo",aId:1},{id:5,name:"Gastronomía y Recepción",aId:1},{id:6,name:"Administración",aId:1,pId:1},{id:7,name:"Compras",aId:1},
+  {id:1,name:"Coordinación General",aId:1},{id:2,name:"Eventos",aId:1},{id:3,name:"Comunicación",aId:1},{id:4,name:"Sponsoreo",aId:1},{id:5,name:"Gastronomía y Recepción",aId:1},{id:6,name:"Administración",aId:1,pId:1},
   {id:8,name:"Intendencia",aId:1},{id:9,name:"Sistemas",aId:1,pId:1},{id:40,name:"Atención al Socio",aId:1,pId:1},{id:41,name:"Estandarización de Procesos",aId:1,pId:1},
   {id:43,name:"Diseño",aId:1,pId:3},{id:42,name:"Tordos TV",aId:1,pId:3},{id:44,name:"Redes",aId:1,pId:3},{id:45,name:"Fotografía",aId:1,pId:3},{id:46,name:"Filmación",aId:1,pId:3},{id:47,name:"Edición",aId:1,pId:3},{id:48,name:"Prensa",aId:1,pId:3},{id:49,name:"Creatividad",aId:1,pId:3},{id:60,name:"Asesoría Comunicación",aId:1,pId:3},
-  {id:61,name:"Tesorería",aId:1},{id:62,name:"Finanzas",aId:1},{id:63,name:"Financiamiento",aId:1},{id:65,name:"Tordos Shop",aId:1},
+  {id:61,name:"Tesorería",aId:1},{id:7,name:"Compras",aId:1,pId:61},{id:62,name:"Financiación",aId:1,pId:61},{id:63,name:"Financiamiento",aId:1,pId:61},{id:65,name:"Tordos Shop",aId:1},
   {id:10,name:"Academia Tordos",aId:2},{id:11,name:"Soporte Adm. del Deporte",aId:2},{id:12,name:"Mejora Continua",aId:2},
   {id:20,name:"Solidario",aId:3},{id:21,name:"Conecta",aId:3},{id:22,name:"Captación",aId:3},{id:23,name:"Club del Ex",aId:3},
   {id:30,name:"Anexo",aId:4},{id:31,name:"Estacionamiento Cancha 2",aId:4},{id:32,name:"Plan Estratégico",aId:4},{id:33,name:"Luces Cancha 2, 3 y 4",aId:4},{id:34,name:"Cantina: Ampliación y Tribunas",aId:4},{id:35,name:"Vestuarios y Depósito",aId:4},
