@@ -68,7 +68,7 @@ export const MINSECS:Record<string,string[]>={
 };
 
 // Deportivo module constants
-export const DEP_ROLES: Record<string,{l:string;i:string;lv:number}>={dd:{l:"Director Deportivo",i:"🎯",lv:5},dr:{l:"Director de Rugby",i:"🏉",lv:4},coord_pf:{l:"Coordinador PF",i:"💪",lv:3},entrenador:{l:"Entrenador",i:"📋",lv:2},pf:{l:"Preparador Físico",i:"🏋️",lv:2},kinesiologo:{l:"Kinesiólogo",i:"🩺",lv:2},medico:{l:"Médico",i:"⚕️",lv:2}};
+export const DEP_ROLES: Record<string,{l:string;i:string;lv:number}>={dd:{l:"Director Deportivo",i:"🎯",lv:5},dr:{l:"Director de Rugby",i:"🏉",lv:4},manager:{l:"Manager",i:"📊",lv:3},coord_pf:{l:"Coordinador PF",i:"💪",lv:3},entrenador:{l:"Entrenador",i:"📋",lv:2},pf:{l:"Preparador Físico",i:"🏋️",lv:2},kinesiologo:{l:"Kinesiólogo",i:"🩺",lv:2},medico:{l:"Médico",i:"⚕️",lv:2}};
 export const DEP_POSITIONS=["Pilar Izq","Hooker","Pilar Der","2da Línea","Ala","8","Medio Scrum","Apertura","Centro Int","Centro Ext","Wing Izq","Wing Der","Fullback"];
 export const DEP_INJ_TYPES=["Muscular","Articular","Ósea","Ligamentaria","Tendinosa","Contusión","Otra"];
 export const DEP_INJ_ZONES=["Cabeza","Cuello","Hombro","Brazo","Codo","Muñeca","Mano","Espalda","Pecho","Abdomen","Cadera","Muslo","Rodilla","Pierna","Tobillo","Pie"];

@@ -90,7 +90,7 @@ export interface Minuta {
 export interface DepStaff {
   id: string;
   user_id: string;
-  dep_role: "dd"|"dr"|"entrenador"|"pf"|"coord_pf"|"kinesiologo"|"medico";
+  dep_role: "dd"|"dr"|"manager"|"entrenador"|"pf"|"coord_pf"|"kinesiologo"|"medico";
   divisions: string[];
   reports_to: string | null;
   active: boolean;
