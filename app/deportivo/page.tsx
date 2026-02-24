@@ -579,13 +579,15 @@ export default function DeportivoApp(){
         :showForm==="athlete"?<AthleteForm onSave={onAddAthlete} onCancel={()=>sShowForm(null)} mob={mob}/>
         :showForm==="bulk"?<BulkAthleteForm onSave={async(rows:Partial<DepAthlete>[])=>{
           try{
+            const toNum=(v:any)=>{if(v===null||v===undefined||v==="")return null;const n=parseFloat(String(v).replace(",",".").replace(/[^\d.]/g,""));return isNaN(n)?null:n;};
+            const toDate=(v:any)=>{if(!v||v==="")return null;const s=String(v).trim();if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;const d=new Date(s);return isNaN(d.getTime())?null:d.toISOString().slice(0,10);};
             const payload=rows.map(r=>({
               first_name:tc(r.first_name),last_name:tc(r.last_name),division:r.division||DEP_DIV[0],
-              position:r.position||"",season:new Date().getFullYear().toString(),active:true,
-              dni:r.dni||"",phone:r.celular||r.phone||"",email:r.email||"",
-              birth_date:r.birth_date||null,sexo:r.sexo||"",categoria:r.categoria||"",
-              obra_social:r.obra_social||"",peso:r.peso??null,estatura:r.estatura??null,
-              celular:r.celular||"",tel_emergencia:r.tel_emergencia||"",ult_fichaje:r.ult_fichaje||null,
+              position:String(r.position||"").trim(),season:new Date().getFullYear().toString(),active:true,
+              dni:String(r.dni||"").replace(/\D/g,""),phone:String(r.celular||r.phone||"").trim(),email:String(r.email||"").trim().toLowerCase(),
+              birth_date:toDate(r.birth_date),sexo:String(r.sexo||"").trim(),categoria:String(r.categoria||"").trim(),
+              obra_social:String(r.obra_social||"").trim(),peso:toNum(r.peso),estatura:toNum(r.estatura),
+              celular:String(r.celular||"").trim(),tel_emergencia:String(r.tel_emergencia||"").trim(),ult_fichaje:toDate(r.ult_fichaje),
               emergency_contact:{},medical_info:{},photo_url:"",
             }));
             const{error}=await supabase.from("dep_athletes").insert(payload);
