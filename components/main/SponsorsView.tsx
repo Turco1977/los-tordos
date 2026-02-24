@@ -25,6 +25,8 @@ const emptyForm=()=>({
   notes:"",
   status:"active",
   payment_type:"",
+  responsable:"Jesús Herrera",
+  canje_instrucciones:"",
 });
 
 export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onSponMsg}:any){
@@ -32,6 +34,7 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
   const users = useDataStore(s => s.users);
   const{colors,isDark,cardBg}=useC();
   const [spTab,sSpTab]=useState<"chat"|"edit">("chat");
+  const [detailId,sDetailId]=useState<number|null>(null);
   const isSA=user?.role==="superadmin";
   const isJH=user&&(user.n||user.first_name||"").toLowerCase().includes("jes")&&(user.a||user.last_name||"").toLowerCase().includes("herrera");
   const canFullEdit=isSA||isJH;
@@ -43,7 +46,6 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
   const [fSt,sFSt]=useState("all");
   const [showForm,sShowForm]=useState(false);
   const [editId,sEditId]=useState<string|null>(null);
-  const [expandId,sExpandId]=useState<string|null>(null);
   const [form,sForm]=useState(emptyForm());
   const [confirmDel,sConfirmDel]=useState<string|null>(null);
   const [importing,sImporting]=useState(false);
@@ -70,9 +72,7 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
 
   /* Parse rows (from Excel or manual text) into sponsor objects */
   const parseRows=(headers:string[],dataRows:any[][])=>{
-    /* Classify each column */
     const cols=headers.map((h,i)=>({i,h,...classifyCol(h)}));
-    /* If no column classified as "name", use the first column with text values */
     if(!cols.some(c=>c.field==="name")){
       const firstText=cols.find(c=>{
         const vals=dataRows.map(r=>r[c.i]).filter(v=>typeof v==="string"&&v.trim().length>1);
@@ -115,14 +115,12 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
       const ws=wb.Sheets[wb.SheetNames[0]];
       const raw:any[][]=XLSX.utils.sheet_to_json(ws,{header:1,defval:"",blankrows:false});
       if(!raw.length){sImportErr("El archivo no tiene datos");return;}
-      /* Find header row by keyword matching */
       const HKWS=["aporte","sponsor","nombre","exposic","periodo","período","varios","observ","pago","canjes","servicio"];
       let hIdx=-1;
       for(let i=0;i<Math.min(raw.length,15);i++){
         const cells=(raw[i]||[]).map((c:any)=>String(c||"").toLowerCase().trim());
         if(cells.filter(c=>HKWS.some(kw=>c.includes(kw))).length>=2){hIdx=i;break;}
       }
-      /* Fallback: first row with 3+ non-empty cells */
       if(hIdx<0){
         for(let i=0;i<Math.min(raw.length,15);i++){
           const filled=(raw[i]||[]).filter((c:any)=>String(c||"").trim()!=="");
@@ -199,6 +197,8 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
       notes:sp.notes||"",
       status:sp.status||"active",
       payment_type:sp.payment_type||"",
+      responsable:sp.responsable||"Jesús Herrera",
+      canje_instrucciones:sp.canje_instrucciones||"",
     });
     sEditId(sp.id);sShowForm(true);
   };
@@ -206,7 +206,7 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
   const saveForm=async()=>{
     const cash=Number(form.amount_cash)||0;
     const service=Number(form.amount_service)||0;
-    const payload={
+    const payload:any={
       name:form.name,
       amount_cash:cash,
       amount_service:service,
@@ -216,6 +216,8 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
       notes:form.notes,
       status:form.status,
       payment_type:form.payment_type,
+      responsable:form.responsable,
+      canje_instrucciones:form.canje_instrucciones,
     };
     try{
       if(editId){await onUpd(editId,payload);}else{await onAdd(payload);}
@@ -226,7 +228,6 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
   /* ── Inline edit helpers ── */
   const inlineUpd=(sp:any,field:string,val:any)=>{
     const upd:any={[field]:val};
-    // Recalculate total amount when cash or service changes
     if(field==="amount_cash"){
       upd.amount=Number(val||0)+Number(sp.amount_service||0);
     }else if(field==="amount_service"){
@@ -245,9 +246,7 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
     return(
       <div style={{position:"relative",width:size,height:size}}>
         <svg width={size} height={size} style={{transform:"rotate(-90deg)"}}>
-          {/* Service arc (background full circle) */}
           <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#3B82F6" strokeWidth={size/8} />
-          {/* Cash arc on top */}
           {cashPct>0&&<circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#10B981" strokeWidth={size/8} strokeDasharray={ci} strokeDashoffset={ci-(cashPct/100)*ci} strokeLinecap="butt" />}
         </svg>
         <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column" as const,alignItems:"center",justifyContent:"center"}}>
@@ -264,6 +263,187 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
   const lbl:React.CSSProperties={fontSize:10,fontWeight:600,color:colors.g5,marginBottom:2,display:"block"};
   const inp:React.CSSProperties={width:"100%",padding:mob?10:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:mob?14:12,boxSizing:"border-box" as const,marginTop:2,background:cardBg,color:colors.nv,minHeight:mob?44:undefined};
 
+  /* ══════════════════════════════════════════════════════════════
+     DETAIL VIEW — when a sponsor is selected
+     ══════════════════════════════════════════════════════════════ */
+  const detailSp=detailId!=null?all.find((s:any)=>s.id===detailId):null;
+  if(detailSp){
+    const sp=detailSp;
+    const st=SPON_ST[sp.status]||SPON_ST.inactive;
+    const dl=daysLeft(sp.end_date);
+    const isExp=dl>=0&&dl<=30&&sp.status==="active";
+    const cash=Number(sp.amount_cash||0);
+    const service=Number(sp.amount_service||0);
+    const total=cash+service;
+    const monthly=isMensual(sp.payment_type);
+    const usado=(canjeUsado||{})[sp.id]||0;
+    const disp=service-usado;
+    const pct=service>0?Math.min(100,Math.round(usado/service*100)):0;
+    const barC=pct>80?"#DC2626":pct>50?"#F59E0B":"#10B981";
+
+    return(<div style={{maxWidth:700}}>
+      {/* Back button */}
+      <button onClick={()=>{sDetailId(null);sSpTab("chat");sConfirmDel(null);}} style={{background:"none",border:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:6,padding:"8px 0",marginBottom:8,color:colors.pr,fontSize:13,fontWeight:700}}>
+        <span style={{fontSize:18}}>&#8592;</span> Volver a Sponsors
+      </button>
+
+      {/* Header card */}
+      <Card style={{padding:mob?14:18,borderLeft:"5px solid "+st.c,marginBottom:14}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"start",marginBottom:10}}>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap" as const,marginBottom:6}}>
+              <span style={{background:st.bg,color:st.c,padding:"3px 10px",borderRadius:12,fontSize:11,fontWeight:600}}>{st.l}</span>
+              {monthly&&<span style={{background:isDark?"rgba(59,130,246,.15)":"#DBEAFE",color:"#3B82F6",padding:"3px 8px",borderRadius:8,fontSize:10,fontWeight:700}}>Mensual</span>}
+              {sp.payment_type&&!monthly&&<span style={{background:isDark?"rgba(139,92,246,.15)":"#EDE9FE",color:colors.pr,padding:"3px 8px",borderRadius:8,fontSize:10,fontWeight:600}}>{sp.payment_type}</span>}
+            </div>
+            <h2 style={{margin:"0 0 8px",fontSize:mob?20:24,fontWeight:800,color:colors.nv}}>{sp.name}</h2>
+            {/* Responsable */}
+            <div style={{fontSize:12,color:colors.g5,marginBottom:4}}>
+              <span style={{fontWeight:700,color:colors.nv}}>Responsable:</span> {sp.responsable||"Jesús Herrera"}
+            </div>
+          </div>
+          <DonutChart cash={cash} service={service} size={mob?60:72}/>
+        </div>
+
+        {/* Amounts row */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:10}}>
+          <div style={{padding:"8px 10px",background:isDark?"rgba(16,185,129,.08)":"#ECFDF5",borderRadius:8,textAlign:"center" as const}}>
+            <div style={{fontSize:9,color:"#10B981",fontWeight:600}}>Aporte $</div>
+            <div style={{fontSize:16,fontWeight:800,color:"#10B981"}}>{fmtARS(cash)}</div>
+          </div>
+          <div style={{padding:"8px 10px",background:isDark?"rgba(59,130,246,.08)":"#EFF6FF",borderRadius:8,textAlign:"center" as const}}>
+            <div style={{fontSize:9,color:"#3B82F6",fontWeight:600}}>Canjes</div>
+            <div style={{fontSize:16,fontWeight:800,color:"#3B82F6"}}>{fmtARS(service)}</div>
+          </div>
+          <div style={{padding:"8px 10px",background:isDark?"rgba(255,255,255,.05)":colors.g1,borderRadius:8,textAlign:"center" as const}}>
+            <div style={{fontSize:9,color:colors.g5,fontWeight:600}}>Total</div>
+            <div style={{fontSize:16,fontWeight:800,color:colors.nv}}>{fmtARS(total)}</div>
+          </div>
+        </div>
+
+        {/* Canje progress bar */}
+        {service>0&&<div style={{padding:"8px 10px",background:isDark?"rgba(59,130,246,.08)":"#F0F7FF",borderRadius:8,marginBottom:10}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+            <span style={{fontSize:10,fontWeight:700,color:"#3B82F6"}}>Canjes</span>
+            <span style={{fontSize:10,fontWeight:700,color:barC}}>{pct}% usado</span>
+          </div>
+          <div style={{height:8,background:isDark?"#334155":"#E2E8F0",borderRadius:4,overflow:"hidden"}}><div style={{height:"100%",width:pct+"%",background:barC,borderRadius:4,transition:"width .3s"}}/></div>
+          <div style={{display:"flex",justifyContent:"space-between",marginTop:4}}>
+            <span style={{fontSize:9,color:colors.g5}}>Usado: {fmtARS(usado)}</span>
+            <span style={{fontSize:9,fontWeight:700,color:disp>0?"#059669":"#DC2626"}}>Disponible: {fmtARS(disp)}</span>
+          </div>
+          {usado===0&&<div style={{marginTop:4,fontSize:9,fontWeight:700,color:"#F59E0B",background:"#FEF3C7",padding:"2px 8px",borderRadius:4,display:"inline-block"}}>Sin usar</div>}
+        </div>}
+
+        {/* Instrucciones para el canje */}
+        {(sp.canje_instrucciones||service>0)&&<div style={{padding:"8px 10px",background:isDark?"rgba(59,130,246,.05)":"#F8FAFF",borderRadius:8,marginBottom:10,border:"1px solid "+(isDark?"rgba(59,130,246,.15)":"#DBEAFE")}}>
+          <div style={{fontSize:10,fontWeight:700,color:"#3B82F6",marginBottom:3}}>Instrucciones para el canje</div>
+          <div style={{fontSize:12,color:colors.nv,lineHeight:1.5,whiteSpace:"pre-wrap" as const}}>{sp.canje_instrucciones||<span style={{color:colors.g4,fontStyle:"italic"}}>Sin instrucciones cargadas</span>}</div>
+        </div>}
+
+        {/* Info rows */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,fontSize:11}}>
+          {sp.end_date&&<div>
+            <span style={{color:colors.g5}}>Vencimiento: </span>
+            <span style={{fontWeight:600,color:colors.nv}}>{fmtD(sp.end_date)}</span>
+            {sp.status==="active"&&(
+              dl<0?<span style={{marginLeft:6,fontSize:10,fontWeight:700,color:"#DC2626",background:"#FEE2E2",padding:"1px 6px",borderRadius:6}}>Vencido {Math.abs(dl)}d</span>
+              :isExp?<span style={{marginLeft:6,fontSize:10,fontWeight:700,color:"#D97706",background:"#FEF3C7",padding:"1px 6px",borderRadius:6}}>Vence en {dl}d</span>
+              :<span style={{marginLeft:6,fontSize:10,color:colors.g4}}>{dl}d restantes</span>
+            )}
+          </div>}
+          {sp.exposure&&<div><span style={{color:colors.g5}}>Exposición: </span><span style={{fontWeight:600,color:colors.pr}}>{sp.exposure}</span></div>}
+        </div>
+        {sp.notes&&<div style={{marginTop:8,fontSize:11,color:colors.g5,lineHeight:1.5,whiteSpace:"pre-wrap" as const}}><span style={{fontWeight:600,color:colors.nv}}>Notas: </span>{sp.notes}</div>}
+      </Card>
+
+      {/* ── Tabs: Chat / Editar ── */}
+      <Card style={{padding:0,overflow:"hidden"}}>
+        <div style={{display:"flex",borderBottom:"1px solid "+colors.g2}}>
+          {([["chat","Chat"],["edit","Editar"]] as const).map(([k,l])=><button key={k} onClick={()=>sSpTab(k)} style={{flex:1,padding:"10px 0",border:"none",borderBottom:spTab===k?"3px solid "+colors.pr:"3px solid transparent",background:"transparent",color:spTab===k?colors.pr:colors.g4,fontSize:13,fontWeight:700,cursor:"pointer"}}>{k==="chat"?"\uD83D\uDCAC ":"\u270F\uFE0F "}{l}</button>)}
+        </div>
+
+        {/* Chat tab */}
+        {spTab==="chat"&&<div style={{padding:mob?"10px 12px":"12px 16px",minHeight:320}}>
+          <Thread
+            log={(sponMsgs||[]).filter((m:any)=>m.sponsor_id===sp.id).map((m:any)=>({dt:m.created_at||"",uid:m.user_id,by:m.user_name,act:m.content,t:m.type||"msg"}))}
+            userId={user?.id}
+            onSend={(txt:string)=>onSponMsg&&onSponMsg(sp.id,txt)}
+            users={users}
+          />
+        </div>}
+
+        {/* Edit tab */}
+        {spTab==="edit"&&<div style={{padding:mob?"12px":"16px"}}>
+          {/* Name */}
+          <div style={{marginBottom:8}}>
+            <label style={lbl}>Sponsor</label>
+            <input value={sp.name||""} onChange={e=>inlineUpd(sp,"name",e.target.value)} style={inp}/>
+          </div>
+          {/* Responsable */}
+          <div style={{marginBottom:8}}>
+            <label style={lbl}>Responsable</label>
+            <input value={sp.responsable==null?"Jesús Herrera":sp.responsable} onChange={e=>inlineUpd(sp,"responsable",e.target.value)} style={inp} placeholder="Jesús Herrera"/>
+          </div>
+          {/* Cash + Service amounts */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+            <div>
+              <label style={lbl}>Aporte $ (Efectivo)</label>
+              <input type="number" value={sp.amount_cash||""} onChange={e=>inlineUpd(sp,"amount_cash",Number(e.target.value)||0)} style={inp}/>
+            </div>
+            <div>
+              <label style={lbl}>Aporte Pro/Ser (Canjes)</label>
+              <input type="number" value={sp.amount_service||""} onChange={e=>inlineUpd(sp,"amount_service",Number(e.target.value)||0)} style={inp}/>
+            </div>
+          </div>
+          {/* End date + Status */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+            <div>
+              <label style={lbl}>Período / Vencimiento</label>
+              <input type="date" value={sp.end_date||""} onChange={e=>inlineUpd(sp,"end_date",e.target.value)} style={inp}/>
+            </div>
+            <div>
+              <label style={lbl}>Estado</label>
+              <select value={sp.status||"active"} onChange={e=>inlineUpd(sp,"status",e.target.value)} style={inp}>
+                {Object.keys(SPON_ST).map(k=><option key={k} value={k}>{SPON_ST[k].l}</option>)}
+              </select>
+            </div>
+          </div>
+          {/* Payment type */}
+          <div style={{marginBottom:8}}>
+            <label style={lbl}>Tipo de Pago</label>
+            <input value={sp.payment_type||""} onChange={e=>inlineUpd(sp,"payment_type",e.target.value)} style={inp} placeholder="Ej: pago mensual, canje, cheques"/>
+          </div>
+          {/* Exposure */}
+          <div style={{marginBottom:8}}>
+            <label style={lbl}>Exposición</label>
+            <input value={sp.exposure||""} onChange={e=>inlineUpd(sp,"exposure",e.target.value)} style={inp} placeholder="Ej: Ropa: frente camiseta. Cartelería"/>
+          </div>
+          {/* Instrucciones canje */}
+          <div style={{marginBottom:8}}>
+            <label style={lbl}>Instrucciones para el Canje</label>
+            <textarea value={sp.canje_instrucciones||""} onChange={e=>inlineUpd(sp,"canje_instrucciones",e.target.value)} rows={3} style={{...inp,resize:"vertical" as const}} placeholder="Ej: Contactar a Juan (tel 351-xxx), pedir factura a nombre de..."/>
+          </div>
+          {/* Notes */}
+          <div style={{marginBottom:8}}>
+            <label style={lbl}>Varios / Observaciones</label>
+            <textarea value={sp.notes||""} onChange={e=>inlineUpd(sp,"notes",e.target.value)} rows={2} style={{...inp,resize:"vertical" as const}}/>
+          </div>
+          {/* Actions */}
+          <div style={{display:"flex",gap:6,justifyContent:"space-between"}}>
+            {confirmDel===sp.id
+              ?<div style={{display:"flex",gap:4,alignItems:"center"}}><span style={{fontSize:11,color:"#DC2626",fontWeight:600}}>Confirmar?</span><Btn v="r" s="s" onClick={()=>{onDel(sp.id);sConfirmDel(null);sDetailId(null);}}>Sí, eliminar</Btn><Btn v="g" s="s" onClick={()=>sConfirmDel(null)}>No</Btn></div>
+              :<Btn v="r" s="s" onClick={()=>sConfirmDel(sp.id)}>Eliminar</Btn>}
+            <Btn v="pu" s="s" onClick={()=>openEdit(sp)}>Editar completo</Btn>
+          </div>
+        </div>}
+      </Card>
+    </div>);
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     LIST VIEW — main sponsors grid
+     ══════════════════════════════════════════════════════════════ */
   return(<div style={{maxWidth:900}}>
     {/* ── Header ── */}
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"start",marginBottom:4}}>
@@ -384,6 +564,12 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
           <input value={form.name} onChange={e=>sForm(p=>({...p,name:e.target.value}))} style={inp} placeholder="Ej: Uroclínica, Friolatina"/>
         </div>
 
+        {/* Responsable */}
+        <div style={{marginBottom:8}}>
+          <label style={lbl}>Responsable</label>
+          <input value={form.responsable} onChange={e=>sForm(p=>({...p,responsable:e.target.value}))} style={inp} placeholder="Jesús Herrera"/>
+        </div>
+
         {/* Amount cash + Amount service */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
           <div>
@@ -422,6 +608,12 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
           <input value={form.exposure} onChange={e=>sForm(p=>({...p,exposure:e.target.value}))} style={inp} placeholder="Ej: Ropa: frente camiseta. Cartelería"/>
         </div>
 
+        {/* Instrucciones canje */}
+        <div style={{marginBottom:8}}>
+          <label style={lbl}>Instrucciones para el Canje</label>
+          <textarea value={form.canje_instrucciones} onChange={e=>sForm(p=>({...p,canje_instrucciones:e.target.value}))} rows={3} style={{...inp,resize:"vertical" as const}} placeholder="Ej: Contactar a Juan (tel 351-xxx), pedir factura a nombre de..."/>
+        </div>
+
         {/* Notes */}
         <div style={{marginBottom:12}}>
           <label style={lbl}>Varios / Observaciones</label>
@@ -450,13 +642,12 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
         const st=SPON_ST[sp.status]||SPON_ST.inactive;
         const dl=daysLeft(sp.end_date);
         const isExp=dl>=0&&dl<=30&&sp.status==="active";
-        const isOpen=expandId===sp.id;
         const cash=Number(sp.amount_cash||0);
         const service=Number(sp.amount_service||0);
         const total=cash+service;
         const monthly=isMensual(sp.payment_type);
 
-        return(<Card key={sp.id} style={{padding:0,overflow:"hidden",borderLeft:"4px solid "+st.c,cursor:"pointer",transition:"box-shadow .2s",boxShadow:isOpen?"0 4px 16px rgba(0,0,0,.1)":"none"}} onClick={()=>sExpandId(isOpen?null:sp.id)}>
+        return(<Card key={sp.id} style={{padding:0,overflow:"hidden",borderLeft:"4px solid "+st.c,cursor:"pointer",transition:"box-shadow .2s"}} onClick={()=>{sDetailId(sp.id);sSpTab("chat");}}>
           <div style={{padding:"12px 14px"}}>
             {/* Top row: status badge + payment indicator */}
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
@@ -495,7 +686,7 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
             {service>0&&(()=>{const usado=(canjeUsado||{})[sp.id]||0;const disp=service-usado;const pct=Math.min(100,Math.round(usado/service*100));const barC=pct>80?"#DC2626":pct>50?"#F59E0B":"#10B981";return(
               <div style={{marginTop:6,padding:"6px 8px",background:isDark?"rgba(59,130,246,.08)":"#F0F7FF",borderRadius:8}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3}}>
-                  <span style={{fontSize:9,fontWeight:700,color:"#3B82F6"}}>🔄 Canjes</span>
+                  <span style={{fontSize:9,fontWeight:700,color:"#3B82F6"}}>Canjes</span>
                   <span style={{fontSize:9,fontWeight:700,color:barC}}>{pct}% usado</span>
                 </div>
                 <div style={{height:6,background:isDark?"#334155":"#E2E8F0",borderRadius:3,overflow:"hidden"}}><div style={{height:"100%",width:pct+"%",background:barC,borderRadius:3,transition:"width .3s"}}/></div>
@@ -503,7 +694,7 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
                   <span style={{fontSize:8,color:colors.g5}}>Usado: {fmtARS(usado)}</span>
                   <span style={{fontSize:8,fontWeight:700,color:disp>0?"#059669":"#DC2626"}}>Disponible: {fmtARS(disp)}</span>
                 </div>
-                {usado===0&&<div style={{marginTop:3,fontSize:8,fontWeight:700,color:"#F59E0B",background:"#FEF3C7",padding:"1px 6px",borderRadius:4,display:"inline-block"}}>⚠️ Sin usar</div>}
+                {usado===0&&<div style={{marginTop:3,fontSize:8,fontWeight:700,color:"#F59E0B",background:"#FEF3C7",padding:"1px 6px",borderRadius:4,display:"inline-block"}}>Sin usar</div>}
               </div>);})()}
 
             {/* Período */}
@@ -522,81 +713,8 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
             </div>}
 
             {/* Notes preview */}
-            {sp.notes&&!isOpen&&<div style={{marginTop:4,fontSize:10,color:colors.g5,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{sp.notes}</div>}
+            {sp.notes&&<div style={{marginTop:4,fontSize:10,color:colors.g5,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{sp.notes}</div>}
           </div>
-
-          {/* ── Expanded: Chat / Edit tabs ── */}
-          {isOpen&&<div style={{borderTop:"1px solid "+colors.g2,background:isDark?"rgba(255,255,255,.03)":"#FAFAFA"}} onClick={e=>e.stopPropagation()}>
-            {/* Tab bar */}
-            <div style={{display:"flex",borderBottom:"1px solid "+colors.g2}}>
-              {([["chat","Chat"],["edit","Editar"]] as const).map(([k,l])=><button key={k} onClick={()=>sSpTab(k)} style={{flex:1,padding:"8px 0",border:"none",borderBottom:spTab===k?"2px solid "+colors.pr:"2px solid transparent",background:"transparent",color:spTab===k?colors.pr:colors.g4,fontSize:12,fontWeight:700,cursor:"pointer"}}>{k==="chat"?"\uD83D\uDCAC ":"\u270F\uFE0F "}{l}</button>)}
-            </div>
-
-            {/* Chat tab */}
-            {spTab==="chat"&&<div style={{padding:"8px 14px",minHeight:280}}>
-              <Thread
-                log={(sponMsgs||[]).filter((m:any)=>m.sponsor_id===sp.id).map((m:any)=>({dt:m.created_at||"",uid:m.user_id,by:m.user_name,act:m.content,t:m.type||"msg"}))}
-                userId={user?.id}
-                onSend={(txt:string)=>onSponMsg&&onSponMsg(sp.id,txt)}
-                users={users}
-              />
-            </div>}
-
-            {/* Edit tab */}
-            {spTab==="edit"&&<div style={{padding:"12px 14px"}}>
-              {/* Name */}
-              <div style={{marginBottom:8}}>
-                <label style={lbl}>Sponsor</label>
-                <input value={sp.name||""} onChange={e=>inlineUpd(sp,"name",e.target.value)} style={inp}/>
-              </div>
-              {/* Cash + Service amounts */}
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
-                <div>
-                  <label style={lbl}>Aporte $ (Efectivo)</label>
-                  <input type="number" value={sp.amount_cash||""} onChange={e=>inlineUpd(sp,"amount_cash",Number(e.target.value)||0)} style={inp}/>
-                </div>
-                <div>
-                  <label style={lbl}>Aporte Pro/Ser (Canjes)</label>
-                  <input type="number" value={sp.amount_service||""} onChange={e=>inlineUpd(sp,"amount_service",Number(e.target.value)||0)} style={inp}/>
-                </div>
-              </div>
-              {/* End date + Status */}
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
-                <div>
-                  <label style={lbl}>Período / Vencimiento</label>
-                  <input type="date" value={sp.end_date||""} onChange={e=>inlineUpd(sp,"end_date",e.target.value)} style={inp}/>
-                </div>
-                <div>
-                  <label style={lbl}>Estado</label>
-                  <select value={sp.status||"active"} onChange={e=>inlineUpd(sp,"status",e.target.value)} style={inp}>
-                    {Object.keys(SPON_ST).map(k=><option key={k} value={k}>{SPON_ST[k].l}</option>)}
-                  </select>
-                </div>
-              </div>
-              {/* Payment type */}
-              <div style={{marginBottom:8}}>
-                <label style={lbl}>Tipo de Pago</label>
-                <input value={sp.payment_type||""} onChange={e=>inlineUpd(sp,"payment_type",e.target.value)} style={inp} placeholder="Ej: pago mensual, canje, cheques"/>
-              </div>
-              {/* Exposure */}
-              <div style={{marginBottom:8}}>
-                <label style={lbl}>Exposición</label>
-                <input value={sp.exposure||""} onChange={e=>inlineUpd(sp,"exposure",e.target.value)} style={inp} placeholder="Ej: Ropa: frente camiseta. Cartelería"/>
-              </div>
-              {/* Notes */}
-              <div style={{marginBottom:8}}>
-                <label style={lbl}>Varios / Observaciones</label>
-                <textarea value={sp.notes||""} onChange={e=>inlineUpd(sp,"notes",e.target.value)} rows={2} style={{...inp,resize:"vertical" as const}}/>
-              </div>
-              {/* Actions */}
-              <div style={{display:"flex",gap:6,justifyContent:"space-between"}}>
-                {confirmDel===sp.id
-                  ?<div style={{display:"flex",gap:4,alignItems:"center"}}><span style={{fontSize:11,color:"#DC2626",fontWeight:600}}>Confirmar?</span><Btn v="r" s="s" onClick={()=>{onDel(sp.id);sConfirmDel(null);sExpandId(null);}}>Sí, eliminar</Btn><Btn v="g" s="s" onClick={()=>sConfirmDel(null)}>No</Btn></div>
-                  :<Btn v="r" s="s" onClick={()=>sConfirmDel(sp.id)}>Eliminar</Btn>}
-                <Btn v="pu" s="s" onClick={()=>openEdit(sp)}>Editar completo</Btn>
-              </div>
-            </div>}
-          </div>}
         </Card>);})}
     </div>
 
