@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { T, TD, DEP_ROLES, DEP_POSITIONS, DEP_INJ_TYPES, DEP_INJ_ZONES, DEP_INJ_SEV, DEP_WK, DEP_SEM, DEP_DIV, DEP_PHASE_TYPES, DEP_LINEUP_POS, DEP_TEST_CATS, DEP_CUERPO_TECNICO, fn } from "@/lib/constants";
-import type { DepStaff, DepAthlete, DepInjury, DepCheckin, DepSeason, DepPhase, DepMicrocycle, DepTestType, DepTest, DepLineup } from "@/lib/supabase/types";
+import type { DepStaff, DepAthlete, DepInjury, DepCheckin, DepSeason, DepPhase, DepMicrocycle, DepTestType, DepTest, DepLineup, DepRPE, DepAnnouncement } from "@/lib/supabase/types";
 import { exportCSV, exportPDF } from "@/lib/export";
 import { useRealtime } from "@/lib/realtime";
 import { useTheme, darkCSS } from "@/lib/theme";
@@ -77,6 +77,7 @@ export default function DeportivoApp(){
   const [myStaff,sMyStaff]=useState<DepStaff|null>(null);
   const [authChecked,sAuthChecked]=useState(false);
   const [loading,sLoading]=useState(true);
+  const [myAthlete,sMyAthlete]=useState<DepAthlete|null>(null);
 
   // Data
   const [athletes,sAthletes]=useState<DepAthlete[]>([]);
@@ -89,6 +90,7 @@ export default function DeportivoApp(){
   const [testTypes,sTestTypes]=useState<DepTestType[]>([]);
   const [tests,sTests]=useState<DepTest[]>([]);
   const [lineups,sLineups]=useState<DepLineup[]>([]);
+  const [announcements,sAnnouncements]=useState<DepAnnouncement[]>([]);
 
   // UI
   const [tab,sTab]=useState("dash");
@@ -156,6 +158,11 @@ export default function DeportivoApp(){
       sMyStaff(staff.find((s:any)=>s.user_id===user.id&&s.active)||null);
     }
     if(athRes.data) sAthletes(athRes.data);
+    // Check if user is a linked player
+    if(athRes.data){
+      const linked=athRes.data.find((a:any)=>a.user_id===user.id&&a.active);
+      if(linked) sMyAthlete(linked);
+    }
     if(injRes.data){
       const aths=athRes.data||[];
       sInjuries(injRes.data.map((inj:any)=>{
@@ -183,6 +190,9 @@ export default function DeportivoApp(){
       }));
     }
     if(luRes.data) sLineups(luRes.data);
+    // Fetch announcements
+    const annRes=await safeFetch(supabase.from("dep_announcements").select("*").order("pinned",{ascending:false}).order("created_at",{ascending:false}).limit(50));
+    if(annRes.data) sAnnouncements(annRes.data);
     sLoading(false);
   },[user]);
 
@@ -209,7 +219,8 @@ export default function DeportivoApp(){
 
   // Superadmin/admin can always access (to set up staff initially)
   const isAdmin=profile&&(profile.role==="superadmin"||profile.role==="admin");
-  if(!myStaff&&!isAdmin) return <NoAccess mob={mob} userName={profile?.first_name||""} onOut={out}/>;
+  if(!myStaff&&!isAdmin&&!myAthlete) return <NoAccess mob={mob} userName={profile?.first_name||""} onOut={out}/>;
+  if(myAthlete&&!myStaff&&!isAdmin) return <ThemeCtx.Provider value={{colors,isDark,cardBg}}><style dangerouslySetInnerHTML={{__html:darkCSS}}/><PlayerView athlete={myAthlete} athletes={athletes} checkins={checkins} injuries={injuries} user={user} supabase={supabase} mob={mob} onLogout={out} showT={showT} fetchAll={fetchAll} colors={colors} isDark={isDark} cardBg={cardBg} toggleTheme={toggleTheme}/>{toast&&<Toast msg={toast.msg} type={toast.type} onDone={()=>sToast(null)}/>}</ThemeCtx.Provider>;
 
   const depRole=myStaff?.dep_role||"dd"; // admin defaults to dd-level access
   const depLv=myStaff?drLv(depRole):5;
@@ -252,15 +263,15 @@ export default function DeportivoApp(){
 
   /* ── TABS ── */
   const tabs=[
-    {k:"plantel",l:"👥",f:"Plantel"},
-    {k:"planif",l:"📅",f:"Planificación"},
-    {k:"pretemp",l:"🏋️‍♂️",f:"Pretemporada"},
-    {k:"equipo",l:"🏉",f:"Equipo"},
-    {k:"injuries",l:"🩹",f:"Lesiones"},
-    {k:"wellness",l:"💚",f:"Wellness"},
+    {k:"plantel",l:"👥",f:"Jugadores"},
+    {k:"injuries",l:"🩹",f:"Salud"},
+    {k:"wellness",l:"💚",f:"Bienestar"},
     {k:"training",l:"🏋️",f:"Entrenamientos"},
-    {k:"comm",l:"📱",f:"WhatsApp"},
-    ...(canManageStaff?[{k:"perfiles",l:"👤",f:"Perfiles"}]:[]),
+    {k:"planif",l:"📅",f:"Planificación"},
+    {k:"pretemp",l:"📝",f:"Evaluaciones"},
+    {k:"equipo",l:"🏉",f:"Formaciones"},
+    {k:"comm",l:"📢",f:"Comunicación"},
+    ...(canManageStaff?[{k:"perfiles",l:"👤",f:"Staff"}]:[]),
   ];
 
   /* ══════════════════════════ HANDLERS ══════════════════════════ */
@@ -669,8 +680,17 @@ export default function DeportivoApp(){
       {/* ════════ EQUIPO ════════ */}
       {tab==="equipo"&&<LineupTab athletes={athletes.filter(a=>a.active)} lineups={lineups} injuries={injuries} checkins={checkins} onAdd={onAddLineup} onUpd={onUpdLineup} onDel={onDelLineup} canEdit={depLv>=4||depRole==="entrenador"} mob={mob} latestCheckin={latestCheckin}/>}
 
-      {/* ════════ WHATSAPP ════════ */}
-      {tab==="comm"&&<CommTab athletes={athletes.filter(a=>a.active)} lineups={lineups} seasons={seasons} phases={phases} mob={mob} showT={showT}/>}
+      {/* ════════ COMUNICACIÓN ════════ */}
+      {tab==="comm"&&<div>
+  {/* Announcements */}
+  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+    <h2 style={{margin:0,fontSize:18,color:colors.nv}}>📢 Comunicación</h2>
+  </div>
+  <AnnouncementsSection announcements={announcements} canCreate={depLv>=3} userId={user.id} userName={(profile?.first_name||"")+" "+(profile?.last_name||"")} supabase={supabase} showT={showT} fetchAll={fetchAll} mob={mob}/>
+  <div style={{height:1,background:colors.g3,margin:"20px 0"}}/>
+  <h3 style={{fontSize:14,fontWeight:700,color:colors.nv,marginBottom:10}}>📱 Mensajes WhatsApp</h3>
+  <CommTab athletes={filteredAthletes} lineups={lineups} mob={mob}/>
+</div>}
 
       {/* ════════ PERFILES ════════ */}
       {tab==="perfiles"&&canManageStaff&&<PerfilesTab staffList={staffList} onUpdate={onUpdStaff} onDel={onDelStaff} mob={mob} showT={showT} fetchAll={fetchAll} hlStaff={hlStaff} clearHl={()=>sHlStaff(null)}/>}
@@ -2358,5 +2378,436 @@ function CommTab({athletes,lineups,seasons,phases,mob,showT}:any){
       <Btn v="s" onClick={sendWA} disabled={!preview()}>📱 Enviar por WhatsApp</Btn>
       <Btn v="g" onClick={copyClip} disabled={!preview()}>📋 Copiar texto</Btn>
     </div>
+  </div>;
+}
+
+/* ══════════════════════════ ANNOUNCEMENTS ══════════════════════════ */
+function AnnouncementsSection({announcements,canCreate,userId,userName,supabase,showT,fetchAll,mob}:any){
+  const{colors,isDark,cardBg}=useC();
+  const [showNew,sShowNew]=useState(false);
+  const [aTitle,sATitle]=useState("");
+  const [aContent,sAContent]=useState("");
+  const [aType,sAType]=useState("aviso");
+  const [saving,sSaving]=useState(false);
+
+  const doCreate=async()=>{
+    if(!aContent.trim()){showT("Escribí un mensaje","err");return;}
+    sSaving(true);
+    try{
+      const{error}=await supabase.from("dep_announcements").insert({
+        author_id:userId,author_name:userName,title:aTitle||null,content:aContent,type:aType,pinned:false
+      });
+      if(error) throw error;
+      showT("Aviso publicado");sShowNew(false);sATitle("");sAContent("");sAType("aviso");fetchAll();
+    }catch(e:any){showT(e.message||"Error","err");}
+    sSaving(false);
+  };
+
+  const doDelete=async(id:number)=>{
+    if(!confirm("¿Eliminar aviso?")) return;
+    const{error}=await supabase.from("dep_announcements").delete().eq("id",id);
+    if(error) showT(error.message,"err");
+    else{showT("Aviso eliminado");fetchAll();}
+  };
+
+  const doPin=async(id:number,pinned:boolean)=>{
+    const{error}=await supabase.from("dep_announcements").update({pinned:!pinned}).eq("id",id);
+    if(!error) fetchAll();
+  };
+
+  const typeStyles:{[k:string]:{bg:string;c:string;l:string;i:string}}={
+    aviso:{bg:"#DBEAFE",c:"#3B82F6",l:"Aviso",i:"📢"},
+    convocatoria:{bg:"#D1FAE5",c:"#10B981",l:"Convocatoria",i:"📋"},
+    urgente:{bg:"#FEE2E2",c:"#C8102E",l:"Urgente",i:"🔴"},
+  };
+
+  return <div>
+    {canCreate&&<div style={{marginBottom:12}}>
+      {!showNew?<Btn v="p" s="s" onClick={()=>sShowNew(true)}>+ Nuevo aviso</Btn>
+      :<Card style={{background:isDark?colors.g2:"#FFFBEB",border:"1px solid "+(isDark?colors.g3:"#FDE68A")}}>
+        <h3 style={{margin:"0 0 10px",fontSize:13,color:colors.nv}}>Publicar aviso</h3>
+        <div style={{display:"flex",gap:6,marginBottom:8}}>
+          {(["aviso","convocatoria","urgente"] as const).map(t=>{const ts=typeStyles[t];return <button key={t} onClick={()=>sAType(t)} style={{padding:"5px 12px",borderRadius:16,fontSize:11,fontWeight:aType===t?700:500,border:aType===t?"2px solid "+ts.c:"1px solid "+colors.g3,background:aType===t?ts.bg:"transparent",color:aType===t?ts.c:colors.g5,cursor:"pointer"}}>{ts.i} {ts.l}</button>;})}
+        </div>
+        <input value={aTitle} onChange={e=>sATitle(e.target.value)} placeholder="Título (opcional)" style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,marginBottom:6,boxSizing:"border-box",background:cardBg,color:colors.nv}}/>
+        <textarea value={aContent} onChange={e=>sAContent(e.target.value)} rows={3} placeholder="Mensaje..." style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,resize:"vertical",boxSizing:"border-box",background:cardBg,color:colors.nv}}/>
+        <div style={{display:"flex",gap:6,marginTop:8}}>
+          <Btn v="p" onClick={doCreate} disabled={saving||!aContent.trim()}>{saving?"Publicando...":"Publicar"}</Btn>
+          <Btn v="g" onClick={()=>sShowNew(false)}>Cancelar</Btn>
+        </div>
+      </Card>}
+    </div>}
+
+    {announcements.length===0&&<Card style={{textAlign:"center",padding:24,color:colors.g4}}><div style={{fontSize:32}}>📢</div><div style={{marginTop:8,fontSize:13}}>No hay avisos publicados</div></Card>}
+
+    {announcements.map((a:any)=>{
+      const ts=typeStyles[a.type]||typeStyles.aviso;
+      const fmtD=(d:string)=>{if(!d)return"";const p=d.slice(0,10).split("-");return p[2]+"/"+p[1]+"/"+p[0];};
+      return <Card key={a.id} style={{marginBottom:8,borderLeft:"3px solid "+ts.c}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"start"}}>
+          <div style={{flex:1}}>
+            <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:2}}>
+              <span style={{fontSize:10,padding:"1px 8px",borderRadius:10,background:ts.bg,color:ts.c,fontWeight:700}}>{ts.i} {ts.l}</span>
+              {a.pinned&&<span style={{fontSize:10,color:colors.g4}}>📌</span>}
+            </div>
+            {a.title&&<div style={{fontSize:14,fontWeight:700,color:colors.nv,marginTop:2}}>{a.title}</div>}
+            <div style={{fontSize:12,color:colors.g5,lineHeight:1.6,marginTop:4,whiteSpace:"pre-wrap"}}>{a.content}</div>
+            <div style={{fontSize:10,color:colors.g4,marginTop:6}}>{a.author_name} · {fmtD(a.created_at||"")}</div>
+          </div>
+          {canCreate&&<div style={{display:"flex",gap:4,flexShrink:0,marginLeft:8}}>
+            <button onClick={()=>doPin(a.id,a.pinned)} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:colors.g4}} title={a.pinned?"Desfijar":"Fijar"}>{a.pinned?"📌":"📍"}</button>
+            <button onClick={()=>doDelete(a.id)} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:colors.rd}} title="Eliminar">🗑</button>
+          </div>}
+        </div>
+      </Card>;
+    })}
+  </div>;
+}
+
+/* ══════════════════════════════════════════════════════════════════ */
+/* ══════════════════  PLAYER VIEW  ════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════════════ */
+
+function PlayerView({athlete,athletes,checkins,injuries,user,supabase,mob,onLogout,showT,fetchAll,colors,isDark,cardBg,toggleTheme}:any){
+  const [pTab,sPTab]=useState("inicio");
+  const [sessions,sSessions]=useState<any[]>([]);
+  const [myAttendance,sMyAttendance]=useState<any[]>([]);
+  const [myRPE,sMyRPE]=useState<any[]>([]);
+  const [announcements,sAnnouncements]=useState<any[]>([]);
+  const [loading,sLoading]=useState(true);
+
+  const TODAY=new Date().toISOString().slice(0,10);
+  const fmtD=(d:string)=>{if(!d)return"–";const p=d.slice(0,10).split("-");return p[2]+"/"+p[1]+"/"+p[0];};
+
+  // Fetch player-specific data
+  useEffect(()=>{
+    (async()=>{
+      const [sesRes,attRes,rpeRes,annRes]=await Promise.all([
+        supabase.from("dep_training_sessions").select("*").order("date",{ascending:false}).limit(20),
+        supabase.from("dep_attendance").select("*").eq("athlete_id",athlete.id),
+        supabase.from("dep_rpe").select("*").eq("athlete_id",athlete.id).catch(()=>({data:[]})),
+        supabase.from("dep_announcements").select("*").order("created_at",{ascending:false}).limit(20).catch(()=>({data:[]})),
+      ]);
+      if(sesRes.data) sSessions(sesRes.data);
+      if(attRes.data) sMyAttendance(attRes.data);
+      if(rpeRes.data) sMyRPE(rpeRes.data);
+      if(annRes.data) sAnnouncements(annRes.data);
+      sLoading(false);
+    })();
+  },[athlete.id]);
+
+  const myCheckins=checkins.filter((c:any)=>c.athlete_id===athlete.id);
+  const todayCheckin=myCheckins.find((c:any)=>c.date?.slice(0,10)===TODAY);
+  const myInjuries=injuries.filter((i:any)=>i.athlete_id===athlete.id&&i.status!=="alta");
+  const latestCheckin=myCheckins[0];
+  const sem=latestCheckin?semScore(latestCheckin):null;
+
+  // Attendance for the last 30 days
+  const last30=sessions.filter(s=>{const d=new Date(s.date);const ago=new Date();ago.setDate(ago.getDate()-30);return d>=ago;});
+  const attendedCount=last30.filter(s=>myAttendance.find((a:any)=>a.session_id===s.id&&a.status==="presente")).length;
+  const attendancePct=last30.length>0?Math.round(attendedCount/last30.length*100):0;
+
+  // Pending items
+  const pendingWellness=!todayCheckin;
+  const todaySessions=sessions.filter(s=>s.date?.slice(0,10)===TODAY);
+  const pendingAttendance=todaySessions.filter(s=>!myAttendance.find((a:any)=>a.session_id===s.id));
+
+  const tabBar=(<div style={{position:"fixed",bottom:0,left:0,right:0,background:isDark?"#1E293B":"#fff",borderTop:"1px solid "+(isDark?colors.g3:"#E5E7EB"),display:"flex",zIndex:100,paddingBottom:"env(safe-area-inset-bottom)"}}>
+    {[{k:"inicio",l:"Inicio",i:"🏠"},{k:"bienestar",l:"Bienestar",i:"💚"},{k:"asistencia",l:"Asistencia",i:"✅"},{k:"perfil",l:"Mi Perfil",i:"👤"}].map(t=>
+      <button key={t.k} onClick={()=>sPTab(t.k)} style={{flex:1,padding:"10px 0 8px",background:"none",border:"none",display:"flex",flexDirection:"column",alignItems:"center",gap:2,cursor:"pointer",color:pTab===t.k?colors.bl:"rgba(150,150,150,.7)",fontWeight:pTab===t.k?700:500,fontSize:10,position:"relative"}}>
+        <span style={{fontSize:20}}>{t.i}</span>
+        {t.l}
+        {t.k==="bienestar"&&pendingWellness&&<span style={{position:"absolute",top:6,right:"25%",width:8,height:8,borderRadius:4,background:"#C8102E"}}/>}
+        {t.k==="asistencia"&&pendingAttendance.length>0&&<span style={{position:"absolute",top:6,right:"25%",width:8,height:8,borderRadius:4,background:"#C8102E"}}/>}
+      </button>
+    )}
+  </div>);
+
+  if(loading) return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:colors.g1}}><div style={{fontSize:14,color:colors.g4}}>Cargando...</div></div>;
+
+  return <div style={{minHeight:"100vh",background:colors.g1,color:colors.nv,paddingBottom:80}}>
+    {/* Header */}
+    <div style={{background:isDark?"#1E293B":"#0A1628",padding:"14px 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10}}>
+        <img src="/logo.jpg" alt="" style={{width:32,height:32,borderRadius:6,objectFit:"contain"}}/>
+        <div><div style={{color:"#fff",fontSize:14,fontWeight:700}}>Hola, {athlete.first_name}</div><div style={{color:"rgba(255,255,255,.5)",fontSize:10}}>🏉 {athlete.position||"Jugador"} · {athlete.division}</div></div>
+      </div>
+      <div style={{display:"flex",gap:6}}>
+        <button onClick={toggleTheme} style={{background:"rgba(255,255,255,.1)",border:"none",borderRadius:8,padding:"6px 10px",color:"#fff",fontSize:14,cursor:"pointer"}}>{isDark?"☀️":"🌙"}</button>
+        <button onClick={onLogout} style={{background:"rgba(255,255,255,.1)",border:"none",borderRadius:8,padding:"6px 12px",color:"#fff",fontSize:11,cursor:"pointer",fontWeight:600}}>Salir</button>
+      </div>
+    </div>
+
+    <div style={{padding:"16px 16px 0"}}>
+
+    {/* ════════ INICIO TAB ════════ */}
+    {pTab==="inicio"&&<div>
+      {/* Status card */}
+      <Card style={{marginBottom:12,background:sem?sem.bg+"30":cardBg,border:sem?"1px solid "+sem.color+"40":"none"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div>
+            <div style={{fontSize:12,fontWeight:700,color:colors.nv}}>Tu estado actual</div>
+            {sem?<div style={{fontSize:20,fontWeight:800,color:sem.color,marginTop:4}}>{sem.label} <span style={{fontSize:14}}>({sem.score.toFixed(1)}/5)</span></div>
+            :<div style={{fontSize:14,color:colors.g4,marginTop:4}}>Sin check-in reciente</div>}
+          </div>
+          <div style={{textAlign:"center"}}>
+            <div style={{fontSize:28}}>{sem?sem.score>=3.5?"💪":sem.score>=2.5?"⚠️":"🔴":"❓"}</div>
+          </div>
+        </div>
+        {myInjuries.length>0&&<div style={{marginTop:8,padding:"6px 10px",background:"#FEE2E2",borderRadius:8,fontSize:12,color:"#C8102E",fontWeight:600}}>🩹 Tenés {myInjuries.length} lesión{myInjuries.length>1?"es":""} activa{myInjuries.length>1?"s":""}</div>}
+      </Card>
+
+      {/* Pending items */}
+      {(pendingWellness||pendingAttendance.length>0)&&<div style={{marginBottom:12}}>
+        <div style={{fontSize:12,fontWeight:700,color:colors.g5,marginBottom:6,textTransform:"uppercase",letterSpacing:1}}>Pendientes</div>
+        {pendingWellness&&<Card onClick={()=>sPTab("bienestar")} style={{marginBottom:8,cursor:"pointer",border:"2px solid "+colors.bl+"40",background:isDark?colors.bl+"10":"#EFF6FF"}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <span style={{fontSize:28}}>💚</span>
+            <div style={{flex:1}}><div style={{fontSize:14,fontWeight:700,color:colors.nv}}>Completá tu wellness de hoy</div><div style={{fontSize:11,color:colors.g5}}>¿Cómo dormiste? ¿Cómo te sentís?</div></div>
+            <span style={{fontSize:18,color:colors.bl}}>→</span>
+          </div>
+        </Card>}
+        {pendingAttendance.map(s=><Card key={s.id} onClick={()=>sPTab("asistencia")} style={{marginBottom:8,cursor:"pointer",border:"1px solid "+colors.g3}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <span style={{fontSize:28}}>✅</span>
+            <div style={{flex:1}}><div style={{fontSize:14,fontWeight:700,color:colors.nv}}>Confirmar asistencia</div><div style={{fontSize:11,color:colors.g5}}>{s.type} · {fmtD(s.date)} {s.time_start||""}</div></div>
+            <span style={{fontSize:18,color:colors.bl}}>→</span>
+          </div>
+        </Card>)}
+      </div>}
+
+      {/* Quick stats */}
+      <div style={{fontSize:12,fontWeight:700,color:colors.g5,marginBottom:6,textTransform:"uppercase",letterSpacing:1}}>Resumen</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
+        <Card style={{textAlign:"center",padding:14}}>
+          <div style={{fontSize:24,fontWeight:800,color:colors.nv}}>{attendancePct}%</div>
+          <div style={{fontSize:10,color:colors.g5}}>Asistencia (30 días)</div>
+        </Card>
+        <Card style={{textAlign:"center",padding:14}}>
+          <div style={{fontSize:24,fontWeight:800,color:colors.nv}}>{myCheckins.length}</div>
+          <div style={{fontSize:10,color:colors.g5}}>Check-ins</div>
+        </Card>
+      </div>
+
+      {/* Announcements */}
+      {announcements.length>0&&<div>
+        <div style={{fontSize:12,fontWeight:700,color:colors.g5,marginBottom:6,textTransform:"uppercase",letterSpacing:1}}>Avisos</div>
+        {announcements.slice(0,5).map((a:any)=><Card key={a.id} style={{marginBottom:8}}>
+          <div style={{display:"flex",gap:8,alignItems:"start"}}>
+            <span style={{fontSize:16}}>{a.type==="urgente"?"🔴":a.type==="convocatoria"?"📋":"📢"}</span>
+            <div style={{flex:1}}>
+              {a.title&&<div style={{fontSize:13,fontWeight:700,color:colors.nv}}>{a.title}</div>}
+              <div style={{fontSize:12,color:colors.g5,lineHeight:1.5,marginTop:2}}>{a.content}</div>
+              <div style={{fontSize:10,color:colors.g4,marginTop:4}}>{a.author_name} · {fmtD(a.created_at?.slice(0,10)||"")}</div>
+            </div>
+          </div>
+        </Card>)}
+      </div>}
+    </div>}
+
+    {/* ════════ BIENESTAR TAB ════════ */}
+    {pTab==="bienestar"&&<PlayerWellnessForm athlete={athlete} todayCheckin={todayCheckin} supabase={supabase} userId={user.id} showT={showT} fetchAll={fetchAll} colors={colors} isDark={isDark} cardBg={cardBg}/>}
+
+    {/* ════════ ASISTENCIA TAB ════════ */}
+    {pTab==="asistencia"&&<PlayerAttendance athlete={athlete} sessions={sessions} myAttendance={myAttendance} supabase={supabase} showT={showT} onRefresh={async()=>{
+      const{data}=await supabase.from("dep_attendance").select("*").eq("athlete_id",athlete.id);
+      if(data) sMyAttendance(data);
+    }} colors={colors} isDark={isDark} cardBg={cardBg}/>}
+
+    {/* ════════ MI PERFIL TAB ════════ */}
+    {pTab==="perfil"&&<PlayerProfile athlete={athlete} checkins={myCheckins} injuries={injuries.filter((i:any)=>i.athlete_id===athlete.id)} colors={colors} isDark={isDark} cardBg={cardBg}/>}
+
+    </div>
+    {tabBar}
+  </div>;
+}
+
+/* ── Player Wellness Form ── */
+function PlayerWellnessForm({athlete,todayCheckin,supabase,userId,showT,fetchAll,colors,isDark,cardBg}:any){
+  const WK_LABELS:{[k:string]:{l:string;i:string;emoji:string[];labels:string[]}}={
+    sleep:{l:"Sueño",i:"😴",emoji:["😫","😩","😐","😊","🤩"],labels:["Muy mal","Mal","Regular","Bien","Excelente"]},
+    fatigue:{l:"Fatiga",i:"🔋",emoji:["🪫","😰","😐","💪","⚡"],labels:["Exhausto","Cansado","Normal","Descansado","Fresco"]},
+    stress:{l:"Estrés",i:"🧠",emoji:["🤯","😟","😐","😌","🧘"],labels:["Muy alto","Alto","Normal","Bajo","Muy bajo"]},
+    soreness:{l:"Dolor muscular",i:"💢",emoji:["😭","😣","😐","🙂","😎"],labels:["Muy fuerte","Fuerte","Normal","Poco","Nada"]},
+    mood:{l:"Ánimo",i:"😊",emoji:["😞","😔","😐","😊","🔥"],labels:["Muy mal","Mal","Normal","Bien","Muy bien"]},
+  };
+  const keys=["sleep","fatigue","stress","soreness","mood"];
+  const [vals,sVals]=useState<{[k:string]:number}>(todayCheckin?{sleep:todayCheckin.sleep,fatigue:todayCheckin.fatigue,stress:todayCheckin.stress,soreness:todayCheckin.soreness,mood:todayCheckin.mood}:{});
+  const [notes,sNotes]=useState(todayCheckin?.notes||"");
+  const [saving,sSaving]=useState(false);
+  const [done,sDone]=useState(!!todayCheckin);
+  const allFilled=keys.every(k=>vals[k]!==undefined);
+
+  const save=async()=>{
+    if(!allFilled) return;
+    sSaving(true);
+    try{
+      const payload={athlete_id:athlete.id,date:new Date().toISOString().slice(0,10),sleep:vals.sleep,fatigue:vals.fatigue,stress:vals.stress,soreness:vals.soreness,mood:vals.mood,notes,recorded_by:userId};
+      const{error}=await supabase.from("dep_checkins").upsert(payload,{onConflict:"athlete_id,date"});
+      if(error) throw error;
+      showT("Check-in guardado 💪");sDone(true);fetchAll();
+    }catch(e:any){showT(e.message||"Error","err");}
+    sSaving(false);
+  };
+
+  if(done&&todayCheckin) return <div style={{textAlign:"center",padding:"40px 20px"}}>
+    <div style={{fontSize:64,marginBottom:16}}>✅</div>
+    <h2 style={{fontSize:20,fontWeight:800,color:colors.nv,margin:"0 0 8px"}}>Wellness completado</h2>
+    <p style={{fontSize:13,color:colors.g5,margin:"0 0 20px"}}>Tu check-in de hoy ya está registrado</p>
+    <Card style={{textAlign:"left"}}>
+      {keys.map(k=>{const wk=WK_LABELS[k];const v=todayCheckin[k];return <div key={k} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid "+colors.g3+"40"}}>
+        <span style={{fontSize:13,color:colors.g5}}>{wk.i} {wk.l}</span>
+        <span style={{fontSize:18}}>{wk.emoji[v-1]} <span style={{fontSize:11,color:colors.g5}}>{wk.labels[v-1]}</span></span>
+      </div>;})}
+    </Card>
+    <Btn v="g" onClick={()=>sDone(false)} style={{marginTop:16}}>Modificar respuestas</Btn>
+  </div>;
+
+  return <div>
+    <h2 style={{fontSize:18,fontWeight:800,color:colors.nv,margin:"0 0 4px"}}>💚 ¿Cómo estás hoy?</h2>
+    <p style={{fontSize:12,color:colors.g5,margin:"0 0 16px"}}>Tocá el emoji que mejor represente cómo te sentís</p>
+
+    {keys.map(k=>{const wk=WK_LABELS[k];return <Card key={k} style={{marginBottom:10}}>
+      <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:8}}>{wk.i} {wk.l}</div>
+      <div style={{display:"flex",justifyContent:"space-between",gap:4}}>
+        {[1,2,3,4,5].map(v=><button key={v} onClick={()=>sVals(p=>({...p,[k]:v}))} style={{flex:1,padding:"12px 0",borderRadius:12,border:vals[k]===v?"3px solid "+colors.bl:"2px solid "+(isDark?colors.g3:"#E5E7EB"),background:vals[k]===v?(isDark?colors.bl+"20":"#EFF6FF"):"transparent",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:4,transition:"all .15s"}}>
+          <span style={{fontSize:vals[k]===v?32:24,transition:"font-size .15s"}}>{wk.emoji[v-1]}</span>
+          <span style={{fontSize:9,color:vals[k]===v?colors.bl:colors.g4,fontWeight:vals[k]===v?700:400}}>{wk.labels[v-1]}</span>
+        </button>)}
+      </div>
+    </Card>;})}
+
+    <Card style={{marginBottom:12}}>
+      <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:6}}>📝 Notas (opcional)</div>
+      <textarea value={notes} onChange={e=>sNotes(e.target.value)} rows={2} placeholder="¿Algo que quieras comentar?" style={{width:"100%",padding:10,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,resize:"vertical",boxSizing:"border-box",background:cardBg,color:colors.nv}}/>
+    </Card>
+
+    <Btn v="r" onClick={save} disabled={saving||!allFilled} style={{width:"100%",padding:"14px 0",fontSize:16,fontWeight:800}}>
+      {saving?"Guardando...":allFilled?"Enviar wellness ✓":"Completá todas las preguntas"}
+    </Btn>
+  </div>;
+}
+
+/* ── Player Attendance ── */
+function PlayerAttendance({athlete,sessions,myAttendance,supabase,showT,onRefresh,colors,isDark,cardBg}:any){
+  const [saving,sSaving]=useState<number|null>(null);
+  const fmtD=(d:string)=>{if(!d)return"–";const p=d.slice(0,10).split("-");return p[2]+"/"+p[1]+"/"+p[0];};
+  const dayName=(d:string)=>{const days=["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];return days[new Date(d+"T12:00:00").getDay()];};
+
+  const markAttendance=async(sessionId:number,status:string)=>{
+    sSaving(sessionId);
+    try{
+      const{error}=await supabase.from("dep_attendance").upsert({
+        session_id:sessionId,athlete_id:athlete.id,status,notes:"",recorded_by:"self"
+      },{onConflict:"session_id,athlete_id"});
+      if(error) throw error;
+      showT(status==="presente"?"✅ Presente":status==="ausente"?"❌ Ausente":status==="tarde"?"⏰ Tarde":"📋 Justificado");
+      await onRefresh();
+    }catch(e:any){showT(e.message||"Error","err");}
+    sSaving(null);
+  };
+
+  const recentSessions=sessions.slice(0,15);
+
+  return <div>
+    <h2 style={{fontSize:18,fontWeight:800,color:colors.nv,margin:"0 0 4px"}}>✅ Asistencia</h2>
+    <p style={{fontSize:12,color:colors.g5,margin:"0 0 16px"}}>Marcá si fuiste al entrenamiento</p>
+
+    {recentSessions.length===0&&<Card style={{textAlign:"center",padding:32,color:colors.g4}}><div style={{fontSize:32}}>📋</div><div style={{marginTop:8,fontSize:13}}>No hay sesiones recientes</div></Card>}
+
+    {recentSessions.map((s:any)=>{
+      const att=myAttendance.find((a:any)=>a.session_id===s.id);
+      const isToday=s.date?.slice(0,10)===new Date().toISOString().slice(0,10);
+      const statusColors:{[k:string]:{bg:string;c:string;l:string;i:string}}={
+        presente:{bg:"#D1FAE5",c:"#10B981",l:"Presente",i:"✅"},
+        ausente:{bg:"#FEE2E2",c:"#C8102E",l:"Ausente",i:"❌"},
+        tarde:{bg:"#FEF3C7",c:"#F59E0B",l:"Tarde",i:"⏰"},
+        justificado:{bg:"#DBEAFE",c:"#3B82F6",l:"Justificado",i:"📋"},
+      };
+      const sc=att?statusColors[att.status]:null;
+
+      return <Card key={s.id} style={{marginBottom:8,border:isToday?"2px solid "+colors.bl+"40":"none"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:att?0:8}}>
+          <div>
+            <div style={{fontSize:13,fontWeight:700,color:colors.nv}}>{dayName(s.date)} {fmtD(s.date)} {s.time_start?("· "+s.time_start):""}</div>
+            <div style={{fontSize:11,color:colors.g5}}>{s.type}{s.location?" · "+s.location:""}</div>
+          </div>
+          {isToday&&<span style={{fontSize:9,background:colors.bl,color:"#fff",padding:"2px 8px",borderRadius:10,fontWeight:700}}>HOY</span>}
+        </div>
+
+        {att&&sc?<div style={{display:"inline-flex",alignItems:"center",gap:6,padding:"4px 12px",borderRadius:20,background:sc.bg,marginTop:6}}>
+          <span>{sc.i}</span><span style={{fontSize:12,fontWeight:700,color:sc.c}}>{sc.l}</span>
+        </div>
+        :<div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          {[{s:"presente",l:"Fui",i:"✅"},{s:"ausente",l:"No fui",i:"❌"},{s:"tarde",l:"Tarde",i:"⏰"},{s:"justificado",l:"Justificado",i:"📋"}].map(opt=>
+            <button key={opt.s} onClick={()=>markAttendance(s.id,opt.s)} disabled={saving===s.id} style={{padding:"10px 14px",borderRadius:10,border:"2px solid "+colors.g3,background:"transparent",cursor:"pointer",fontSize:12,fontWeight:600,color:colors.nv,display:"flex",alignItems:"center",gap:4,transition:"all .15s"}}>
+              <span style={{fontSize:16}}>{opt.i}</span>{opt.l}
+            </button>
+          )}
+        </div>}
+      </Card>;
+    })}
+  </div>;
+}
+
+/* ── Player Profile (read-only ficha) ── */
+function PlayerProfile({athlete,checkins,injuries,colors,isDark,cardBg}:any){
+  const fmtD=(d:string)=>{if(!d)return"–";const p=d.slice(0,10).split("-");return p[2]+"/"+p[1]+"/"+p[0];};
+  const allInjuries=injuries.sort((a:any,b:any)=>b.id-a.id);
+
+  return <div>
+    <div style={{textAlign:"center",marginBottom:16}}>
+      <div style={{width:80,height:80,borderRadius:40,background:colors.bl+"20",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 10px",border:"3px solid "+colors.bl}}>
+        <span style={{fontSize:36}}>🏉</span>
+      </div>
+      <h2 style={{fontSize:20,fontWeight:800,color:colors.nv,margin:"0 0 2px"}}>{athlete.first_name} {athlete.last_name}</h2>
+      <div style={{fontSize:13,color:colors.g5}}>{athlete.position||"Sin posición"} · {athlete.division}</div>
+    </div>
+
+    <Card style={{marginBottom:10}}>
+      <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:8}}>Datos personales</div>
+      {[
+        ["Fecha nac.",fmtD(athlete.birth_date)],
+        ["DNI",athlete.dni||"–"],
+        ["Categoría",athlete.categoria||"–"],
+        ["Peso",athlete.peso?athlete.peso+" kg":"–"],
+        ["Estatura",athlete.estatura?athlete.estatura+" cm":"–"],
+        ["Email",athlete.email||"–"],
+        ["Celular",athlete.celular||athlete.phone||"–"],
+      ].map(([l,v],i)=><div key={i} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid "+colors.g3+"30",fontSize:12}}>
+        <span style={{color:colors.g5}}>{l}</span><span style={{fontWeight:600,color:colors.nv}}>{v}</span>
+      </div>)}
+    </Card>
+
+    {/* Medical cert */}
+    {(athlete.medical_cert_expiry)&&<Card style={{marginBottom:10,background:new Date(athlete.medical_cert_expiry)<new Date()?"#FEE2E2":cardBg,border:new Date(athlete.medical_cert_expiry)<new Date()?"1px solid #FCA5A5":"none"}}>
+      <div style={{fontSize:13,fontWeight:700,color:new Date(athlete.medical_cert_expiry)<new Date()?"#C8102E":colors.nv}}>
+        🏥 Apto médico {new Date(athlete.medical_cert_expiry)<new Date()?"VENCIDO":"vigente"}
+      </div>
+      <div style={{fontSize:12,color:colors.g5,marginTop:4}}>Vence: {fmtD(athlete.medical_cert_expiry)}</div>
+    </Card>}
+
+    {/* Active injuries */}
+    {allInjuries.length>0&&<div>
+      <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:6}}>🩹 Historial de lesiones</div>
+      {allInjuries.map((inj:any)=><Card key={inj.id} style={{marginBottom:6}}>
+        <div style={{display:"flex",justifyContent:"space-between"}}>
+          <div>
+            <div style={{fontSize:12,fontWeight:600,color:colors.nv}}>{inj.type} — {inj.zone}</div>
+            <div style={{fontSize:11,color:colors.g5}}>{fmtD(inj.date_injury)} · {inj.severity}</div>
+          </div>
+          <span style={{fontSize:10,padding:"2px 8px",borderRadius:10,fontWeight:700,background:inj.status==="activa"?"#FEE2E2":inj.status==="recuperacion"?"#FEF3C7":"#D1FAE5",color:inj.status==="activa"?"#C8102E":inj.status==="recuperacion"?"#F59E0B":"#10B981"}}>{inj.status}</span>
+        </div>
+      </Card>)}
+    </div>}
+
+    {/* Recent wellness */}
+    {checkins.length>0&&<div style={{marginTop:12}}>
+      <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:6}}>💚 Últimos wellness</div>
+      {checkins.slice(0,7).map((c:any)=>{const s=semScore(c);return <div key={c.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid "+colors.g3+"30",fontSize:12}}>
+        <span style={{color:colors.g5}}>{fmtD(c.date)}</span>
+        <span style={{fontWeight:700,color:s.color}}>{s.label} ({s.score.toFixed(1)})</span>
+      </div>;})}
+    </div>}
   </div>;
 }

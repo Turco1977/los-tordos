@@ -101,6 +101,7 @@ export interface DepStaff {
 
 export interface DepAthlete {
   id: number;
+  user_id?: string;
   first_name: string;
   last_name: string;
   division: string;
@@ -122,6 +123,8 @@ export interface DepAthlete {
   photo_url: string;
   season: string;
   active: boolean;
+  medical_cert_date?: string;
+  medical_cert_expiry?: string;
   created_at?: string;
 }
 
@@ -274,6 +277,30 @@ export interface DepLineup {
   };
   notes: string;
   created_by: string;
+  created_at?: string;
+}
+
+export interface DepRPE {
+  id: number;
+  athlete_id: number;
+  session_id: number;
+  rpe: number;
+  duration_min: number;
+  training_load: number;
+  recorded_by: string;
+  created_at?: string;
+  athlete_name?: string;
+}
+
+export interface DepAnnouncement {
+  id: number;
+  division: string | null;
+  author_id: string;
+  author_name: string;
+  title: string | null;
+  content: string;
+  type: "aviso" | "convocatoria" | "urgente";
+  pinned: boolean;
   created_at?: string;
 }
 
