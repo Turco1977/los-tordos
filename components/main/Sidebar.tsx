@@ -1,5 +1,5 @@
 "use client";
-import { ST, SC, AREAS, DEPTOS } from "@/lib/constants";
+import { ST, AREAS, DEPTOS } from "@/lib/constants";
 import { useC } from "@/lib/theme-context";
 import { useDataStore } from "@/lib/store";
 
@@ -14,10 +14,6 @@ export function SB({aA,aD,onAC,onDC,col,onCol,isPersonal,mob,sbOpen,onClose,vw,o
         {aA===ar.id&&<div style={{marginTop:2}}>{ds.filter((d:any)=>!d.pId).map((d:any)=>{const dc=pedidos.filter((p:any)=>p.dId===d.id).length;const children=ds.filter((ch:any)=>ch.pId===d.id);return(<div key={d.id}><div onClick={()=>{onDC(d.id);if(mob)onClose();}} style={{marginLeft:14,padding:mob?"8px 10px":"4px 8px",borderRadius:5,cursor:"pointer",background:aD===d.id?"rgba(255,255,255,.14)":"transparent",fontSize:mob?12:10,color:aD===d.id?"#fff":"rgba(255,255,255,.45)",fontWeight:aD===d.id?600:400,display:"flex",justifyContent:"space-between",minHeight:mob?40:undefined,alignItems:"center"}}><span>📂 {d.name}</span>{dc>0&&<span style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"0 5px",fontSize:mob?10:9}}>{dc}</span>}</div>{children.map((ch:any)=>{const chc=pedidos.filter((p:any)=>p.dId===ch.id).length;return(<div key={ch.id} onClick={()=>{onDC(ch.id);if(mob)onClose();}} style={{marginLeft:28,padding:mob?"8px 10px":"4px 8px",borderRadius:5,cursor:"pointer",background:aD===ch.id?"rgba(255,255,255,.14)":"transparent",fontSize:mob?12:10,color:aD===ch.id?"#fff":"rgba(255,255,255,.35)",fontWeight:aD===ch.id?600:400,display:"flex",justifyContent:"space-between",minHeight:mob?40:undefined,alignItems:"center"}}><span>└ 📂 {ch.name}</span>{chc>0&&<span style={{background:"rgba(255,255,255,.12)",borderRadius:8,padding:"0 5px",fontSize:mob?10:9}}>{chc}</span>}</div>);})}</div>);})}</div>}
       </div>);
     })}
-    <div style={{marginTop:10,padding:8,background:"rgba(255,255,255,.04)",borderRadius:7}}>
-      <div style={{fontSize:9,fontWeight:700,color:colors.g4,textTransform:"uppercase" as const,marginBottom:4}}>Global</div>
-      {Object.keys(SC).map(k=><div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:10,padding:"1px 0"}}><span style={{color:"rgba(255,255,255,.45)"}}>{SC[k].i} {SC[k].l}</span><span style={{fontWeight:700,color:SC[k].c}}>{pedidos.filter((p:any)=>p.st===k).length}</span></div>)}
-    </div>
     {/* Navigation links */}
     {onNav&&<div style={{marginTop:10,padding:"4px 2px"}}>
       <div style={{fontSize:9,fontWeight:700,color:colors.g4,textTransform:"uppercase" as const,marginBottom:4,padding:"0 6px",letterSpacing:1}}>Secciones</div>
