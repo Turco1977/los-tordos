@@ -689,7 +689,7 @@ export default function DeportivoApp(){
       {tab==="training"&&<TrainingTab athletes={filteredAthletes} division={divF} canCreate={canCreateTraining} userId={user.id} mob={mob} showT={showT}/>}
 
       {/* ════════ PLANIFICACIÓN ════════ */}
-      {tab==="planif"&&<PlanificacionTab seasons={seasons} phases={phases} microcycles={microcycles} onAddSeason={onAddSeason} onUpdSeason={onUpdSeason} onDelSeason={onDelSeason} onAddPhase={onAddPhase} onUpdPhase={onUpdPhase} onDelPhase={onDelPhase} onAddMicro={onAddMicro} onUpdMicro={onUpdMicro} onDelMicro={onDelMicro} canEdit={depLv>=4} mob={mob}/>}
+      {tab==="planif"&&<PlanificacionTab seasons={seasons} phases={phases} microcycles={microcycles} onAddSeason={onAddSeason} onUpdSeason={onUpdSeason} onDelSeason={onDelSeason} onAddPhase={onAddPhase} onUpdPhase={onUpdPhase} onDelPhase={onDelPhase} onAddMicro={onAddMicro} onUpdMicro={onUpdMicro} onDelMicro={onDelMicro} canEdit={depLv>=4} mob={mob} staffList={staffList}/>}
 
       {/* ════════ PRETEMPORADA ════════ */}
       {tab==="pretemp"&&<PretemporadaTab athletes={filteredAthletes} tests={tests} testTypes={testTypes} onAddTest={onAddTest} onAddTestBatch={onAddTestBatch} onDelTest={onDelTest} canEdit={depLv>=4||depRole==="pf"||depRole==="coord_pf"} mob={mob}/>}
@@ -1623,7 +1623,7 @@ function PerfilesTab({staffList,onUpdate,onDel,mob,showT,fetchAll,hlStaff,clearH
 }
 
 /* ══════════════════════════ PLANIFICACIÓN TAB ══════════════════════════ */
-function PlanificacionTab({seasons,phases,microcycles,onAddSeason,onUpdSeason,onDelSeason,onAddPhase,onUpdPhase,onDelPhase,onAddMicro,onUpdMicro,onDelMicro,canEdit,mob}:any){
+function PlanificacionTab({seasons,phases,microcycles,onAddSeason,onUpdSeason,onDelSeason,onAddPhase,onUpdPhase,onDelPhase,onAddMicro,onUpdMicro,onDelMicro,canEdit,mob,staffList}:any){
   const{colors,isDark,cardBg}=useC();
   const [selSeason,sSelSeason]=useState<number|null>(null);
   const [showAddSeason,sShowAddSeason]=useState(false);
@@ -1819,7 +1819,7 @@ function PlanificacionTab({seasons,phases,microcycles,onAddSeason,onUpdSeason,on
           </div>
           {blocks.map((b,i)=><div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr 60px 24px",gap:6,alignItems:"center"}}>
             <input value={b.actividad} placeholder="Ej: Activación" onChange={e=>{const nb=[...blocks];nb[i]={...nb[i],actividad:e.target.value};sSf(p=>({...p,objectives:JSON.stringify(nb)}));}} style={{padding:6,borderRadius:6,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const}}/>
-            <input value={b.responsable} placeholder="Ej: Nico" onChange={e=>{const nb=[...blocks];nb[i]={...nb[i],responsable:e.target.value};sSf(p=>({...p,objectives:JSON.stringify(nb)}));}} style={{padding:6,borderRadius:6,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const}}/>
+            <select value={b.responsable} onChange={e=>{const nb=[...blocks];nb[i]={...nb[i],responsable:e.target.value};sSf(p=>({...p,objectives:JSON.stringify(nb)}));}} style={{padding:6,borderRadius:6,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const}}><option value="">Seleccionar...</option>{(staffList||[]).filter((s:any)=>s.active).map((s:any)=><option key={s.id} value={s.first_name+" "+s.last_name}>{s.first_name} {s.last_name}</option>)}</select>
             <input value={b.tiempo} placeholder="5'" onChange={e=>{const nb=[...blocks];nb[i]={...nb[i],tiempo:e.target.value};sSf(p=>({...p,objectives:JSON.stringify(nb)}));}} style={{padding:6,borderRadius:6,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,textAlign:"center" as const}}/>
             <button onClick={()=>{const nb=blocks.filter((_,j)=>j!==i);sSf(p=>({...p,objectives:JSON.stringify(nb)}));}} style={{background:"none",border:"none",color:T.rd,cursor:"pointer",fontSize:14,padding:0}}>×</button>
           </div>)}
