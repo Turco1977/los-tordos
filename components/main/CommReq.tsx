@@ -25,8 +25,8 @@ function Chips({label,items,sel,onTog,multi=true,mob}:{label:string;items:string
 
 export function CommReq({user,mob,onSub,onX}:any){
   const users = useDataStore(s => s.users);
-  const leo=users.find((u:any)=>(u.n+" "+u.a).toLowerCase().includes("leo sturniolo")||(fn(u)).toLowerCase().includes("leo sturniolo"));
-  const [f,sF]=useState({area:"",fechaPub:"",piezas:[] as string[],desc:"",fecha:"",hora:"",lugar:"",responsable:"",costo:"",objetivos:[] as string[],publicos:[] as string[],tono:"",materiales:[] as string[],aprueba:"Leo Sturniolo"});
+  const leo=users.find((u:any)=>(u.a||"").toLowerCase()==="sturniolo"&&(u.n||"").toLowerCase().startsWith("lea"));
+  const [f,sF]=useState({area:"",fechaPub:"",piezas:[] as string[],desc:"",fecha:"",hora:"",lugar:"",responsable:"",costo:"",objetivos:[] as string[],publicos:[] as string[],tono:"",materiales:[] as string[],aprueba:"Leandro Sturniolo"});
   const up=(k:string,v:any)=>sF((p:any)=>({...p,[k]:v}));
   const togArr=(k:string,v:string)=>sF((p:any)=>{const arr:string[]=p[k]||[];return{...p,[k]:arr.indexOf(v)>=0?arr.filter((x:string)=>x!==v):[...arr,v]};});
   const togSingle=(k:string,v:string)=>sF((p:any)=>({...p,[k]:p[k]===v?"":v}));
