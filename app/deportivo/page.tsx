@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { T, TD, DEP_ROLES, DEP_POSITIONS, DEP_INJ_TYPES, DEP_INJ_ZONES, DEP_INJ_SEV, DEP_WK, DEP_SEM, DEP_DIV, DEP_PHASE_TYPES, DEP_LINEUP_POS, DEP_TEST_CATS, DEP_CUERPO_TECNICO, fn } from "@/lib/constants";
-import type { DepStaff, DepAthlete, DepInjury, DepCheckin, DepSeason, DepPhase, DepMicrocycle, DepTestType, DepTest, DepLineup, DepRPE, DepAnnouncement } from "@/lib/supabase/types";
+import type { DepStaff, DepAthlete, DepInjury, DepCheckin, DepSeason, DepPhase, DepMicrocycle, DepTestType, DepTest, DepLineup, DepRPE, DepAnnouncement, DepQuestionnaire, DepQuestionnaireResponse } from "@/lib/supabase/types";
 import { exportCSV, exportPDF } from "@/lib/export";
 import { useRealtime } from "@/lib/realtime";
 import { useTheme, darkCSS } from "@/lib/theme";
@@ -91,6 +91,8 @@ export default function DeportivoApp(){
   const [tests,sTests]=useState<DepTest[]>([]);
   const [lineups,sLineups]=useState<DepLineup[]>([]);
   const [announcements,sAnnouncements]=useState<DepAnnouncement[]>([]);
+  const [questionnaires,sQuestionnaires]=useState<DepQuestionnaire[]>([]);
+  const [qResponses,sQResponses]=useState<DepQuestionnaireResponse[]>([]);
 
   // UI
   const [tab,sTab]=useState("dash");
@@ -193,6 +195,19 @@ export default function DeportivoApp(){
     // Fetch announcements
     const annRes=await safeFetch(supabase.from("dep_announcements").select("*").order("pinned",{ascending:false}).order("created_at",{ascending:false}).limit(50));
     if(annRes.data) sAnnouncements(annRes.data);
+    // Fetch questionnaires + responses
+    const [qRes,qrRes]=await Promise.all([
+      safeFetch(supabase.from("dep_questionnaires").select("*").order("created_at",{ascending:false})),
+      safeFetch(supabase.from("dep_questionnaire_responses").select("*")),
+    ]);
+    if(qRes.data) sQuestionnaires(qRes.data);
+    if(qrRes.data){
+      const aths=athRes.data||[];
+      sQResponses(qrRes.data.map((r:any)=>{
+        const a=aths.find((at:any)=>at.id===r.athlete_id);
+        return{...r,athlete_name:a?a.first_name+" "+a.last_name:"?"};
+      }));
+    }
     sLoading(false);
   },[user]);
 
@@ -209,6 +224,8 @@ export default function DeportivoApp(){
     {table:"dep_microcycles",onChange:()=>fetchAll()},
     {table:"dep_tests",onChange:()=>fetchAll()},
     {table:"dep_lineups",onChange:()=>fetchAll()},
+    {table:"dep_questionnaires",onChange:()=>fetchAll()},
+    {table:"dep_questionnaire_responses",onChange:()=>fetchAll()},
   ],!!user);
 
   const out=async()=>{await supabase.auth.signOut();sUser(null);sProfile(null);sMyStaff(null);};
@@ -687,6 +704,8 @@ export default function DeportivoApp(){
     <h2 style={{margin:0,fontSize:18,color:colors.nv}}>📢 Comunicación</h2>
   </div>
   <AnnouncementsSection announcements={announcements} canCreate={depLv>=3} userId={user.id} userName={(profile?.first_name||"")+" "+(profile?.last_name||"")} supabase={supabase} showT={showT} fetchAll={fetchAll} mob={mob}/>
+  <div style={{height:1,background:colors.g3,margin:"20px 0"}}/>
+  <QuestionnairesSection questionnaires={questionnaires} responses={qResponses} athletes={athletes} canCreate={depLv>=3} userId={user.id} userName={(profile?.first_name||"")+" "+(profile?.last_name||"")} supabase={supabase} showT={showT} fetchAll={fetchAll} mob={mob}/>
   <div style={{height:1,background:colors.g3,margin:"20px 0"}}/>
   <h3 style={{fontSize:14,fontWeight:700,color:colors.nv,marginBottom:10}}>📱 Mensajes WhatsApp</h3>
   <CommTab athletes={filteredAthletes} lineups={lineups} mob={mob}/>
@@ -2464,6 +2483,192 @@ function AnnouncementsSection({announcements,canCreate,userId,userName,supabase,
   </div>;
 }
 
+/* ══════════════════════════ QUESTIONNAIRES ══════════════════════════ */
+function QuestionnairesSection({questionnaires,responses,athletes,canCreate,userId,userName,supabase,showT,fetchAll,mob}:any){
+  const{colors,isDark,cardBg}=useC();
+  const [view,sView]=useState<"list"|"new"|"detail">("list");
+  const [selQ,sSelQ]=useState<DepQuestionnaire|null>(null);
+  const [title,sTitle]=useState("");
+  const [desc,sDesc]=useState("");
+  const [div,sDiv]=useState("");
+  const [questions,sQuestions]=useState<{id:string;text:string;type:string;options:string[]}[]>([]);
+  const [saving,sSaving]=useState(false);
+
+  const addQ=()=>sQuestions(p=>[...p,{id:"q"+Date.now(),text:"",type:"rating",options:[]}]);
+  const updQ=(i:number,f:string,v:any)=>sQuestions(p=>p.map((q,j)=>j===i?{...q,[f]:v}:q));
+  const rmQ=(i:number)=>sQuestions(p=>p.filter((_,j)=>j!==i));
+
+  const doCreate=async()=>{
+    if(!title.trim()){showT("Agregá un título","err");return;}
+    if(questions.length===0){showT("Agregá al menos una pregunta","err");return;}
+    if(questions.some(q=>!q.text.trim())){showT("Completá el texto de todas las preguntas","err");return;}
+    sSaving(true);
+    try{
+      const{error}=await supabase.from("dep_questionnaires").insert({
+        division:div||null,author_id:userId,author_name:userName,title,description:desc,
+        questions:questions.map(q=>({id:q.id,text:q.text,type:q.type,...(q.type==="select"?{options:q.options.filter(o=>o.trim())}:{})})),
+        status:"activo"
+      });
+      if(error) throw error;
+      showT("Cuestionario creado");sView("list");sTitle("");sDesc("");sDiv("");sQuestions([]);fetchAll();
+    }catch(e:any){showT(e.message||"Error","err");}
+    sSaving(false);
+  };
+
+  const doToggle=async(q:DepQuestionnaire)=>{
+    const next=q.status==="activo"?"cerrado":"activo";
+    const{error}=await supabase.from("dep_questionnaires").update({status:next}).eq("id",q.id);
+    if(error) showT(error.message,"err"); else{showT(next==="activo"?"Reabierto":"Cerrado");fetchAll();}
+  };
+
+  const doDel=async(id:number)=>{
+    if(!confirm("¿Eliminar cuestionario y todas sus respuestas?")) return;
+    const{error}=await supabase.from("dep_questionnaires").delete().eq("id",id);
+    if(error) showT(error.message,"err"); else{showT("Eliminado");if(selQ?.id===id) sView("list");fetchAll();}
+  };
+
+  const exportCSVQ=(q:DepQuestionnaire)=>{
+    const qResps=responses.filter((r:any)=>r.questionnaire_id===q.id);
+    const qs=q.questions as any[];
+    const header=["Jugador",...qs.map((qq:any)=>qq.text),"Fecha"].join(",");
+    const rows=qResps.map((r:any)=>{
+      const vals=qs.map((qq:any)=>{const v=r.answers[qq.id];return v===true?"Sí":v===false?"No":v!=null?String(v):""});
+      return [r.athlete_name||"?",...vals,r.created_at?.slice(0,10)||""].map(c=>`"${c}"`).join(",");
+    });
+    const csv=header+"\n"+rows.join("\n");
+    const blob=new Blob([csv],{type:"text/csv"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");a.href=url;a.download=q.title.replace(/\s+/g,"_")+".csv";a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Detail view
+  if(view==="detail"&&selQ){
+    const qs=selQ.questions as any[];
+    const qResps=responses.filter((r:any)=>r.questionnaire_id===selQ.id);
+    const targetAthletes=athletes.filter((a:any)=>a.active&&(!selQ.division||a.division===selQ.division));
+    const answered=new Set(qResps.map((r:any)=>r.athlete_id));
+    const missing=targetAthletes.filter((a:any)=>!answered.has(a.id));
+    const pct=targetAthletes.length>0?Math.round(answered.size/targetAthletes.length*100):0;
+
+    return <div>
+      <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:12}}>
+        <button onClick={()=>sView("list")} style={{background:"none",border:"none",cursor:"pointer",fontSize:16,color:colors.bl}}>← Volver</button>
+        <h3 style={{margin:0,fontSize:16,fontWeight:700,color:colors.nv}}>{selQ.title}</h3>
+      </div>
+      {selQ.description&&<p style={{fontSize:12,color:colors.g5,margin:"0 0 10px"}}>{selQ.description}</p>}
+      <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:12,flexWrap:"wrap"}}>
+        <span style={{fontSize:11,padding:"3px 10px",borderRadius:10,background:selQ.status==="activo"?"#D1FAE5":"#FEE2E2",color:selQ.status==="activo"?"#10B981":"#C8102E",fontWeight:700}}>{selQ.status==="activo"?"Activo":"Cerrado"}</span>
+        <span style={{fontSize:11,color:colors.g5}}>{selQ.division||"Todas"} · {qs.length} preg · {answered.size}/{targetAthletes.length} resp</span>
+      </div>
+      {/* Progress bar */}
+      <div style={{background:isDark?colors.g3:"#E5E7EB",borderRadius:6,height:8,marginBottom:12,overflow:"hidden"}}>
+        <div style={{width:pct+"%",height:"100%",background:pct===100?"#10B981":"#3B82F6",borderRadius:6,transition:"width .3s"}}/>
+      </div>
+      {/* Responses table */}
+      <div style={{overflowX:"auto",marginBottom:12}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+          <thead><tr style={{background:isDark?colors.g2:colors.g1}}>
+            <th style={{padding:"6px 8px",textAlign:"left",color:colors.g5,fontWeight:600,borderBottom:"1px solid "+colors.g3}}>Jugador</th>
+            {qs.map((q:any)=><th key={q.id} style={{padding:"6px 8px",textAlign:"center",color:colors.g5,fontWeight:600,borderBottom:"1px solid "+colors.g3,maxWidth:120,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{q.text}</th>)}
+          </tr></thead>
+          <tbody>
+            {qResps.map((r:any)=><tr key={r.id}>
+              <td style={{padding:"6px 8px",fontWeight:600,color:colors.nv,borderBottom:"1px solid "+colors.g3+"40"}}>{r.athlete_name}</td>
+              {qs.map((q:any)=>{
+                const v=r.answers[q.id];
+                const display=q.type==="rating"?["😫","😩","😐","😊","🤩"][((Number(v)||1)-1)]
+                  :q.type==="yesno"?(v===true?"Sí":v===false?"No":"–")
+                  :v!=null?String(v):"–";
+                return <td key={q.id} style={{padding:"6px 8px",textAlign:"center",color:colors.g5,borderBottom:"1px solid "+colors.g3+"40"}}>{display}</td>;
+              })}
+            </tr>)}
+          </tbody>
+        </table>
+      </div>
+      {missing.length>0&&<Card style={{marginBottom:10}}>
+        <div style={{fontSize:12,fontWeight:700,color:colors.nv,marginBottom:4}}>Faltan responder ({missing.length})</div>
+        <div style={{fontSize:11,color:colors.g5}}>{missing.map((a:any)=>a.first_name+" "+a.last_name).join(", ")}</div>
+      </Card>}
+      <div style={{display:"flex",gap:6}}>
+        <Btn v="p" s="s" onClick={()=>exportCSVQ(selQ)}>Exportar CSV</Btn>
+        <Btn v={selQ.status==="activo"?"g":"p"} s="s" onClick={()=>doToggle(selQ)}>{selQ.status==="activo"?"Cerrar":"Reabrir"}</Btn>
+        <Btn v="g" s="s" onClick={()=>doDel(selQ.id)} style={{color:"#C8102E"}}>Eliminar</Btn>
+      </div>
+    </div>;
+  }
+
+  // Create view
+  if(view==="new") return <div>
+    <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:12}}>
+      <button onClick={()=>sView("list")} style={{background:"none",border:"none",cursor:"pointer",fontSize:16,color:colors.bl}}>← Volver</button>
+      <h3 style={{margin:0,fontSize:16,fontWeight:700,color:colors.nv}}>Nuevo cuestionario</h3>
+    </div>
+    <Card style={{marginBottom:10}}>
+      <input value={title} onChange={e=>sTitle(e.target.value)} placeholder="Título del cuestionario *" style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:13,marginBottom:6,boxSizing:"border-box",background:cardBg,color:colors.nv}}/>
+      <textarea value={desc} onChange={e=>sDesc(e.target.value)} rows={2} placeholder="Descripción (opcional)" style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,resize:"vertical",marginBottom:6,boxSizing:"border-box",background:cardBg,color:colors.nv}}/>
+      <select value={div} onChange={e=>sDiv(e.target.value)} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,background:cardBg,color:colors.nv}}>
+        <option value="">Todas las divisiones</option>
+        {(["M19","M16","M14","M12","Femenino","Veteranos"] as string[]).map(d=><option key={d} value={d}>{d}</option>)}
+      </select>
+    </Card>
+
+    <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:8}}>Preguntas</div>
+    {questions.map((q,i)=><Card key={q.id} style={{marginBottom:8}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+        <span style={{fontSize:11,fontWeight:700,color:colors.g5}}>Pregunta {i+1}</span>
+        <button onClick={()=>rmQ(i)} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#C8102E"}}>✕</button>
+      </div>
+      <input value={q.text} onChange={e=>updQ(i,"text",e.target.value)} placeholder="Texto de la pregunta *" style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,marginBottom:6,boxSizing:"border-box",background:cardBg,color:colors.nv}}/>
+      <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+        {([["rating","⭐ Rating 1-5"],["yesno","✓ Sí/No"],["text","📝 Texto"],["select","🔘 Opciones"]] as [string,string][]).map(([t,l])=>
+          <button key={t} onClick={()=>updQ(i,"type",t)} style={{padding:"4px 10px",borderRadius:12,fontSize:10,fontWeight:q.type===t?700:500,border:q.type===t?"2px solid "+colors.bl:"1px solid "+colors.g3,background:q.type===t?(isDark?colors.bl+"20":"#EFF6FF"):"transparent",color:q.type===t?colors.bl:colors.g5,cursor:"pointer"}}>{l}</button>
+        )}
+      </div>
+      {q.type==="select"&&<div style={{marginTop:6}}>
+        {q.options.map((o,oi)=><div key={oi} style={{display:"flex",gap:4,marginBottom:4}}>
+          <input value={o} onChange={e=>{const ops=[...q.options];ops[oi]=e.target.value;updQ(i,"options",ops);}} placeholder={"Opción "+(oi+1)} style={{flex:1,padding:6,borderRadius:6,border:"1px solid "+colors.g3,fontSize:11,background:cardBg,color:colors.nv}}/>
+          <button onClick={()=>{const ops=q.options.filter((_:any,j:number)=>j!==oi);updQ(i,"options",ops);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:"#C8102E"}}>✕</button>
+        </div>)}
+        <button onClick={()=>updQ(i,"options",[...q.options,""])} style={{background:"none",border:"none",cursor:"pointer",fontSize:11,color:colors.bl,fontWeight:600}}>+ Agregar opción</button>
+      </div>}
+    </Card>)}
+
+    <Btn v="g" s="s" onClick={addQ} style={{marginBottom:12}}>+ Agregar pregunta</Btn>
+    <div style={{display:"flex",gap:6}}>
+      <Btn v="p" onClick={doCreate} disabled={saving}>{saving?"Creando...":"Crear cuestionario"}</Btn>
+      <Btn v="g" onClick={()=>sView("list")}>Cancelar</Btn>
+    </div>
+  </div>;
+
+  // List view
+  return <div>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+      <h3 style={{margin:0,fontSize:14,fontWeight:700,color:colors.nv}}>📋 Cuestionarios</h3>
+      {canCreate&&<Btn v="p" s="s" onClick={()=>sView("new")}>+ Nuevo</Btn>}
+    </div>
+    {questionnaires.length===0&&<Card style={{textAlign:"center",padding:20,color:colors.g4}}><div style={{fontSize:28}}>📋</div><div style={{marginTop:6,fontSize:12}}>No hay cuestionarios creados</div></Card>}
+    {questionnaires.map((q:any)=>{
+      const qs=(q.questions||[]) as any[];
+      const qResps=responses.filter((r:any)=>r.questionnaire_id===q.id);
+      const target=athletes.filter((a:any)=>a.active&&(!q.division||a.division===q.division)).length;
+      return <Card key={q.id} style={{marginBottom:8,cursor:"pointer",border:"1px solid "+(q.status==="activo"?colors.bl+"30":colors.g3)}} onClick={()=>{sSelQ(q);sView("detail");}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"start"}}>
+          <div style={{flex:1}}>
+            <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:2}}>
+              <span style={{fontSize:10,padding:"1px 8px",borderRadius:10,background:q.status==="activo"?"#D1FAE5":"#FEE2E2",color:q.status==="activo"?"#10B981":"#C8102E",fontWeight:700}}>{q.status==="activo"?"Activo":"Cerrado"}</span>
+              {q.division&&<span style={{fontSize:10,padding:"1px 8px",borderRadius:10,background:isDark?colors.g3:"#F3F4F6",color:colors.g5}}>{q.division}</span>}
+            </div>
+            <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginTop:2}}>{q.title}</div>
+            <div style={{fontSize:11,color:colors.g5,marginTop:2}}>{qs.length} pregunta{qs.length!==1?"s":""} · {qResps.length}/{target} respuesta{qResps.length!==1?"s":""}</div>
+          </div>
+          <span style={{fontSize:16,color:colors.bl}}>→</span>
+        </div>
+      </Card>;
+    })}
+  </div>;
+}
+
 /* ══════════════════════════════════════════════════════════════════ */
 /* ══════════════════  PLAYER VIEW  ════════════════════════════════ */
 /* ══════════════════════════════════════════════════════════════════ */
@@ -2474,6 +2679,9 @@ function PlayerView({athlete,athletes,checkins,injuries,user,supabase,mob,onLogo
   const [myAttendance,sMyAttendance]=useState<any[]>([]);
   const [myRPE,sMyRPE]=useState<any[]>([]);
   const [announcements,sAnnouncements]=useState<any[]>([]);
+  const [pQuestionnaires,sPQuestionnaires]=useState<any[]>([]);
+  const [pQResponses,sPQResponses]=useState<any[]>([]);
+  const [activeQForm,sActiveQForm]=useState<any>(null);
   const [loading,sLoading]=useState(true);
 
   const TODAY=new Date().toISOString().slice(0,10);
@@ -2482,16 +2690,20 @@ function PlayerView({athlete,athletes,checkins,injuries,user,supabase,mob,onLogo
   // Fetch player-specific data
   useEffect(()=>{
     (async()=>{
-      const [sesRes,attRes,rpeRes,annRes]=await Promise.all([
+      const [sesRes,attRes,rpeRes,annRes,qRes,qrRes]=await Promise.all([
         supabase.from("dep_training_sessions").select("*").order("date",{ascending:false}).limit(20),
         supabase.from("dep_attendance").select("*").eq("athlete_id",athlete.id),
         supabase.from("dep_rpe").select("*").eq("athlete_id",athlete.id).catch(()=>({data:[]})),
         supabase.from("dep_announcements").select("*").order("created_at",{ascending:false}).limit(20).catch(()=>({data:[]})),
+        supabase.from("dep_questionnaires").select("*").eq("status","activo").catch(()=>({data:[]})),
+        supabase.from("dep_questionnaire_responses").select("*").eq("athlete_id",athlete.id).catch(()=>({data:[]})),
       ]);
       if(sesRes.data) sSessions(sesRes.data);
       if(attRes.data) sMyAttendance(attRes.data);
       if(rpeRes.data) sMyRPE(rpeRes.data);
       if(annRes.data) sAnnouncements(annRes.data);
+      if(qRes.data) sPQuestionnaires(qRes.data);
+      if(qrRes.data) sPQResponses(qrRes.data);
       sLoading(false);
     })();
   },[athlete.id]);
@@ -2511,13 +2723,15 @@ function PlayerView({athlete,athletes,checkins,injuries,user,supabase,mob,onLogo
   const pendingWellness=!todayCheckin;
   const todaySessions=sessions.filter(s=>s.date?.slice(0,10)===TODAY);
   const pendingAttendance=todaySessions.filter(s=>!myAttendance.find((a:any)=>a.session_id===s.id));
+  const answeredQIds=new Set(pQResponses.map((r:any)=>r.questionnaire_id));
+  const pendingQ=pQuestionnaires.filter((q:any)=>q.status==="activo"&&(!q.division||q.division===athlete.division)&&!answeredQIds.has(q.id));
 
   const tabBar=(<div style={{position:"fixed",bottom:0,left:0,right:0,background:isDark?"#1E293B":"#fff",borderTop:"1px solid "+(isDark?colors.g3:"#E5E7EB"),display:"flex",zIndex:100,paddingBottom:"env(safe-area-inset-bottom)"}}>
     {[{k:"inicio",l:"Inicio",i:"🏠"},{k:"bienestar",l:"Bienestar",i:"💚"},{k:"asistencia",l:"Asistencia",i:"✅"},{k:"perfil",l:"Mi Perfil",i:"👤"}].map(t=>
       <button key={t.k} onClick={()=>sPTab(t.k)} style={{flex:1,padding:"10px 0 8px",background:"none",border:"none",display:"flex",flexDirection:"column",alignItems:"center",gap:2,cursor:"pointer",color:pTab===t.k?colors.bl:"rgba(150,150,150,.7)",fontWeight:pTab===t.k?700:500,fontSize:10,position:"relative"}}>
         <span style={{fontSize:20}}>{t.i}</span>
         {t.l}
-        {t.k==="bienestar"&&pendingWellness&&<span style={{position:"absolute",top:6,right:"25%",width:8,height:8,borderRadius:4,background:"#C8102E"}}/>}
+        {t.k==="bienestar"&&(pendingWellness||pendingQ.length>0)&&<span style={{position:"absolute",top:6,right:"25%",width:8,height:8,borderRadius:4,background:"#C8102E"}}/>}
         {t.k==="asistencia"&&pendingAttendance.length>0&&<span style={{position:"absolute",top:6,right:"25%",width:8,height:8,borderRadius:4,background:"#C8102E"}}/>}
       </button>
     )}
@@ -2558,7 +2772,7 @@ function PlayerView({athlete,athletes,checkins,injuries,user,supabase,mob,onLogo
       </Card>
 
       {/* Pending items */}
-      {(pendingWellness||pendingAttendance.length>0)&&<div style={{marginBottom:12}}>
+      {(pendingWellness||pendingAttendance.length>0||pendingQ.length>0)&&<div style={{marginBottom:12}}>
         <div style={{fontSize:12,fontWeight:700,color:colors.g5,marginBottom:6,textTransform:"uppercase",letterSpacing:1}}>Pendientes</div>
         {pendingWellness&&<Card onClick={()=>sPTab("bienestar")} style={{marginBottom:8,cursor:"pointer",border:"2px solid "+colors.bl+"40",background:isDark?colors.bl+"10":"#EFF6FF"}}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -2567,6 +2781,13 @@ function PlayerView({athlete,athletes,checkins,injuries,user,supabase,mob,onLogo
             <span style={{fontSize:18,color:colors.bl}}>→</span>
           </div>
         </Card>}
+        {pendingQ.map((q:any)=><Card key={q.id} onClick={()=>{sActiveQForm(q);sPTab("bienestar");}} style={{marginBottom:8,cursor:"pointer",border:"1px solid "+colors.bl+"30",background:isDark?colors.bl+"10":"#F0F9FF"}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <span style={{fontSize:28}}>📋</span>
+            <div style={{flex:1}}><div style={{fontSize:14,fontWeight:700,color:colors.nv}}>{q.title}</div><div style={{fontSize:11,color:colors.g5}}>{(q.questions||[]).length} preguntas{q.description?" · "+q.description:""}</div></div>
+            <span style={{fontSize:18,color:colors.bl}}>→</span>
+          </div>
+        </Card>)}
         {pendingAttendance.map(s=><Card key={s.id} onClick={()=>sPTab("asistencia")} style={{marginBottom:8,cursor:"pointer",border:"1px solid "+colors.g3}}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             <span style={{fontSize:28}}>✅</span>
@@ -2606,7 +2827,26 @@ function PlayerView({athlete,athletes,checkins,injuries,user,supabase,mob,onLogo
     </div>}
 
     {/* ════════ BIENESTAR TAB ════════ */}
-    {pTab==="bienestar"&&<PlayerWellnessForm athlete={athlete} todayCheckin={todayCheckin} supabase={supabase} userId={user.id} showT={showT} fetchAll={fetchAll} colors={colors} isDark={isDark} cardBg={cardBg}/>}
+    {pTab==="bienestar"&&<div>
+      {activeQForm?<PlayerQuestionnaireForm questionnaire={activeQForm} athlete={athlete} supabase={supabase} showT={showT} onDone={async()=>{
+        sActiveQForm(null);
+        const{data}=await supabase.from("dep_questionnaire_responses").select("*").eq("athlete_id",athlete.id).catch(()=>({data:[]}));
+        if(data) sPQResponses(data);
+      }} colors={colors} isDark={isDark} cardBg={cardBg}/>
+      :<>
+        {pendingQ.length>0&&<div style={{marginBottom:16}}>
+          <div style={{fontSize:12,fontWeight:700,color:colors.g5,marginBottom:6,textTransform:"uppercase",letterSpacing:1}}>Cuestionarios pendientes</div>
+          {pendingQ.map((q:any)=><Card key={q.id} onClick={()=>sActiveQForm(q)} style={{marginBottom:8,cursor:"pointer",border:"1px solid "+colors.bl+"30"}}>
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
+              <span style={{fontSize:24}}>📋</span>
+              <div style={{flex:1}}><div style={{fontSize:13,fontWeight:700,color:colors.nv}}>{q.title}</div><div style={{fontSize:11,color:colors.g5}}>{(q.questions||[]).length} preguntas</div></div>
+              <span style={{fontSize:16,color:colors.bl}}>→</span>
+            </div>
+          </Card>)}
+        </div>}
+        <PlayerWellnessForm athlete={athlete} todayCheckin={todayCheckin} supabase={supabase} userId={user.id} showT={showT} fetchAll={fetchAll} colors={colors} isDark={isDark} cardBg={cardBg}/>
+      </>}
+    </div>}
 
     {/* ════════ ASISTENCIA TAB ════════ */}
     {pTab==="asistencia"&&<PlayerAttendance athlete={athlete} sessions={sessions} myAttendance={myAttendance} supabase={supabase} showT={showT} onRefresh={async()=>{
@@ -2684,6 +2924,59 @@ function PlayerWellnessForm({athlete,todayCheckin,supabase,userId,showT,fetchAll
 
     <Btn v="r" onClick={save} disabled={saving||!allFilled} style={{width:"100%",padding:"14px 0",fontSize:16,fontWeight:800}}>
       {saving?"Guardando...":allFilled?"Enviar wellness ✓":"Completá todas las preguntas"}
+    </Btn>
+  </div>;
+}
+
+/* ── Player Questionnaire Form ── */
+function PlayerQuestionnaireForm({questionnaire,athlete,supabase,showT,onDone,colors,isDark,cardBg}:any){
+  const qs=(questionnaire.questions||[]) as any[];
+  const [answers,sAnswers]=useState<Record<string,any>>({});
+  const [saving,sSaving]=useState(false);
+  const allFilled=qs.every((q:any)=>answers[q.id]!==undefined&&answers[q.id]!=="");
+  const setA=(id:string,v:any)=>sAnswers(p=>({...p,[id]:v}));
+
+  const save=async()=>{
+    if(!allFilled) return;
+    sSaving(true);
+    try{
+      const{error}=await supabase.from("dep_questionnaire_responses").upsert({
+        questionnaire_id:questionnaire.id,athlete_id:athlete.id,answers
+      },{onConflict:"questionnaire_id,athlete_id"});
+      if(error) throw error;
+      showT("Respuestas enviadas");onDone();
+    }catch(e:any){showT(e.message||"Error","err");}
+    sSaving(false);
+  };
+
+  return <div>
+    <button onClick={onDone} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:colors.bl,marginBottom:8,padding:0}}>← Volver</button>
+    <h2 style={{fontSize:18,fontWeight:800,color:colors.nv,margin:"0 0 4px"}}>{questionnaire.title}</h2>
+    {questionnaire.description&&<p style={{fontSize:12,color:colors.g5,margin:"0 0 16px"}}>{questionnaire.description}</p>}
+
+    {qs.map((q:any,i:number)=><Card key={q.id} style={{marginBottom:10}}>
+      <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:8}}>{i+1}. {q.text}</div>
+
+      {q.type==="rating"&&<div style={{display:"flex",justifyContent:"space-between",gap:4}}>
+        {[1,2,3,4,5].map(v=><button key={v} onClick={()=>setA(q.id,v)} style={{flex:1,padding:"12px 0",borderRadius:12,border:answers[q.id]===v?"3px solid "+colors.bl:"2px solid "+(isDark?colors.g3:"#E5E7EB"),background:answers[q.id]===v?(isDark?colors.bl+"20":"#EFF6FF"):"transparent",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+          <span style={{fontSize:answers[q.id]===v?32:24}}>{["😫","😩","😐","😊","🤩"][v-1]}</span>
+          <span style={{fontSize:9,color:answers[q.id]===v?colors.bl:colors.g4,fontWeight:answers[q.id]===v?700:400}}>{v}</span>
+        </button>)}
+      </div>}
+
+      {q.type==="yesno"&&<div style={{display:"flex",gap:8}}>
+        {[{v:true,l:"Sí"},{v:false,l:"No"}].map(opt=><button key={String(opt.v)} onClick={()=>setA(q.id,opt.v)} style={{flex:1,padding:"12px 0",borderRadius:12,border:answers[q.id]===opt.v?"3px solid "+colors.bl:"2px solid "+(isDark?colors.g3:"#E5E7EB"),background:answers[q.id]===opt.v?(isDark?colors.bl+"20":"#EFF6FF"):"transparent",cursor:"pointer",fontSize:15,fontWeight:answers[q.id]===opt.v?800:500,color:answers[q.id]===opt.v?colors.bl:colors.g5}}>{opt.l}</button>)}
+      </div>}
+
+      {q.type==="text"&&<textarea value={answers[q.id]||""} onChange={e=>setA(q.id,e.target.value)} rows={3} placeholder="Tu respuesta..." style={{width:"100%",padding:10,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,resize:"vertical",boxSizing:"border-box",background:cardBg,color:colors.nv}}/>}
+
+      {q.type==="select"&&<div style={{display:"flex",flexDirection:"column",gap:6}}>
+        {(q.options||[]).map((opt:string)=><button key={opt} onClick={()=>setA(q.id,opt)} style={{padding:"10px 14px",borderRadius:10,border:answers[q.id]===opt?"3px solid "+colors.bl:"2px solid "+(isDark?colors.g3:"#E5E7EB"),background:answers[q.id]===opt?(isDark?colors.bl+"20":"#EFF6FF"):"transparent",cursor:"pointer",textAlign:"left",fontSize:13,fontWeight:answers[q.id]===opt?700:400,color:answers[q.id]===opt?colors.bl:colors.nv}}>{opt}</button>)}
+      </div>}
+    </Card>)}
+
+    <Btn v="r" onClick={save} disabled={saving||!allFilled} style={{width:"100%",padding:"14px 0",fontSize:16,fontWeight:800}}>
+      {saving?"Enviando...":allFilled?"Enviar respuestas":"Completá todas las preguntas"}
     </Btn>
   </div>;
 }
