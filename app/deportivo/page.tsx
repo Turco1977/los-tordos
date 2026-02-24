@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { T, TD, DEP_ROLES, DEP_POSITIONS, DEP_INJ_TYPES, DEP_INJ_ZONES, DEP_INJ_SEV, DEP_WK, DEP_SEM, DEP_DIV, DEP_PHASE_TYPES, DEP_LINEUP_POS, DEP_TEST_CATS, DEP_CUERPO_TECNICO, fn } from "@/lib/constants";
 import type { DepStaff, DepAthlete, DepInjury, DepCheckin, DepSeason, DepPhase, DepMicrocycle, DepTestType, DepTest, DepLineup } from "@/lib/supabase/types";
@@ -95,6 +95,7 @@ export default function DeportivoApp(){
   const [sbOpen,sSbOpen]=useState(false);
   const [sbCol,sSbCol]=useState(false);
   const [sbSec,sSbSec]=useState<string|null>(null);
+  const [hlStaff,sHlStaff]=useState<string|null>(null); // highlighted staff id for perfiles
   const [toast,sToast]=useState<{msg:string;type:"ok"|"err"}|null>(null);
   const showT=(msg:string,type:"ok"|"err"="ok")=>sToast({msg,type});
 
@@ -485,10 +486,13 @@ export default function DeportivoApp(){
         </div>
         {sbSec===sec.label&&<div style={{marginTop:3}}>
           {sec.members.length===0&&<div style={{marginLeft:16,padding:mob?"10px 12px":"6px 10px",fontSize:mob?14:12,color:"rgba(255,255,255,.3)",fontStyle:"italic"}}>– vacante –</div>}
-          {[...sec.members].sort((a,b)=>a.split(" ").slice(-1)[0].localeCompare(b.split(" ").slice(-1)[0])).map((name,i)=><div key={i} style={{marginLeft:16,padding:mob?"10px 12px":"5px 10px",borderRadius:5,fontSize:mob?14:12,color:"rgba(255,255,255,.7)",display:"flex",alignItems:"center",gap:7,minHeight:mob?44:undefined}}>
+          {[...sec.members].sort((a,b)=>a.split(" ").slice(-1)[0].localeCompare(b.split(" ").slice(-1)[0])).map((name,i)=>{
+            const parts=name.split(" ");const matchStaff=staffList.find((s:DepStaff)=>s.active&&s.first_name&&parts[0]&&s.first_name.toLowerCase()===parts[0].toLowerCase()&&s.last_name&&parts.slice(1).join(" ")&&s.last_name.toLowerCase()===parts.slice(1).join(" ").toLowerCase());
+            return <div key={i} onClick={()=>{if(matchStaff){sHlStaff(matchStaff.id);navTo("perfiles");}}} style={{marginLeft:16,padding:mob?"10px 12px":"5px 10px",borderRadius:5,fontSize:mob?14:12,color:"rgba(255,255,255,.7)",display:"flex",alignItems:"center",gap:7,minHeight:mob?44:undefined,cursor:matchStaff?"pointer":"default",transition:"background .15s"}} onMouseEnter={e=>{if(matchStaff)(e.currentTarget as HTMLElement).style.background="rgba(255,255,255,.08)";}} onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background="transparent"}>
             <span style={{width:6,height:6,borderRadius:3,background:sec.color,display:"inline-block",flexShrink:0}}/>
             {name}
-          </div>)}
+            {matchStaff&&<span style={{fontSize:9,color:"rgba(255,255,255,.3)",marginLeft:"auto"}}>→</span>}
+          </div>;})}
         </div>}
       </div>)}
     </div>
@@ -653,7 +657,7 @@ export default function DeportivoApp(){
       {tab==="comm"&&<CommTab athletes={athletes.filter(a=>a.active)} lineups={lineups} seasons={seasons} phases={phases} mob={mob} showT={showT}/>}
 
       {/* ════════ PERFILES ════════ */}
-      {tab==="perfiles"&&canManageStaff&&<PerfilesTab staffList={staffList} onUpdate={onUpdStaff} onDel={onDelStaff} mob={mob} showT={showT} fetchAll={fetchAll}/>}
+      {tab==="perfiles"&&canManageStaff&&<PerfilesTab staffList={staffList} onUpdate={onUpdStaff} onDel={onDelStaff} mob={mob} showT={showT} fetchAll={fetchAll} hlStaff={hlStaff} clearHl={()=>sHlStaff(null)}/>}
 
     </div>
     </div>{/* close main content flex:1 */}
@@ -1456,8 +1460,10 @@ function TrainingTab({athletes,division,canCreate,userId,mob,showT}:any){
 }
 
 /* ══════════════════════════ STAFF TAB ══════════════════════════ */
-function PerfilesTab({staffList,onUpdate,onDel,mob,showT,fetchAll}:any){
+function PerfilesTab({staffList,onUpdate,onDel,mob,showT,fetchAll,hlStaff,clearHl}:any){
   const{colors,isDark,cardBg}=useC();
+  const hlRef=useRef<HTMLDivElement>(null);
+  useEffect(()=>{if(hlStaff&&hlRef.current){hlRef.current.scrollIntoView({behavior:"smooth",block:"center"});const t=setTimeout(()=>clearHl?.(),3000);return()=>clearTimeout(t);}},[hlStaff]);
   const [showCreate,sShowCreate]=useState(false);
   const [creating,sCreating]=useState(false);
   const [creds,sCreds]=useState<{email:string;password:string}|null>(null);
@@ -1530,7 +1536,8 @@ function PerfilesTab({staffList,onUpdate,onDel,mob,showT,fetchAll}:any){
       {activeStaff.map((s:any)=>{
         const r=DEP_ROLES[s.dep_role];
         const isEditing=editId===s.id;
-        return <Card key={s.id}>
+        const isHl=hlStaff===s.id;
+        return <div key={s.id} ref={isHl?hlRef:undefined}><Card style={isHl?{boxShadow:"0 0 0 2px "+colors.bl,transition:"box-shadow .3s"}:undefined}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"start"}}>
             <div style={{flex:1}}>
               <div style={{fontSize:14,fontWeight:700,color:colors.nv}}>{s.first_name} {s.last_name}</div>
@@ -1553,7 +1560,7 @@ function PerfilesTab({staffList,onUpdate,onDel,mob,showT,fetchAll}:any){
             </div>
             <Btn v="p" s="s" onClick={()=>{onUpdate(s.id,{dep_role:editRole,divisions:editDivs});sEditId(null);}} style={{marginTop:8}}>💾 Guardar</Btn>
           </div>}
-        </Card>;
+        </Card></div>;
       })}
       {activeStaff.length===0&&<Card style={{textAlign:"center",padding:24,color:colors.g4}}><div style={{fontSize:32}}>👤</div><div style={{marginTop:8,fontSize:13}}>No hay perfiles deportivos. Creá el primero.</div></Card>}
     </div>
