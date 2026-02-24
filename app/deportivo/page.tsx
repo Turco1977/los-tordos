@@ -2054,6 +2054,7 @@ function LineupTab({athletes,lineups,injuries,checkins,onAdd,onUpd,onDel,canEdit
   const [editing,sEditing]=useState(false);
   const [form,sForm]=useState({date:TODAY,match_name:"",division:"M19",notes:"",titulares:{} as Record<string,{athlete_id:number;name:string}>,suplentes:[] as {athlete_id:number;name:string;pos:string}[]});
   const [pickPos,sPickPos]=useState<string|null>(null);
+  const [pickSearch,sPickSearch]=useState("");
 
   const lu=selLineup?lineups.find((l:any)=>l.id===selLineup):null;
   const activeInj=injuries.filter((i:any)=>i.status!=="alta");
@@ -2139,17 +2140,27 @@ function LineupTab({athletes,lineups,injuries,checkins,onAdd,onUpd,onDel,canEdit
       {pickPos&&<Card style={{marginBottom:14,border:"2px solid "+colors.bl}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
           <h4 style={{margin:0,fontSize:13,color:colors.nv}}>Seleccionar jugador para #{pickPos} — {DEP_LINEUP_POS[pickPos]}</h4>
-          <Btn v="g" s="s" onClick={()=>sPickPos(null)}>✕</Btn>
+          <Btn v="g" s="s" onClick={()=>{sPickPos(null);sPickSearch("");}}>✕</Btn>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr 1fr",gap:4,maxHeight:300,overflowY:"auto" as const}}>
-          {available.map((a:any)=>{
-            const isInj=injuredIds.has(a.id);
-            return <div key={a.id} onClick={()=>{sForm(p=>({...p,titulares:{...p.titulares,[pickPos]:{athlete_id:a.id,name:a.first_name+" "+a.last_name}}}));sPickPos(null);}} style={{padding:"6px 8px",borderRadius:6,border:"1px solid "+(isInj?"#FCA5A5":colors.g2),background:isInj?"#FEF2F2":cardBg,cursor:"pointer",fontSize:11,fontWeight:600,color:colors.nv}}>
-              {a.last_name}, {a.first_name} <span style={{color:colors.g4,fontWeight:400}}>({a.position||"–"})</span>
-              {isInj&&<span style={{color:T.rd,fontSize:9}}> 🩹</span>}
-            </div>;
-          })}
-        </div>
+        <input value={pickSearch} onChange={e=>sPickSearch(e.target.value)} placeholder="Buscar jugador..." style={{width:"100%",padding:"6px 8px",marginBottom:8,borderRadius:6,border:"1px solid "+colors.g2,fontSize:12,boxSizing:"border-box"}}/>
+        {(()=>{
+          const pickItem=(a:any)=>{const isInj=injuredIds.has(a.id);return <div key={a.id} onClick={()=>{sForm(p=>({...p,titulares:{...p.titulares,[pickPos]:{athlete_id:a.id,name:a.first_name+" "+a.last_name}}}));sPickPos(null);sPickSearch("");}} style={{padding:"6px 8px",borderRadius:6,border:"1px solid "+(isInj?"#FCA5A5":colors.g2),background:isInj?"#FEF2F2":cardBg,cursor:"pointer",fontSize:11,fontWeight:600,color:colors.nv}}>
+            {a.last_name}, {a.first_name} <span style={{color:colors.g4,fontWeight:400}}>({a.position||"–"})</span>
+            {isInj&&<span style={{color:T.rd,fontSize:9}}> 🩹</span>}
+          </div>;};
+          const q=pickSearch.trim().toLowerCase();
+          if(q){
+            const filtered=available.filter((a:any)=>(a.first_name+" "+a.last_name).toLowerCase().includes(q)||(a.last_name+" "+a.first_name).toLowerCase().includes(q));
+            return <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr 1fr",gap:4,maxHeight:300,overflowY:"auto" as const}}>{filtered.length?filtered.map(pickItem):<div style={{gridColumn:"1/-1",textAlign:"center",color:colors.g4,fontSize:12,padding:12}}>Sin resultados</div>}</div>;
+          }
+          const posName=DEP_LINEUP_POS[pickPos];
+          const match=available.filter((a:any)=>a.position===posName);
+          const rest=available.filter((a:any)=>a.position!==posName);
+          return <div style={{maxHeight:300,overflowY:"auto" as const}}>
+            {match.length>0&&<><div style={{fontSize:11,fontWeight:700,color:colors.bl,marginBottom:4}}>{posName}</div><div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr 1fr",gap:4,marginBottom:8}}>{match.map(pickItem)}</div></>}
+            {rest.length>0&&<><div style={{fontSize:11,fontWeight:700,color:colors.g4,marginBottom:4}}>Otros</div><div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr 1fr",gap:4}}>{rest.map(pickItem)}</div></>}
+          </div>;
+        })()}
       </Card>}
 
       {/* Suplentes */}
