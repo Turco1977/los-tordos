@@ -502,8 +502,8 @@ export default function App(){
   else if(aA){const aar2=areas.find(x=>x.id===aA),ids2=deptos.filter(d=>d.aId===aA).map(d=>d.id);vT=aar2?aar2.name:"";vI=aar2?aar2.icon:"";vC=aar2?aar2.color:T.nv;vP=peds.filter(p=>ids2.indexOf(p.dId)>=0);}
 
   let nav:any[]=[];
-  if(isPersonal){nav=[{k:"my",l:"Mis Tareas",sh:true},{k:"cal",l:"📅 Calendario",sh:true},{k:"new",l:"+ Tarea",sh:true},{k:"comm-req",l:"📣 + Tarea",sh:true}];}
-  else{nav=[{k:"dash",l:"Dashboard",sh:true},{k:"tasks",l:"📋 Tareas",sh:true},{k:"kanban",l:"📊 Kanban",sh:true},{k:"feed",l:"📰 Actividad",sh:true},{k:"cal",l:"📅 Calendario",sh:true},{k:"comm-req",l:"📣 + Tarea",sh:true}];}
+  if(isPersonal){nav=[{k:"my",l:"Mis Tareas",sh:true},{k:"cal",l:"📅 Calendario",sh:true},{k:"new",l:"+ Tarea",sh:true},{k:"comm-req",l:"📣 + Comunicación",sh:true}];}
+  else{nav=[{k:"dash",l:"Dashboard",sh:true},{k:"tasks",l:"📋 Tareas",sh:true},{k:"kanban",l:"📊 Kanban",sh:true},{k:"feed",l:"📰 Actividad",sh:true},{k:"cal",l:"📅 Calendario",sh:true},{k:"new",l:"+ Nueva",sh:true},{k:"comm-req",l:"📣 + Comunicación",sh:true}];}
 
   /* ── addLog: optimistic local + persist to Supabase ── */
   const addLog=async(id:number,uid:string,by:string,act:string,t?:string)=>{
