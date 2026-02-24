@@ -5,6 +5,7 @@ import { fmtD } from "@/lib/mappers";
 import { Btn, Card } from "@/components/ui";
 import { useC } from "@/lib/theme-context";
 import { useDataStore } from "@/lib/store";
+import { Thread } from "@/components/main/Thread";
 
 const TODAY=new Date().toISOString().slice(0,10);
 const daysLeft=(d:string)=>{if(!d)return Infinity;return Math.round((new Date(d).getTime()-new Date(TODAY).getTime())/864e5);};
@@ -26,9 +27,11 @@ const emptyForm=()=>({
   payment_type:"",
 });
 
-export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado}:any){
+export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onSponMsg}:any){
   const sponsors = useDataStore(s => s.sponsors);
+  const users = useDataStore(s => s.users);
   const{colors,isDark,cardBg}=useC();
+  const [spTab,sSpTab]=useState<"chat"|"edit">("chat");
   const isSA=user?.role==="superadmin";
   const isJH=user&&(user.n||user.first_name||"").toLowerCase().includes("jes")&&(user.a||user.last_name||"").toLowerCase().includes("herrera");
   const canFullEdit=isSA||isJH;
@@ -522,59 +525,77 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado}:any){
             {sp.notes&&!isOpen&&<div style={{marginTop:4,fontSize:10,color:colors.g5,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{sp.notes}</div>}
           </div>
 
-          {/* ── Expanded inline edit ── */}
-          {isOpen&&<div style={{borderTop:"1px solid "+colors.g2,padding:"12px 14px",background:isDark?"rgba(255,255,255,.03)":"#FAFAFA"}} onClick={e=>e.stopPropagation()}>
-            {/* Name */}
-            <div style={{marginBottom:8}}>
-              <label style={lbl}>Sponsor</label>
-              <input value={sp.name||""} onChange={e=>inlineUpd(sp,"name",e.target.value)} style={inp}/>
+          {/* ── Expanded: Chat / Edit tabs ── */}
+          {isOpen&&<div style={{borderTop:"1px solid "+colors.g2,background:isDark?"rgba(255,255,255,.03)":"#FAFAFA"}} onClick={e=>e.stopPropagation()}>
+            {/* Tab bar */}
+            <div style={{display:"flex",borderBottom:"1px solid "+colors.g2}}>
+              {([["chat","Chat"],["edit","Editar"]] as const).map(([k,l])=><button key={k} onClick={()=>sSpTab(k)} style={{flex:1,padding:"8px 0",border:"none",borderBottom:spTab===k?"2px solid "+colors.pr:"2px solid transparent",background:"transparent",color:spTab===k?colors.pr:colors.g4,fontSize:12,fontWeight:700,cursor:"pointer"}}>{k==="chat"?"\uD83D\uDCAC ":"\u270F\uFE0F "}{l}</button>)}
             </div>
-            {/* Cash + Service amounts */}
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
-              <div>
-                <label style={lbl}>Aporte $ (Efectivo)</label>
-                <input type="number" value={sp.amount_cash||""} onChange={e=>inlineUpd(sp,"amount_cash",Number(e.target.value)||0)} style={inp}/>
+
+            {/* Chat tab */}
+            {spTab==="chat"&&<div style={{padding:"8px 14px",minHeight:280}}>
+              <Thread
+                log={(sponMsgs||[]).filter((m:any)=>m.sponsor_id===sp.id).map((m:any)=>({dt:m.created_at||"",uid:m.user_id,by:m.user_name,act:m.content,t:m.type||"msg"}))}
+                userId={user?.id}
+                onSend={(txt:string)=>onSponMsg&&onSponMsg(sp.id,txt)}
+                users={users}
+              />
+            </div>}
+
+            {/* Edit tab */}
+            {spTab==="edit"&&<div style={{padding:"12px 14px"}}>
+              {/* Name */}
+              <div style={{marginBottom:8}}>
+                <label style={lbl}>Sponsor</label>
+                <input value={sp.name||""} onChange={e=>inlineUpd(sp,"name",e.target.value)} style={inp}/>
               </div>
-              <div>
-                <label style={lbl}>Aporte Pro/Ser (Canjes)</label>
-                <input type="number" value={sp.amount_service||""} onChange={e=>inlineUpd(sp,"amount_service",Number(e.target.value)||0)} style={inp}/>
+              {/* Cash + Service amounts */}
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+                <div>
+                  <label style={lbl}>Aporte $ (Efectivo)</label>
+                  <input type="number" value={sp.amount_cash||""} onChange={e=>inlineUpd(sp,"amount_cash",Number(e.target.value)||0)} style={inp}/>
+                </div>
+                <div>
+                  <label style={lbl}>Aporte Pro/Ser (Canjes)</label>
+                  <input type="number" value={sp.amount_service||""} onChange={e=>inlineUpd(sp,"amount_service",Number(e.target.value)||0)} style={inp}/>
+                </div>
               </div>
-            </div>
-            {/* End date + Status */}
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
-              <div>
-                <label style={lbl}>Período / Vencimiento</label>
-                <input type="date" value={sp.end_date||""} onChange={e=>inlineUpd(sp,"end_date",e.target.value)} style={inp}/>
+              {/* End date + Status */}
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+                <div>
+                  <label style={lbl}>Período / Vencimiento</label>
+                  <input type="date" value={sp.end_date||""} onChange={e=>inlineUpd(sp,"end_date",e.target.value)} style={inp}/>
+                </div>
+                <div>
+                  <label style={lbl}>Estado</label>
+                  <select value={sp.status||"active"} onChange={e=>inlineUpd(sp,"status",e.target.value)} style={inp}>
+                    {Object.keys(SPON_ST).map(k=><option key={k} value={k}>{SPON_ST[k].l}</option>)}
+                  </select>
+                </div>
               </div>
-              <div>
-                <label style={lbl}>Estado</label>
-                <select value={sp.status||"active"} onChange={e=>inlineUpd(sp,"status",e.target.value)} style={inp}>
-                  {Object.keys(SPON_ST).map(k=><option key={k} value={k}>{SPON_ST[k].l}</option>)}
-                </select>
+              {/* Payment type */}
+              <div style={{marginBottom:8}}>
+                <label style={lbl}>Tipo de Pago</label>
+                <input value={sp.payment_type||""} onChange={e=>inlineUpd(sp,"payment_type",e.target.value)} style={inp} placeholder="Ej: pago mensual, canje, cheques"/>
               </div>
-            </div>
-            {/* Payment type */}
-            <div style={{marginBottom:8}}>
-              <label style={lbl}>Tipo de Pago</label>
-              <input value={sp.payment_type||""} onChange={e=>inlineUpd(sp,"payment_type",e.target.value)} style={inp} placeholder="Ej: pago mensual, canje, cheques"/>
-            </div>
-            {/* Exposure */}
-            <div style={{marginBottom:8}}>
-              <label style={lbl}>Exposición</label>
-              <input value={sp.exposure||""} onChange={e=>inlineUpd(sp,"exposure",e.target.value)} style={inp} placeholder="Ej: Ropa: frente camiseta. Cartelería"/>
-            </div>
-            {/* Notes */}
-            <div style={{marginBottom:8}}>
-              <label style={lbl}>Varios / Observaciones</label>
-              <textarea value={sp.notes||""} onChange={e=>inlineUpd(sp,"notes",e.target.value)} rows={2} style={{...inp,resize:"vertical" as const}}/>
-            </div>
-            {/* Actions */}
-            <div style={{display:"flex",gap:6,justifyContent:"space-between"}}>
-              {confirmDel===sp.id
-                ?<div style={{display:"flex",gap:4,alignItems:"center"}}><span style={{fontSize:11,color:"#DC2626",fontWeight:600}}>Confirmar?</span><Btn v="r" s="s" onClick={()=>{onDel(sp.id);sConfirmDel(null);sExpandId(null);}}>Sí, eliminar</Btn><Btn v="g" s="s" onClick={()=>sConfirmDel(null)}>No</Btn></div>
-                :<Btn v="r" s="s" onClick={()=>sConfirmDel(sp.id)}>Eliminar</Btn>}
-              <Btn v="pu" s="s" onClick={()=>openEdit(sp)}>Editar completo</Btn>
-            </div>
+              {/* Exposure */}
+              <div style={{marginBottom:8}}>
+                <label style={lbl}>Exposición</label>
+                <input value={sp.exposure||""} onChange={e=>inlineUpd(sp,"exposure",e.target.value)} style={inp} placeholder="Ej: Ropa: frente camiseta. Cartelería"/>
+              </div>
+              {/* Notes */}
+              <div style={{marginBottom:8}}>
+                <label style={lbl}>Varios / Observaciones</label>
+                <textarea value={sp.notes||""} onChange={e=>inlineUpd(sp,"notes",e.target.value)} rows={2} style={{...inp,resize:"vertical" as const}}/>
+              </div>
+              {/* Actions */}
+              <div style={{display:"flex",gap:6,justifyContent:"space-between"}}>
+                {confirmDel===sp.id
+                  ?<div style={{display:"flex",gap:4,alignItems:"center"}}><span style={{fontSize:11,color:"#DC2626",fontWeight:600}}>Confirmar?</span><Btn v="r" s="s" onClick={()=>{onDel(sp.id);sConfirmDel(null);sExpandId(null);}}>Sí, eliminar</Btn><Btn v="g" s="s" onClick={()=>sConfirmDel(null)}>No</Btn></div>
+                  :<Btn v="r" s="s" onClick={()=>sConfirmDel(sp.id)}>Eliminar</Btn>}
+                <Btn v="pu" s="s" onClick={()=>openEdit(sp)}>Editar completo</Btn>
+              </div>
+            </div>}
           </div>}
         </Card>);})}
     </div>

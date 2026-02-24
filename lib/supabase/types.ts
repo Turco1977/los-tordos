@@ -50,6 +50,16 @@ export interface TaskMessage {
   created_at?: string;
 }
 
+export interface SponsorMessage {
+  id?: number;
+  sponsor_id: number;
+  user_id: string;
+  user_name: string;
+  content: string;
+  type: "sys" | "msg";
+  created_at?: string;
+}
+
 export interface Milestone {
   id: number;
   phase: string;
@@ -302,6 +312,34 @@ export interface DepAnnouncement {
   type: "aviso" | "convocatoria" | "urgente";
   pinned: boolean;
   created_at?: string;
+}
+
+export interface DepQuestionnaireQuestion {
+  id: string;
+  text: string;
+  type: "rating" | "text" | "yesno" | "select";
+  options?: string[];
+}
+
+export interface DepQuestionnaire {
+  id: number;
+  division: string | null;
+  author_id: string;
+  author_name: string;
+  title: string;
+  description: string;
+  questions: DepQuestionnaireQuestion[];
+  status: "activo" | "cerrado";
+  created_at?: string;
+}
+
+export interface DepQuestionnaireResponse {
+  id: number;
+  questionnaire_id: number;
+  athlete_id: number;
+  answers: Record<string, any>;
+  created_at?: string;
+  athlete_name?: string;
 }
 
 export interface Presupuesto {

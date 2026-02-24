@@ -96,7 +96,7 @@ function notifs(user:any,peds:any[]){const n:any[]=[];if(["coordinador","admin",
 /* ── MAIN APP ── */
 export default function App(){
   const areas=AREAS;const deptos=DEPTOS;
-  const {users,om,peds,hitos,agendas,minutas,presu,provs,reminders,projects,projTasks,taskTemplates,projBudgets,inventory,bookings,sponsors,dbNotifs,setAll,sUs,sOm,sPd,sHi,sAgs,sMins,sPr,sPv,sRems,sProjects,sProjTasks,sTaskTemplates,sProjBudgets,sInventory,sBookings,sSponsors,sDbNotifs,clear:clearStore}=useDataStore();
+  const {users,om,peds,hitos,agendas,minutas,presu,provs,reminders,projects,projTasks,taskTemplates,projBudgets,inventory,bookings,sponsors,sponMsgs,dbNotifs,setAll,sUs,sOm,sPd,sHi,sAgs,sMins,sPr,sPv,sRems,sProjects,sProjTasks,sTaskTemplates,sProjBudgets,sInventory,sBookings,sSponsors,sSponMsgs,sDbNotifs,clear:clearStore}=useDataStore();
   const [user,sU]=useState<any>(null);const [authChecked,sAuthChecked]=useState(false);
   const [vw,sVw_]=useState("dash");const [prevVw,sPrevVw]=useState<string|null>(null);
   const sVw=(v:string)=>{sPrevVw(vw);sVw_(v);};const [sel,sSl]=useState<any>(null);const [aA,sAA]=useState<number|null>(null);const [aD,sAD]=useState<number|null>(null);const [sbCol,sSbCol]=useState(false);const [search,sSr]=useState("");const [shNot,sShNot]=useState(false);const [preAT,sPreAT]=useState<any>(null);const [showPw,sShowPw]=useState(false);const [toast,sToast]=useState<{msg:string;type:"ok"|"err"}|null>(null);const [kpiFilt,sKpiFilt]=useState<string|null>(null);
@@ -145,6 +145,8 @@ export default function App(){
       tmData=msgs;
       mappedPeds=mRes.data.map((t:any)=>taskFromDB(t,msgs.filter((m:any)=>m.task_id===t.id)));
     }
+    // Sponsor messages
+    const smRes=await supabase.from("sponsor_messages").select("*").order("created_at");
     // Batch update: single store write instead of 17 setState calls
     setAll({
       ...(pRes.data?{users:pRes.data.map((p:any)=>profileToUser(p))}:{}),
@@ -161,6 +163,7 @@ export default function App(){
       ...(invRes.data?{inventory:invRes.data}:{}),
       ...(bkRes.data?{bookings:bkRes.data}:{}),
       ...(spRes.data?{sponsors:spRes.data}:{}),
+      ...(smRes.data?{sponMsgs:smRes.data}:{}),
       ...(pbRes.data?{projBudgets:pbRes.data}:{}),
       ...(mappedPeds?{peds:mappedPeds}:{}),
     });
@@ -279,6 +282,13 @@ export default function App(){
       onUpdate:(row:any)=>sSponsors(p=>p.map(x=>x.id===row.id?row:x)),
       onDelete:(row:any)=>sSponsors(p=>p.filter(x=>x.id!==row.id)),
     },
+    {table:"sponsor_messages",onInsert:(msg:any)=>{
+      sSponMsgs(p=>{
+        const dup=p.some((m:any)=>m.user_id===msg.user_id&&m.content===msg.content&&m.created_at?.slice(0,16)===msg.created_at?.slice(0,16));
+        if(dup)return p;
+        return[...p,msg];
+      });
+    }},
     {table:"project_budgets",
       onInsert:(row:any)=>sProjBudgets(p=>[row,...p]),
       onUpdate:(row:any)=>sProjBudgets(p=>p.map(x=>x.id===row.id?row:x)),
@@ -584,10 +594,11 @@ export default function App(){
             onUpdMulti={async(ids:string[],d:any)=>{try{const numIds=ids.map(Number);sBookings(prev=>prev.map(x=>numIds.includes(x.id)?{...x,...d}:x));await supabase.from("bookings").update(d).in("id",numIds);showT(`${ids.length} espacios actualizados`);}catch(e:any){showT(e.message||"Error","err");}}}
           />}
           {/* Sponsors */}
-          {vw==="sponsors"&&(isAd||user.role==="coordinador"||user.role==="embudo")&&<SponsorsView user={user} mob={mob} canjeUsado={canjeUsado}
+          {vw==="sponsors"&&(isAd||user.role==="coordinador"||user.role==="embudo")&&<SponsorsView user={user} mob={mob} canjeUsado={canjeUsado} sponMsgs={sponMsgs}
             onAdd={async(d:any)=>{const row={...d,created_by:user.id,created_by_name:fn(user)};const{data,error}=await supabase.from("sponsors").insert(row).select().single();if(error)throw new Error(error.message);if(data){sSponsors(prev=>[data,...prev]);showT("Sponsor agregado");}}}
             onUpd={async(id:number,d:any)=>{try{sSponsors(prev=>prev.map(x=>x.id===id?{...x,...d}:x));await supabase.from("sponsors").update(d).eq("id",id);showT("Sponsor actualizado");}catch(e:any){showT(e.message||"Error","err");}}}
             onDel={async(id:number)=>{try{sSponsors(prev=>prev.filter(x=>x.id!==id));await supabase.from("sponsors").delete().eq("id",id);showT("Sponsor eliminado");}catch(e:any){showT(e.message||"Error","err");}}}
+            onSponMsg={async(sponsorId:number,txt:string)=>{try{const safe=sanitize(txt);if(!safe)return;const ts=new Date().toISOString();const opt={id:Date.now(),sponsor_id:sponsorId,user_id:user.id,user_name:fn(user),content:safe,type:"msg",created_at:ts};sSponMsgs(p=>[...p,opt]);await supabase.from("sponsor_messages").insert({sponsor_id:sponsorId,user_id:user.id,user_name:fn(user),content:safe,type:"msg"});/* @mention notifications */const mentionRx=/@([\w\s]+?)(?=\s@|$)/g;let match;while((match=mentionRx.exec(safe))!==null){const mName=match[1].trim();const mUser=users.find((u:any)=>(fn(u)).toLowerCase()===mName.toLowerCase());if(mUser&&mUser.id!==user.id){sendNotif(mUser.id,"Te mencionaron en sponsor",safe.slice(0,80),"info");}}}catch(e:any){showT("Error al enviar mensaje","err");}}}
           />}
           {/* Proyectos */}
           {vw==="proyectos"&&<ProyectosView user={user} mob={mob}
