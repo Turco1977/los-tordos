@@ -101,7 +101,7 @@ export default function App(){
   const [vw,sVw_]=useState("dash");const [prevVw,sPrevVw]=useState<string|null>(null);
   const sVw=(v:string)=>{sPrevVw(vw);sVw_(v);};const [sel,sSl]=useState<any>(null);const [aA,sAA]=useState<number|null>(null);const [aD,sAD]=useState<number|null>(null);const [sbCol,sSbCol]=useState(false);const [search,sSr]=useState("");const [shNot,sShNot]=useState(false);const [preAT,sPreAT]=useState<any>(null);const [showPw,sShowPw]=useState(false);const [toast,sToast]=useState<{msg:string;type:"ok"|"err"}|null>(null);const [kpiFilt,sKpiFilt]=useState<string|null>(null);
   /* Global Search state (Feature 1) */
-  const [gsOpen,sGsOpen]=useState(false);const gsRef=useRef<HTMLDivElement>(null);
+  const [gsOpen,sGsOpen]=useState(false);const gsRef=useRef<HTMLDivElement>(null);const mainRef=useRef<HTMLDivElement>(null);
   const [cmdOpen,sCmdOpen]=useState(false);
   const mob=useMobile();const [sbOpen,sSbOpen]=useState(false);
   const {pushEnabled,requestPush,sendPush}=usePushNotifs(user,peds);
@@ -494,8 +494,9 @@ export default function App(){
   const unreadDb=dbNotifs.filter((n:any)=>!n.read);
   const badgeCount=computedNts.length+unreadDb.length;
   const ntColor=(type:string)=>type==="task"?T.bl:type==="budget"?T.pr:type==="deadline"?T.rd:T.gn;
-  const hAC=(id:number)=>{sAA(aA===id?null:id);sAD(null);sKpiFilt(null);sVw("dash");};
-  const hDC=(id:number)=>sAD(aD===id?null:id);
+  const scrollTop=()=>mainRef.current?.scrollTo({top:0});
+  const hAC=(id:number)=>{sAA(aA===id?null:id);sAD(null);sKpiFilt(null);sVw("dash");scrollTop();};
+  const hDC=(id:number)=>{sAD(aD===id?null:id);scrollTop();};
 
   let vT="",vI="",vC=T.nv,vP=peds;
   if(aD){const dd=deptos.find(x=>x.id===aD),aar=dd?areas.find(x=>x.id===dd.aId):null;vT=dd?dd.name:"";vI="📂";vC=aar?aar.color:T.nv;const chIds=deptos.filter(d=>d.pId===aD).map(d=>d.id),allIds=[aD,...chIds],inclEmb=allIds.indexOf(7)>=0;vP=peds.filter(p=>allIds.indexOf(p.dId)>=0||(inclEmb&&p.st===ST.E));}
@@ -520,12 +521,12 @@ export default function App(){
     <ThemeCtx.Provider value={{colors,isDark,cardBg}}>
     <style dangerouslySetInnerHTML={{__html:darkCSS}}/>
     <div style={{display:"flex",minHeight:"100vh",background:colors.g1,fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",color:colors.nv}}>
-      <SB aA={aA} aD={aD} onAC={hAC} onDC={hDC} col={sbCol} onCol={()=>sSbCol(!sbCol)} isPersonal={isPersonal} mob={mob} sbOpen={sbOpen} onClose={()=>sSbOpen(false)} vw={vw} onNav={(v:string)=>sVw(v)} user={user}/>
+      <SB aA={aA} aD={aD} onAC={hAC} onDC={hDC} col={sbCol} onCol={()=>sSbCol(!sbCol)} isPersonal={isPersonal} mob={mob} sbOpen={sbOpen} onClose={()=>sSbOpen(false)} vw={vw} onNav={(v:string)=>{sVw(v);scrollTop();}} user={user}/>
       <div style={{flex:1,display:"flex",flexDirection:"column" as const,minWidth:0}}>
         <div style={{background:headerBg,borderBottom:"1px solid "+colors.g2,padding:mob?"0 6px":"0 14px",display:"flex",justifyContent:"space-between",alignItems:"center",height:mob?52:48}}>
           <div style={{display:"flex",gap:1,overflowX:"auto" as const,alignItems:"center"}}>
             {mob&&<button aria-label="Menú" onClick={()=>sSbOpen(true)} title="Abrir menú" style={{background:"none",border:"none",fontSize:18,cursor:"pointer",color:colors.nv,padding:"4px 6px",flexShrink:0,minHeight:44,minWidth:44}}>☰</button>}
-            {nav.filter(n=>n.sh).map(n=><button key={n.k} onClick={()=>{sVw(n.k);if(n.k==="dash"||n.k==="my"){sAA(null);sAD(null);sKpiFilt(null);}}} style={{padding:mob?"8px 10px":"6px 11px",border:"none",borderRadius:7,background:vw===n.k?colors.nv:"transparent",color:vw===n.k?(isDark?"#0F172A":"#fff"):colors.g5,fontSize:mob?12:11,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap" as const,minHeight:44}}>{n.l}</button>)}
+            {nav.filter(n=>n.sh).map(n=><button key={n.k} onClick={()=>{sVw(n.k);scrollTop();if(n.k==="dash"||n.k==="my"){sAA(null);sAD(null);sKpiFilt(null);}}} style={{padding:mob?"8px 10px":"6px 11px",border:"none",borderRadius:7,background:vw===n.k?colors.nv:"transparent",color:vw===n.k?(isDark?"#0F172A":"#fff"):colors.g5,fontSize:mob?12:11,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap" as const,minHeight:44}}>{n.l}</button>)}
           </div>
           <div style={{display:"flex",alignItems:"center",gap:mob?6:10,flexShrink:0}}>
             <div ref={gsRef} style={{position:"relative" as const}}><input value={search} onChange={e=>{sSr(e.target.value);sGsOpen(true);}} onFocus={()=>{if(search.length>=2)sGsOpen(true);}} onKeyDown={e=>{if(e.key==="Escape")sGsOpen(false);}} placeholder="Buscar..." style={{padding:mob?"8px 10px":"5px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:mob?13:11,width:mob?100:140,minHeight:mob?40:undefined}}/>
@@ -543,7 +544,7 @@ export default function App(){
             <button aria-label="Cerrar sesión" onClick={out} title="Cerrar sesión" style={{width:mob?40:28,height:mob?40:28,borderRadius:7,border:"1px solid "+colors.g2,background:cardBg,cursor:"pointer",fontSize:mob?14:12,display:"flex",alignItems:"center",justifyContent:"center"}}>↩</button>
           </div>
         </div>
-        <div style={{flex:1,padding:mob?"12px 8px":"20px 16px",overflowY:"auto" as const,marginTop:4}}>
+        <div ref={mainRef} style={{flex:1,padding:mob?"12px 8px":"20px 16px",overflowY:"auto" as const,marginTop:4}}>
           {dataLoading?<div style={{display:"flex",flexDirection:"column" as const,gap:12,padding:16}}>{[1,2,3,4].map(i=><div key={i} style={{background:cardBg,borderRadius:14,padding:18,border:"1px solid "+colors.g2}}><div style={{height:12,width:i%2?"60%":"40%",background:colors.g2,borderRadius:6,marginBottom:10}}/><div style={{height:8,width:"80%",background:colors.g2,borderRadius:4,marginBottom:6}}/><div style={{height:8,width:"50%",background:colors.g2,borderRadius:4}}/></div>)}</div>:<>
           {vw==="my"&&isPersonal&&<MyDash user={user} onSel={(p:any)=>sSl(p)} mob={mob} search={search}/>}
           {/* All Tasks View */}
