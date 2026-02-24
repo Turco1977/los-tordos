@@ -2154,8 +2154,9 @@ function LineupTab({athletes,lineups,injuries,checkins,onAdd,onUpd,onDel,canEdit
             return <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr 1fr",gap:4,maxHeight:300,overflowY:"auto" as const}}>{filtered.length?filtered.map(pickItem):<div style={{gridColumn:"1/-1",textAlign:"center",color:colors.g4,fontSize:12,padding:12}}>Sin resultados</div>}</div>;
           }
           const posName=DEP_LINEUP_POS[pickPos];
-          const match=available.filter((a:any)=>a.position===posName);
-          const rest=available.filter((a:any)=>a.position!==posName);
+          const posMatch=(slot:string,pos:string)=>{if(!pos)return false;const p=pos.toLowerCase(),s=slot.toLowerCase();if(p===s)return true;if(s.includes("pilar izq"))return p.includes("pilar")&&p.includes("izq");if(s.includes("pilar der"))return p.includes("pilar")&&p.includes("der");if(s==="hooker")return p.includes("hooker");if(s.includes("2da"))return p.includes("segunda")||p.includes("2da");if(s==="ala")return p.includes("ala");if(s==="8")return p==="8"||p.startsWith("08");if(s.includes("medio"))return p.includes("medio");if(s.includes("apertura"))return p.includes("apertura");if(s.includes("wing"))return p.includes("wing");if(s.includes("centro"))return p.includes("centro");if(s.includes("fullback"))return p.includes("fullback");return false;};
+          const match=available.filter((a:any)=>posMatch(posName,a.position));
+          const rest=available.filter((a:any)=>!posMatch(posName,a.position));
           return <div style={{maxHeight:300,overflowY:"auto" as const}}>
             {match.length>0&&<><div style={{fontSize:11,fontWeight:700,color:colors.bl,marginBottom:4}}>{posName}</div><div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr 1fr",gap:4,marginBottom:8}}>{match.map(pickItem)}</div></>}
             {rest.length>0&&<><div style={{fontSize:11,fontWeight:700,color:colors.g4,marginBottom:4}}>Otros</div><div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr 1fr",gap:4}}>{rest.map(pickItem)}</div></>}
