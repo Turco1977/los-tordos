@@ -173,3 +173,40 @@ export const SPON_ST:Record<string,{l:string;c:string;bg:string}>={
 };
 export const SPON_PAY_TYPES=["pago mensual","pago trimestral","pago anual","canje","cheques","transferencia","efectivo","otro"];
 export const DOLAR_REF=1250;
+
+// ── Phase 2: Hockey Asistencia + Partidos + Calendario ──
+export const HOCKEY_DIV=["Primera","Reserva","Juveniles","Sub-16","Sub-14","Sub-12","Mamis"];
+export const HOCKEY_RAMA:Record<string,{l:string;i:string}> = {femenino:{l:"Femenino",i:"♀️"},masculino:{l:"Masculino",i:"♂️"}};
+export const TIPO_ACTIVIDAD:Record<string,{l:string;i:string;c:string}>={
+  entrenamiento:{l:"Entrenamiento",i:"🏋️",c:"#3B82F6"},
+  partido:{l:"Partido",i:"🏑",c:"#C8102E"},
+  pf:{l:"Preparación Física",i:"💪",c:"#10B981"},
+  tactica:{l:"Táctica",i:"📋",c:"#F59E0B"},
+  otro:{l:"Otro",i:"📌",c:"#6B7280"}
+};
+export const COMPETENCIA_TIPOS:Record<string,{l:string;i:string;c:string}>={
+  amistoso:{l:"Amistoso",i:"🤝",c:"#6B7280"},
+  liga:{l:"Liga",i:"🏆",c:"#F59E0B"},
+  torneo:{l:"Torneo",i:"🏅",c:"#3B82F6"},
+  copa:{l:"Copa",i:"🏆",c:"#C8102E"},
+  clasificacion:{l:"Clasificación",i:"📊",c:"#8B5CF6"}
+};
+export const EVENTO_TIPOS:Record<string,{l:string;i:string;c:string}>={
+  gol:{l:"Gol",i:"⚽",c:"#10B981"},
+  amarilla:{l:"Amarilla",i:"🟡",c:"#F59E0B"},
+  roja:{l:"Roja",i:"🔴",c:"#DC2626"},
+  green_card:{l:"Green Card",i:"🟢",c:"#10B981"},
+  penal:{l:"Penal",i:"🥅",c:"#8B5CF6"}
+};
+export const CALENDARIO_TIPOS:Record<string,{l:string;i:string;c:string}>={
+  entrenamiento:{l:"Entrenamiento",i:"🏋️",c:"#3B82F6"},
+  partido:{l:"Partido",i:"🏑",c:"#C8102E"},
+  reunion:{l:"Reunión",i:"🤝",c:"#F59E0B"},
+  evento:{l:"Evento",i:"🎉",c:"#8B5CF6"},
+  otro:{l:"Otro",i:"📌",c:"#6B7280"}
+};
+export const RESULTADO_COLORS:Record<string,{l:string;c:string;bg:string}>={
+  V:{l:"Victoria",c:"#10B981",bg:"#D1FAE5"},
+  D:{l:"Derrota",c:"#DC2626",bg:"#FEE2E2"},
+  E:{l:"Empate",c:"#F59E0B",bg:"#FEF3C7"}
+};

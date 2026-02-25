@@ -26,9 +26,16 @@ interface DataStore {
   sponDeliveries: any[];
   dbNotifs: any[];
   notifPrefs: any;
+  // Phase 2: Hockey
+  hkSesiones: any[];
+  hkRegistros: any[];
+  hkPartidos: any[];
+  hkConvocadas: any[];
+  hkEventos: any[];
+  hkCalendario: any[];
 
   // Batch setter (for fetchAll)
-  setAll: (data: Partial<Pick<DataStore, "users"|"om"|"peds"|"hitos"|"agendas"|"minutas"|"presu"|"provs"|"reminders"|"projects"|"projTasks"|"taskTemplates"|"projBudgets"|"inventory"|"invMaint"|"invDist"|"bookings"|"sponsors"|"sponMsgs"|"sponDeliveries"|"dbNotifs">>) => void;
+  setAll: (data: Partial<Pick<DataStore, "users"|"om"|"peds"|"hitos"|"agendas"|"minutas"|"presu"|"provs"|"reminders"|"projects"|"projTasks"|"taskTemplates"|"projBudgets"|"inventory"|"invMaint"|"invDist"|"bookings"|"sponsors"|"sponMsgs"|"sponDeliveries"|"dbNotifs"|"hkSesiones"|"hkRegistros"|"hkPartidos"|"hkConvocadas"|"hkEventos"|"hkCalendario">>) => void;
 
   // Functional setters (same API as useState setters)
   sUs: Setter<any>;
@@ -53,6 +60,13 @@ interface DataStore {
   sSponDeliveries: Setter<any>;
   sDbNotifs: Setter<any>;
   sNotifPrefs: (fn: (prev: any) => any) => void;
+  // Phase 2
+  sHkSesiones: Setter<any>;
+  sHkRegistros: Setter<any>;
+  sHkPartidos: Setter<any>;
+  sHkConvocadas: Setter<any>;
+  sHkEventos: Setter<any>;
+  sHkCalendario: Setter<any>;
 
   // Reset all data (logout)
   clear: () => void;
@@ -83,6 +97,12 @@ export const useDataStore = create<DataStore>((set) => ({
   sponDeliveries: empty,
   dbNotifs: empty,
   notifPrefs: null,
+  hkSesiones: empty,
+  hkRegistros: empty,
+  hkPartidos: empty,
+  hkConvocadas: empty,
+  hkEventos: empty,
+  hkCalendario: empty,
 
   setAll: (data) => set(data),
 
@@ -108,6 +128,12 @@ export const useDataStore = create<DataStore>((set) => ({
   sSponDeliveries: (fn) => set((s) => ({ sponDeliveries: fn(s.sponDeliveries) })),
   sDbNotifs: (fn) => set((s) => ({ dbNotifs: fn(s.dbNotifs) })),
   sNotifPrefs: (fn) => set((s) => ({ notifPrefs: fn(s.notifPrefs) })),
+  sHkSesiones: (fn) => set((s) => ({ hkSesiones: fn(s.hkSesiones) })),
+  sHkRegistros: (fn) => set((s) => ({ hkRegistros: fn(s.hkRegistros) })),
+  sHkPartidos: (fn) => set((s) => ({ hkPartidos: fn(s.hkPartidos) })),
+  sHkConvocadas: (fn) => set((s) => ({ hkConvocadas: fn(s.hkConvocadas) })),
+  sHkEventos: (fn) => set((s) => ({ hkEventos: fn(s.hkEventos) })),
+  sHkCalendario: (fn) => set((s) => ({ hkCalendario: fn(s.hkCalendario) })),
 
   clear: () => set({
     users: empty,
@@ -132,5 +158,11 @@ export const useDataStore = create<DataStore>((set) => ({
     sponDeliveries: empty,
     dbNotifs: empty,
     notifPrefs: null,
+    hkSesiones: empty,
+    hkRegistros: empty,
+    hkPartidos: empty,
+    hkConvocadas: empty,
+    hkEventos: empty,
+    hkCalendario: empty,
   }),
 }));
