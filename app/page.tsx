@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { T, TD, AREAS, DEPTOS, ROLES, RK, DIV, TIPOS, ST, SC, AGT, MINSECS, PST, PSC, MONEDAS, RUBROS, fn, isOD, daysDiff, PJ_ST, PJ_PR, FREQ, INV_CAT, INV_COND, BOOK_FAC, BOOK_ST, SPON_TIER, SPON_ST } from "@/lib/constants";
 import type { Profile, Task, TaskMessage, OrgMember as OrgMemberType, Milestone, Agenda, Minuta, Presupuesto, Proveedor } from "@/lib/supabase/types";
 import { notify, fetchNotifications, markRead } from "@/lib/notifications";
-import { exportCSV, exportPDF, exportICal, exportMinutaPDF, exportMinutaWord, exportReportPDF, exportProjectPDF } from "@/lib/export";
+import { exportCSV, exportPDF, exportICal, exportMinutaPDF, exportMinutaWord, exportReportPDF, exportProjectPDF, exportAuditPDF } from "@/lib/export";
 import { useRealtime } from "@/lib/realtime";
 import { paginate } from "@/lib/pagination";
 import { uploadFile, getFileIcon, formatFileSize } from "@/lib/storage";
@@ -55,21 +55,59 @@ const rlv=(role:string)=>ROLES[role]?.lv||0;
 /* ── INPUT SANITIZER (XSS prevention) ── */
 const sanitize=(s:string)=>s.replace(/<\/?[^>]+(>|$)/g,"").replace(/javascript:/gi,"").replace(/on\w+\s*=/gi,"").trim();
 
-/* ── PUSH NOTIFICATIONS HOOK ── */
+/* ── PUSH NOTIFICATIONS HOOK (Web Push via Service Worker) ── */
+const VAPID_KEY=process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY||"";
+function urlBase64ToUint8Array(base64String:string){
+  const padding="=".repeat((4-base64String.length%4)%4);
+  const base64=(base64String+padding).replace(/-/g,"+").replace(/_/g,"/");
+  const raw=atob(base64);const out=new Uint8Array(raw.length);
+  for(let i=0;i<raw.length;++i)out[i]=raw.charCodeAt(i);
+  return out;
+}
+async function subscribePush(reg:ServiceWorkerRegistration,token:string){
+  try{
+    const sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlBase64ToUint8Array(VAPID_KEY)});
+    await fetch("/api/push/subscribe",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({subscription:sub.toJSON()})});
+    return true;
+  }catch{return false;}
+}
 function usePushNotifs(user:any,peds:any[]){
   const [pushEnabled,sPushEnabled]=useState(false);
+  /* On login, check existing subscription or auto-subscribe if permission already granted */
   useEffect(()=>{
-    if(!user||!("Notification" in window))return;
-    sPushEnabled(Notification.permission==="granted");
+    if(!user||!("Notification" in window)||!("serviceWorker" in navigator)||!VAPID_KEY)return;
+    const init=async()=>{
+      const perm=Notification.permission;
+      if(perm==="denied")return;
+      const reg=await navigator.serviceWorker.ready;
+      const existing=await reg.pushManager.getSubscription();
+      if(existing){sPushEnabled(true);return;}
+      if(perm==="granted"){
+        const{data:{session}}=await supabase.auth.getSession();
+        if(session?.access_token){
+          const ok=await subscribePush(reg,session.access_token);
+          sPushEnabled(ok);
+        }
+      }
+    };
+    init();
   },[user]);
+  /* Request push permission + subscribe */
   const requestPush=async()=>{
-    if(!("Notification" in window))return;
+    if(!("Notification" in window)||!("serviceWorker" in navigator)||!VAPID_KEY)return;
     const perm=await Notification.requestPermission();
-    sPushEnabled(perm==="granted");
+    if(perm!=="granted")return;
+    const reg=await navigator.serviceWorker.ready;
+    const{data:{session}}=await supabase.auth.getSession();
+    if(session?.access_token){
+      const ok=await subscribePush(reg,session.access_token);
+      sPushEnabled(ok);
+    }
   };
+  /* sendPush kept for local fallback (e.g. overdue check while tab open) */
   const sendPush=(title:string,body:string,icon?:string)=>{
     if(pushEnabled&&document.hidden){
-      new Notification(title,{body,icon:icon||"/logo.jpg",badge:"/logo.jpg"});
+      try{new Notification(title,{body,icon:icon||"/logo.jpg",badge:"/logo.jpg"});}catch{}
     }
   };
   /* Check for overdue tasks every 5 minutes */
@@ -497,6 +535,9 @@ export default function App(){
   /* Group dbNotifs by date — useMemo MUST be before early returns */
   const ntGrouped=useMemo(()=>{const map=new Map<string,any[]>();dbNotifs.forEach((n:any)=>{const key=ntDateLabel(n.created_at);if(!map.has(key))map.set(key,[]);map.get(key)!.push(n);});return Array.from(map.entries());},[dbNotifs]);
 
+  /* Expose audit PDF export on window for console usage */
+  useEffect(()=>{(window as any).exportAuditPDF=()=>exportAuditPDF(users);return()=>{delete (window as any).exportAuditPDF;};},[users]);
+
   if(!authChecked) return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:colors.g1}}><div style={{fontSize:14,color:colors.g4}}>Cargando...</div></div>;
   if(!user) return <Login onLogin={(u:any)=>sU(u)} mob={mob}/>;
 
@@ -601,7 +642,7 @@ export default function App(){
             onSponMsg={async(sponsorId:number,txt:string)=>{try{const safe=sanitize(txt);if(!safe)return;const ts=new Date().toISOString();const opt={id:Date.now(),sponsor_id:sponsorId,user_id:user.id,user_name:fn(user),content:safe,type:"msg",created_at:ts};sSponMsgs(p=>[...p,opt]);await supabase.from("sponsor_messages").insert({sponsor_id:sponsorId,user_id:user.id,user_name:fn(user),content:safe,type:"msg"});/* @mention notifications */const mentionRx=/@([\w\s]+?)(?=\s@|$)/g;let match;while((match=mentionRx.exec(safe))!==null){const mName=match[1].trim();const mUser=users.find((u:any)=>(fn(u)).toLowerCase()===mName.toLowerCase());if(mUser&&mUser.id!==user.id){sendNotif(mUser.id,"Te mencionaron en sponsor",safe.slice(0,80),"info");}}}catch(e:any){showT("Error al enviar mensaje","err");}}}
           />}
           {/* Proyectos */}
-          {vw==="proyectos"&&<ProyectosView user={user} mob={mob}
+          {vw==="proyectos"&&!isPersonal&&<ProyectosView user={user} mob={mob} filteredProjects={(isAd||user.role==="coordinador")?projects:projects.filter((p:any)=>p.created_by===user.id||projTasks.some((t:any)=>t.project_id===p.id&&t.assignee_id===user.id))}
             onAddProject={async(p:any)=>{try{const row={name:p.name,description:p.description||"",created_by:user.id,created_by_name:fn(user),status:p.status||"borrador"};const{data,error}=await supabase.from("projects").insert(row).select().single();if(error)throw new Error(error.message);if(data)sProjects(prev=>[data,...prev]);showT(p.status==="enviado"?"Proyecto enviado":"Borrador guardado");}catch(e:any){showT(e.message||"Error","err");}}}
             onUpdProject={async(id:number,d:any)=>{try{sProjects(prev=>prev.map(p=>p.id===id?{...p,...d}:p));await supabase.from("projects").update(d).eq("id",id);showT("Proyecto actualizado");}catch(e:any){showT(e.message||"Error","err");}}}
             onDelProject={async(id:number)=>{try{sProjects(prev=>prev.filter(p=>p.id!==id));sProjTasks(prev=>prev.filter((t:any)=>t.project_id!==id));await supabase.from("projects").delete().eq("id",id);showT("Proyecto eliminado");}catch(e:any){showT(e.message||"Error","err");}}}

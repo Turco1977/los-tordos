@@ -501,6 +501,104 @@ export async function exportMapImage(mapEl: HTMLElement, date: string, share: bo
   }
 }
 
+/* ── AUDIT PDF (permission matrix) ── */
+type AuditUser = { id: string; n: string; a: string; role: string; email?: string };
+
+export async function exportAuditPDF(users: AuditUser[]) {
+  const esc = (s: string) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  const ROLES: Record<string,{l:string;lv:number}> = {
+    superadmin:{l:"Super Admin",lv:5},admin:{l:"Administrador",lv:4},coordinador:{l:"Coordinador",lv:3},
+    embudo:{l:"Compras/Tesorería",lv:3},usuario:{l:"Usuario",lv:2},enlace:{l:"Enlace",lv:1},manager:{l:"Manager",lv:1}
+  };
+
+  const SECTIONS: {name:string;roles:string[]}[] = [
+    {name:"Plan 2035",roles:["superadmin","admin","coordinador","embudo","usuario","enlace","manager"]},
+    {name:"Organigrama",roles:["superadmin","admin","coordinador","embudo","usuario","enlace","manager"]},
+    {name:"Perfiles",roles:["superadmin","admin","coordinador","embudo","usuario","enlace","manager"]},
+    {name:"Presupuestos",roles:["superadmin","admin","coordinador","embudo"]},
+    {name:"Reuniones",roles:["superadmin","admin","coordinador"]},
+    {name:"Proyectos",roles:["superadmin","admin","coordinador","embudo"]},
+    {name:"Recurrentes",roles:["superadmin","admin","coordinador"]},
+    {name:"Comunicar",roles:["superadmin","admin","coordinador"]},
+    {name:"Inventario",roles:["superadmin","admin","coordinador"]},
+    {name:"Espacios",roles:["superadmin","admin","coordinador","embudo","usuario","enlace","manager"]},
+    {name:"Sponsors",roles:["superadmin","admin","coordinador","embudo"]},
+  ];
+
+  const ACTIONS: {action:string;roles:string[]}[] = [
+    {action:"Crear tarea (pedido)",roles:["superadmin","admin","coordinador","embudo","usuario","enlace","manager"]},
+    {action:"Aprobar/rechazar tarea",roles:["superadmin","admin","coordinador"]},
+    {action:"Crear presupuesto",roles:["superadmin","admin","coordinador","embudo"]},
+    {action:"Aprobar presupuesto",roles:["superadmin","admin"]},
+    {action:"Crear proyecto",roles:["superadmin","admin","coordinador","embudo"]},
+    {action:"Crear reunión/minuta",roles:["superadmin","admin","coordinador"]},
+    {action:"Gestionar sponsors",roles:["superadmin","admin","coordinador","embudo"]},
+    {action:"Gestionar inventario",roles:["superadmin","admin","coordinador"]},
+    {action:"Gestionar usuarios",roles:["superadmin"]},
+    {action:"Ver dashboard global",roles:["superadmin","admin","coordinador","embudo"]},
+    {action:"Ver solo sus tareas",roles:["usuario","enlace","manager"]},
+  ];
+
+  const allRoles = Object.keys(ROLES);
+  const check = "✅";
+  const cross = "—";
+
+  const html = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:12px;color:#1a1a1a;line-height:1.5;padding:10px;">
+<div style="text-align:center;border-bottom:3px solid #0A1628;padding-bottom:12px;margin-bottom:16px;">
+  <div style="font-size:10px;color:#999;text-transform:uppercase;letter-spacing:1px;">Los Tordos Rugby Club</div>
+  <h1 style="font-size:20px;margin:4px 0 0;color:#0A1628;">AUDITORÍA DE PERMISOS</h1>
+  <div style="font-size:11px;color:#555;margin-top:4px;">Matriz completa de roles, vistas y acciones</div>
+</div>
+
+<!-- Tabla 1: Roles -->
+<h2 style="font-size:14px;color:#0A1628;border-bottom:2px solid #0A1628;padding-bottom:4px;margin:16px 0 8px;">1. Roles del sistema</h2>
+<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:16px;">
+<thead><tr><th style="background:#0A1628;color:#fff;padding:5px 8px;text-align:left;font-size:10px;">Rol</th><th style="background:#0A1628;color:#fff;padding:5px 8px;text-align:left;font-size:10px;">Nombre</th><th style="background:#0A1628;color:#fff;padding:5px 8px;text-align:center;font-size:10px;">Nivel</th></tr></thead>
+<tbody>${allRoles.map((r, i) => `<tr style="background:${i % 2 ? "#f9f9f9" : "#fff"}"><td style="padding:5px 8px;border-bottom:1px solid #e5e5e5;font-weight:600;">${esc(r)}</td><td style="padding:5px 8px;border-bottom:1px solid #e5e5e5;">${esc(ROLES[r].l)}</td><td style="padding:5px 8px;border-bottom:1px solid #e5e5e5;text-align:center;">${ROLES[r].lv}</td></tr>`).join("")}</tbody></table>
+
+<!-- Tabla 2: Vistas por rol -->
+<h2 style="font-size:14px;color:#0A1628;border-bottom:2px solid #0A1628;padding-bottom:4px;margin:16px 0 8px;">2. Secciones visibles por rol</h2>
+<table style="width:100%;border-collapse:collapse;font-size:10px;margin-bottom:16px;">
+<thead><tr><th style="background:#0A1628;color:#fff;padding:5px 6px;text-align:left;font-size:9px;">Sección</th>${allRoles.map(r => `<th style="background:#0A1628;color:#fff;padding:5px 4px;text-align:center;font-size:8px;writing-mode:vertical-lr;min-width:24px;">${esc(ROLES[r].l)}</th>`).join("")}</tr></thead>
+<tbody>${SECTIONS.map((s, i) => `<tr style="background:${i % 2 ? "#f9f9f9" : "#fff"}"><td style="padding:4px 6px;border-bottom:1px solid #e5e5e5;font-weight:600;">${esc(s.name)}</td>${allRoles.map(r => `<td style="padding:4px 4px;border-bottom:1px solid #e5e5e5;text-align:center;${s.roles.includes(r) ? "color:#059669;" : "color:#ccc;"}">${s.roles.includes(r) ? check : cross}</td>`).join("")}</tr>`).join("")}</tbody></table>
+
+<!-- Tabla 3: Acciones por rol -->
+<h2 style="font-size:14px;color:#0A1628;border-bottom:2px solid #0A1628;padding-bottom:4px;margin:16px 0 8px;">3. Acciones permitidas por rol</h2>
+<table style="width:100%;border-collapse:collapse;font-size:10px;margin-bottom:16px;">
+<thead><tr><th style="background:#0A1628;color:#fff;padding:5px 6px;text-align:left;font-size:9px;">Acción</th>${allRoles.map(r => `<th style="background:#0A1628;color:#fff;padding:5px 4px;text-align:center;font-size:8px;writing-mode:vertical-lr;min-width:24px;">${esc(ROLES[r].l)}</th>`).join("")}</tr></thead>
+<tbody>${ACTIONS.map((a, i) => `<tr style="background:${i % 2 ? "#f9f9f9" : "#fff"}"><td style="padding:4px 6px;border-bottom:1px solid #e5e5e5;font-weight:600;">${esc(a.action)}</td>${allRoles.map(r => `<td style="padding:4px 4px;border-bottom:1px solid #e5e5e5;text-align:center;${a.roles.includes(r) ? "color:#059669;" : "color:#ccc;"}">${a.roles.includes(r) ? check : cross}</td>`).join("")}</tr>`).join("")}</tbody></table>
+
+<!-- Tabla 4: Usuarios actuales -->
+<h2 style="font-size:14px;color:#0A1628;border-bottom:2px solid #0A1628;padding-bottom:4px;margin:16px 0 8px;">4. Usuarios registrados (${users.length})</h2>
+<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:16px;">
+<thead><tr><th style="background:#0A1628;color:#fff;padding:5px 8px;text-align:left;font-size:10px;">#</th><th style="background:#0A1628;color:#fff;padding:5px 8px;text-align:left;font-size:10px;">Nombre</th><th style="background:#0A1628;color:#fff;padding:5px 8px;text-align:left;font-size:10px;">Rol</th><th style="background:#0A1628;color:#fff;padding:5px 8px;text-align:left;font-size:10px;">Email</th></tr></thead>
+<tbody>${[...users].sort((a,b) => (ROLES[b.role]?.lv||0) - (ROLES[a.role]?.lv||0)).map((u, i) => `<tr style="background:${i % 2 ? "#f9f9f9" : "#fff"}"><td style="padding:4px 8px;border-bottom:1px solid #e5e5e5;">${i + 1}</td><td style="padding:4px 8px;border-bottom:1px solid #e5e5e5;">${esc((u.n || "") + " " + (u.a || ""))}</td><td style="padding:4px 8px;border-bottom:1px solid #e5e5e5;font-weight:600;">${esc(ROLES[u.role]?.l || u.role)}</td><td style="padding:4px 8px;border-bottom:1px solid #e5e5e5;font-size:10px;">${esc(u.email || "–")}</td></tr>`).join("")}</tbody></table>
+
+<div style="margin-top:20px;text-align:center;font-size:9px;color:#999;border-top:1px solid #e5e5e5;padding-top:8px;">Los Tordos Rugby Club · Auditoría de Permisos · Generado: ${new Date().toLocaleDateString("es-AR")} ${new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}</div>
+</div>`;
+
+  const el = document.createElement("div");
+  el.innerHTML = html;
+  el.style.position = "fixed";
+  el.style.left = "-9999px";
+  el.style.width = "210mm";
+  document.body.appendChild(el);
+
+  try {
+    const html2pdf = await loadHtml2Pdf();
+    await html2pdf().set({
+      margin: [8, 8, 8, 8],
+      filename: `Auditoria_Permisos_${new Date().toISOString().slice(0, 10)}.pdf`,
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: "mm", format: "a4", orientation: "landscape" }
+    }).from(el).save();
+  } finally {
+    document.body.removeChild(el);
+  }
+}
+
 /* ── iCal ── */
 export function exportICal(filename: string, events: {title:string;date:string;description?:string;type?:string}[]) {
   const esc = (s: string) => String(s ?? "").replace(/[\;,]/g, (m) => "\\" + m).replace(/\n/g, "\\n");

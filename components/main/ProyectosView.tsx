@@ -16,8 +16,9 @@ const fmtAmt=(n:number)=>n.toLocaleString("es-AR");
 const parseBudgetOpts=(b:any):any[]=>Array.isArray(b.options)?b.options:(()=>{try{return JSON.parse(b.options)||[];}catch{return[];}})();
 const parseBudgetFiles=(v:any):string[]=>{if(!v)return[];if(Array.isArray(v))return v.filter(Boolean);if(typeof v==="string"){try{const arr=JSON.parse(v);if(Array.isArray(arr))return arr.filter(Boolean);}catch{}return v.trim()?[v]:[];}return[];};
 
-export function ProyectosView({user,mob,onAddProject,onUpdProject,onDelProject,onAddTask,onUpdTask,onDelTask,onAddBudget,onUpdBudget,onDelBudget}:any){
-  const projects = useDataStore(s => s.projects);
+export function ProyectosView({user,mob,onAddProject,onUpdProject,onDelProject,onAddTask,onUpdTask,onDelTask,onAddBudget,onUpdBudget,onDelBudget,filteredProjects}:any){
+  const allProjects = useDataStore(s => s.projects);
+  const projects = filteredProjects || allProjects;
   const projTasks = useDataStore(s => s.projTasks);
   const projBudgets = useDataStore(s => s.projBudgets);
   const users = useDataStore(s => s.users);
