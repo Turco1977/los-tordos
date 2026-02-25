@@ -46,9 +46,6 @@ import { ReservasView } from "@/components/main/ReservasView";
 import { SponsorsView } from "@/components/main/SponsorsView";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { NotifPrefs } from "@/components/main/NotifPrefs";
-import { AsistenciaManager } from "@/components/main/AsistenciaManager";
-import { PartidosManager } from "@/components/main/PartidosManager";
-import { HockeyCalendario } from "@/components/main/HockeyCalendario";
 
 const supabase = createClient();
 const TODAY = new Date().toISOString().slice(0,10);
@@ -138,7 +135,7 @@ function notifs(user:any,peds:any[]){const n:any[]=[];if(["coordinador","admin",
 /* ── MAIN APP ── */
 export default function App(){
   const areas=AREAS;const deptos=DEPTOS;
-  const {users,om,peds,hitos,agendas,minutas,presu,provs,reminders,projects,projTasks,taskTemplates,projBudgets,inventory,invMaint,invDist,bookings,sponsors,sponMsgs,sponDeliveries,dbNotifs,notifPrefs,hkSesiones,hkPartidos,hkCalendario,setAll,sUs,sOm,sPd,sHi,sAgs,sMins,sPr,sPv,sRems,sProjects,sProjTasks,sTaskTemplates,sProjBudgets,sInventory,sInvMaint,sInvDist,sBookings,sSponsors,sSponMsgs,sSponDeliveries,sDbNotifs,sNotifPrefs,sHkSesiones,sHkPartidos,sHkConvocadas,sHkEventos,sHkCalendario,clear:clearStore}=useDataStore();
+  const {users,om,peds,hitos,agendas,minutas,presu,provs,reminders,projects,projTasks,taskTemplates,projBudgets,inventory,invMaint,invDist,bookings,sponsors,sponMsgs,sponDeliveries,dbNotifs,notifPrefs,setAll,sUs,sOm,sPd,sHi,sAgs,sMins,sPr,sPv,sRems,sProjects,sProjTasks,sTaskTemplates,sProjBudgets,sInventory,sInvMaint,sInvDist,sBookings,sSponsors,sSponMsgs,sSponDeliveries,sDbNotifs,sNotifPrefs,clear:clearStore}=useDataStore();
   const [user,sU]=useState<any>(null);const [authChecked,sAuthChecked]=useState(false);
   const [vw,sVw_]=useState("dash");const [prevVw,sPrevVw]=useState<string|null>(null);
   const sVw=(v:string)=>{sPrevVw(vw);sVw_(v);};const [sel,sSl]=useState<any>(null);const [aA,sAA]=useState<number|null>(null);const [aD,sAD]=useState<number|null>(null);const [sbCol,sSbCol]=useState(false);const [search,sSr]=useState("");const [shNot,sShNot]=useState(false);const [preAT,sPreAT]=useState<any>(null);const [showPw,sShowPw]=useState(false);const [toast,sToast]=useState<{msg:string;type:"ok"|"err"}|null>(null);const [kpiFilt,sKpiFilt]=useState<string|null>(null);
@@ -154,7 +151,7 @@ export default function App(){
 
   /* ── Fetch all data from Supabase ── */
   const fetchAll = useCallback(async()=>{
-    const [pRes,mRes,omRes,msRes,agRes,miRes,prRes,pvRes,remRes,projRes,ptRes,ttRes,invRes,bkRes,spRes,pbRes,imRes,idRes,sdRes,hkSesRes,hkPartRes,hkCalRes]=await Promise.all([
+    const [pRes,mRes,omRes,msRes,agRes,miRes,prRes,pvRes,remRes,projRes,ptRes,ttRes,invRes,bkRes,spRes,pbRes,imRes,idRes,sdRes]=await Promise.all([
       supabase.from("profiles").select("*"),
       supabase.from("tasks").select("*").order("id",{ascending:false}).limit(500),
       supabase.from("org_members").select("*"),
@@ -174,9 +171,6 @@ export default function App(){
       supabase.from("inventory_maintenance").select("*").order("id",{ascending:false}),
       supabase.from("inventory_distributions").select("*").order("id",{ascending:false}),
       supabase.from("sponsor_deliveries").select("*").order("id",{ascending:false}),
-      supabase.from("asistencia_sesiones").select("*").order("fecha",{ascending:false}).limit(100),
-      supabase.from("partidos").select("*").order("fecha",{ascending:false}).limit(100),
-      supabase.from("calendario_eventos").select("*").order("fecha",{ascending:true}).limit(200),
     ]);
     const errors:string[]=[];
     if(pRes.error) errors.push("Perfiles: "+pRes.error.message);
@@ -217,9 +211,6 @@ export default function App(){
       ...(sdRes.data?{sponDeliveries:sdRes.data}:{}),
       ...(pbRes.data?{projBudgets:pbRes.data}:{}),
       ...(mappedPeds?{peds:mappedPeds}:{}),
-      ...(hkSesRes.data?{hkSesiones:hkSesRes.data}:{}),
-      ...(hkPartRes.data?{hkPartidos:hkPartRes.data}:{}),
-      ...(hkCalRes.data?{hkCalendario:hkCalRes.data}:{}),
     });
     /* Fetch notification preferences for current user */
     const{data:{user:authU}}=await supabase.auth.getUser();
@@ -370,29 +361,6 @@ export default function App(){
       onDelete:(row:any)=>sProjBudgets(p=>p.filter(x=>x.id!==row.id)),
     },
     {table:"notifications",onChange:()=>refreshNotifs()},
-    {table:"asistencia_sesiones",
-      onInsert:(row:any)=>sHkSesiones(p=>[row,...p]),
-      onUpdate:(row:any)=>sHkSesiones(p=>p.map(x=>x.id===row.id?row:x)),
-      onDelete:(row:any)=>sHkSesiones(p=>p.filter(x=>x.id!==row.id)),
-    },
-    {table:"partidos",
-      onInsert:(row:any)=>sHkPartidos(p=>[row,...p]),
-      onUpdate:(row:any)=>sHkPartidos(p=>p.map(x=>x.id===row.id?row:x)),
-      onDelete:(row:any)=>sHkPartidos(p=>p.filter(x=>x.id!==row.id)),
-    },
-    {table:"partido_convocadas",
-      onInsert:(row:any)=>sHkConvocadas(p=>[row,...p]),
-      onDelete:(row:any)=>sHkConvocadas(p=>p.filter(x=>x.id!==row.id)),
-    },
-    {table:"partido_eventos",
-      onInsert:(row:any)=>sHkEventos(p=>[row,...p]),
-      onDelete:(row:any)=>sHkEventos(p=>p.filter(x=>x.id!==row.id)),
-    },
-    {table:"calendario_eventos",
-      onInsert:(row:any)=>sHkCalendario(p=>[row,...p]),
-      onUpdate:(row:any)=>sHkCalendario(p=>p.map(x=>x.id===row.id?row:x)),
-      onDelete:(row:any)=>sHkCalendario(p=>p.filter(x=>x.id!==row.id)),
-    },
   ],!!user&&offlineState.isOnline);
 
   /* ── Auth token helper for API calls ── */
@@ -579,9 +547,7 @@ export default function App(){
       {id:"nav-inv",label:"Inventario",icon:"📦",keywords:"equipo,stock,material",action:()=>sVw("inventario")},
       {id:"nav-res",label:"Espacios",icon:"🏟️",keywords:"cancha,booking,reserva,espacio",action:()=>sVw("reservas")},
       {id:"nav-spon",label:"Sponsors",icon:"🥇",keywords:"sponsor,patrocinador,crm",action:()=>sVw("sponsors")},
-      {id:"nav-hk-asist",label:"Asistencia Hockey",icon:"📋",keywords:"asistencia,presente,hockey,qr",action:()=>sVw("hk-asist")},
-      {id:"nav-hk-partidos",label:"Partidos Hockey",icon:"🏑",keywords:"partido,hockey,gol,tarjeta,resultado",action:()=>sVw("hk-partidos")},
-      {id:"nav-hk-cal",label:"Calendario Hockey",icon:"📅",keywords:"calendario,hockey,evento",action:()=>sVw("hk-cal")},
+
     ];
     navItems.forEach(n=>items.push({...n,category:"nav"}));
     items.push({id:"act-new",label:"Nueva tarea",icon:"➕",category:"action",keywords:"crear,add,agregar",action:()=>sVw("new")});
@@ -618,7 +584,7 @@ export default function App(){
 
   let nav:any[]=[];
   if(isPersonal){nav=[{k:"my",l:"Mis Tareas",sh:true},{k:"cal",l:"📅 Calendario",sh:true},{k:"new",l:"+ Tarea",sh:true}];}
-  else{nav=[{k:"dash",l:"Dashboard",sh:true},{k:"tasks",l:"📋 Tareas",sh:true},{k:"kanban",l:"📊 Kanban",sh:true},{k:"feed",l:"📰 Actividad",sh:true},{k:"cal",l:"📅 Calendario",sh:true},{k:"hk-asist",l:"🏑 Asistencia",sh:true},{k:"hk-partidos",l:"🏑 Partidos",sh:true},{k:"hk-cal",l:"🏑 Calendario H",sh:true},{k:"new",l:"+ Tarea",sh:true}];}
+  else{nav=[{k:"dash",l:"Dashboard",sh:true},{k:"tasks",l:"📋 Tareas",sh:true},{k:"kanban",l:"📊 Kanban",sh:true},{k:"feed",l:"📰 Actividad",sh:true},{k:"cal",l:"📅 Calendario",sh:true},{k:"new",l:"+ Tarea",sh:true}];}
 
   /* ── addLog: optimistic local + persist to Supabase ── */
   const addLog=async(id:number,uid:string,by:string,act:string,t?:string)=>{
@@ -738,10 +704,7 @@ export default function App(){
             onAddReminder={async(r:any)=>{try{const row:any={user_id:user.id,user_name:fn(user),title:r.title,date:r.date,description:r.description||"",color:r.color||"#3B82F6",recurrence:r.recurrence||"none",assigned_to:r.assigned_to||null,assigned_name:r.assigned_name||""};const{data,error}=await supabase.from("reminders").insert(row).select().single();if(error)throw new Error(error.message);sRems(p=>[...(data?[data]:[]),...p]);showT("Recordatorio creado");}catch(e:any){showT(e.message||"Error","err");}}}
             onDelReminder={async(id:number)=>{try{sRems(p=>p.filter(x=>x.id!==id));await supabase.from("reminders").delete().eq("id",id);showT("Recordatorio eliminado");}catch(e:any){showT(e.message||"Error","err");}}}
           />}
-          {/* Phase 2: Hockey */}
-          {vw==="hk-asist"&&<AsistenciaManager user={user} mob={mob} getToken={getToken} showT={showT}/>}
-          {vw==="hk-partidos"&&<PartidosManager user={user} mob={mob} getToken={getToken} showT={showT}/>}
-          {vw==="hk-cal"&&<HockeyCalendario user={user} mob={mob} getToken={getToken} showT={showT} onNavAsist={(s:any,date?:string)=>{sVw("hk-asist");}} onNavPartido={(p:any,date?:string)=>{sVw("hk-partidos");}}/>}
+
           {vw==="presu"&&(isAd||user.role==="coordinador"||user.role==="embudo")&&<div>{prevVw==="cal"&&<button onClick={()=>sVw("cal")} style={{display:"inline-flex",alignItems:"center",gap:4,padding:"5px 12px",borderRadius:8,border:"1px solid "+colors.g3,background:colors.g1,color:colors.nv,fontSize:11,fontWeight:600,cursor:"pointer",marginBottom:10}}>← Volver al Calendario</button>}<PresView user={user} mob={mob}
             onSel={(p:any)=>sSl(p)}
             onAddPresu={async(d:any)=>{try{const row=presuToDB(d);const{data,error}=await supabase.from("presupuestos").insert(row).select().single();if(error)throw new Error(error.message);sPr(p=>[presuFromDB(data),...p]);showT("Presupuesto agregado");}catch(e:any){showT(e.message||"Error","err");}}}

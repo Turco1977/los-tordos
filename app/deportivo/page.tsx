@@ -7,7 +7,10 @@ import { exportCSV, exportPDF } from "@/lib/export";
 import { useRealtime } from "@/lib/realtime";
 import { useTheme, darkCSS } from "@/lib/theme";
 import { ThemeCtx, useC } from "@/lib/theme-context";
-import { Toast, useMobile, Btn, Card } from "@/components/ui";
+import { Toast, useMobile, Btn, Card, Ring } from "@/components/ui";
+import { AsistenciaManager } from "@/components/main/AsistenciaManager";
+import { PartidosManager } from "@/components/main/PartidosManager";
+import { HockeyCalendario } from "@/components/main/HockeyCalendario";
 
 const supabase = createClient();
 const TODAY = new Date().toISOString().slice(0,10);
@@ -296,6 +299,9 @@ export default function DeportivoApp(){
     {k:"comm",l:"📢",f:"Comunicación"},
     {k:"cuotas",l:"💰",f:"Cuotas"},
     ...(canManageStaff?[{k:"perfiles",l:"👤",f:"Staff"}]:[]),
+    {k:"hk-asist",l:"🏑",f:"Asistencia"},
+    {k:"hk-partidos",l:"🏑",f:"Partidos"},
+    {k:"hk-cal",l:"📅",f:"Calendario H"},
   ];
 
   /* ══════════════════════════ HANDLERS ══════════════════════════ */
@@ -518,6 +524,7 @@ export default function DeportivoApp(){
   /* ── Cuerpo técnico from constants ── */
 
   const navTo=(k:string)=>{sTab(k);sShowForm(null);sSelAth(null);sSelInj(null);if(mob)sSbOpen(false);};
+  const getToken=async()=>{const{data:{session}}=await supabase.auth.getSession();return session?.access_token||"";};
   const sbBg=isDark?"#1E293B":T.nv;
 
   const sbContent=(<div style={{flex:1,overflowY:"auto" as const,padding:"8px 6px"}}>
@@ -728,6 +735,11 @@ export default function DeportivoApp(){
 
       {/* ════════ PERFILES ════════ */}
       {tab==="perfiles"&&canManageStaff&&<PerfilesTab staffList={staffList} onUpdate={onUpdStaff} onDel={onDelStaff} mob={mob} showT={showT} fetchAll={fetchAll} hlStaff={hlStaff} clearHl={()=>sHlStaff(null)}/>}
+
+      {/* ════════ HOCKEY FASE 2 ════════ */}
+      {tab==="hk-asist"&&<AsistenciaManager user={user} mob={mob} getToken={getToken} showT={showT}/>}
+      {tab==="hk-partidos"&&<PartidosManager user={user} mob={mob} getToken={getToken} showT={showT}/>}
+      {tab==="hk-cal"&&<HockeyCalendario user={user} mob={mob} getToken={getToken} showT={showT} onNavAsist={()=>sTab("hk-asist")} onNavPartido={()=>sTab("hk-partidos")}/>}
 
     </div>
     </div>{/* close main content flex:1 */}
