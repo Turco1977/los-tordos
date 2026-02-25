@@ -129,6 +129,10 @@ export const INV_COND:Record<string,{l:string;c:string;bg:string}>={
   reparar:{l:"A Reparar",c:"#DC2626",bg:"#FEE2E2"},
   baja:{l:"De Baja",c:"#6B7280",bg:"#F3F4F6"}
 };
+export const INV_TYPE:Record<string,{l:string;i:string;c:string}>={activo:{l:"Activo Fijo",i:"🏗️",c:"#F59E0B"},lote:{l:"Material Deportivo",i:"🏉",c:"#C8102E"}};
+export const INV_MAINT_TYPE:Record<string,{l:string;i:string;c:string}>={service:{l:"Service",i:"🔧",c:"#3B82F6"},reparacion:{l:"Reparación",i:"🛠️",c:"#F59E0B"},inspeccion:{l:"Inspección",i:"🔍",c:"#10B981"}};
+export const INV_MAINT_FREQ:Record<string,{l:string;days:number}>={mensual:{l:"Mensual",days:30},trimestral:{l:"Trimestral",days:90},semestral:{l:"Semestral",days:180},anual:{l:"Anual",days:365}};
+export const INV_DIST_ST:Record<string,{l:string;c:string;bg:string}>={activa:{l:"Activa",c:"#3B82F6",bg:"#DBEAFE"},cerrada:{l:"Cerrada",c:"#6B7280",bg:"#F3F4F6"}};
 
 // Reservas constants
 export const BOOK_FAC:Record<string,{l:string;i:string;c:string}>={

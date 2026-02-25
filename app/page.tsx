@@ -134,7 +134,7 @@ function notifs(user:any,peds:any[]){const n:any[]=[];if(["coordinador","admin",
 /* ── MAIN APP ── */
 export default function App(){
   const areas=AREAS;const deptos=DEPTOS;
-  const {users,om,peds,hitos,agendas,minutas,presu,provs,reminders,projects,projTasks,taskTemplates,projBudgets,inventory,bookings,sponsors,sponMsgs,dbNotifs,setAll,sUs,sOm,sPd,sHi,sAgs,sMins,sPr,sPv,sRems,sProjects,sProjTasks,sTaskTemplates,sProjBudgets,sInventory,sBookings,sSponsors,sSponMsgs,sDbNotifs,clear:clearStore}=useDataStore();
+  const {users,om,peds,hitos,agendas,minutas,presu,provs,reminders,projects,projTasks,taskTemplates,projBudgets,inventory,invMaint,invDist,bookings,sponsors,sponMsgs,dbNotifs,setAll,sUs,sOm,sPd,sHi,sAgs,sMins,sPr,sPv,sRems,sProjects,sProjTasks,sTaskTemplates,sProjBudgets,sInventory,sInvMaint,sInvDist,sBookings,sSponsors,sSponMsgs,sDbNotifs,clear:clearStore}=useDataStore();
   const [user,sU]=useState<any>(null);const [authChecked,sAuthChecked]=useState(false);
   const [vw,sVw_]=useState("dash");const [prevVw,sPrevVw]=useState<string|null>(null);
   const sVw=(v:string)=>{sPrevVw(vw);sVw_(v);};const [sel,sSl]=useState<any>(null);const [aA,sAA]=useState<number|null>(null);const [aD,sAD]=useState<number|null>(null);const [sbCol,sSbCol]=useState(false);const [search,sSr]=useState("");const [shNot,sShNot]=useState(false);const [preAT,sPreAT]=useState<any>(null);const [showPw,sShowPw]=useState(false);const [toast,sToast]=useState<{msg:string;type:"ok"|"err"}|null>(null);const [kpiFilt,sKpiFilt]=useState<string|null>(null);
@@ -150,7 +150,7 @@ export default function App(){
 
   /* ── Fetch all data from Supabase ── */
   const fetchAll = useCallback(async()=>{
-    const [pRes,mRes,omRes,msRes,agRes,miRes,prRes,pvRes,remRes,projRes,ptRes,ttRes,invRes,bkRes,spRes,pbRes]=await Promise.all([
+    const [pRes,mRes,omRes,msRes,agRes,miRes,prRes,pvRes,remRes,projRes,ptRes,ttRes,invRes,bkRes,spRes,pbRes,imRes,idRes]=await Promise.all([
       supabase.from("profiles").select("*"),
       supabase.from("tasks").select("*").order("id",{ascending:false}).limit(500),
       supabase.from("org_members").select("*"),
@@ -167,6 +167,8 @@ export default function App(){
       supabase.from("bookings").select("*").order("id",{ascending:false}),
       supabase.from("sponsors").select("*").order("id",{ascending:false}),
       supabase.from("project_budgets").select("*").order("id",{ascending:false}),
+      supabase.from("inventory_maintenance").select("*").order("id",{ascending:false}),
+      supabase.from("inventory_distributions").select("*").order("id",{ascending:false}),
     ]);
     const errors:string[]=[];
     if(pRes.error) errors.push("Perfiles: "+pRes.error.message);
@@ -199,6 +201,8 @@ export default function App(){
       ...(ptRes.data?{projTasks:ptRes.data}:{}),
       ...(ttRes.data?{taskTemplates:ttRes.data}:{}),
       ...(invRes.data?{inventory:invRes.data}:{}),
+      ...(imRes.data?{invMaint:imRes.data}:{}),
+      ...(idRes.data?{invDist:idRes.data}:{}),
       ...(bkRes.data?{bookings:bkRes.data}:{}),
       ...(spRes.data?{sponsors:spRes.data}:{}),
       ...(smRes.data?{sponMsgs:smRes.data}:{}),
@@ -216,7 +220,7 @@ export default function App(){
         presupuestos:prRes.data||[],proveedores:pvRes.data||[],
         reminders:remRes.data||[],projects:projRes.data||[],
         project_tasks:ptRes.data||[],task_templates:ttRes.data||[],
-        inventory:invRes.data||[],bookings:bkRes.data||[],
+        inventory:invRes.data||[],inventory_maintenance:imRes.data||[],inventory_distributions:idRes.data||[],bookings:bkRes.data||[],
         sponsors:spRes.data||[],project_budgets:pbRes.data||[],
       });
     }
@@ -251,6 +255,8 @@ export default function App(){
       project_tasks:(d:any[])=>sProjTasks(()=>d),
       task_templates:(d:any[])=>sTaskTemplates(()=>d),
       inventory:(d:any[])=>sInventory(()=>d),
+      inventory_maintenance:(d:any[])=>sInvMaint(()=>d),
+      inventory_distributions:(d:any[])=>sInvDist(()=>d),
       bookings:(d:any[])=>sBookings(()=>d),
       sponsors:(d:any[])=>sSponsors(()=>d),
       project_budgets:(d:any[])=>sProjBudgets(()=>d),
@@ -309,6 +315,16 @@ export default function App(){
       onInsert:(row:any)=>sInventory(p=>[row,...p]),
       onUpdate:(row:any)=>sInventory(p=>p.map(x=>x.id===row.id?row:x)),
       onDelete:(row:any)=>sInventory(p=>p.filter(x=>x.id!==row.id)),
+    },
+    {table:"inventory_maintenance",
+      onInsert:(row:any)=>sInvMaint(p=>[row,...p]),
+      onUpdate:(row:any)=>sInvMaint(p=>p.map(x=>x.id===row.id?row:x)),
+      onDelete:(row:any)=>sInvMaint(p=>p.filter(x=>x.id!==row.id)),
+    },
+    {table:"inventory_distributions",
+      onInsert:(row:any)=>sInvDist(p=>[row,...p]),
+      onUpdate:(row:any)=>sInvDist(p=>p.map(x=>x.id===row.id?row:x)),
+      onDelete:(row:any)=>sInvDist(p=>p.filter(x=>x.id!==row.id)),
     },
     {table:"bookings",
       onInsert:(row:any)=>sBookings(p=>[row,...p]),
@@ -597,7 +613,10 @@ export default function App(){
         </div>
         <div ref={mainRef} style={{flex:1,padding:mob?"12px 8px":"20px 16px",overflowY:"auto" as const,marginTop:4}}>
           {dataLoading?<div style={{display:"flex",flexDirection:"column" as const,gap:12,padding:16}}>{[1,2,3,4].map(i=><div key={i} style={{background:cardBg,borderRadius:14,padding:18,border:"1px solid "+colors.g2}}><div style={{height:12,width:i%2?"60%":"40%",background:colors.g2,borderRadius:6,marginBottom:10}}/><div style={{height:8,width:"80%",background:colors.g2,borderRadius:4,marginBottom:6}}/><div style={{height:8,width:"50%",background:colors.g2,borderRadius:4}}/></div>)}</div>:<>
-          {vw==="my"&&isPersonal&&<MyDash user={user} onSel={(p:any)=>sSl(p)} mob={mob} search={search}/>}
+          {vw==="my"&&isPersonal&&<MyDash user={user} onSel={(p:any)=>sSl(p)} mob={mob} search={search}
+            onUpdDist={async(id:number,d:any)=>{try{sInvDist(prev=>prev.map(x=>x.id===id?{...x,...d}:x));await supabase.from("inventory_distributions").update(d).eq("id",id);showT("Actualizado");}catch(e:any){showT(e.message||"Error","err");}}}
+            onNotifyAdmin={(title:string,msg:string)=>{const admins=users.filter((u:any)=>u.role==="admin"||u.role==="superadmin"||u.role==="coordinador");admins.forEach((a:any)=>sendNotif(a.id,title,msg,"info"));}}
+          />}
           {/* All Tasks View */}
           {vw==="tasks"&&!isPersonal&&(()=>{const myPeds=isAd?peds:user.role==="coordinador"?peds.filter((p:any)=>p.dId===user.dId||p.cId===user.id||p.asTo===user.id):user.role==="embudo"?peds.filter((p:any)=>p.rG||p.st===ST.E||p.cId===user.id||p.asTo===user.id):peds.filter((p:any)=>p.cId===user.id||p.asTo===user.id);const tot=myPeds.length,pe=myPeds.filter((p:any)=>p.st===ST.P).length,cu=myPeds.filter((p:any)=>[ST.C,ST.E,ST.V].indexOf(p.st)>=0).length,ok=myPeds.filter((p:any)=>p.st===ST.OK).length;const pePct=tot?Math.round(pe/tot*100):0,cuPct=tot?Math.round(cu/tot*100):0,okPct=tot?Math.round(ok/tot*100):0;return<div>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}><div><h2 style={{margin:0,fontSize:mob?16:19,color:colors.nv,fontWeight:800}}>📋 {isAd?"Todas las tareas":"Mis tareas"}</h2><p style={{margin:0,fontSize:11,color:colors.g4}}>{tot} tareas</p></div><Btn v="p" s="s" onClick={()=>sVw("new")}>+ Tarea</Btn></div>
@@ -625,6 +644,12 @@ export default function App(){
             onAdd={async(d:any)=>{try{const{data,error}=await supabase.from("inventory").insert(d).select().single();if(error)throw new Error(error.message);if(data)sInventory(prev=>[data,...prev]);showT("Item agregado");}catch(e:any){showT(e.message||"Error","err");}}}
             onUpd={async(id:number,d:any)=>{try{sInventory(prev=>prev.map(x=>x.id===id?{...x,...d}:x));await supabase.from("inventory").update(d).eq("id",id);showT("Item actualizado");}catch(e:any){showT(e.message||"Error","err");}}}
             onDel={async(id:number)=>{try{sInventory(prev=>prev.filter(x=>x.id!==id));await supabase.from("inventory").delete().eq("id",id);showT("Item eliminado");}catch(e:any){showT(e.message||"Error","err");}}}
+            onAddMaint={async(d:any)=>{try{const{data,error}=await supabase.from("inventory_maintenance").insert(d).select().single();if(error)throw new Error(error.message);if(data)sInvMaint(prev=>[data,...prev]);if(d.next_due){await supabase.from("inventory").update({next_maint_date:d.next_due}).eq("id",d.inventory_id);sInventory(prev=>prev.map(x=>x.id===d.inventory_id?{...x,next_maint_date:d.next_due}:x));}showT("Mantenimiento registrado");}catch(e:any){showT(e.message||"Error","err");}}}
+            onUpdMaint={async(id:number,d:any)=>{try{sInvMaint(prev=>prev.map(x=>x.id===id?{...x,...d}:x));await supabase.from("inventory_maintenance").update(d).eq("id",id);showT("Mantenimiento actualizado");}catch(e:any){showT(e.message||"Error","err");}}}
+            onDelMaint={async(id:number)=>{try{sInvMaint(prev=>prev.filter(x=>x.id!==id));await supabase.from("inventory_maintenance").delete().eq("id",id);showT("Registro eliminado");}catch(e:any){showT(e.message||"Error","err");}}}
+            onAddDist={async(d:any)=>{try{const{data,error}=await supabase.from("inventory_distributions").insert(d).select().single();if(error)throw new Error(error.message);if(data)sInvDist(prev=>[data,...prev]);showT("Distribución registrada");}catch(e:any){showT(e.message||"Error","err");}}}
+            onUpdDist={async(id:number,d:any)=>{try{sInvDist(prev=>prev.map(x=>x.id===id?{...x,...d}:x));await supabase.from("inventory_distributions").update(d).eq("id",id);showT("Distribución actualizada");}catch(e:any){showT(e.message||"Error","err");}}}
+            onDelDist={async(id:number)=>{try{sInvDist(prev=>prev.filter(x=>x.id!==id));await supabase.from("inventory_distributions").delete().eq("id",id);showT("Distribución eliminada");}catch(e:any){showT(e.message||"Error","err");}}}
           />}
           {/* Reservas */}
           {vw==="reservas"&&<ReservasView user={user} mob={mob}

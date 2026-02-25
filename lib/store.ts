@@ -18,13 +18,15 @@ interface DataStore {
   taskTemplates: any[];
   projBudgets: any[];
   inventory: any[];
+  invMaint: any[];
+  invDist: any[];
   bookings: any[];
   sponsors: any[];
   sponMsgs: any[];
   dbNotifs: any[];
 
   // Batch setter (for fetchAll)
-  setAll: (data: Partial<Pick<DataStore, "users"|"om"|"peds"|"hitos"|"agendas"|"minutas"|"presu"|"provs"|"reminders"|"projects"|"projTasks"|"taskTemplates"|"projBudgets"|"inventory"|"bookings"|"sponsors"|"sponMsgs"|"dbNotifs">>) => void;
+  setAll: (data: Partial<Pick<DataStore, "users"|"om"|"peds"|"hitos"|"agendas"|"minutas"|"presu"|"provs"|"reminders"|"projects"|"projTasks"|"taskTemplates"|"projBudgets"|"inventory"|"invMaint"|"invDist"|"bookings"|"sponsors"|"sponMsgs"|"dbNotifs">>) => void;
 
   // Functional setters (same API as useState setters)
   sUs: Setter<any>;
@@ -41,6 +43,8 @@ interface DataStore {
   sTaskTemplates: Setter<any>;
   sProjBudgets: Setter<any>;
   sInventory: Setter<any>;
+  sInvMaint: Setter<any>;
+  sInvDist: Setter<any>;
   sBookings: Setter<any>;
   sSponsors: Setter<any>;
   sSponMsgs: Setter<any>;
@@ -67,6 +71,8 @@ export const useDataStore = create<DataStore>((set) => ({
   taskTemplates: empty,
   projBudgets: empty,
   inventory: empty,
+  invMaint: empty,
+  invDist: empty,
   bookings: empty,
   sponsors: empty,
   sponMsgs: empty,
@@ -88,6 +94,8 @@ export const useDataStore = create<DataStore>((set) => ({
   sTaskTemplates: (fn) => set((s) => ({ taskTemplates: fn(s.taskTemplates) })),
   sProjBudgets: (fn) => set((s) => ({ projBudgets: fn(s.projBudgets) })),
   sInventory: (fn) => set((s) => ({ inventory: fn(s.inventory) })),
+  sInvMaint: (fn) => set((s) => ({ invMaint: fn(s.invMaint) })),
+  sInvDist: (fn) => set((s) => ({ invDist: fn(s.invDist) })),
   sBookings: (fn) => set((s) => ({ bookings: fn(s.bookings) })),
   sSponsors: (fn) => set((s) => ({ sponsors: fn(s.sponsors) })),
   sSponMsgs: (fn) => set((s) => ({ sponMsgs: fn(s.sponMsgs) })),
@@ -108,6 +116,8 @@ export const useDataStore = create<DataStore>((set) => ({
     taskTemplates: empty,
     projBudgets: empty,
     inventory: empty,
+    invMaint: empty,
+    invDist: empty,
     bookings: empty,
     sponsors: empty,
     sponMsgs: empty,

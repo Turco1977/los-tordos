@@ -250,6 +250,25 @@ CREATE POLICY sponsors_all ON sponsors FOR ALL USING (true) WITH CHECK (true);`,
     });
   }
 
+  // Check push_subscriptions table
+  const { error: e12 } = await admin.from("push_subscriptions").select("id").limit(1);
+  if (isMissing(e12)) {
+    missing.push({
+      table: "push_subscriptions",
+      sql: `CREATE TABLE push_subscriptions (
+  id SERIAL PRIMARY KEY,
+  user_id UUID NOT NULL,
+  endpoint TEXT NOT NULL,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, endpoint)
+);
+ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY push_subscriptions_all ON push_subscriptions FOR ALL USING (true) WITH CHECK (true);`,
+    });
+  }
+
   // Check project_budgets table
   const { error: e11 } = await admin.from("project_budgets").select("id").limit(1);
   if (isMissing(e11)) {
@@ -267,6 +286,74 @@ CREATE POLICY sponsors_all ON sponsors FOR ALL USING (true) WITH CHECK (true);`,
 );
 ALTER TABLE project_budgets ENABLE ROW LEVEL SECURITY;
 CREATE POLICY project_budgets_all ON project_budgets FOR ALL USING (true) WITH CHECK (true);`,
+    });
+  }
+
+  // Check if inventory table needs new columns (v2 upgrade)
+  const { error: eInvCol } = await admin.from("inventory").select("item_type").limit(1);
+  if (eInvCol && eInvCol.code === "42703") {
+    missing.push({
+      table: "inventory (ALTER)",
+      sql: `ALTER TABLE inventory
+  ADD COLUMN IF NOT EXISTS item_type TEXT DEFAULT 'activo',
+  ADD COLUMN IF NOT EXISTS brand TEXT DEFAULT '',
+  ADD COLUMN IF NOT EXISTS model TEXT DEFAULT '',
+  ADD COLUMN IF NOT EXISTS serial_number TEXT DEFAULT '',
+  ADD COLUMN IF NOT EXISTS purchase_date DATE,
+  ADD COLUMN IF NOT EXISTS warranty_until DATE,
+  ADD COLUMN IF NOT EXISTS maint_frequency TEXT DEFAULT '',
+  ADD COLUMN IF NOT EXISTS next_maint_date DATE,
+  ADD COLUMN IF NOT EXISTS unit_cost NUMERIC DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS season TEXT DEFAULT '';`,
+    });
+  }
+
+  // Check inventory_maintenance table
+  const { error: eIM } = await admin.from("inventory_maintenance").select("id").limit(1);
+  if (isMissing(eIM)) {
+    missing.push({
+      table: "inventory_maintenance",
+      sql: `CREATE TABLE inventory_maintenance (
+  id SERIAL PRIMARY KEY,
+  inventory_id INT REFERENCES inventory(id) ON DELETE CASCADE,
+  date DATE NOT NULL,
+  type TEXT DEFAULT 'service',
+  description TEXT DEFAULT '',
+  cost NUMERIC DEFAULT 0,
+  done_by TEXT DEFAULT '',
+  next_due DATE,
+  created_by UUID,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE inventory_maintenance ENABLE ROW LEVEL SECURITY;
+CREATE POLICY inventory_maintenance_all ON inventory_maintenance FOR ALL USING (true) WITH CHECK (true);`,
+    });
+  }
+
+  // Check inventory_distributions table
+  const { error: eID } = await admin.from("inventory_distributions").select("id").limit(1);
+  if (isMissing(eID)) {
+    missing.push({
+      table: "inventory_distributions",
+      sql: `CREATE TABLE inventory_distributions (
+  id SERIAL PRIMARY KEY,
+  inventory_id INT REFERENCES inventory(id) ON DELETE CASCADE,
+  division TEXT NOT NULL,
+  enlace_id UUID,
+  enlace_name TEXT DEFAULT '',
+  qty_given INT NOT NULL DEFAULT 0,
+  qty_returned INT DEFAULT 0,
+  qty_lost INT DEFAULT 0,
+  qty_broken INT DEFAULT 0,
+  season TEXT DEFAULT '',
+  status TEXT DEFAULT 'activa',
+  given_date DATE,
+  return_date DATE,
+  notes TEXT DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE inventory_distributions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY inventory_distributions_all ON inventory_distributions FOR ALL USING (true) WITH CHECK (true);`,
     });
   }
 
