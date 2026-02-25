@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyUser } from "@/lib/api/auth";
 import { createAdminClient } from "@/lib/supabase/server";
+import webpush from "web-push";
+
+/* Configure web-push with VAPID keys */
+if (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    "mailto:admin@lostordos.com",
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+  );
+}
 
 /* GET — fetch notifications for the calling user (supports pagination & filters) */
 export async function GET(req: NextRequest) {
@@ -102,6 +112,47 @@ export async function POST(req: NextRequest) {
       }
     } catch {
       /* Email is best-effort — don't fail the notification creation */
+    }
+  }
+
+  /* Send Web Push to all subscribed devices of the target user */
+  if (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+    try {
+      const { data: subs } = await db
+        .from("push_subscriptions")
+        .select("endpoint,p256dh,auth")
+        .eq("user_id", user_id);
+
+      if (subs?.length) {
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://lostordos.vercel.app";
+        const payload = JSON.stringify({
+          title,
+          body: message || "",
+          icon: "/logo.jpg",
+          url: link ? `${appUrl}${link}` : appUrl,
+        });
+
+        await Promise.allSettled(
+          subs.map((s) =>
+            webpush
+              .sendNotification(
+                { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+                payload
+              )
+              .catch(async (err) => {
+                /* Remove expired/invalid subscriptions (410 Gone or 404) */
+                if (err.statusCode === 410 || err.statusCode === 404) {
+                  await db
+                    .from("push_subscriptions")
+                    .delete()
+                    .eq("endpoint", s.endpoint);
+                }
+              })
+          )
+        );
+      }
+    } catch {
+      /* Push is best-effort — don't fail the notification creation */
     }
   }
 

@@ -149,6 +149,51 @@ self.addEventListener('sync', e => {
   }
 });
 
+// Web Push: show native notification
+self.addEventListener('push', e => {
+  if (!e.data) return;
+  try {
+    const data = e.data.json();
+    e.waitUntil(
+      self.registration.showNotification(data.title || 'Los Tordos', {
+        body: data.body || '',
+        icon: data.icon || '/logo.jpg',
+        badge: '/logo.jpg',
+        data: { url: data.url || '/' },
+      })
+    );
+  } catch {
+    // fallback for plain text push
+    e.waitUntil(
+      self.registration.showNotification('Los Tordos', {
+        body: e.data.text(),
+        icon: '/logo.jpg',
+        badge: '/logo.jpg',
+      })
+    );
+  }
+});
+
+// Notification click: open/focus the app
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const url = e.notification.data?.url || '/';
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {
+      // Focus existing tab if open
+      for (const client of clients) {
+        if (new URL(client.url).origin === self.location.origin) {
+          client.focus();
+          if (url !== '/') client.navigate(url);
+          return;
+        }
+      }
+      // Otherwise open new tab
+      return self.clients.openWindow(url);
+    })
+  );
+});
+
 // Listen for messages from client
 self.addEventListener('message', e => {
   if (e.data === 'skipWaiting') self.skipWaiting();

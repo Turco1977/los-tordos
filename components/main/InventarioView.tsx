@@ -4,6 +4,7 @@ import { INV_CAT, INV_COND, INV_MAINT_TYPE, INV_MAINT_FREQ, INV_DIST_ST, DIV, fn
 import { Btn, Card } from "@/components/ui";
 import { useC } from "@/lib/theme-context";
 import { useDataStore } from "@/lib/store";
+import { InvImport } from "./InvImport";
 
 const CATS=Object.keys(INV_CAT) as string[];
 const CONDS=Object.keys(INV_COND) as string[];
@@ -16,7 +17,7 @@ const emptyLote=()=>({name:"",category:"deportivo",location:"",quantity:1,condit
 const emptyMaint=()=>({date:TODAY,type:"service",description:"",cost:0,done_by:"",next_due:""});
 const emptyDist=()=>({division:"",enlace_id:"",enlace_name:"",qty_given:0,season:new Date().getFullYear().toString(),given_date:TODAY,notes:""});
 
-export function InventarioView({user,mob,onAdd,onUpd,onDel,onAddMaint,onUpdMaint,onDelMaint,onAddDist,onUpdDist,onDelDist}:any){
+export function InventarioView({user,mob,onAdd,onUpd,onDel,onAddMaint,onUpdMaint,onDelMaint,onAddDist,onUpdDist,onDelDist,onBulkAdd}:any){
   const items = useDataStore(s => s.inventory);
   const invMaint = useDataStore(s => s.invMaint);
   const invDist = useDataStore(s => s.invDist);
@@ -31,6 +32,7 @@ export function InventarioView({user,mob,onAdd,onUpd,onDel,onAddMaint,onUpdMaint
   const [distForm,sDistForm]=useState<any>(null);
   const [loteDetId,sLoteDetId]=useState<number|null>(null);
   const [retForm,sRetForm]=useState<any>(null);
+  const [showImport,sShowImport]=useState(false);
 
   /* Split items by type */
   const activos=useMemo(()=>(items||[]).filter((it:any)=>it.item_type!=="lote"),[items]);
@@ -323,7 +325,7 @@ export function InventarioView({user,mob,onAdd,onUpd,onDel,onAddMaint,onUpdMaint
         </select>
         {(fCat!=="all"||fCond!=="all"||search)&&<button onClick={()=>{sFCat("all");sFCond("all");sSr("");}} style={{padding:"4px 10px",borderRadius:8,border:"1px solid "+colors.g3,background:"transparent",fontSize:10,cursor:"pointer",color:colors.g5}}>Limpiar filtros</button>}
         <div style={{flex:1}}/>
-        {!form&&<Btn v="pu" s="s" onClick={openAddActivo}>+ Nuevo Activo</Btn>}
+        {!form&&<><Btn v="g" s="s" onClick={()=>sShowImport(true)}>📥 Importar</Btn><Btn v="pu" s="s" onClick={openAddActivo}>+ Nuevo Activo</Btn></>}
       </div>
 
       {/* Condition summary pills */}
@@ -397,7 +399,7 @@ export function InventarioView({user,mob,onAdd,onUpd,onDel,onAddMaint,onUpdMaint
       <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap" as const,alignItems:"center"}}>
         <input value={search} onChange={e=>sSr(e.target.value)} placeholder="Buscar lotes..." style={{padding:"5px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:11,width:mob?140:200,background:cardBg,color:colors.nv}}/>
         <div style={{flex:1}}/>
-        {!form&&<Btn v="pu" s="s" onClick={openAddLote}>+ Nuevo Lote</Btn>}
+        {!form&&<><Btn v="g" s="s" onClick={()=>sShowImport(true)}>📥 Importar</Btn><Btn v="pu" s="s" onClick={openAddLote}>+ Nuevo Lote</Btn></>}
       </div>
 
       {/* Add/Edit lote form */}
@@ -524,5 +526,6 @@ export function InventarioView({user,mob,onAdd,onUpd,onDel,onAddMaint,onUpdMaint
         </table></div>);
       })()}
     </div>}
+    {showImport&&<InvImport itemType={tab==="material"?"lote":"activo"} mob={mob} onImport={(rows)=>onBulkAdd(rows)} onX={()=>sShowImport(false)}/>}
   </div>);
 }
