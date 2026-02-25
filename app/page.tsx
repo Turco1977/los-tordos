@@ -134,7 +134,7 @@ function notifs(user:any,peds:any[]){const n:any[]=[];if(["coordinador","admin",
 /* ── MAIN APP ── */
 export default function App(){
   const areas=AREAS;const deptos=DEPTOS;
-  const {users,om,peds,hitos,agendas,minutas,presu,provs,reminders,projects,projTasks,taskTemplates,projBudgets,inventory,invMaint,invDist,bookings,sponsors,sponMsgs,dbNotifs,setAll,sUs,sOm,sPd,sHi,sAgs,sMins,sPr,sPv,sRems,sProjects,sProjTasks,sTaskTemplates,sProjBudgets,sInventory,sInvMaint,sInvDist,sBookings,sSponsors,sSponMsgs,sDbNotifs,clear:clearStore}=useDataStore();
+  const {users,om,peds,hitos,agendas,minutas,presu,provs,reminders,projects,projTasks,taskTemplates,projBudgets,inventory,invMaint,invDist,bookings,sponsors,sponMsgs,sponDeliveries,dbNotifs,setAll,sUs,sOm,sPd,sHi,sAgs,sMins,sPr,sPv,sRems,sProjects,sProjTasks,sTaskTemplates,sProjBudgets,sInventory,sInvMaint,sInvDist,sBookings,sSponsors,sSponMsgs,sSponDeliveries,sDbNotifs,clear:clearStore}=useDataStore();
   const [user,sU]=useState<any>(null);const [authChecked,sAuthChecked]=useState(false);
   const [vw,sVw_]=useState("dash");const [prevVw,sPrevVw]=useState<string|null>(null);
   const sVw=(v:string)=>{sPrevVw(vw);sVw_(v);};const [sel,sSl]=useState<any>(null);const [aA,sAA]=useState<number|null>(null);const [aD,sAD]=useState<number|null>(null);const [sbCol,sSbCol]=useState(false);const [search,sSr]=useState("");const [shNot,sShNot]=useState(false);const [preAT,sPreAT]=useState<any>(null);const [showPw,sShowPw]=useState(false);const [toast,sToast]=useState<{msg:string;type:"ok"|"err"}|null>(null);const [kpiFilt,sKpiFilt]=useState<string|null>(null);
@@ -150,7 +150,7 @@ export default function App(){
 
   /* ── Fetch all data from Supabase ── */
   const fetchAll = useCallback(async()=>{
-    const [pRes,mRes,omRes,msRes,agRes,miRes,prRes,pvRes,remRes,projRes,ptRes,ttRes,invRes,bkRes,spRes,pbRes,imRes,idRes]=await Promise.all([
+    const [pRes,mRes,omRes,msRes,agRes,miRes,prRes,pvRes,remRes,projRes,ptRes,ttRes,invRes,bkRes,spRes,pbRes,imRes,idRes,sdRes]=await Promise.all([
       supabase.from("profiles").select("*"),
       supabase.from("tasks").select("*").order("id",{ascending:false}).limit(500),
       supabase.from("org_members").select("*"),
@@ -169,6 +169,7 @@ export default function App(){
       supabase.from("project_budgets").select("*").order("id",{ascending:false}),
       supabase.from("inventory_maintenance").select("*").order("id",{ascending:false}),
       supabase.from("inventory_distributions").select("*").order("id",{ascending:false}),
+      supabase.from("sponsor_deliveries").select("*").order("id",{ascending:false}),
     ]);
     const errors:string[]=[];
     if(pRes.error) errors.push("Perfiles: "+pRes.error.message);
@@ -206,6 +207,7 @@ export default function App(){
       ...(bkRes.data?{bookings:bkRes.data}:{}),
       ...(spRes.data?{sponsors:spRes.data}:{}),
       ...(smRes.data?{sponMsgs:smRes.data}:{}),
+      ...(sdRes.data?{sponDeliveries:sdRes.data}:{}),
       ...(pbRes.data?{projBudgets:pbRes.data}:{}),
       ...(mappedPeds?{peds:mappedPeds}:{}),
     });
@@ -221,7 +223,7 @@ export default function App(){
         reminders:remRes.data||[],projects:projRes.data||[],
         project_tasks:ptRes.data||[],task_templates:ttRes.data||[],
         inventory:invRes.data||[],inventory_maintenance:imRes.data||[],inventory_distributions:idRes.data||[],bookings:bkRes.data||[],
-        sponsors:spRes.data||[],project_budgets:pbRes.data||[],
+        sponsors:spRes.data||[],sponsor_deliveries:sdRes.data||[],project_budgets:pbRes.data||[],
       });
     }
   },[saveToCache]);
@@ -259,6 +261,7 @@ export default function App(){
       inventory_distributions:(d:any[])=>sInvDist(()=>d),
       bookings:(d:any[])=>sBookings(()=>d),
       sponsors:(d:any[])=>sSponsors(()=>d),
+      sponsor_deliveries:(d:any[])=>sSponDeliveries(()=>d),
       project_budgets:(d:any[])=>sProjBudgets(()=>d),
     }).then(async()=>{
       // Load tasks + messages from cache together
@@ -343,6 +346,11 @@ export default function App(){
         return[...p,msg];
       });
     }},
+    {table:"sponsor_deliveries",
+      onInsert:(row:any)=>sSponDeliveries(p=>[row,...p]),
+      onUpdate:(row:any)=>sSponDeliveries(p=>p.map(x=>x.id===row.id?row:x)),
+      onDelete:(row:any)=>sSponDeliveries(p=>p.filter(x=>x.id!==row.id)),
+    },
     {table:"project_budgets",
       onInsert:(row:any)=>sProjBudgets(p=>[row,...p]),
       onUpdate:(row:any)=>sProjBudgets(p=>p.map(x=>x.id===row.id?row:x)),
@@ -418,7 +426,7 @@ export default function App(){
   const isPersonal=user&&(user.role==="enlace"||user.role==="manager"||user.role==="usuario");
 
   /* Canje usage per sponsor: sum of approved canje presupuestos */
-  const canjeUsado=useMemo(()=>{const m:Record<number,number>={};presu.forEach((pr:any)=>{if(pr.is_canje&&pr.sponsor_id&&pr.status==="aprobado"){m[pr.sponsor_id]=(m[pr.sponsor_id]||0)+Number(pr.monto||0);}});return m;},[presu]);
+  const canjeUsado=useMemo(()=>{const m:Record<number,number>={};presu.forEach((pr:any)=>{if(pr.is_canje&&pr.sponsor_id&&pr.status==="aprobado"){m[pr.sponsor_id]=(m[pr.sponsor_id]||0)+Number(pr.monto||0);}});sponDeliveries.forEach((d:any)=>{if(d.sponsor_id){m[d.sponsor_id]=(m[d.sponsor_id]||0)+Number(d.total_value||0);}});return m;},[presu,sponDeliveries]);
 
   /* Global Search logic (Feature 1) */
   const gsResults=useCallback(()=>{
@@ -661,11 +669,13 @@ export default function App(){
             onUpdMulti={async(ids:string[],d:any)=>{try{const numIds=ids.map(Number);sBookings(prev=>prev.map(x=>numIds.includes(x.id)?{...x,...d}:x));await supabase.from("bookings").update(d).in("id",numIds);showT(`${ids.length} espacios actualizados`);}catch(e:any){showT(e.message||"Error","err");}}}
           />}
           {/* Sponsors */}
-          {vw==="sponsors"&&(isAd||user.role==="coordinador"||user.role==="embudo")&&<SponsorsView user={user} mob={mob} canjeUsado={canjeUsado} sponMsgs={sponMsgs}
+          {vw==="sponsors"&&(isAd||user.role==="coordinador"||user.role==="embudo")&&<SponsorsView user={user} mob={mob} canjeUsado={canjeUsado} sponMsgs={sponMsgs} sponDeliveries={sponDeliveries}
             onAdd={async(d:any)=>{const row={...d,created_by:user.id,created_by_name:fn(user)};const{data,error}=await supabase.from("sponsors").insert(row).select().single();if(error)throw new Error(error.message);if(data){sSponsors(prev=>[data,...prev]);showT("Sponsor agregado");}}}
             onUpd={async(id:number,d:any)=>{try{sSponsors(prev=>prev.map(x=>x.id===id?{...x,...d}:x));await supabase.from("sponsors").update(d).eq("id",id);showT("Sponsor actualizado");}catch(e:any){showT(e.message||"Error","err");}}}
             onDel={async(id:number)=>{try{sSponsors(prev=>prev.filter(x=>x.id!==id));await supabase.from("sponsors").delete().eq("id",id);showT("Sponsor eliminado");}catch(e:any){showT(e.message||"Error","err");}}}
             onSponMsg={async(sponsorId:number,txt:string)=>{try{const safe=sanitize(txt);if(!safe)return;const ts=new Date().toISOString();const opt={id:Date.now(),sponsor_id:sponsorId,user_id:user.id,user_name:fn(user),content:safe,type:"msg",created_at:ts};sSponMsgs(p=>[...p,opt]);await supabase.from("sponsor_messages").insert({sponsor_id:sponsorId,user_id:user.id,user_name:fn(user),content:safe,type:"msg"});/* @mention notifications */const mentionRx=/@([\w\s]+?)(?=\s@|$)/g;let match;while((match=mentionRx.exec(safe))!==null){const mName=match[1].trim();const mUser=users.find((u:any)=>(fn(u)).toLowerCase()===mName.toLowerCase());if(mUser&&mUser.id!==user.id){sendNotif(mUser.id,"Te mencionaron en sponsor",safe.slice(0,80),"info");}}}catch(e:any){showT("Error al enviar mensaje","err");}}}
+            onAddDelivery={async(d:any)=>{try{const total=Number(d.quantity||1)*Number(d.unit_value||0);const row={...d,total_value:total};const{data,error}=await supabase.from("sponsor_deliveries").insert(row).select().single();if(error)throw new Error(error.message);if(!data)return;sSponDeliveries(prev=>[data,...prev]);/* If division or venta → create inventory lot */if(d.destination==="division"||d.destination==="venta"){const sp=sponsors.find((s:any)=>s.id===d.sponsor_id);const invRow={name:d.description,category:"Material Deportivo",item_type:"lote",quantity:d.quantity||1,condition:"bueno",location:"Club",notes:"Entrega sponsor: "+(sp?.name||""),created_by:user.id,created_by_name:fn(user)};const{data:invData}=await supabase.from("inventory").insert(invRow).select().single();if(invData){sInventory(prev=>[invData,...prev]);await supabase.from("sponsor_deliveries").update({inventory_id:invData.id}).eq("id",data.id);sSponDeliveries(prev=>prev.map(x=>x.id===data.id?{...x,inventory_id:invData.id}:x));/* If division → auto-distribute */if(d.destination==="division"&&d.division){const distRow={inventory_id:invData.id,division:d.division,qty_given:d.quantity||1,distributed_by:user.id,distributed_by_name:fn(user),notes:"Auto: entrega sponsor "+(sp?.name||"")};const{data:distData}=await supabase.from("inventory_distributions").insert(distRow).select().single();if(distData)sInvDist(prev=>[distData,...prev]);}}}showT("Entrega registrada");}catch(e:any){showT(e.message||"Error","err");}}}
+            onUpdDelivery={async(id:number,d:any)=>{try{sSponDeliveries(prev=>prev.map(x=>x.id===id?{...x,...d}:x));await supabase.from("sponsor_deliveries").update(d).eq("id",id);}catch(e:any){showT(e.message||"Error","err");}}}
           />}
           {/* Proyectos */}
           {vw==="proyectos"&&!isPersonal&&<ProyectosView user={user} mob={mob} filteredProjects={projects}

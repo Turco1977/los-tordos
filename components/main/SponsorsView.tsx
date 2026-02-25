@@ -1,11 +1,12 @@
 "use client";
 import { useState, useMemo, useRef } from "react";
-import { SPON_ST, DOLAR_REF } from "@/lib/constants";
+import { SPON_ST, DOLAR_REF, DIV } from "@/lib/constants";
 import { fmtD } from "@/lib/mappers";
 import { Btn, Card } from "@/components/ui";
 import { useC } from "@/lib/theme-context";
 import { useDataStore } from "@/lib/store";
 import { Thread } from "@/components/main/Thread";
+import { SponDelivery } from "@/components/main/SponDelivery";
 
 const TODAY=new Date().toISOString().slice(0,10);
 const daysLeft=(d:string)=>{if(!d)return Infinity;return Math.round((new Date(d).getTime()-new Date(TODAY).getTime())/864e5);};
@@ -29,11 +30,12 @@ const emptyForm=()=>({
   canje_instrucciones:"",
 });
 
-export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onSponMsg}:any){
+export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onSponMsg,onAddDelivery,sponDeliveries,onUpdDelivery}:any){
   const sponsors = useDataStore(s => s.sponsors);
   const users = useDataStore(s => s.users);
   const{colors,isDark,cardBg}=useC();
-  const [spTab,sSpTab]=useState<"chat"|"edit">("chat");
+  const [spTab,sSpTab]=useState<"chat"|"entregas"|"edit">("chat");
+  const [showDelivery,sShowDelivery]=useState(false);
   const [detailId,sDetailId]=useState<number|null>(null);
   const isSA=user?.role==="superadmin";
   const isJH=user&&(user.n||user.first_name||"").toLowerCase().includes("jes")&&(user.a||user.last_name||"").toLowerCase().includes("herrera");
@@ -357,10 +359,10 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
         {sp.notes&&<div style={{marginTop:8,fontSize:11,color:colors.g5,lineHeight:1.5,whiteSpace:"pre-wrap" as const}}><span style={{fontWeight:600,color:colors.nv}}>Notas: </span>{sp.notes}</div>}
       </Card>
 
-      {/* ── Tabs: Chat / Editar ── */}
+      {/* ── Tabs: Chat / Entregas / Editar ── */}
       <Card style={{padding:0,overflow:"hidden"}}>
         <div style={{display:"flex",borderBottom:"1px solid "+colors.g2}}>
-          {([["chat","Chat"],["edit","Editar"]] as const).map(([k,l])=><button key={k} onClick={()=>sSpTab(k)} style={{flex:1,padding:"10px 0",border:"none",borderBottom:spTab===k?"3px solid "+colors.pr:"3px solid transparent",background:"transparent",color:spTab===k?colors.pr:colors.g4,fontSize:13,fontWeight:700,cursor:"pointer"}}>{k==="chat"?"\uD83D\uDCAC ":"\u270F\uFE0F "}{l}</button>)}
+          {([["chat","Chat"],["entregas","Entregas"],["edit","Editar"]] as const).map(([k,l])=><button key={k} onClick={()=>sSpTab(k)} style={{flex:1,padding:"10px 0",border:"none",borderBottom:spTab===k?"3px solid "+colors.pr:"3px solid transparent",background:"transparent",color:spTab===k?colors.pr:colors.g4,fontSize:13,fontWeight:700,cursor:"pointer"}}>{k==="chat"?"\uD83D\uDCAC ":k==="entregas"?"\uD83D\uDCE6 ":"\u270F\uFE0F "}{l}</button>)}
         </div>
 
         {/* Chat tab */}
@@ -371,6 +373,85 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
             onSend={(txt:string)=>onSponMsg&&onSponMsg(sp.id,txt)}
             users={users}
           />
+        </div>}
+
+        {/* Entregas tab */}
+        {spTab==="entregas"&&<div style={{padding:mob?"10px 12px":"12px 16px",minHeight:320}}>
+          {(()=>{
+            const dels=(sponDeliveries||[]).filter((d:any)=>d.sponsor_id===sp.id);
+            const totalEntregado=dels.reduce((s:number,d:any)=>s+Number(d.total_value||0),0);
+            const destBadge=(d:string)=>{
+              if(d==="division")return{bg:isDark?"rgba(59,130,246,.15)":"#DBEAFE",c:"#3B82F6",l:"División"};
+              if(d==="consumo")return{bg:isDark?"rgba(139,92,246,.15)":"#EDE9FE",c:"#8B5CF6",l:"Consumo"};
+              return{bg:isDark?"rgba(16,185,129,.15)":"#D1FAE5",c:"#10B981",l:"Venta"};
+            };
+            return(<>
+              {/* KPI */}
+              <div style={{display:"flex",gap:10,marginBottom:12,flexWrap:"wrap" as const}}>
+                <div style={{flex:1,minWidth:120,padding:"10px 12px",background:isDark?"rgba(16,185,129,.08)":"#ECFDF5",borderRadius:8,textAlign:"center" as const}}>
+                  <div style={{fontSize:9,color:"#10B981",fontWeight:600}}>Total Entregado</div>
+                  <div style={{fontSize:18,fontWeight:800,color:"#10B981"}}>{fmtARS(totalEntregado)}</div>
+                </div>
+                <div style={{flex:1,minWidth:120,padding:"10px 12px",background:isDark?"rgba(59,130,246,.08)":"#EFF6FF",borderRadius:8,textAlign:"center" as const}}>
+                  <div style={{fontSize:9,color:"#3B82F6",fontWeight:600}}>Entregas</div>
+                  <div style={{fontSize:18,fontWeight:800,color:"#3B82F6"}}>{dels.length}</div>
+                </div>
+              </div>
+
+              <Btn v="s" s="s" onClick={()=>sShowDelivery(true)} style={{marginBottom:12,width:"100%"}}>+ Nueva Entrega</Btn>
+
+              {dels.length===0&&<div style={{textAlign:"center" as const,padding:24,color:colors.g4,fontSize:12}}>Sin entregas registradas</div>}
+
+              {dels.map((d:any)=>{
+                const b=destBadge(d.destination);
+                return(<Card key={d.id} style={{marginBottom:10,padding:"12px 14px",borderLeft:"4px solid "+b.c}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"start",marginBottom:6}}>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:13,fontWeight:700,color:colors.nv}}>{d.description}</div>
+                      <div style={{fontSize:11,color:colors.g5,marginTop:2}}>
+                        {d.quantity} × {fmtARS(Number(d.unit_value||0))} = <span style={{fontWeight:700,color:colors.nv}}>{fmtARS(Number(d.total_value||0))}</span>
+                      </div>
+                    </div>
+                    <span style={{background:b.bg,color:b.c,padding:"2px 8px",borderRadius:12,fontSize:10,fontWeight:600,whiteSpace:"nowrap" as const}}>
+                      {b.l}{d.destination==="division"&&d.division?": "+d.division:""}
+                    </span>
+                  </div>
+                  {d.destination==="consumo"&&d.person_name&&<div style={{fontSize:11,color:"#8B5CF6",marginBottom:4}}>Uso: {d.person_name}</div>}
+
+                  {/* Inline sales tracking for venta */}
+                  {d.destination==="venta"&&<div style={{padding:"8px 10px",background:isDark?"rgba(16,185,129,.06)":"#F0FDF4",borderRadius:8,marginBottom:6}}>
+                    <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap" as const}}>
+                      <div style={{flex:1,minWidth:80}}>
+                        <label style={{fontSize:9,fontWeight:600,color:"#10B981",display:"block"}}>Vendidos</label>
+                        <input type="number" value={d.qty_sold||0} min={0} max={d.quantity||999}
+                          onChange={e=>{const v=Math.min(Number(e.target.value)||0,d.quantity||999);onUpdDelivery&&onUpdDelivery(d.id,{qty_sold:v});}}
+                          style={{width:70,padding:"4px 6px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:12,background:cardBg,color:colors.nv}}/>
+                        <span style={{fontSize:10,color:colors.g5,marginLeft:4}}>/ {d.quantity}</span>
+                      </div>
+                      <div style={{flex:1,minWidth:80}}>
+                        <label style={{fontSize:9,fontWeight:600,color:"#10B981",display:"block"}}>Recaudado $</label>
+                        <input type="number" value={d.revenue||0}
+                          onChange={e=>{const v=Number(e.target.value)||0;onUpdDelivery&&onUpdDelivery(d.id,{revenue:v});}}
+                          style={{width:100,padding:"4px 6px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:12,background:cardBg,color:colors.nv}}/>
+                      </div>
+                    </div>
+                    {(d.qty_sold||0)>0&&<div style={{marginTop:4,fontSize:10,color:"#10B981",fontWeight:600}}>
+                      {Math.round(((d.qty_sold||0)/(d.quantity||1))*100)}% vendido — {fmtARS(Number(d.revenue||0))} recaudado
+                    </div>}
+                  </div>}
+
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:10,color:colors.g5,marginTop:4}}>
+                    <span>{fmtD(d.received_date||d.created_at)}</span>
+                    <span>Recibió: {d.received_by_name||"—"}</span>
+                  </div>
+                  {d.notes&&<div style={{fontSize:10,color:colors.g4,marginTop:4,fontStyle:"italic"}}>{d.notes}</div>}
+                </Card>);
+              })}
+
+              {/* Modal */}
+              {showDelivery&&<SponDelivery sponsor={sp} user={user} mob={mob} onSave={onAddDelivery} onClose={()=>sShowDelivery(false)}/>}
+            </>);
+          })()}
         </div>}
 
         {/* Edit tab */}

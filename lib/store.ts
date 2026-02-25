@@ -23,10 +23,11 @@ interface DataStore {
   bookings: any[];
   sponsors: any[];
   sponMsgs: any[];
+  sponDeliveries: any[];
   dbNotifs: any[];
 
   // Batch setter (for fetchAll)
-  setAll: (data: Partial<Pick<DataStore, "users"|"om"|"peds"|"hitos"|"agendas"|"minutas"|"presu"|"provs"|"reminders"|"projects"|"projTasks"|"taskTemplates"|"projBudgets"|"inventory"|"invMaint"|"invDist"|"bookings"|"sponsors"|"sponMsgs"|"dbNotifs">>) => void;
+  setAll: (data: Partial<Pick<DataStore, "users"|"om"|"peds"|"hitos"|"agendas"|"minutas"|"presu"|"provs"|"reminders"|"projects"|"projTasks"|"taskTemplates"|"projBudgets"|"inventory"|"invMaint"|"invDist"|"bookings"|"sponsors"|"sponMsgs"|"sponDeliveries"|"dbNotifs">>) => void;
 
   // Functional setters (same API as useState setters)
   sUs: Setter<any>;
@@ -48,6 +49,7 @@ interface DataStore {
   sBookings: Setter<any>;
   sSponsors: Setter<any>;
   sSponMsgs: Setter<any>;
+  sSponDeliveries: Setter<any>;
   sDbNotifs: Setter<any>;
 
   // Reset all data (logout)
@@ -76,6 +78,7 @@ export const useDataStore = create<DataStore>((set) => ({
   bookings: empty,
   sponsors: empty,
   sponMsgs: empty,
+  sponDeliveries: empty,
   dbNotifs: empty,
 
   setAll: (data) => set(data),
@@ -99,6 +102,7 @@ export const useDataStore = create<DataStore>((set) => ({
   sBookings: (fn) => set((s) => ({ bookings: fn(s.bookings) })),
   sSponsors: (fn) => set((s) => ({ sponsors: fn(s.sponsors) })),
   sSponMsgs: (fn) => set((s) => ({ sponMsgs: fn(s.sponMsgs) })),
+  sSponDeliveries: (fn) => set((s) => ({ sponDeliveries: fn(s.sponDeliveries) })),
   sDbNotifs: (fn) => set((s) => ({ dbNotifs: fn(s.dbNotifs) })),
 
   clear: () => set({
@@ -121,6 +125,7 @@ export const useDataStore = create<DataStore>((set) => ({
     bookings: empty,
     sponsors: empty,
     sponMsgs: empty,
+    sponDeliveries: empty,
     dbNotifs: empty,
   }),
 }));
