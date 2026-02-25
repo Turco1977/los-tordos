@@ -15,6 +15,7 @@ const WK_KEYS: (keyof typeof DEP_WK)[] = ["sleep","fatigue","stress","soreness",
 const drLv = (r:string)=>DEP_ROLES[r]?.lv||0;
 const canAll = (r:string)=>["dd","dr","coord_pf","kinesiologo","medico"].includes(r);
 const fmtD = (d:string)=>{if(!d)return"–";const p=d.slice(0,10).split("-");return p[2]+"/"+p[1]+"/"+p[0];};
+const cuotaOk=(a:{cuota_hasta?:string})=>{if(!a.cuota_hasta)return false;return a.cuota_hasta>=TODAY;};
 
 /* semáforo score: normaliza (fatigue,stress,soreness invertidos) */
 function semScore(c:DepCheckin):{score:number;color:string;bg:string;label:string}{
@@ -93,6 +94,7 @@ export default function DeportivoApp(){
   const [announcements,sAnnouncements]=useState<DepAnnouncement[]>([]);
   const [questionnaires,sQuestionnaires]=useState<DepQuestionnaire[]>([]);
   const [qResponses,sQResponses]=useState<DepQuestionnaireResponse[]>([]);
+  const [cuotas,sCuotas]=useState<any[]>([]);
 
   // UI
   const [tab,sTab]=useState("dash");
@@ -208,6 +210,9 @@ export default function DeportivoApp(){
         return{...r,athlete_name:a?a.first_name+" "+a.last_name:"?"};
       }));
     }
+    // Fetch cuotas
+    const cuotaRes=await safeFetch(supabase.from("dep_cuotas").select("*").order("periodo",{ascending:false}));
+    if(cuotaRes.data) sCuotas(cuotaRes.data);
     sLoading(false);
   },[user]);
 
@@ -226,6 +231,7 @@ export default function DeportivoApp(){
     {table:"dep_lineups",onChange:()=>fetchAll()},
     {table:"dep_questionnaires",onChange:()=>fetchAll()},
     {table:"dep_questionnaire_responses",onChange:()=>fetchAll()},
+    {table:"dep_cuotas",onChange:()=>fetchAll()},
   ],!!user);
 
   const out=async()=>{await supabase.auth.signOut();sUser(null);sProfile(null);sMyStaff(null);};
@@ -288,6 +294,7 @@ export default function DeportivoApp(){
     {k:"pretemp",l:"📝",f:"Evaluaciones"},
     {k:"equipo",l:"🏉",f:"Formaciones"},
     {k:"comm",l:"📢",f:"Comunicación"},
+    {k:"cuotas",l:"💰",f:"Cuotas"},
     ...(canManageStaff?[{k:"perfiles",l:"👤",f:"Staff"}]:[]),
   ];
 
@@ -306,6 +313,7 @@ export default function DeportivoApp(){
         peso:a.peso||null,estatura:a.estatura||null,celular:a.celular||"",
         tel_emergencia:a.tel_emergencia||"",ult_fichaje:a.ult_fichaje||null,
         emergency_contact:a.emergency_contact||{},medical_info:a.medical_info||{},
+        cuota_hasta:a.cuota_hasta||null,
         season:new Date().getFullYear().toString(),active:true,
       });
       if(error) throw error;
@@ -323,6 +331,7 @@ export default function DeportivoApp(){
         peso:a.peso,estatura:a.estatura,celular:a.celular,
         tel_emergencia:a.tel_emergencia,ult_fichaje:a.ult_fichaje||null,
         emergency_contact:a.emergency_contact,medical_info:a.medical_info,
+        cuota_hasta:a.cuota_hasta||null,
       }).eq("id",id);
       if(error) throw error;
       showT("Jugador actualizado");sShowForm(null);sSelAth(null);fetchAll();
@@ -653,7 +662,10 @@ export default function DeportivoApp(){
               const lc=latestCheckin(a.id);const ai=activeInjuries(a.id);
               const sem=lc?semScore(lc):null;
               return<Card key={a.id} onClick={()=>sSelAth(a)} style={{cursor:"pointer",position:"relative" as const}}>
-                {ai.length>0&&<div style={{position:"absolute" as const,top:8,right:8,background:"#FEE2E2",borderRadius:12,padding:"2px 8px",fontSize:9,fontWeight:700,color:colors.rd}}>🩹 {ai.length}</div>}
+                <div style={{position:"absolute" as const,top:8,right:8,display:"flex",gap:4}}>
+                  {!cuotaOk(a)&&<span style={{background:"#FEE2E2",borderRadius:12,padding:"2px 8px",fontSize:9,fontWeight:700,color:colors.rd}}>🔴 Debe</span>}
+                  {ai.length>0&&<span style={{background:"#FEE2E2",borderRadius:12,padding:"2px 8px",fontSize:9,fontWeight:700,color:colors.rd}}>🩹 {ai.length}</span>}
+                </div>
                 <div style={{display:"flex",alignItems:"center",gap:10}}>
                   <div style={{width:40,height:40,borderRadius:20,background:sem?sem.bg:colors.g2,display:"flex",alignItems:"center",justifyContent:"center",border:"3px solid "+(sem?sem.color:colors.g3)}}>
                     <span style={{fontSize:16}}>🏉</span>
@@ -711,6 +723,9 @@ export default function DeportivoApp(){
   <CommTab athletes={filteredAthletes} lineups={lineups} mob={mob}/>
 </div>}
 
+      {/* ════════ CUOTAS ════════ */}
+      {tab==="cuotas"&&<CuotasTab athletes={athletes.filter(a=>a.active)} cuotas={cuotas} supabase={supabase} user={user} profile={profile} showT={showT} fetchAll={fetchAll} mob={mob} canEdit={depLv>=3}/>}
+
       {/* ════════ PERFILES ════════ */}
       {tab==="perfiles"&&canManageStaff&&<PerfilesTab staffList={staffList} onUpdate={onUpdStaff} onDel={onDelStaff} mob={mob} showT={showT} fetchAll={fetchAll} hlStaff={hlStaff} clearHl={()=>sHlStaff(null)}/>}
 
@@ -747,11 +762,12 @@ function DashboardTab({athletes,checkins,injuries,latestCheckin,activeInjuries,m
 
   return <div>
     <h2 style={{margin:"0 0 14px",fontSize:18,color:colors.nv}}>📊 Dashboard Deportivo</h2>
-    <div style={{display:"grid",gridTemplateColumns:mob?"1fr 1fr":"repeat(5,1fr)",gap:10,marginBottom:16}}>
+    <div style={{display:"grid",gridTemplateColumns:mob?"1fr 1fr":"repeat(6,1fr)",gap:10,marginBottom:16}}>
       {[
         {l:"Jugadores",v:total,i:"👥",c:colors.bl},
         {l:"Con check-in",v:withCheckin+"/"+total,i:"💚",c:colors.gn},
         {l:"Lesiones activas",v:injActive,i:"🩹",c:colors.rd},
+        {l:"Cuota vencida",v:athletes.filter((a:DepAthlete)=>!cuotaOk(a)).length,i:"💰",c:"#DC2626"},
         {l:"En alerta",v:reds,i:"🔴",c:"#DC2626"},
         {l:"Precaución",v:yellows,i:"🟡",c:colors.yl},
       ].map((s,i)=><Card key={i} style={{textAlign:"center",padding:mob?12:16}}>
@@ -804,7 +820,7 @@ function DashboardTab({athletes,checkins,injuries,latestCheckin,activeInjuries,m
 function FichaJugador({ath,injuries,checkins,onBack,onEdit,onDeactivate,latestCheckin,mob}:any){
   const{colors,cardBg}=useC();
   const [editing,sEditing]=useState(false);
-  const [f,sF]=useState({first_name:ath.first_name,last_name:ath.last_name,division:ath.division,position:ath.position,birth_date:ath.birth_date||"",dni:ath.dni,sexo:ath.sexo||"",categoria:ath.categoria||"",obra_social:ath.obra_social||"",peso:ath.peso||"",estatura:ath.estatura||"",celular:ath.celular||"",tel_emergencia:ath.tel_emergencia||"",ult_fichaje:ath.ult_fichaje||"",phone:ath.phone,email:ath.email,emergency_contact:ath.emergency_contact||{},medical_info:ath.medical_info||{}});
+  const [f,sF]=useState({first_name:ath.first_name,last_name:ath.last_name,division:ath.division,position:ath.position,birth_date:ath.birth_date||"",dni:ath.dni,sexo:ath.sexo||"",categoria:ath.categoria||"",obra_social:ath.obra_social||"",peso:ath.peso||"",estatura:ath.estatura||"",celular:ath.celular||"",tel_emergencia:ath.tel_emergencia||"",ult_fichaje:ath.ult_fichaje||"",cuota_hasta:ath.cuota_hasta||"",phone:ath.phone,email:ath.email,emergency_contact:ath.emergency_contact||{},medical_info:ath.medical_info||{}});
   const sem=latestCheckin?semScore(latestCheckin):null;
   const activeInj=injuries.filter((i:DepInjury)=>i.status!=="alta");
 
@@ -813,8 +829,8 @@ function FichaJugador({ath,injuries,checkins,onBack,onEdit,onDeactivate,latestCh
     <h2 style={{fontSize:16,color:colors.nv,margin:"0 0 14px"}}>Editar: {ath.first_name} {ath.last_name}</h2>
     <Card>
       <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr 1fr",gap:10}}>
-        {[["Apellido","last_name"],["Nombre","first_name"],["Fecha Nac.","birth_date"],["Documento","dni"],["Categoría","categoria"],["Sexo","sexo"],["O. Social","obra_social"],["Peso (kg)","peso"],["Estatura (cm)","estatura"],["Email","email"],["Tel. Emergencia","tel_emergencia"],["Celular","celular"],["Últ. Fichaje","ult_fichaje"]].map(([l,k])=>{
-          const isDate=k==="birth_date"||k==="ult_fichaje";
+        {[["Apellido","last_name"],["Nombre","first_name"],["Fecha Nac.","birth_date"],["Documento","dni"],["Categoría","categoria"],["Sexo","sexo"],["O. Social","obra_social"],["Peso (kg)","peso"],["Estatura (cm)","estatura"],["Email","email"],["Tel. Emergencia","tel_emergencia"],["Celular","celular"],["Últ. Fichaje","ult_fichaje"],["Cuota hasta","cuota_hasta"]].map(([l,k])=>{
+          const isDate=k==="birth_date"||k==="ult_fichaje"||k==="cuota_hasta";
           const isNum=k==="peso"||k==="estatura";
           const isSexo=k==="sexo";
           if(isSexo) return <div key={k}><label style={{fontSize:11,fontWeight:600,color:T.g5}}>{l}</label><select value={(f as any)[k]||""} onChange={e=>sF(prev=>({...prev,[k]:e.target.value}))} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+T.g3,fontSize:12,marginTop:3}}><option value="">–</option><option value="M">M</option><option value="F">F</option></select></div>;
@@ -846,6 +862,7 @@ function FichaJugador({ath,injuries,checkins,onBack,onEdit,onDeactivate,latestCh
           <div style={{fontSize:12,color:colors.g5}}>{ath.position||"Sin posición"} · {ath.division} · Temporada {ath.season}</div>
           {sem&&<div style={{marginTop:4}}><span style={{background:sem.bg,color:sem.color,padding:"2px 10px",borderRadius:12,fontSize:11,fontWeight:700}}>{sem.label} ({sem.score.toFixed(1)})</span></div>}
           {activeInj.length>0&&<div style={{marginTop:4}}><span style={{background:"#FEE2E2",color:colors.rd,padding:"2px 10px",borderRadius:12,fontSize:11,fontWeight:700}}>🩹 {activeInj.length} lesión{activeInj.length>1?"es":""} activa{activeInj.length>1?"s":""}</span></div>}
+          <div style={{marginTop:4}}><span style={{background:cuotaOk(ath)?"#D1FAE5":"#FEE2E2",color:cuotaOk(ath)?T.gn:T.rd,padding:"2px 10px",borderRadius:12,fontSize:11,fontWeight:700}}>{cuotaOk(ath)?"✅ Cuota al día"+(ath.cuota_hasta?" (hasta "+fmtD(ath.cuota_hasta)+")":""):"🔴 Debe cuota"+(ath.cuota_hasta?" (venció "+fmtD(ath.cuota_hasta)+")":"")}</span></div>
         </div>
       </div>
     </Card>
@@ -854,7 +871,7 @@ function FichaJugador({ath,injuries,checkins,onBack,onEdit,onDeactivate,latestCh
     <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:12,marginBottom:12}}>
       <Card>
         <h3 style={{margin:"0 0 8px",fontSize:13,color:T.nv}}>📋 Datos personales</h3>
-        {[["Fecha nacimiento",fmtD(ath.birth_date)],["Documento",ath.dni||"–"],["Categoría",ath.categoria||"–"],["Sexo",ath.sexo||"–"],["O. Social",ath.obra_social||"–"],["Peso",ath.peso?ath.peso+" kg":"–"],["Estatura",ath.estatura?ath.estatura+" cm":"–"],["Email",ath.email||"–"],["Celular",ath.celular||ath.phone||"–"],["Tel. Emergencia",ath.tel_emergencia||"–"],["Últ. Fichaje",ath.ult_fichaje?fmtD(ath.ult_fichaje):"–"]].map(([l,v],i)=><div key={i} style={{display:"flex",justifyContent:"space-between",padding:"4px 0",borderBottom:"1px solid "+T.g1}}><span style={{fontSize:11,color:T.g5}}>{l}</span><span style={{fontSize:11,color:T.nv,fontWeight:600}}>{v}</span></div>)}
+        {[["Fecha nacimiento",fmtD(ath.birth_date)],["Documento",ath.dni||"–"],["Categoría",ath.categoria||"–"],["Sexo",ath.sexo||"–"],["O. Social",ath.obra_social||"–"],["Peso",ath.peso?ath.peso+" kg":"–"],["Estatura",ath.estatura?ath.estatura+" cm":"–"],["Email",ath.email||"–"],["Celular",ath.celular||ath.phone||"–"],["Tel. Emergencia",ath.tel_emergencia||"–"],["Últ. Fichaje",ath.ult_fichaje?fmtD(ath.ult_fichaje):"–"],["Cuota hasta",ath.cuota_hasta?fmtD(ath.cuota_hasta):"–"]].map(([l,v],i)=><div key={i} style={{display:"flex",justifyContent:"space-between",padding:"4px 0",borderBottom:"1px solid "+T.g1}}><span style={{fontSize:11,color:T.g5}}>{l}</span><span style={{fontSize:11,color:T.nv,fontWeight:600}}>{v}</span></div>)}
       </Card>
       <Card>
         <h3 style={{margin:"0 0 8px",fontSize:13,color:T.nv}}>🆘 Emergencia / Médico</h3>
@@ -1514,6 +1531,101 @@ function TrainingTab({athletes,division,canCreate,userId,mob,showT}:any){
   </div>;
 }
 
+/* ══════════════════════════ CUOTAS TAB ══════════════════════════ */
+function CuotasTab({athletes,cuotas,supabase,user,profile,showT,fetchAll,mob,canEdit}:any){
+  const{colors,cardBg}=useC();
+  const now=new Date();const curPeriodo=now.getFullYear()+"-"+(now.getMonth()+1).toString().padStart(2,"0");
+  const [selPeriodo,sSelPeriodo]=useState(curPeriodo);
+  const [saving,sSaving]=useState(false);
+
+  // Generate period options (last 12 months + next 2)
+  const periodos:string[]=[];
+  for(let i=-2;i<=12;i++){const d=new Date(now.getFullYear(),now.getMonth()-i,1);periodos.push(d.getFullYear()+"-"+(d.getMonth()+1).toString().padStart(2,"0"));}
+
+  const fmtPeriodo=(p:string)=>{const [y,m]=p.split("-");const meses=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];return meses[parseInt(m)-1]+" "+y;};
+
+  // Cuotas for selected period
+  const periodCuotas=new Map<number,any>(cuotas.filter((c:any)=>c.periodo===selPeriodo).map((c:any)=>[c.athlete_id,c]));
+
+  const togglePago=async(athleteId:number,athlete_name:string)=>{
+    if(!canEdit)return;
+    sSaving(true);
+    try{
+      const existing=periodCuotas.get(athleteId);
+      if(existing){
+        if(existing.pagado){
+          const{error}=await supabase.from("dep_cuotas").update({pagado:false,fecha_pago:null}).eq("id",existing.id);
+          if(error)throw error;
+        }else{
+          const{error}=await supabase.from("dep_cuotas").update({pagado:true,fecha_pago:new Date().toISOString().slice(0,10)}).eq("id",existing.id);
+          if(error)throw error;
+        }
+      }else{
+        const{error}=await supabase.from("dep_cuotas").insert({athlete_id:athleteId,periodo:selPeriodo,pagado:true,fecha_pago:new Date().toISOString().slice(0,10),registrado_por:user.id,registrado_por_nombre:(profile?.first_name||"")+" "+(profile?.last_name||"")});
+        if(error)throw error;
+      }
+      // Update cuota_hasta on athlete
+      const athCuotas=cuotas.filter((c:any)=>c.athlete_id===athleteId&&c.pagado);
+      const periods=[...athCuotas.map((c:any)=>c.periodo),selPeriodo].sort();
+      const lastPaid=periods[periods.length-1];
+      if(lastPaid){const[y,m]=lastPaid.split("-");const endOfMonth=new Date(+y,+m,0).toISOString().slice(0,10);await supabase.from("dep_athletes").update({cuota_hasta:endOfMonth}).eq("id",athleteId);}
+      showT("Cuota actualizada");fetchAll();
+    }catch(e:any){showT(e.message||"Error","err");}
+    sSaving(false);
+  };
+
+  const pagados=athletes.filter((a:any)=>{const c=periodCuotas.get(a.id);return c&&c.pagado;}).length;
+  const deben=athletes.length-pagados;
+
+  // Group by division
+  const byDiv:Record<string,any[]>={};
+  athletes.forEach((a:any)=>{if(!byDiv[a.division])byDiv[a.division]=[];byDiv[a.division].push(a);});
+
+  return <div>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap" as const,gap:8}}>
+      <h2 style={{margin:0,fontSize:18,color:colors.nv}}>💰 Cuotas</h2>
+      <select value={selPeriodo} onChange={e=>sSelPeriodo(e.target.value)} style={{padding:"6px 12px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:13,fontWeight:600}}>
+        {periodos.map(p=><option key={p} value={p}>{fmtPeriodo(p)}</option>)}
+      </select>
+    </div>
+
+    {/* Summary */}
+    <div style={{display:"grid",gridTemplateColumns:mob?"1fr 1fr 1fr":"repeat(3,1fr)",gap:10,marginBottom:16}}>
+      <Card style={{textAlign:"center",padding:12}}><div style={{fontSize:20}}>👥</div><div style={{fontSize:22,fontWeight:800,color:colors.bl}}>{athletes.length}</div><div style={{fontSize:10,color:colors.g5}}>Total</div></Card>
+      <Card style={{textAlign:"center",padding:12}}><div style={{fontSize:20}}>✅</div><div style={{fontSize:22,fontWeight:800,color:T.gn}}>{pagados}</div><div style={{fontSize:10,color:colors.g5}}>Al día</div></Card>
+      <Card style={{textAlign:"center",padding:12}}><div style={{fontSize:20}}>🔴</div><div style={{fontSize:22,fontWeight:800,color:T.rd}}>{deben}</div><div style={{fontSize:10,color:colors.g5}}>Deben</div></Card>
+    </div>
+
+    {/* List by division */}
+    {Object.entries(byDiv).sort(([a],[b])=>a.localeCompare(b)).map(([div,divAths])=>{
+      const divPagados=divAths.filter(a=>{const c=periodCuotas.get(a.id);return c&&c.pagado;}).length;
+      return <Card key={div} style={{marginBottom:12}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+          <h3 style={{margin:0,fontSize:14,color:colors.nv}}>{div}</h3>
+          <span style={{fontSize:11,color:colors.g5}}>{divPagados}/{divAths.length} al día</span>
+        </div>
+        <div style={{display:"flex",flexDirection:"column" as const,gap:4}}>
+          {divAths.sort((a:any,b:any)=>a.last_name.localeCompare(b.last_name)).map((a:any)=>{
+            const c=periodCuotas.get(a.id);
+            const paid=c&&c.pagado;
+            return <div key={a.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 8px",borderRadius:6,border:"1px solid "+(paid?colors.g2:"#FCA5A5"),background:paid?cardBg:"#FEF2F2"}}>
+              <div>
+                <span style={{fontSize:12,fontWeight:600,color:colors.nv}}>{a.last_name}, {a.first_name}</span>
+                <span style={{fontSize:10,color:colors.g4,marginLeft:6}}>({a.position||"–"})</span>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                {c&&c.fecha_pago&&<span style={{fontSize:9,color:colors.g4}}>{fmtD(c.fecha_pago)}</span>}
+                {canEdit?<button onClick={()=>togglePago(a.id,a.first_name+" "+a.last_name)} disabled={saving} style={{padding:"4px 12px",borderRadius:6,border:"none",background:paid?T.gn:"#DC2626",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",opacity:saving?.5:1}}>{paid?"✅ Pagó":"❌ Debe"}</button>
+                :<span style={{padding:"4px 12px",borderRadius:6,background:paid?"#D1FAE5":"#FEE2E2",color:paid?T.gn:T.rd,fontSize:11,fontWeight:700}}>{paid?"✅ Pagó":"❌ Debe"}</span>}
+              </div>
+            </div>;
+          })}
+        </div>
+      </Card>;
+    })}
+  </div>;
+}
+
 /* ══════════════════════════ STAFF TAB ══════════════════════════ */
 function PerfilesTab({staffList,onUpdate,onDel,mob,showT,fetchAll,hlStaff,clearHl}:any){
   const{colors,isDark,cardBg}=useC();
@@ -2147,9 +2259,10 @@ function LineupTab({athletes,lineups,injuries,checkins,onAdd,onUpd,onDel,canEdit
         </div>
         <input value={pickSearch} onChange={e=>sPickSearch(e.target.value)} placeholder="Buscar jugador..." style={{width:"100%",padding:"6px 8px",marginBottom:8,borderRadius:6,border:"1px solid "+colors.g2,fontSize:12,boxSizing:"border-box"}}/>
         {(()=>{
-          const pickItem=(a:any)=>{const isInj=injuredIds.has(a.id);return <div key={a.id} onClick={()=>{sForm(p=>({...p,titulares:{...p.titulares,[pickPos]:{athlete_id:a.id,name:a.first_name+" "+a.last_name}}}));sPickPos(null);sPickSearch("");}} style={{padding:"6px 8px",borderRadius:6,border:"1px solid "+(isInj?"#FCA5A5":colors.g2),background:isInj?"#FEF2F2":cardBg,cursor:"pointer",fontSize:11,fontWeight:600,color:colors.nv}}>
+          const pickItem=(a:any)=>{const isInj=injuredIds.has(a.id);const debe=!cuotaOk(a);return <div key={a.id} onClick={()=>{if(debe&&!confirm("⚠️ "+a.first_name+" "+a.last_name+" debe cuota. ¿Agregar igual?"))return;sForm(p=>({...p,titulares:{...p.titulares,[pickPos]:{athlete_id:a.id,name:a.first_name+" "+a.last_name}}}));sPickPos(null);sPickSearch("");}} style={{padding:"6px 8px",borderRadius:6,border:"1px solid "+(isInj||debe?"#FCA5A5":colors.g2),background:isInj||debe?"#FEF2F2":cardBg,cursor:"pointer",fontSize:11,fontWeight:600,color:colors.nv}}>
             {a.last_name}, {a.first_name} <span style={{color:colors.g4,fontWeight:400}}>({a.position||"–"})</span>
             {isInj&&<span style={{color:T.rd,fontSize:9}}> 🩹</span>}
+            {debe&&<span style={{color:T.rd,fontSize:9}}> 🔴💰</span>}
           </div>;};
           const q=pickSearch.trim().toLowerCase();
           if(q){

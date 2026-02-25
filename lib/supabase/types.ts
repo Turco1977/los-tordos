@@ -135,6 +135,7 @@ export interface DepAthlete {
   active: boolean;
   medical_cert_date?: string;
   medical_cert_expiry?: string;
+  cuota_hasta?: string;
   created_at?: string;
 }
 

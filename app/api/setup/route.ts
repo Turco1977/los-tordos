@@ -357,6 +357,38 @@ CREATE POLICY inventory_distributions_all ON inventory_distributions FOR ALL USI
     });
   }
 
+  // Check dep_athletes.cuota_hasta column
+  const { error: eCuotaCol } = await admin.from("dep_athletes").select("cuota_hasta").limit(1);
+  if (eCuotaCol && eCuotaCol.code === "42703") {
+    missing.push({
+      table: "dep_athletes (ALTER cuota_hasta)",
+      sql: `ALTER TABLE dep_athletes ADD COLUMN IF NOT EXISTS cuota_hasta DATE;`,
+    });
+  }
+
+  // Check dep_cuotas table
+  const { error: eCuotas } = await admin.from("dep_cuotas").select("id").limit(1);
+  if (isMissing(eCuotas)) {
+    missing.push({
+      table: "dep_cuotas",
+      sql: `CREATE TABLE dep_cuotas (
+  id SERIAL PRIMARY KEY,
+  athlete_id INT NOT NULL REFERENCES dep_athletes(id) ON DELETE CASCADE,
+  periodo TEXT NOT NULL,
+  pagado BOOLEAN DEFAULT FALSE,
+  monto NUMERIC DEFAULT 0,
+  fecha_pago DATE,
+  registrado_por UUID,
+  registrado_por_nombre TEXT DEFAULT '',
+  notas TEXT DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(athlete_id, periodo)
+);
+ALTER TABLE dep_cuotas ENABLE ROW LEVEL SECURITY;
+CREATE POLICY dep_cuotas_all ON dep_cuotas FOR ALL USING (true) WITH CHECK (true);`,
+    });
+  }
+
   if (missing.length > 0) {
     return NextResponse.json({
       status: "missing",
