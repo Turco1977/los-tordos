@@ -59,6 +59,14 @@ export async function POST(req: NextRequest) {
     );
 
   const db = createAdminClient();
+
+  /* Check user notification preferences */
+  const { data: prefs } = await db
+    .from("notification_preferences")
+    .select("*")
+    .eq("user_id", user_id)
+    .maybeSingle();
+
   const { data, error } = await db
     .from("notifications")
     .insert({
@@ -75,8 +83,13 @@ export async function POST(req: NextRequest) {
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
 
-  /* Try sending email only when explicitly requested (e.g. task assignment) */
-  if (send_email && process.env.RESEND_API_KEY) {
+  /* Try sending email only when explicitly requested, respecting user preferences */
+  const emailAllowed = type === "deadline"
+    ? (prefs?.email_deadline ?? true)
+    : type === "task"
+    ? (prefs?.email_task_assign ?? true)
+    : true;
+  if (send_email && emailAllowed && process.env.RESEND_API_KEY) {
     try {
       const { data: profile } = await db
         .from("profiles")
@@ -115,8 +128,8 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  /* Send Web Push to all subscribed devices of the target user */
-  if (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  /* Send Web Push to all subscribed devices of the target user (respecting preferences) */
+  if ((prefs?.push_enabled ?? true) && process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
     try {
       const { data: subs } = await db
         .from("push_subscriptions")

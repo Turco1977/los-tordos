@@ -45,6 +45,7 @@ import { InventarioView } from "@/components/main/InventarioView";
 import { ReservasView } from "@/components/main/ReservasView";
 import { SponsorsView } from "@/components/main/SponsorsView";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { NotifPrefs } from "@/components/main/NotifPrefs";
 
 const supabase = createClient();
 const TODAY = new Date().toISOString().slice(0,10);
@@ -134,14 +135,14 @@ function notifs(user:any,peds:any[]){const n:any[]=[];if(["coordinador","admin",
 /* ── MAIN APP ── */
 export default function App(){
   const areas=AREAS;const deptos=DEPTOS;
-  const {users,om,peds,hitos,agendas,minutas,presu,provs,reminders,projects,projTasks,taskTemplates,projBudgets,inventory,invMaint,invDist,bookings,sponsors,sponMsgs,sponDeliveries,dbNotifs,setAll,sUs,sOm,sPd,sHi,sAgs,sMins,sPr,sPv,sRems,sProjects,sProjTasks,sTaskTemplates,sProjBudgets,sInventory,sInvMaint,sInvDist,sBookings,sSponsors,sSponMsgs,sSponDeliveries,sDbNotifs,clear:clearStore}=useDataStore();
+  const {users,om,peds,hitos,agendas,minutas,presu,provs,reminders,projects,projTasks,taskTemplates,projBudgets,inventory,invMaint,invDist,bookings,sponsors,sponMsgs,sponDeliveries,dbNotifs,notifPrefs,setAll,sUs,sOm,sPd,sHi,sAgs,sMins,sPr,sPv,sRems,sProjects,sProjTasks,sTaskTemplates,sProjBudgets,sInventory,sInvMaint,sInvDist,sBookings,sSponsors,sSponMsgs,sSponDeliveries,sDbNotifs,sNotifPrefs,clear:clearStore}=useDataStore();
   const [user,sU]=useState<any>(null);const [authChecked,sAuthChecked]=useState(false);
   const [vw,sVw_]=useState("dash");const [prevVw,sPrevVw]=useState<string|null>(null);
   const sVw=(v:string)=>{sPrevVw(vw);sVw_(v);};const [sel,sSl]=useState<any>(null);const [aA,sAA]=useState<number|null>(null);const [aD,sAD]=useState<number|null>(null);const [sbCol,sSbCol]=useState(false);const [search,sSr]=useState("");const [shNot,sShNot]=useState(false);const [preAT,sPreAT]=useState<any>(null);const [showPw,sShowPw]=useState(false);const [toast,sToast]=useState<{msg:string;type:"ok"|"err"}|null>(null);const [kpiFilt,sKpiFilt]=useState<string|null>(null);
   /* Global Search state (Feature 1) */
   const [gsOpen,sGsOpen]=useState(false);const gsRef=useRef<HTMLDivElement>(null);const mainRef=useRef<HTMLDivElement>(null);
   const [cmdOpen,sCmdOpen]=useState(false);
-  const mob=useMobile();const [sbOpen,sSbOpen]=useState(false);
+  const mob=useMobile();const [sbOpen,sSbOpen]=useState(false);const [shNotifPrefs,sShNotifPrefs]=useState(false);
   const {pushEnabled,requestPush,sendPush}=usePushNotifs(user,peds);
   const {mode:themeMode,toggle:toggleTheme,colors,isDark,cardBg,headerBg}=useTheme();
   const showT=(msg:string,type:"ok"|"err"="ok")=>sToast({msg,type});
@@ -211,6 +212,9 @@ export default function App(){
       ...(pbRes.data?{projBudgets:pbRes.data}:{}),
       ...(mappedPeds?{peds:mappedPeds}:{}),
     });
+    /* Fetch notification preferences for current user */
+    const{data:{user:authU}}=await supabase.auth.getUser();
+    if(authU){const{data:npData}=await supabase.from("notification_preferences").select("*").eq("user_id",authU.id).maybeSingle();if(npData)sNotifPrefs(()=>npData);}
     sDataLoading(false);
     // Save raw Supabase data to IndexedDB for offline use
     const anyData=pRes.data||mRes.data||omRes.data;
@@ -466,7 +470,7 @@ export default function App(){
   /* Bulk action handler (Feature 3) */
   const handleBulk=async(ids:number[],action:string,value:string)=>{
     try{if(action==="status"){sPd(p=>p.map(x=>ids.includes(x.id)?{...x,st:value}:x));for(const id of ids){await supabase.from("tasks").update({status:value}).eq("id",id);await addLog(id,user.id,fn(user),"Cambió estado a "+SC[value]?.l,"sys");}showT(ids.length+" tareas actualizadas");}
-    else if(action==="assign"){sPd(p=>p.map(x=>ids.includes(x.id)?{...x,asTo:value,st:x.st===ST.P?ST.C:x.st}:x));const ag=users.find((u:any)=>u.id===value);for(const id of ids){await supabase.from("tasks").update({assigned_to:value,status:peds.find(x=>x.id===id)?.st===ST.P?ST.C:undefined}).eq("id",id);await addLog(id,user.id,fn(user),"Asignó a "+(ag?fn(ag):""),"sys");}showT(ids.length+" tareas asignadas");}
+    else if(action==="assign"){sPd(p=>p.map(x=>ids.includes(x.id)?{...x,asTo:value,st:x.st===ST.P?ST.C:x.st}:x));const ag=users.find((u:any)=>u.id===value);for(const id of ids){await supabase.from("tasks").update({assigned_to:value,status:peds.find(x=>x.id===id)?.st===ST.P?ST.C:undefined}).eq("id",id);await addLog(id,user.id,fn(user),"Asignó a "+(ag?fn(ag):""),"sys");}if(value&&value!==user.id){sendNotif(value,ids.length+" tareas asignadas","Te asignaron "+ids.length+" tareas","task","",true);}showT(ids.length+" tareas asignadas");}
     }catch(e:any){showT(e.message||"Error","err");}
   };
 
@@ -636,7 +640,7 @@ export default function App(){
             <TList title="Tareas" icon="📋" color={T.nv} peds={myPeds} onSel={(p:any)=>sSl(p)} search={search} mob={mob} onBulk={handleBulk} onImport={handleImport} user={user}/>
           </div>;})()}
           {/* Kanban View (Feature 4) */}
-          {vw==="kanban"&&!isPersonal&&<KanbanView user={user} onSel={(p:any)=>sSl(p)} mob={mob} onStatusChange={async(id:number,newSt:string)=>{try{sPd(p=>p.map(x=>x.id===id?{...x,st:newSt}:x));await supabase.from("tasks").update({status:newSt}).eq("id",id);addLog(id,user.id,fn(user),"Cambió estado a "+SC[newSt]?.l,"sys");showT("Estado actualizado");}catch(e:any){showT(e.message||"Error","err");}}}/>}
+          {vw==="kanban"&&!isPersonal&&<KanbanView user={user} onSel={(p:any)=>sSl(p)} mob={mob} onStatusChange={async(id:number,newSt:string)=>{try{sPd(p=>p.map(x=>x.id===id?{...x,st:newSt}:x));await supabase.from("tasks").update({status:newSt}).eq("id",id);addLog(id,user.id,fn(user),"Cambió estado a "+(SC[newSt]?.l||newSt),"sys");const p2=peds.find(x=>x.id===id);if(p2?.asTo&&p2.asTo!==user.id)sendNotif(p2.asTo,"Tarea #"+id+" → "+(SC[newSt]?.l||newSt),(p2.tit||p2.desc||"").slice(0,60),"task");if(p2?.cId&&p2.cId!==user.id&&p2.cId!==p2.asTo)sendNotif(p2.cId,"Tarea #"+id+" → "+(SC[newSt]?.l||newSt),(p2.tit||p2.desc||"").slice(0,60),"task");showT("Estado actualizado");}catch(e:any){showT(e.message||"Error","err");}}}/>}
           {/* Activity Feed (Feature 5) */}
           {vw==="feed"&&!isPersonal&&<ActivityFeed onSel={(p:any)=>sSl(p)} mob={mob}/>}
           {/* Communications (Feature 9) */}
@@ -752,6 +756,7 @@ export default function App(){
             const localP={...p,id:tid};
             sPd(ps=>[localP,...ps]);
             for(const l of (p.log||[])){await supabase.from("task_messages").insert({task_id:tid,user_id:l.uid,user_name:l.by,content:l.act,type:l.t});}
+            if(localP.asTo&&localP.asTo!==user.id){sendNotif(localP.asTo,"Nueva tarea asignada #"+tid,(localP.tit||localP.desc||"").slice(0,80),"task","",true);}
             /* Auto-create presupuesto if rG */
             if(p._presu&&tid){const prRow=presuToDB({...p._presu,task_id:tid,status:PST.SOL,solicitado_por:fn(user),solicitado_at:TODAY});const{data:prData}=await supabase.from("presupuestos").insert(prRow).select().single();if(prData)sPr(prev=>[presuFromDB(prData),...prev]);}
             sPreAT(null);sVw(isPersonal?"my":"tasks");sAA(null);sAD(null);showT(p._presu?(p._presu.is_canje?"Tarea creada con canje":"Tarea creada con presupuesto"):"Tarea creada");}catch(e:any){showT(e.message||"Error al crear tarea","err");}
@@ -785,14 +790,14 @@ export default function App(){
         onAddPresu={async(d:any)=>{try{const row=presuToDB(d);const{data,error}=await supabase.from("presupuestos").insert(row).select().single();if(error)throw new Error(error.message);sPr(p=>[presuFromDB(data),...p]);showT("Presupuesto agregado");}catch(e:any){showT(e.message||"Error","err");}}}
         onUpdPresu={async(id:number,d:any)=>{try{const prev=presu.find(x=>x.id===id);sPr(p=>p.map(x=>x.id===id?{...x,...d}:x));await supabase.from("presupuestos").update(d).eq("id",id);if(d.status&&prev&&d.status!==prev.status&&prev.solicitado_por){const stLabel=d.status==="aprobado"?"aprobado":d.status==="rechazado"?"rechazado":d.status==="recibido"?"recibido":"actualizado";const reqUser=users.find((u:any)=>fn(u)===prev.solicitado_por||u.id===prev.solicitado_por);if(reqUser&&reqUser.id!==user.id)sendNotif(reqUser.id,"Presupuesto "+stLabel,prev.descripcion?.slice(0,60)||"","budget");}showT("Presupuesto actualizado");}catch(e:any){showT(e.message||"Error","err");}}}
         onDelPresu={async(id:number)=>{try{sPr(p=>p.filter(x=>x.id!==id));await supabase.from("presupuestos").delete().eq("id",id);showT("Presupuesto eliminado");}catch(e:any){showT(e.message||"Error","err");}}}
-        onTk={async(id:number)=>{try{sPd(p=>p.map(x=>x.id===id?{...x,asTo:user.id,st:ST.C}:x));await supabase.from("tasks").update({assigned_to:user.id,status:ST.C}).eq("id",id);addLog(id,user.id,fn(user),"Tomó la tarea","sys");showT("Tarea tomada");}catch(e:any){showT(e.message||"Error","err");}}}
+        onTk={async(id:number)=>{try{const prev=peds.find(x=>x.id===id);const prevAsTo=prev?.asTo;sPd(p=>p.map(x=>x.id===id?{...x,asTo:user.id,st:ST.C}:x));await supabase.from("tasks").update({assigned_to:user.id,status:ST.C}).eq("id",id);addLog(id,user.id,fn(user),"Tomó la tarea","sys");if(prevAsTo&&prevAsTo!==user.id)sendNotif(prevAsTo,fn(user)+" tomó la tarea #"+id,(prev?.tit||prev?.desc||"").slice(0,60),"task");if(prev?.cId&&prev.cId!==user.id&&prev.cId!==prevAsTo)sendNotif(prev.cId,fn(user)+" tomó la tarea #"+id,(prev?.tit||prev?.desc||"").slice(0,60),"task");showT("Tarea tomada");}catch(e:any){showT(e.message||"Error","err");}}}
         onAs={async(id:number,uid:string)=>{try{const ag=users.find(u=>u.id===uid);const p2=peds.find(x=>x.id===id);const newSt=p2?.st===ST.P?ST.C:p2?.st;sPd(p=>p.map(x=>x.id===id?{...x,asTo:uid,st:x.st===ST.P?ST.C:x.st}:x));await supabase.from("tasks").update({assigned_to:uid,status:newSt}).eq("id",id);addLog(id,user.id,fn(user),"Asignó a "+(ag?fn(ag):""),"sys");sendNotif(uid,"Te asignaron una tarea",p2?.desc||"","task","",true);showT("Tarea asignada");}catch(e:any){showT(e.message||"Error","err");}}}
         onRe={async(id:number,r:string)=>{try{const sr=sanitize(r);sPd(p=>p.map(x=>x.id===id?{...x,resp:sr}:x));await supabase.from("tasks").update({resolution:sr}).eq("id",id);showT("Resolución guardada");}catch(e:any){showT(e.message||"Error","err");}}}
         onSE={async(id:number)=>{try{sPd(p=>p.map(x=>x.id===id?{...x,st:ST.E}:x));await supabase.from("tasks").update({status:ST.E}).eq("id",id);addLog(id,user.id,fn(user),"Envió a Compras","sys");users.filter(u=>u.role==="embudo").forEach(u=>sendNotif(u.id,"Nueva tarea en Compras",peds.find(x=>x.id===id)?.desc||"","budget"));showT("Enviado a Compras");sSl(null);}catch(e:any){showT(e.message||"Error","err");}}}
         onEO={async(id:number,ok:boolean)=>{try{const p2=peds.find(x=>x.id===id);sPd(p=>p.map(x=>x.id===id?{...x,st:ST.C,eOk:ok}:x));await supabase.from("tasks").update({status:ST.C,expense_ok:ok}).eq("id",id);addLog(id,user.id,fn(user),ok?"Compras aprobó":"Compras rechazó","sys");if(p2?.asTo)sendNotif(p2.asTo,ok?"Gasto aprobado":"Gasto rechazado",p2.desc||"","budget");if(p2?.cId&&p2.cId!==p2.asTo)sendNotif(p2.cId,ok?"Gasto aprobado":"Gasto rechazado",p2.desc||"","budget");showT(ok?"Gasto aprobado":"Gasto rechazado");sSl(null);}catch(e:any){showT(e.message||"Error","err");}}}
         onFi={async(id:number)=>{try{const p2=peds.find(x=>x.id===id);sPd(p=>p.map(x=>x.id===id?{...x,st:ST.V}:x));await supabase.from("tasks").update({status:ST.V}).eq("id",id);addLog(id,user.id,fn(user),"Envió a validación","sys");if(p2?.cId)sendNotif(p2.cId,"Tarea lista para validar",p2.desc||"","task");showT("Enviado a validación");sSl(null);}catch(e:any){showT(e.message||"Error","err");}}}
         onVa={async(id:number,ok:boolean)=>{try{const p2=peds.find(x=>x.id===id);const ns=ok?ST.OK:ST.C;sPd(p=>p.map(x=>x.id===id?{...x,st:ns}:x));await supabase.from("tasks").update({status:ns}).eq("id",id);addLog(id,user.id,fn(user),ok?"Validó OK ✅":"Rechazó","sys");if(p2?.asTo)sendNotif(p2.asTo,ok?"Tarea completada":"Tarea rechazada",p2.desc||"","task");let autoInv=false;if(ok&&p2?.rG&&p2?.tipo==="Material deportivo"){const ag=users.find((u:any)=>u.id===p2.asTo);const{data:invD}=await supabase.from("inventory").insert({name:p2.desc||"Material",category:"deportivo",quantity:1,condition:"nuevo",responsible_id:p2.asTo||null,responsible_name:ag?fn(ag):"",notes:"Auto tarea #"+id}).select().single();if(invD){sInventory(prev=>[invD,...prev]);autoInv=true;}}showT(ok?(autoInv?"Completada + Inventario":"Tarea completada"):"Tarea rechazada");sSl(null);}catch(e:any){showT(e.message||"Error","err");}}}
-        onMsg={async(id:number,txt:string)=>{try{const safe=sanitize(txt);if(!safe)return;await addLog(id,user.id,fn(user),safe,"msg");/* Notify assignee on new comment */const p2=peds.find(x=>x.id===id);if(p2?.asTo&&p2.asTo!==user.id){sendNotif(p2.asTo,"Nuevo comentario en tarea #"+id,txt.slice(0,80),"task");}/* @mention notifications (Feature 7) */const mentionRx=/@([\w\s]+?)(?=\s@|$)/g;let match;while((match=mentionRx.exec(txt))!==null){const mName=match[1].trim();const mUser=users.find((u:any)=>(fn(u)).toLowerCase()===mName.toLowerCase());if(mUser&&mUser.id!==user.id&&mUser.id!==p2?.asTo){sendNotif(mUser.id,"Te mencionaron en tarea #"+id,txt.slice(0,80),"task");}}}catch(e:any){showT("Error al enviar mensaje","err");}}}
+        onMsg={async(id:number,txt:string)=>{try{const safe=sanitize(txt);if(!safe)return;await addLog(id,user.id,fn(user),safe,"msg");/* Notify assignee on new comment */const p2=peds.find(x=>x.id===id);if(p2?.asTo&&p2.asTo!==user.id){sendNotif(p2.asTo,"Nuevo comentario en tarea #"+id,txt.slice(0,80),"task");}/* Notify creator on new comment */if(p2?.cId&&p2.cId!==user.id&&p2.cId!==p2.asTo){sendNotif(p2.cId,"Nuevo comentario en tarea #"+id,txt.slice(0,80),"task");}/* @mention notifications (Feature 7) */const mentionRx=/@([\w\s]+?)(?=\s@|$)/g;let match;while((match=mentionRx.exec(txt))!==null){const mName=match[1].trim();const mUser=users.find((u:any)=>(fn(u)).toLowerCase()===mName.toLowerCase());if(mUser&&mUser.id!==user.id&&mUser.id!==p2?.asTo&&mUser.id!==p2?.cId){sendNotif(mUser.id,"Te mencionaron en tarea #"+id,txt.slice(0,80),"task");}}}catch(e:any){showT("Error al enviar mensaje","err");}}}
         onMonto={async(id:number,m:number)=>{try{sPd(p=>p.map(x=>x.id===id?{...x,monto:m}:x));await supabase.from("tasks").update({amount:m}).eq("id",id);}catch(e:any){showT(e.message||"Error","err");}}}
         onDel={async(id:number)=>{try{sPd(p=>p.filter(x=>x.id!==id));await supabase.from("tasks").delete().eq("id",id);showT("Tarea eliminada");sSl(null);}catch(e:any){showT(e.message||"Error","err");}}}
         onEditSave={async(id:number,d:any)=>{try{const sd={...d,tit:(d.tit||"").trim(),desc:sanitize(d.desc||"")};sPd(p=>p.map(x=>x.id===id?{...x,...sd}:x));await supabase.from("tasks").update({title:sd.tit,tipo:sd.tipo,description:sd.desc,due_date:sd.fReq,urgency:sd.urg,division:sd.div||"",requires_expense:sd.rG}).eq("id",id);addLog(id,user.id,fn(user),"Editó la tarea","sys");showT("Tarea actualizada");}catch(e:any){showT(e.message||"Error","err");}}}
@@ -804,7 +809,10 @@ export default function App(){
           {/* Header */}
           <div style={{padding:"14px 16px",borderBottom:"1px solid "+colors.g2,display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0}}>
             <div style={{fontSize:15,fontWeight:800,color:colors.nv}}>Notificaciones</div>
-            <button onClick={()=>sShNot(false)} style={{background:"none",border:"none",fontSize:18,cursor:"pointer",color:colors.g4,padding:4,minWidth:36,minHeight:36,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+            <div style={{display:"flex",alignItems:"center",gap:4}}>
+              <button onClick={()=>sShNotifPrefs(p=>!p)} title="Preferencias" style={{background:shNotifPrefs?colors.bl+"15":"none",border:"none",fontSize:16,cursor:"pointer",color:shNotifPrefs?colors.bl:colors.g4,padding:4,minWidth:36,minHeight:36,display:"flex",alignItems:"center",justifyContent:"center",borderRadius:6}}>⚙️</button>
+              <button onClick={()=>sShNot(false)} style={{background:"none",border:"none",fontSize:18,cursor:"pointer",color:colors.g4,padding:4,minWidth:36,minHeight:36,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+            </div>
           </div>
           {/* Filters */}
           <div style={{padding:"8px 16px",borderBottom:"1px solid "+colors.g2,display:"flex",gap:4,flexWrap:"wrap" as const,flexShrink:0}}>
@@ -812,6 +820,7 @@ export default function App(){
               <button key={f.k} onClick={()=>{sNotifFilter(f.k);sNotifPage(0);refreshNotifs({filter:f.k,offset:0});}} style={{padding:"5px 10px",borderRadius:6,border:"1px solid "+(notifFilter===f.k?colors.bl:colors.g3),background:notifFilter===f.k?colors.bl+"15":"transparent",color:notifFilter===f.k?colors.bl:colors.g5,fontSize:10,fontWeight:600,cursor:"pointer"}}>{f.l}</button>
             )}
           </div>
+          {shNotifPrefs&&<div style={{padding:"0 16px",overflowY:"auto" as const,flexShrink:0}}><NotifPrefs user={user} mob={mob}/></div>}
           {/* Computed notifications (real-time) */}
           {computedNts.length>0&&<div style={{padding:"8px 16px",borderBottom:"1px solid "+colors.g2,flexShrink:0}}>
             <div style={{fontSize:9,fontWeight:700,color:colors.g4,textTransform:"uppercase" as const,letterSpacing:1,marginBottom:4}}>En tiempo real</div>

@@ -25,6 +25,7 @@ interface DataStore {
   sponMsgs: any[];
   sponDeliveries: any[];
   dbNotifs: any[];
+  notifPrefs: any;
 
   // Batch setter (for fetchAll)
   setAll: (data: Partial<Pick<DataStore, "users"|"om"|"peds"|"hitos"|"agendas"|"minutas"|"presu"|"provs"|"reminders"|"projects"|"projTasks"|"taskTemplates"|"projBudgets"|"inventory"|"invMaint"|"invDist"|"bookings"|"sponsors"|"sponMsgs"|"sponDeliveries"|"dbNotifs">>) => void;
@@ -51,6 +52,7 @@ interface DataStore {
   sSponMsgs: Setter<any>;
   sSponDeliveries: Setter<any>;
   sDbNotifs: Setter<any>;
+  sNotifPrefs: (fn: (prev: any) => any) => void;
 
   // Reset all data (logout)
   clear: () => void;
@@ -80,6 +82,7 @@ export const useDataStore = create<DataStore>((set) => ({
   sponMsgs: empty,
   sponDeliveries: empty,
   dbNotifs: empty,
+  notifPrefs: null,
 
   setAll: (data) => set(data),
 
@@ -104,6 +107,7 @@ export const useDataStore = create<DataStore>((set) => ({
   sSponMsgs: (fn) => set((s) => ({ sponMsgs: fn(s.sponMsgs) })),
   sSponDeliveries: (fn) => set((s) => ({ sponDeliveries: fn(s.sponDeliveries) })),
   sDbNotifs: (fn) => set((s) => ({ dbNotifs: fn(s.dbNotifs) })),
+  sNotifPrefs: (fn) => set((s) => ({ notifPrefs: fn(s.notifPrefs) })),
 
   clear: () => set({
     users: empty,
@@ -127,5 +131,6 @@ export const useDataStore = create<DataStore>((set) => ({
     sponMsgs: empty,
     sponDeliveries: empty,
     dbNotifs: empty,
+    notifPrefs: null,
   }),
 }));
