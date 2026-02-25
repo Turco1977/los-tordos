@@ -3,13 +3,20 @@ import { verifyUser } from "@/lib/api/auth";
 import { createAdminClient } from "@/lib/supabase/server";
 import webpush from "web-push";
 
-/* Configure web-push with VAPID keys */
-if (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
-  webpush.setVapidDetails(
-    "mailto:admin@lostordos.com",
-    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
-    process.env.VAPID_PRIVATE_KEY
-  );
+/* Configure web-push with VAPID keys (lazy — at request time, not build time) */
+let vapidConfigured = false;
+function ensureVapid() {
+  if (vapidConfigured) return;
+  if (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+    try {
+      webpush.setVapidDetails(
+        "mailto:admin@lostordos.com",
+        process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+        process.env.VAPID_PRIVATE_KEY
+      );
+      vapidConfigured = true;
+    } catch { /* skip if keys invalid */ }
+  }
 }
 
 /* GET — fetch notifications for the calling user (supports pagination & filters) */
@@ -129,7 +136,8 @@ export async function POST(req: NextRequest) {
   }
 
   /* Send Web Push to all subscribed devices of the target user (respecting preferences) */
-  if ((prefs?.push_enabled ?? true) && process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  ensureVapid();
+  if ((prefs?.push_enabled ?? true) && vapidConfigured) {
     try {
       const { data: subs } = await db
         .from("push_subscriptions")

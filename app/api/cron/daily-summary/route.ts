@@ -2,13 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import webpush from "web-push";
 
-/* Configure web-push with VAPID keys */
-if (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
-  webpush.setVapidDetails(
-    "mailto:admin@lostordos.com",
-    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
-    process.env.VAPID_PRIVATE_KEY
-  );
+/* Configure web-push with VAPID keys (lazy — at request time, not build time) */
+let vapidConfigured = false;
+function ensureVapid() {
+  if (vapidConfigured) return;
+  if (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+    try {
+      webpush.setVapidDetails(
+        "mailto:admin@lostordos.com",
+        process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+        process.env.VAPID_PRIVATE_KEY
+      );
+      vapidConfigured = true;
+    } catch { /* skip if keys invalid */ }
+  }
 }
 
 /* Helper: create in-app notification + send push to a user (server-side, no API call) */
@@ -30,7 +37,8 @@ async function createNotifAndPush(
   });
 
   // Send push notification
-  if (!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) return;
+  ensureVapid();
+  if (!vapidConfigured) return;
   try {
     const { data: subs } = await db
       .from("push_subscriptions")
