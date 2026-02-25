@@ -354,31 +354,19 @@ export function InventarioView({user,mob,onAdd,onUpd,onDel,onAddMaint,onUpdMaint
         <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}><Btn v="g" s="s" onClick={closeForm}>Cancelar</Btn><Btn v="pu" s="s" disabled={!form.name.trim()} onClick={save}>{editId?"💾 Guardar":"✅ Agregar"}</Btn></div>
       </Card>}
 
-      {/* Items grid */}
+      {/* Items bubble grid */}
       {visActivos.length===0&&!form&&<Card style={{textAlign:"center" as const,padding:24,color:colors.g4}}><span style={{fontSize:24}}>📭</span><div style={{marginTop:6,fontSize:12}}>Sin activos fijos{search||fCat!=="all"||fCond!=="all"?" con estos filtros":""}</div></Card>}
-      <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"repeat(auto-fill,minmax(280px,1fr))",gap:10}}>
-        {visActivos.map((it:any)=>{const cat=INV_CAT[it.category]||INV_CAT.otro;const cond=INV_COND[it.condition]||INV_COND.bueno;const resp=it.responsible_id?userName(it.responsible_id):(it.responsible_name||"");const isOverdue=it.next_maint_date&&it.next_maint_date<TODAY;
-          return(<Card key={it.id} style={{padding:"12px 14px",borderLeft:"3px solid "+cat.c,cursor:"pointer"}} onClick={()=>sFichaId(it.id)}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"start",marginBottom:6}}>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3}}>
-                  <span style={{fontSize:16}}>{cat.i}</span>
-                  <span style={{fontSize:13,fontWeight:700,color:colors.nv,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{it.name}</span>
-                </div>
-                <div style={{display:"flex",gap:4,alignItems:"center"}}>
-                  <span style={{padding:"1px 6px",borderRadius:6,background:cat.c+"18",color:cat.c,fontWeight:600,fontSize:9}}>{cat.l}</span>
-                  {isOverdue&&<span style={{padding:"1px 6px",borderRadius:6,background:"#FEE2E2",color:"#DC2626",fontWeight:700,fontSize:9}}>⚠️ Service</span>}
-                </div>
-              </div>
-              <span style={{padding:"2px 8px",borderRadius:10,background:cond.bg,color:cond.c,fontSize:9,fontWeight:700,flexShrink:0}}>{cond.l}</span>
+      <div style={{display:"flex",flexWrap:"wrap" as const,gap:mob?8:12,justifyContent:"flex-start"}}>
+        {visActivos.map((it:any)=>{const cat=INV_CAT[it.category]||INV_CAT.otro;const cond=INV_COND[it.condition]||INV_COND.bueno;const isOverdue=it.next_maint_date&&it.next_maint_date<TODAY;const sz=mob?70:80;
+          return(<div key={it.id} onClick={()=>sFichaId(it.id)} style={{display:"flex",flexDirection:"column" as const,alignItems:"center",cursor:"pointer",width:mob?80:100}} title={it.name+(it.location?" · "+it.location:"")+(it.notes?" · "+it.notes:"")}>
+            <div style={{width:sz,height:sz,borderRadius:"50%",background:cond.bg,border:"3px solid "+(isOverdue?"#DC2626":cond.c),display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column" as const,transition:"transform .15s",position:"relative" as const}}>
+              <span style={{fontSize:sz>70?22:18,fontWeight:800,color:cond.c,lineHeight:1}}>{it.quantity||1}</span>
+              <span style={{fontSize:8,color:cond.c,fontWeight:600,marginTop:1}}>{cat.i}</span>
+              {isOverdue&&<span style={{position:"absolute" as const,top:-2,right:-2,fontSize:10}}>⚠️</span>}
             </div>
-            <div style={{display:"flex",gap:10,fontSize:10,color:colors.g5,marginBottom:4,flexWrap:"wrap" as const}}>
-              {it.location&&<span>📍 {it.location}</span>}
-              {it.brand&&<span>{it.brand}{it.model?" "+it.model:""}</span>}
-              {resp&&<span>👤 {resp}</span>}
-            </div>
-            {it.notes&&<div style={{fontSize:10,color:colors.g4,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical" as const}}>{it.notes}</div>}
-          </Card>);})}
+            <div style={{marginTop:4,fontSize:mob?8:9,fontWeight:600,color:colors.nv,textAlign:"center" as const,lineHeight:1.2,maxWidth:mob?80:100,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical" as const}}>{it.name}</div>
+            <div style={{fontSize:7,color:cond.c,fontWeight:700,marginTop:1}}>{cond.l}</div>
+          </div>);})}
       </div>
     </div>}
 
@@ -419,38 +407,26 @@ export function InventarioView({user,mob,onAdd,onUpd,onDel,onAddMaint,onUpdMaint
         <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}><Btn v="g" s="s" onClick={closeForm}>Cancelar</Btn><Btn v="pu" s="s" disabled={!form.name.trim()||!form.quantity} onClick={save}>{editId?"💾 Guardar":"✅ Crear Lote"}</Btn></div>
       </Card>}
 
-      {/* Lotes list */}
+      {/* Lotes bubble grid */}
       {visLotes.length===0&&!form&&<Card style={{textAlign:"center" as const,padding:24,color:colors.g4}}><span style={{fontSize:24}}>📭</span><div style={{marginTop:6,fontSize:12}}>Sin lotes de material{search?" con estos filtros":""}</div></Card>}
-      <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"repeat(auto-fill,minmax(300px,1fr))",gap:10}}>
+      <div style={{display:"flex",flexWrap:"wrap" as const,gap:mob?8:12,justifyContent:"flex-start"}}>
         {visLotes.map((it:any)=>{
           const dists=(invDist||[]).filter((d:any)=>d.inventory_id===it.id);
           const distributed=dists.reduce((s:number,d:any)=>s+(d.qty_given||0),0);
-          const pct=it.quantity?Math.round((distributed/(it.quantity||1))*100):0;
-          const activeDists=dists.filter((d:any)=>d.status==="activa").length;
-          return(<Card key={it.id} style={{padding:"14px 16px",borderLeft:"3px solid #C8102E",cursor:"pointer"}} onClick={()=>sLoteDetId(it.id)}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"start",marginBottom:6}}>
-              <div style={{flex:1,minWidth:0}}>
-                <span style={{fontSize:14,fontWeight:700,color:colors.nv}}>{it.name}</span>
-                <div style={{fontSize:10,color:colors.g5,marginTop:2}}>{it.brand?it.brand+" · ":""}{it.season?"Temporada "+it.season:""} {it.purchase_date?" · Compra: "+it.purchase_date:""}</div>
-              </div>
-              <span style={{padding:"3px 10px",borderRadius:10,background:distributed>=it.quantity?"#D1FAE5":distributed>0?"#DBEAFE":"#F3F4F6",color:distributed>=it.quantity?"#10B981":distributed>0?"#3B82F6":"#6B7280",fontSize:10,fontWeight:700}}>{distributed>=it.quantity?"Distribuido":distributed>0?"Parcial":"Stock"}</span>
+          const stock=(it.quantity||0)-distributed;
+          const cond=INV_COND[it.condition]||INV_COND.bueno;
+          const borderColor=distributed>=(it.quantity||1)?"#10B981":distributed>0?"#3B82F6":"#C8102E";
+          const bgColor=distributed>=(it.quantity||1)?"#D1FAE5":distributed>0?"#DBEAFE":"#FEF2F2";
+          const numColor=distributed>=(it.quantity||1)?"#10B981":distributed>0?"#3B82F6":"#C8102E";
+          const sz=mob?70:80;
+          return(<div key={it.id} onClick={()=>sLoteDetId(it.id)} style={{display:"flex",flexDirection:"column" as const,alignItems:"center",cursor:"pointer",width:mob?80:100}} title={it.name+(it.brand?" · "+it.brand:"")+(it.notes?" · "+it.notes:"")}>
+            <div style={{width:sz,height:sz,borderRadius:"50%",background:bgColor,border:"3px solid "+borderColor,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column" as const,transition:"transform .15s",position:"relative" as const}}>
+              <span style={{fontSize:sz>70?22:18,fontWeight:800,color:numColor,lineHeight:1}}>{it.quantity||0}</span>
+              <span style={{fontSize:7,color:numColor,fontWeight:600,marginTop:1}}>stock {stock}</span>
             </div>
-            {/* Progress bar */}
-            <div style={{marginBottom:6}}>
-              <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:colors.g5,marginBottom:2}}>
-                <span>{distributed} / {it.quantity} distribuido</span>
-                <span>{pct}%</span>
-              </div>
-              <div style={{background:colors.g2,borderRadius:6,height:6,overflow:"hidden"}}>
-                <div style={{width:Math.min(100,pct)+"%",height:"100%",background:pct>=100?"#10B981":"#3B82F6",borderRadius:6,transition:"width .3s"}}/>
-              </div>
-            </div>
-            <div style={{display:"flex",gap:10,fontSize:10,color:colors.g5}}>
-              <span>📦 Cant: {it.quantity}</span>
-              {it.unit_cost>0&&<span>💰 ${Number(it.unit_cost).toLocaleString()}/u</span>}
-              {activeDists>0&&<span>🔗 {activeDists} div. activas</span>}
-            </div>
-          </Card>);})}
+            <div style={{marginTop:4,fontSize:mob?8:9,fontWeight:600,color:colors.nv,textAlign:"center" as const,lineHeight:1.2,maxWidth:mob?80:100,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical" as const}}>{it.name}</div>
+            <div style={{fontSize:7,color:borderColor,fontWeight:700,marginTop:1}}>{distributed>=(it.quantity||1)?"Distribuido":distributed>0?"Parcial":"Stock"}</div>
+          </div>);})}
       </div>
     </div>}
 
