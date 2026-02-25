@@ -298,9 +298,7 @@ export default function DeportivoApp(){
     {k:"equipo",l:"🏉",f:"Formaciones"},
     {k:"comm",l:"📢",f:"Comunicación"},
     {k:"cuotas",l:"💰",f:"Cuotas"},
-    {k:"hk-asist",l:"🏑",f:"Asistencia"},
-    {k:"hk-partidos",l:"🏑",f:"Partidos"},
-    {k:"hk-cal",l:"📅",f:"Calendario H"},
+    {k:"hk-asist",l:"📋",f:"Asistencia"},
   ];
 
   /* ══════════════════════════ HANDLERS ══════════════════════════ */

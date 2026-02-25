@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { T, HOCKEY_DIV, HOCKEY_RAMA, TIPO_ACTIVIDAD, fn } from "@/lib/constants";
+import { T, DEP_DIV, TIPO_ACTIVIDAD, fn } from "@/lib/constants";
 import { Btn, Card, Ring } from "@/components/ui";
 import { useC } from "@/lib/theme-context";
 import { useDataStore } from "@/lib/store";
@@ -22,8 +22,7 @@ export function AsistenciaManager({ user, mob, getToken, showT }: any) {
   const [qrUrl, sQrUrl] = useState("");
   const [qrTimer, sQrTimer] = useState(0);
   const [fDiv, sFDiv] = useState("");
-  const [fRama, sFRama] = useState("");
-  const [form, sForm] = useState({ fecha: TODAY, division: HOCKEY_DIV[0], rama: "femenino", tipo_actividad: "entrenamiento", notas: "" });
+  const [form, sForm] = useState({ fecha: TODAY, division: "M19", rama: "", tipo_actividad: "entrenamiento", notas: "" });
 
   // Fetch athletes for the selected division
   const fetchAthletes = useCallback(async (division: string) => {
@@ -127,7 +126,6 @@ export function AsistenciaManager({ user, mob, getToken, showT }: any) {
   // Filter sesiones
   const filtered = sesiones.filter((s: any) => {
     if (fDiv && s.division !== fDiv) return false;
-    if (fRama && s.rama !== fRama) return false;
     return true;
   });
 
@@ -143,7 +141,7 @@ export function AsistenciaManager({ user, mob, getToken, showT }: any) {
     <div style={{ maxWidth: mob ? undefined : 900 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
         <div>
-          <h2 style={{ margin: 0, fontSize: mob ? 16 : 19, color: colors.nv, fontWeight: 800 }}>Asistencia Hockey</h2>
+          <h2 style={{ margin: 0, fontSize: mob ? 16 : 19, color: colors.nv, fontWeight: 800 }}>📋 Asistencia</h2>
           <p style={{ color: colors.g4, fontSize: 12, margin: "2px 0 0" }}>Control de presentes por sesión</p>
         </div>
         <Btn v="s" s="s" onClick={() => sView("new")}>+ Sesión</Btn>
@@ -152,11 +150,7 @@ export function AsistenciaManager({ user, mob, getToken, showT }: any) {
       <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" as const }}>
         <select value={fDiv} onChange={e => sFDiv(e.target.value)} style={{ padding: "4px 8px", borderRadius: 8, border: "1px solid " + colors.g3, fontSize: 11 }}>
           <option value="">Todas las divisiones</option>
-          {HOCKEY_DIV.map(d => <option key={d} value={d}>{d}</option>)}
-        </select>
-        <select value={fRama} onChange={e => sFRama(e.target.value)} style={{ padding: "4px 8px", borderRadius: 8, border: "1px solid " + colors.g3, fontSize: 11 }}>
-          <option value="">Todas las ramas</option>
-          {Object.entries(HOCKEY_RAMA).map(([k, v]) => <option key={k} value={k}>{v.i} {v.l}</option>)}
+          {DEP_DIV.map(d => <option key={d} value={d}>{d}</option>)}
         </select>
       </div>
       {/* Cards with Ring (same aesthetic as screenshot) */}
@@ -198,13 +192,7 @@ export function AsistenciaManager({ user, mob, getToken, showT }: any) {
           <div>
             <label style={{ fontSize: 10, fontWeight: 600, color: colors.g5 }}>División</label>
             <select value={form.division} onChange={e => sForm(p => ({ ...p, division: e.target.value }))} style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid " + colors.g3, fontSize: 12, marginTop: 2 }}>
-              {HOCKEY_DIV.map(d => <option key={d} value={d}>{d}</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={{ fontSize: 10, fontWeight: 600, color: colors.g5 }}>Rama</label>
-            <select value={form.rama} onChange={e => sForm(p => ({ ...p, rama: e.target.value }))} style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid " + colors.g3, fontSize: 12, marginTop: 2 }}>
-              {Object.entries(HOCKEY_RAMA).map(([k, v]) => <option key={k} value={k}>{v.l}</option>)}
+              {DEP_DIV.map(d => <option key={d} value={d}>{d}</option>)}
             </select>
           </div>
           <div>
@@ -237,7 +225,7 @@ export function AsistenciaManager({ user, mob, getToken, showT }: any) {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
                 <div style={{ fontSize: 16, fontWeight: 800, color: colors.nv }}>{selSesion.division} — {TIPO_ACTIVIDAD[selSesion.tipo_actividad]?.l || selSesion.tipo_actividad}</div>
-                <div style={{ fontSize: 12, color: colors.g4 }}>{fmtD(selSesion.fecha)} · {HOCKEY_RAMA[selSesion.rama]?.l || selSesion.rama}</div>
+                <div style={{ fontSize: 12, color: colors.g4 }}>{fmtD(selSesion.fecha)}</div>
               </div>
               <div style={{ textAlign: "center" as const }}>
                 <Ring pct={pct} color={selSesion.estado === "abierta" ? T.gn : colors.g4} size={60} />
