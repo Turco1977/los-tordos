@@ -33,6 +33,7 @@ export function InventarioView({user,mob,onAdd,onUpd,onDel,onAddMaint,onUpdMaint
   const [loteDetId,sLoteDetId]=useState<number|null>(null);
   const [retForm,sRetForm]=useState<any>(null);
   const [showImport,sShowImport]=useState(false);
+  const [matSport,sMatSport]=useState<"pick"|"rugby"|"hockey">("pick");
 
   /* Split items by type */
   const activos=useMemo(()=>(items||[]).filter((it:any)=>it.item_type!=="lote"),[items]);
@@ -50,9 +51,13 @@ export function InventarioView({user,mob,onAdd,onUpd,onDel,onAddMaint,onUpdMaint
   /* Filtered lotes */
   const visLotes=useMemo(()=>{
     let r=[...lotes];
+    if(matSport==="rugby") r=r.filter((it:any)=>(it.name||"").startsWith("[Rugby]"));
+    else if(matSport==="hockey") r=r.filter((it:any)=>(it.name||"").startsWith("[Hockey]"));
     if(search){const s=search.toLowerCase();r=r.filter((it:any)=>((it.name||"")+(it.season||"")+(it.brand||"")).toLowerCase().includes(s));}
     return r;
-  },[lotes,search]);
+  },[lotes,search,matSport]);
+  /* Strip [Rugby]/[Hockey] prefix for display */
+  const cleanName=(name:string)=>name.replace(/^\[(Rugby|Hockey)\]\s*/,"");
 
   /* KPIs - Activos */
   const totalActivos=activos.length;
@@ -374,14 +379,35 @@ export function InventarioView({user,mob,onAdd,onUpd,onDel,onAddMaint,onUpdMaint
     {tab==="activos"&&fichaId&&renderFicha()}
 
     {/* ======================== TAB: MATERIAL DEPORTIVO ======================== */}
-    {tab==="material"&&!loteDetId&&<div>
+    {tab==="material"&&!loteDetId&&matSport==="pick"&&<div>
+      {/* Sport picker */}
+      <div style={{display:"flex",gap:mob?16:24,justifyContent:"center",alignItems:"center",padding:mob?"30px 0":"50px 0",flexWrap:"wrap" as const}}>
+        {[{k:"rugby" as const,icon:"🏉",label:"Rugby",color:"#C8102E",count:lotes.filter((it:any)=>(it.name||"").startsWith("[Rugby]")).length},
+          {k:"hockey" as const,icon:"🏑",label:"Hockey",color:"#3B82F6",count:lotes.filter((it:any)=>(it.name||"").startsWith("[Hockey]")).length}
+        ].map(sp=>(
+          <div key={sp.k} onClick={()=>sMatSport(sp.k)} style={{display:"flex",flexDirection:"column" as const,alignItems:"center",cursor:"pointer",transition:"transform .15s"}}>
+            <div style={{width:mob?120:150,height:mob?120:150,borderRadius:"50%",background:sp.color+"12",border:"4px solid "+sp.color,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column" as const,transition:"background .2s"}}>
+              <span style={{fontSize:mob?48:60}}>{sp.icon}</span>
+              <span style={{fontSize:mob?20:26,fontWeight:800,color:sp.color,marginTop:4}}>{sp.count}</span>
+            </div>
+            <div style={{marginTop:10,fontSize:mob?15:17,fontWeight:800,color:colors.nv}}>{sp.label}</div>
+            <div style={{fontSize:11,color:colors.g4}}>{sp.count} items</div>
+          </div>
+        ))}
+      </div>
       {/* KPI cards */}
-      <div style={{display:"grid",gridTemplateColumns:mob?"repeat(2,1fr)":"repeat(4,1fr)",gap:10,margin:"0 0 14px"}}>
+      <div style={{display:"grid",gridTemplateColumns:mob?"repeat(2,1fr)":"repeat(4,1fr)",gap:10,margin:"14px 0"}}>
         <Card style={{padding:"10px 12px",borderTop:"3px solid "+colors.bl}}><div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:16}}>📦</span><span style={{fontSize:17,fontWeight:800,color:colors.bl}}>{totalDistribuido}</span></div><div style={{fontSize:10,color:colors.g4,marginTop:3}}>Total Distribuido</div></Card>
         <Card style={{padding:"10px 12px",borderTop:"3px solid "+colors.gn}}><div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:16}}>✅</span><span style={{fontSize:17,fontWeight:800,color:colors.gn}}>{totalDevuelto}</span></div><div style={{fontSize:10,color:colors.g4,marginTop:3}}>Devuelto</div></Card>
         <Card style={{padding:"10px 12px",borderTop:"3px solid #DC2626"}}><div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:16}}>⏳</span><span style={{fontSize:17,fontWeight:800,color:"#DC2626"}}>{totalPendiente}</span></div><div style={{fontSize:10,color:colors.g4,marginTop:3}}>Pendientes Devolución</div></Card>
         <Card style={{padding:"10px 12px",borderTop:"3px solid #F59E0B"}}><div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:16}}>⚠️</span><span style={{fontSize:17,fontWeight:800,color:"#F59E0B"}}>{totalPerdidas}</span></div><div style={{fontSize:10,color:colors.g4,marginTop:3}}>Pérdidas</div></Card>
       </div>
+    </div>}
+
+    {tab==="material"&&!loteDetId&&matSport!=="pick"&&<div>
+      {/* Back + sport header */}
+      <button onClick={()=>sMatSport("pick")} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:colors.bl,fontWeight:600,marginBottom:10,padding:0}}>← Volver</button>
+      <h3 style={{margin:"0 0 14px",fontSize:mob?16:18,fontWeight:800,color:colors.nv}}>{matSport==="rugby"?"🏉 Material Rugby":"🏑 Material Hockey"} <span style={{fontSize:13,fontWeight:500,color:colors.g4}}>({visLotes.length} items)</span></h3>
 
       {/* Search + Add */}
       <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap" as const,alignItems:"center"}}>
@@ -415,17 +441,14 @@ export function InventarioView({user,mob,onAdd,onUpd,onDel,onAddMaint,onUpdMaint
           const distributed=dists.reduce((s:number,d:any)=>s+(d.qty_given||0),0);
           const stock=(it.quantity||0)-distributed;
           const cond=INV_COND[it.condition]||INV_COND.bueno;
-          const borderColor=distributed>=(it.quantity||1)?"#10B981":distributed>0?"#3B82F6":"#C8102E";
-          const bgColor=distributed>=(it.quantity||1)?"#D1FAE5":distributed>0?"#DBEAFE":"#FEF2F2";
-          const numColor=distributed>=(it.quantity||1)?"#10B981":distributed>0?"#3B82F6":"#C8102E";
           const sz=mob?70:80;
-          return(<div key={it.id} onClick={()=>sLoteDetId(it.id)} style={{display:"flex",flexDirection:"column" as const,alignItems:"center",cursor:"pointer",width:mob?80:100}} title={it.name+(it.brand?" · "+it.brand:"")+(it.notes?" · "+it.notes:"")}>
-            <div style={{width:sz,height:sz,borderRadius:"50%",background:bgColor,border:"3px solid "+borderColor,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column" as const,transition:"transform .15s",position:"relative" as const}}>
-              <span style={{fontSize:sz>70?22:18,fontWeight:800,color:numColor,lineHeight:1}}>{it.quantity||0}</span>
-              <span style={{fontSize:7,color:numColor,fontWeight:600,marginTop:1}}>stock {stock}</span>
+          return(<div key={it.id} onClick={()=>sLoteDetId(it.id)} style={{display:"flex",flexDirection:"column" as const,alignItems:"center",cursor:"pointer",width:mob?80:100}} title={cleanName(it.name||"")+(it.brand?" · "+it.brand:"")+(it.notes?" · "+it.notes:"")}>
+            <div style={{width:sz,height:sz,borderRadius:"50%",background:cond.bg,border:"3px solid "+cond.c,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column" as const,transition:"transform .15s",position:"relative" as const}}>
+              <span style={{fontSize:sz>70?22:18,fontWeight:800,color:cond.c,lineHeight:1}}>{it.quantity||0}</span>
+              <span style={{fontSize:7,color:cond.c,fontWeight:600,marginTop:1}}>stock {stock}</span>
             </div>
-            <div style={{marginTop:4,fontSize:mob?8:9,fontWeight:600,color:colors.nv,textAlign:"center" as const,lineHeight:1.2,maxWidth:mob?80:100,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical" as const}}>{it.name}</div>
-            <div style={{fontSize:7,color:borderColor,fontWeight:700,marginTop:1}}>{distributed>=(it.quantity||1)?"Distribuido":distributed>0?"Parcial":"Stock"}</div>
+            <div style={{marginTop:4,fontSize:mob?8:9,fontWeight:600,color:colors.nv,textAlign:"center" as const,lineHeight:1.2,maxWidth:mob?80:100,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical" as const}}>{cleanName(it.name||"")}</div>
+            <div style={{fontSize:7,color:cond.c,fontWeight:700,marginTop:1}}>{cond.l}</div>
           </div>);})}
       </div>
     </div>}
