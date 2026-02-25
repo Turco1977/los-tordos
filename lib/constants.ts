@@ -124,8 +124,9 @@ export const INV_CAT:Record<string,{l:string;i:string;c:string}>={
 };
 export const INV_COND:Record<string,{l:string;c:string;bg:string}>={
   nuevo:{l:"Nuevo",c:"#10B981",bg:"#D1FAE5"},
-  bueno:{l:"Bueno",c:"#3B82F6",bg:"#DBEAFE"},
+  bueno:{l:"Bueno",c:"#10B981",bg:"#D1FAE5"},
   regular:{l:"Regular",c:"#F59E0B",bg:"#FEF3C7"},
+  malo:{l:"Malo",c:"#DC2626",bg:"#FEE2E2"},
   reparar:{l:"A Reparar",c:"#DC2626",bg:"#FEE2E2"},
   baja:{l:"De Baja",c:"#6B7280",bg:"#F3F4F6"}
 };
