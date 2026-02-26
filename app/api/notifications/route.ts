@@ -65,7 +65,22 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
 
+  // Authorization: users can only notify themselves unless admin/coordinador
   const db = createAdminClient();
+  if (user_id !== auth.user.id) {
+    const { data: callerProfile } = await db
+      .from("profiles")
+      .select("role")
+      .eq("id", auth.user.id)
+      .single();
+    const callerRole = callerProfile?.role || "usuario";
+    if (!["superadmin", "admin", "coordinador"].includes(callerRole)) {
+      return NextResponse.json(
+        { error: "No autorizado para notificar a otros usuarios" },
+        { status: 403 }
+      );
+    }
+  }
 
   /* Check user notification preferences */
   const { data: prefs } = await db

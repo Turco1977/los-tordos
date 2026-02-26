@@ -31,6 +31,7 @@ describe("notify()", () => {
         message: "Hello",
         type: "task",
         link: "/tasks/1",
+        send_email: false,
       }),
     });
   });
@@ -45,6 +46,7 @@ describe("notify()", () => {
     expect(body.message).toBe("");
     expect(body.type).toBe("info");
     expect(body.link).toBe("");
+    expect(body.send_email).toBe(false);
   });
 
   it("does not throw on network error", async () => {
@@ -55,10 +57,10 @@ describe("notify()", () => {
 });
 
 describe("fetchNotifications()", () => {
-  it("sends GET with auth token and returns notifications", async () => {
+  it("sends GET with auth token and returns notifications + total", async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({ notifications: [{ id: 1, title: "N1" }] }),
+      json: () => Promise.resolve({ notifications: [{ id: 1, title: "N1" }], total: 1 }),
     });
     vi.stubGlobal("fetch", mockFetch);
 
@@ -67,10 +69,10 @@ describe("fetchNotifications()", () => {
     expect(mockFetch).toHaveBeenCalledWith("/api/notifications", {
       headers: { Authorization: "Bearer my-token" },
     });
-    expect(result).toEqual([{ id: 1, title: "N1" }]);
+    expect(result).toEqual({ notifications: [{ id: 1, title: "N1" }], total: 1 });
   });
 
-  it("returns empty array when notifications is missing", async () => {
+  it("returns empty result when notifications is missing", async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({}),
@@ -78,13 +80,13 @@ describe("fetchNotifications()", () => {
     vi.stubGlobal("fetch", mockFetch);
 
     const result = await fetchNotifications("t");
-    expect(result).toEqual([]);
+    expect(result).toEqual({ notifications: [], total: 0 });
   });
 
-  it("returns empty array on error", async () => {
+  it("returns empty result on error", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("fail")));
     const result = await fetchNotifications("bad-token");
-    expect(result).toEqual([]);
+    expect(result).toEqual({ notifications: [], total: 0 });
   });
 });
 

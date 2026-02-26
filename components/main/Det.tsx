@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { T, ROLES, ST, SC, PSC, PST, TIPOS, MONEDAS, fn, isOD } from "@/lib/constants";
 import { rlv } from "@/lib/mappers";
 import { Btn, FileField, Badge, PBadge, UserPicker } from "@/components/ui";
@@ -23,6 +23,9 @@ export function Det({p,user,onX,onTk,onAs,onRe,onSE,onEO,onFi,onVa,onMsg,onMonto
   const [chkItems,sChkItems]=useState<{text:string;done:boolean}[]>(checkLogs.map((l:any)=>{try{return JSON.parse(l.act);}catch{return{text:l.act,done:false};}}).filter(Boolean));
   const [newChk,sNewChk]=useState("");
   const chkPct=chkItems.length?Math.round(chkItems.filter(c=>c.done).length/chkItems.length*100):0;
+  const closeRef=useRef<HTMLButtonElement>(null);
+  const triggerRef=useRef<Element|null>(null);
+  useEffect(()=>{triggerRef.current=document.activeElement;setTimeout(()=>closeRef.current?.focus(),50);return()=>{if(triggerRef.current instanceof HTMLElement)triggerRef.current.focus();};},[]);
   const ag=users.find((u:any)=>u.id===p.asTo),isCo=rlv(user.role)>=3,isEm=user.role==="embudo",isM=p.asTo===user.id,isCr=p.cId===user.id;
   const isSA=user.role==="superadmin";
   const canT=rlv(user.role)>=2&&rlv(user.role)<=4&&p.st===ST.P;
@@ -45,7 +48,7 @@ export function Det({p,user,onX,onTk,onAs,onRe,onSE,onEO,onFi,onVa,onMsg,onMonto
       <div style={{padding:"16px 20px 12px",borderBottom:"1px solid "+colors.g2,flexShrink:0}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"start"}}>
           <div><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:10,color:colors.g4}}>#{p.id}</span><Badge s={p.st} sm/>{od&&<span style={{fontSize:10,color:"#DC2626",fontWeight:700}}>⏰ VENCIDA</span>}{p.urg==="Urgente"&&<span style={{fontSize:10,color:colors.rd,fontWeight:700}}>🔥 URGENTE</span>}</div><h2 style={{margin:"4px 0 0",fontSize:15,color:colors.nv,fontWeight:800}}>{p.tit||p.tipo+": "+p.desc.slice(0,60)}</h2></div>
-          <div style={{display:"flex",gap:4,alignItems:"center"}}>{(rlv(user.role)>=3||p.asTo===user.id||p.cId===user.id)&&<Btn v="g" s="s" onClick={()=>{sEditing(true);sTab("edit");}} title="Editar tarea">✏️</Btn>}{onDup&&rlv(user.role)>=3&&<Btn v="g" s="s" onClick={()=>onDup(p)} title="Duplicar tarea">📋</Btn>}{isSA&&<Btn v="g" s="s" onClick={()=>{if(confirm("¿Eliminar esta tarea?")){onDel(p.id);onX();}}} style={{color:colors.rd}} title="Eliminar tarea">🗑️</Btn>}<button onClick={onX} style={{background:"none",border:"none",fontSize:18,cursor:"pointer",color:colors.g4}} title="Cerrar">✕</button></div>
+          <div style={{display:"flex",gap:4,alignItems:"center"}}>{(rlv(user.role)>=3||p.asTo===user.id||p.cId===user.id)&&<Btn v="g" s="s" onClick={()=>{sEditing(true);sTab("edit");}} title="Editar tarea">✏️</Btn>}{onDup&&rlv(user.role)>=3&&<Btn v="g" s="s" onClick={()=>onDup(p)} title="Duplicar tarea">📋</Btn>}{isSA&&<Btn v="g" s="s" onClick={()=>{if(confirm("¿Eliminar esta tarea?")){onDel(p.id);onX();}}} style={{color:colors.rd}} title="Eliminar tarea">🗑️</Btn>}<button ref={closeRef} onClick={onX} style={{background:"none",border:"none",fontSize:18,cursor:"pointer",color:colors.g4}} title="Cerrar" aria-label="Cerrar detalle de tarea">✕</button></div>
         </div>
         <div style={{display:"flex",gap:12,marginTop:8,flexWrap:"wrap" as const,fontSize:11,color:colors.g5}}>
           <span>📍 {p.div||"General"}</span><span>👤 {p.cN}</span>{ag&&<span>⚙️ {fn(ag)}</span>}<span>📅 {p.fReq}</span>{p.monto&&<span style={{color:colors.pr,fontWeight:700}}>💰 ${p.monto.toLocaleString()}</span>}

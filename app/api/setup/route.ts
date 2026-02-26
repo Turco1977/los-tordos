@@ -1,9 +1,19 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { verifyAdmin } from "@/lib/api/auth";
 
 const isMissing = (err: any) => err && (err.code === "42P01" || err.code === "PGRST205");
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // Block in production unless explicitly allowed
+  if (process.env.NODE_ENV === "production" && !process.env.ALLOW_SETUP_ROUTE) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  // Require admin auth
+  const auth = await verifyAdmin(req);
+  if ("error" in auth)
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
   const admin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
