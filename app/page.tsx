@@ -40,6 +40,7 @@ const InventarioView = dynamic(() => import("@/components/main/InventarioView").
 const ReservasView = dynamic(() => import("@/components/main/ReservasView").then(m => ({ default: m.ReservasView })), { ssr: false });
 const Reuniones = dynamic(() => import("@/components/main/Reuniones").then(m => ({ default: m.Reuniones })), { ssr: false });
 const ArchivosView = dynamic(() => import("@/components/main/ArchivosView").then(m => ({ default: m.ArchivosView })), { ssr: false });
+const NewFactura = dynamic(() => import("@/components/main/NewFactura").then(m => ({ default: m.NewFactura })), { ssr: false });
 
 // Custom hooks
 import { useAuth } from "@/hooks/useAuth";
@@ -239,6 +240,7 @@ export default function App() {
             <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" as const }}>
               <div onClick={() => sVw("new-task")} style={{ flex: 1, minWidth: 160, padding: mob ? 20 : 24, background: colors.nv + "08", border: "2px solid " + colors.nv, borderRadius: 14, cursor: "pointer", textAlign: "center" as const }}><div style={{ fontSize: 28, marginBottom: 8 }}>🏉</div><div style={{ fontSize: 14, fontWeight: 700, color: colors.nv }}>+ Nueva Tarea</div><div style={{ fontSize: 11, color: colors.g4, marginTop: 4 }}>Logística, infraestructura, administrativo, etc.</div></div>
               <div onClick={() => sVw("comm-req")} style={{ flex: 1, minWidth: 160, padding: mob ? 20 : 24, background: "#8B5CF608", border: "2px solid #8B5CF6", borderRadius: 14, cursor: "pointer", textAlign: "center" as const }}><div style={{ fontSize: 28, marginBottom: 8 }}>📣</div><div style={{ fontSize: 14, fontWeight: 700, color: "#8B5CF6" }}>+ Comunicación</div><div style={{ fontSize: 11, color: colors.g4, marginTop: 4 }}>Pedir flyer, post, video, placa al depto de Comunicación</div></div>
+              <div onClick={() => sVw("new-factura")} style={{ flex: 1, minWidth: 160, padding: mob ? 20 : 24, background: "#05966908", border: "2px solid #059669", borderRadius: 14, cursor: "pointer", textAlign: "center" as const }}><div style={{ fontSize: 28, marginBottom: 8 }}>🧾</div><div style={{ fontSize: 14, fontWeight: 700, color: "#059669" }}>+ Factura</div><div style={{ fontSize: 11, color: colors.g4, marginTop: 4 }}>Cargar factura o remito con proveedor y monto</div></div>
             </div>
             <div style={{ marginTop: 16 }}><Btn v="g" onClick={() => sVw(isPersonal ? "my" : "tasks")}>← Volver</Btn></div>
           </Card>}
@@ -247,6 +249,23 @@ export default function App() {
           }} onX={() => { sPreAT(null); sVw(preAT ? (isPersonal ? "my" : "tasks") : "new"); }} />}
           {vw === "comm-req" && <CommReq user={user} mob={mob} onSub={async (p: any) => {
             try { const row: any = taskToDB(p); const { data, error } = await supabase.from("tasks").insert(row).select().single(); if (error) throw new Error(error.message); const tid = data?.id || p.id; const localP = { ...p, id: tid }; sPd(ps => [localP, ...ps]); for (const l of (p.log || [])) { await supabase.from("task_messages").insert({ task_id: tid, user_id: l.uid, user_name: l.by, content: l.act, type: l.t }); } sVw(isPersonal ? "my" : "tasks"); showT("Pedido de comunicación creado"); } catch (e: any) { showT(e.message || "Error al crear pedido", "err"); }
+          }} onX={() => sVw("new")} />}
+          {vw === "new-factura" && <NewFactura user={user} mob={mob} onSub={async (d: any) => {
+            try {
+              // Update the archivos record created by upload with factura metadata
+              const { data: existing } = await supabase.from("archivos").select("id").eq("url", d.fileUrl).maybeSingle();
+              if (existing) {
+                const upd = { titulo: d.titulo, proveedor: d.proveedor, monto: d.monto, moneda: d.moneda, nro_factura: d.nro_factura || null, fecha_factura: d.fecha_factura || null, notas: d.notas || null };
+                await supabase.from("archivos").update(upd).eq("id", existing.id);
+                sArchivos(prev => prev.map((a: any) => a.id === existing.id ? { ...a, ...upd } : a));
+              } else {
+                // Fallback: insert new record if upload didn't auto-create one
+                const row = { titulo: d.titulo, name: d.fileName, url: d.fileUrl, folder: "facturas", category: "factura", mime_type: d.mimeType, size_bytes: d.fileSize, uploaded_by: user.id, proveedor: d.proveedor, monto: d.monto, moneda: d.moneda, nro_factura: d.nro_factura || null, fecha_factura: d.fecha_factura || null, notas: d.notas || null };
+                const { data } = await supabase.from("archivos").insert(row).select().single();
+                if (data) sArchivos(prev => [data, ...prev]);
+              }
+              sVw("archivos"); showT("Factura guardada");
+            } catch (e: any) { showT(e.message || "Error al guardar factura", "err"); }
           }} onX={() => sVw("new")} />}
           {vw === "proy" && <Proyecto setHitos={(updater: any) => { sHi((prev: any) => { const next = typeof updater === "function" ? updater(prev) : updater; next.forEach((h: any) => { supabase.from("milestones").update({ pct: h.pct }).eq("id", h.id); }); return next; }); }} isAd={isAd} mob={mob} />}
           {vw === "dash" && !isPersonal && !aA && !aD && !kpiFilt && <CustomDash user={user} mob={mob} onSel={(p: any) => sSl(p)} onFilter={(k: string) => sKpiFilt(k)} onAC={hAC} isSA={isSA} onNav={(view: string, filt?: string) => { if (view === "filter" && filt) { sKpiFilt(filt); } else { sVw(view); } }}

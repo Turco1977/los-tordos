@@ -399,6 +399,15 @@ CREATE POLICY dep_cuotas_all ON dep_cuotas FOR ALL USING (true) WITH CHECK (true
     });
   }
 
+  // Check archivos.titulo column
+  const { error: eArchTit } = await admin.from("archivos").select("titulo").limit(1);
+  if (eArchTit && eArchTit.code === "42703") {
+    missing.push({
+      table: "archivos (ALTER titulo)",
+      sql: `ALTER TABLE archivos ADD COLUMN IF NOT EXISTS titulo TEXT DEFAULT '';`,
+    });
+  }
+
   // Check archivos table
   const { error: eArch } = await admin.from("archivos").select("id").limit(1);
   if (isMissing(eArch)) {
@@ -406,6 +415,7 @@ CREATE POLICY dep_cuotas_all ON dep_cuotas FOR ALL USING (true) WITH CHECK (true
       table: "archivos",
       sql: `CREATE TABLE archivos (
   id SERIAL PRIMARY KEY,
+  titulo TEXT DEFAULT '',
   name TEXT NOT NULL,
   url TEXT NOT NULL,
   folder TEXT DEFAULT 'general',
