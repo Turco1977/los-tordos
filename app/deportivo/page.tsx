@@ -8,9 +8,6 @@ import { useRealtime } from "@/lib/realtime";
 import { useTheme, darkCSS } from "@/lib/theme";
 import { ThemeCtx, useC } from "@/lib/theme-context";
 import { Toast, useMobile, Btn, Card, Ring } from "@/components/ui";
-import { AsistenciaManager } from "@/components/main/AsistenciaManager";
-import { PartidosManager } from "@/components/main/PartidosManager";
-import { HockeyCalendario } from "@/components/main/HockeyCalendario";
 
 const supabase = createClient();
 const TODAY = new Date().toISOString().slice(0,10);
@@ -298,7 +295,6 @@ export default function DeportivoApp(){
     {k:"equipo",l:"🏉",f:"Formaciones"},
     {k:"comm",l:"📢",f:"Comunicación"},
     {k:"cuotas",l:"💰",f:"Cuotas"},
-    {k:"hk-asist",l:"📋",f:"Asistencia"},
   ];
 
   /* ══════════════════════════ HANDLERS ══════════════════════════ */
@@ -732,11 +728,6 @@ export default function DeportivoApp(){
 
       {/* ════════ PERFILES ════════ */}
       {tab==="perfiles"&&canManageStaff&&<PerfilesTab staffList={staffList} onUpdate={onUpdStaff} onDel={onDelStaff} mob={mob} showT={showT} fetchAll={fetchAll} hlStaff={hlStaff} clearHl={()=>sHlStaff(null)}/>}
-
-      {/* ════════ HOCKEY FASE 2 ════════ */}
-      {tab==="hk-asist"&&<AsistenciaManager user={user} mob={mob} getToken={getToken} showT={showT}/>}
-      {tab==="hk-partidos"&&<PartidosManager user={user} mob={mob} getToken={getToken} showT={showT}/>}
-      {tab==="hk-cal"&&<HockeyCalendario user={user} mob={mob} getToken={getToken} showT={showT} onNavAsist={()=>sTab("hk-asist")} onNavPartido={()=>sTab("hk-partidos")}/>}
 
     </div>
     </div>{/* close main content flex:1 */}
