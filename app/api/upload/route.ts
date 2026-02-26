@@ -18,7 +18,7 @@ const ALLOWED_EXT: Set<string> = new Set([
 ]);
 
 const ALLOWED_FOLDERS: Set<string> = new Set([
-  "general", "tasks", "presupuestos", "sponsors", "inventory", "profiles",
+  "general", "tasks", "presupuestos", "sponsors", "inventory", "profiles", "facturas",
 ]);
 
 const MAX_SIZE = 4 * 1024 * 1024; // 4MB
@@ -87,6 +87,16 @@ export async function POST(req: NextRequest) {
     const {
       data: { publicUrl },
     } = admin.storage.from(BUCKET).getPublicUrl(path);
+
+    // Register file in archivos table
+    try {
+      const category = safeFolder === "facturas" ? "factura" : safeFolder === "tasks" ? "tarea" : safeFolder === "presupuestos" ? "presupuesto" : "otro";
+      await admin.from("archivos").insert({
+        name: safeName, url: publicUrl, folder: safeFolder,
+        category, mime_type: file.type, size_bytes: file.size,
+        uploaded_by: auth.user.id,
+      });
+    } catch { /* best effort — table may not exist yet */ }
 
     return NextResponse.json({ url: publicUrl, path });
   } catch (e: any) {

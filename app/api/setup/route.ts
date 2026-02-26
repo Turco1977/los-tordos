@@ -399,6 +399,35 @@ CREATE POLICY dep_cuotas_all ON dep_cuotas FOR ALL USING (true) WITH CHECK (true
     });
   }
 
+  // Check archivos table
+  const { error: eArch } = await admin.from("archivos").select("id").limit(1);
+  if (isMissing(eArch)) {
+    missing.push({
+      table: "archivos",
+      sql: `CREATE TABLE archivos (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  url TEXT NOT NULL,
+  folder TEXT DEFAULT 'general',
+  category TEXT DEFAULT 'otro',
+  mime_type TEXT,
+  size_bytes INTEGER,
+  uploaded_by UUID REFERENCES auth.users(id),
+  task_id INTEGER,
+  presu_id INTEGER,
+  proveedor TEXT,
+  monto NUMERIC,
+  moneda TEXT DEFAULT 'ARS',
+  nro_factura TEXT,
+  fecha_factura DATE,
+  notas TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE archivos ENABLE ROW LEVEL SECURITY;
+CREATE POLICY archivos_all ON archivos FOR ALL USING (true) WITH CHECK (true);`,
+    });
+  }
+
   if (missing.length > 0) {
     return NextResponse.json({
       status: "missing",
