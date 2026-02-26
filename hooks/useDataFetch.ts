@@ -23,8 +23,13 @@ export function useDataFetch(
   const [dataLoading, sDataLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
-    const isAbort = (e: any) => e?.message?.includes("AbortError") || e?.message?.includes("aborted") || e?.name === "AbortError";
+    const isAbort = (e: any) => {
+      const m = String(e?.message || ""); const n = String(e?.name || "");
+      return n === "AbortError" || m.includes("AbortError") || m.includes("aborted") || m.includes("signal");
+    };
     try {
+    // Ensure auth token is fresh before parallel queries (prevents abort from token refresh)
+    await supabase.auth.getSession();
     // Phase 1: Load 50 most recent tasks + user's assigned tasks immediately, plus core data
     const [pRes, recentRes, userRes, omRes, msRes, agRes, miRes, prRes, pvRes, remRes, projRes, ptRes, ttRes, invRes, bkRes, spRes, pbRes, imRes, idRes, sdRes] = await Promise.all([
       supabase.from("profiles").select("*"),
@@ -173,7 +178,12 @@ export function useDataFetch(
   }, [user, cacheLoaded, loadFromCache, sUs, sOm, sPd, sHi, sAgs, sMins, sPr, sPv, sRems, sProjects, sProjTasks, sTaskTemplates, sInventory, sInvMaint, sInvDist, sBookings, sSponsors, sSponDeliveries, sProjBudgets]);
 
   // Fetch data when user logs in
-  useEffect(() => { if (user) fetchAll().catch(() => {}); }, [user, fetchAll]);
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    (async () => { if (active) await fetchAll(); })().catch(() => {});
+    return () => { active = false; };
+  }, [user, fetchAll]);
 
   return { dataLoading, fetchAll };
 }
