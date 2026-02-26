@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, memo } from "react";
 import { T, SC, PSC } from "@/lib/constants";
 import type { OfflineState } from "@/lib/use-offline";
 import { useC } from "@/lib/theme-context";
@@ -7,8 +7,8 @@ import { uploadFile, getFileIcon } from "@/lib/storage";
 import { paginate } from "@/lib/pagination";
 
 /* ── BADGES ── */
-export function Badge({s,sm}:{s:string;sm?:boolean}){const c=SC[s];return <span style={{background:c.bg,color:c.c,padding:sm?"1px 6px":"2px 9px",borderRadius:20,fontSize:sm?9:11,fontWeight:600,whiteSpace:"nowrap"}}>{c.i} {c.l}</span>;}
-export function PBadge({s,sm}:{s:string;sm?:boolean}){const c=PSC[s];if(!c)return null;return <span style={{background:c.bg,color:c.c,padding:sm?"1px 6px":"2px 9px",borderRadius:20,fontSize:sm?9:11,fontWeight:600,whiteSpace:"nowrap"}}>{c.i} {c.l}</span>;}
+export const Badge = memo(function Badge({s,sm}:{s:string;sm?:boolean}){const c=SC[s];return <span style={{background:c.bg,color:c.c,padding:sm?"1px 6px":"2px 9px",borderRadius:20,fontSize:sm?9:11,fontWeight:600,whiteSpace:"nowrap"}}>{c.i} {c.l}</span>;});
+export const PBadge = memo(function PBadge({s,sm}:{s:string;sm?:boolean}){const c=PSC[s];if(!c)return null;return <span style={{background:c.bg,color:c.c,padding:sm?"1px 6px":"2px 9px",borderRadius:20,fontSize:sm?9:11,fontWeight:600,whiteSpace:"nowrap"}}>{c.i} {c.l}</span>;});
 
 /* ── TOAST ── */
 export function Toast({ msg, type, onDone }: { msg: string; type: "ok" | "err"; onDone: () => void }) {
@@ -46,8 +46,9 @@ interface BtnProps {
   disabled?: boolean;
   style?: React.CSSProperties;
   title?: string;
+  ariaLabel?: string;
 }
-export function Btn({ children, onClick, v, s, disabled, style: st, title }: BtnProps) {
+export function Btn({ children, onClick, v, s, disabled, style: st, title, ariaLabel }: BtnProps) {
   const { colors, isDark } = useC();
   const vs: Record<string, React.CSSProperties> = {
     p: { background: colors.nv, color: isDark ? "#0F172A" : "#fff" },
@@ -62,7 +63,7 @@ export function Btn({ children, onClick, v, s, disabled, style: st, title }: Btn
     m: { padding: "7px 16px", fontSize: 13 },
   };
   return (
-    <button onClick={onClick} disabled={disabled} title={title} style={{ border: "none", borderRadius: 8, cursor: disabled ? "not-allowed" : "pointer", fontWeight: 600, opacity: disabled ? .5 : 1, ...sz[s || "m"], ...vs[v || "p"], ...(st || {}) }}>
+    <button onClick={onClick} disabled={disabled} title={title} aria-label={ariaLabel || title} style={{ border: "none", borderRadius: 8, cursor: disabled ? "not-allowed" : "pointer", fontWeight: 600, opacity: disabled ? .5 : 1, ...sz[s || "m"], ...vs[v || "p"], ...(st || {}) }}>
       {children}
     </button>
   );
@@ -94,9 +95,10 @@ interface RingProps {
   ok?: number;
   tot?: number;
 }
-export function Ring({ pct, color, size, icon, pe, cu, ok, tot }: RingProps) {
-  const { colors } = useC();
+export const Ring = memo(function Ring({ pct, color, size, icon, pe, cu, ok, tot }: RingProps) {
+  const { colors, isDark } = useC();
   const cx = size / 2, sw = size * 0.07;
+  const track = isDark ? "rgba(255,255,255,.15)" : colors.g2;
   if (tot != null && tot > 0) {
     const rExt = cx - sw / 2 - 1, rMid = rExt - sw - 2, rInt = rMid - sw - 2;
     const ciExt = 2 * Math.PI * rExt, ciMid = 2 * Math.PI * rMid, ciInt = 2 * Math.PI * rInt;
@@ -104,11 +106,11 @@ export function Ring({ pct, color, size, icon, pe, cu, ok, tot }: RingProps) {
     return (
       <div style={{ position: "relative", width: size, height: size }}>
         <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
-          <circle cx={cx} cy={cx} r={rExt} fill="none" stroke={colors.g2} strokeWidth={sw} />
+          <circle cx={cx} cy={cx} r={rExt} fill="none" stroke={track} strokeWidth={sw} />
           <circle cx={cx} cy={cx} r={rExt} fill="none" stroke={colors.rd} strokeWidth={sw} strokeDasharray={ciExt} strokeDashoffset={ciExt - pePct * ciExt} strokeLinecap="round" />
-          <circle cx={cx} cy={cx} r={rMid} fill="none" stroke={colors.g2} strokeWidth={sw} />
+          <circle cx={cx} cy={cx} r={rMid} fill="none" stroke={track} strokeWidth={sw} />
           <circle cx={cx} cy={cx} r={rMid} fill="none" stroke={colors.yl} strokeWidth={sw} strokeDasharray={ciMid} strokeDashoffset={ciMid - cuPct * ciMid} strokeLinecap="round" />
-          <circle cx={cx} cy={cx} r={rInt} fill="none" stroke={colors.g2} strokeWidth={sw} />
+          <circle cx={cx} cy={cx} r={rInt} fill="none" stroke={track} strokeWidth={sw} />
           <circle cx={cx} cy={cx} r={rInt} fill="none" stroke={colors.gn} strokeWidth={sw} strokeDasharray={ciInt} strokeDashoffset={ciInt - okPct * ciInt} strokeLinecap="round" />
         </svg>
         <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
@@ -118,20 +120,20 @@ export function Ring({ pct, color, size, icon, pe, cu, ok, tot }: RingProps) {
       </div>
     );
   }
-  const r = cx - 6, ci = 2 * Math.PI * r, of2 = ci - (pct / 100) * ci;
+  const r = cx - sw / 2 - 1, ci = 2 * Math.PI * r, of2 = ci - (pct / 100) * ci;
   return (
     <div style={{ position: "relative", width: size, height: size }}>
       <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
-        <circle cx={cx} cy={cx} r={r} fill="none" stroke={colors.g2} strokeWidth="5" />
-        <circle cx={cx} cy={cx} r={r} fill="none" stroke={color} strokeWidth="5" strokeDasharray={ci} strokeDashoffset={of2} strokeLinecap="round" />
+        <circle cx={cx} cy={cx} r={r} fill="none" stroke={track} strokeWidth={sw} />
+        <circle cx={cx} cy={cx} r={r} fill="none" stroke={color} strokeWidth={sw} strokeDasharray={ci} strokeDashoffset={of2} strokeLinecap="round" />
       </svg>
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-        {icon && <span style={{ fontSize: size / 4 }}>{icon}</span>}
-        <span style={{ fontSize: size / 6, fontWeight: 800, color }}>{pct}%</span>
+        {icon && <span style={{ fontSize: size / 5 }}>{icon}</span>}
+        <span style={{ fontSize: size / 7, fontWeight: 800, color }}>{pct}%</span>
       </div>
     </div>
   );
-}
+});
 
 /* ── PAGER ── */
 interface PagerProps {

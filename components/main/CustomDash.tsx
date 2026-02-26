@@ -189,7 +189,7 @@ export function CustomDash({user,mob,onSel,onFilter,onNav,onExportWeekly,onExpor
           <div style={{fontSize:11,fontWeight:700,color:colors.nv,marginBottom:4}}>{a.name}</div>
           {/* Mini progress ring */}
           <svg width="48" height="48" viewBox="0 0 48 48" style={{display:"block",margin:"0 auto 4px"}}>
-            <circle cx="24" cy="24" r="20" fill="none" stroke={colors.g2} strokeWidth="4"/>
+            <circle cx="24" cy="24" r="20" fill="none" stroke={isDark ? "rgba(255,255,255,.15)" : colors.g2} strokeWidth="4"/>
             <circle cx="24" cy="24" r="20" fill="none" stroke={a.color} strokeWidth="4" strokeDasharray={2*Math.PI*20} strokeDashoffset={2*Math.PI*20*(1-a.pct/100)} strokeLinecap="round" transform="rotate(-90 24 24)"/>
             <text x="24" y="27" textAnchor="middle" fontSize="11" fontWeight="800" fill={colors.nv}>{a.pct}%</text>
           </svg>

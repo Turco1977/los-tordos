@@ -8,6 +8,7 @@ import { useRealtime } from "@/lib/realtime";
 import { useTheme, darkCSS } from "@/lib/theme";
 import { ThemeCtx, useC } from "@/lib/theme-context";
 import { Toast, useMobile, Btn, Card, Ring } from "@/components/ui";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const supabase = createClient();
 const TODAY = new Date().toISOString().slice(0,10);
@@ -568,7 +569,7 @@ export default function DeportivoApp(){
     <div style={{minHeight:"100vh",background:colors.g1,color:colors.nv,display:"flex"}}>
 
     {/* ── SIDEBAR (desktop) ── */}
-    {!mob&&!sbCol&&<div style={{width:250,minWidth:250,background:sbBg,color:"#fff",display:"flex",flexDirection:"column" as const,borderRight:isDark?"1px solid "+colors.g3:"none",position:"sticky" as const,top:0,height:"100vh",overflowY:"auto" as const}}>
+    {!mob&&!sbCol&&<nav aria-label="Menu principal" style={{width:250,minWidth:250,background:sbBg,color:"#fff",display:"flex",flexDirection:"column" as const,borderRight:isDark?"1px solid "+colors.g3:"none",position:"sticky" as const,top:0,height:"100vh",overflowY:"auto" as const}}>
       <div style={{padding:"14px 12px",borderBottom:"1px solid rgba(255,255,255,.08)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <div onClick={()=>sTab("dash")} style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
           <img src="/logo.jpg" alt="Los Tordos" style={{width:32,height:32,borderRadius:6,objectFit:"contain"}}/>
@@ -581,7 +582,7 @@ export default function DeportivoApp(){
         <div>{profile?.first_name} {profile?.last_name}</div>
         <div style={{fontSize:9}}>{myStaff?DEP_ROLES[depRole]?.l:"Admin"}</div>
       </div>
-    </div>}
+    </nav>}
 
     {/* Collapsed sidebar (desktop) */}
     {!mob&&sbCol&&<div style={{width:48,minWidth:48,background:sbBg,display:"flex",flexDirection:"column" as const,alignItems:"center",paddingTop:10,borderRight:isDark?"1px solid "+colors.g3:"none",position:"sticky" as const,top:0,height:"100vh"}}>
