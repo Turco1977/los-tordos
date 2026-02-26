@@ -98,7 +98,7 @@ interface RingProps {
 export const Ring = memo(function Ring({ pct, color, size, icon, pe, cu, ok, tot }: RingProps) {
   const { colors, isDark } = useC();
   const cx = size / 2, sw = size * 0.07;
-  const track = isDark ? "rgba(255,255,255,.15)" : colors.g2;
+  const track = isDark ? "rgba(255,255,255,.25)" : colors.g2;
   if (tot != null && tot > 0) {
     const rExt = cx - sw / 2 - 1, rMid = rExt - sw - 2, rInt = rMid - sw - 2;
     const ciExt = 2 * Math.PI * rExt, ciMid = 2 * Math.PI * rMid, ciInt = 2 * Math.PI * rInt;
