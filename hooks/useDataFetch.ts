@@ -23,6 +23,8 @@ export function useDataFetch(
   const [dataLoading, sDataLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
+    const isAbort = (e: any) => e?.message?.includes("AbortError") || e?.message?.includes("aborted") || e?.name === "AbortError";
+    try {
     // Phase 1: Load 50 most recent tasks + user's assigned tasks immediately, plus core data
     const [pRes, recentRes, userRes, omRes, msRes, agRes, miRes, prRes, pvRes, remRes, projRes, ptRes, ttRes, invRes, bkRes, spRes, pbRes, imRes, idRes, sdRes] = await Promise.all([
       supabase.from("profiles").select("*"),
@@ -47,10 +49,10 @@ export function useDataFetch(
       supabase.from("sponsor_deliveries").select("*").order("id", { ascending: false }),
     ]);
     const errors: string[] = [];
-    if (pRes.error) errors.push("Perfiles: " + pRes.error.message);
-    if (recentRes.error) errors.push("Tareas: " + recentRes.error.message);
-    if (omRes.error) errors.push("Organigrama: " + omRes.error.message);
-    if (prRes.error) errors.push("Presupuestos: " + prRes.error.message);
+    if (pRes.error && !isAbort(pRes.error)) errors.push("Perfiles: " + pRes.error.message);
+    if (recentRes.error && !isAbort(recentRes.error)) errors.push("Tareas: " + recentRes.error.message);
+    if (omRes.error && !isAbort(omRes.error)) errors.push("Organigrama: " + omRes.error.message);
+    if (prRes.error && !isAbort(prRes.error)) errors.push("Presupuestos: " + prRes.error.message);
     if (errors.length) showT(errors.join("; "), "err");
 
     // Merge recent + user-assigned tasks without duplicates
@@ -132,6 +134,7 @@ export function useDataFetch(
         sponsors: spRes.data || [], sponsor_deliveries: sdRes.data || [], project_budgets: pbRes.data || [],
       });
     }
+    } catch (e: any) { if (!isAbort(e)) throw e; }
   }, [user, saveToCache, setAll, sPd, sNotifPrefs, showT, sDataLoading]);
 
   // Load cached data from IndexedDB
@@ -170,7 +173,7 @@ export function useDataFetch(
   }, [user, cacheLoaded, loadFromCache, sUs, sOm, sPd, sHi, sAgs, sMins, sPr, sPv, sRems, sProjects, sProjTasks, sTaskTemplates, sInventory, sInvMaint, sInvDist, sBookings, sSponsors, sSponDeliveries, sProjBudgets]);
 
   // Fetch data when user logs in
-  useEffect(() => { if (user) fetchAll(); }, [user, fetchAll]);
+  useEffect(() => { if (user) fetchAll().catch(() => {}); }, [user, fetchAll]);
 
   return { dataLoading, fetchAll };
 }

@@ -1,7 +1,8 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { T, DIV, TIPOS, MONEDAS, ST, fn, AREAS, DEPTOS } from "@/lib/constants";
 import { Btn, Card, FileField } from "@/components/ui";
+import { uploadFile } from "@/lib/storage";
 import { MentionInput } from "@/components/MentionInput";
 import { useDataStore } from "@/lib/store";
 
@@ -34,6 +35,7 @@ export function NP({user,onSub,onX,preAssign,mob,canjeUsado}:any){
   const presuOk=!f.rG||(prf.prov_nombre&&prf.monto&&canjeOk);
   const ok=f.tipo&&f.tit.trim()&&f.desc&&f.fReq&&presuOk;const pastDate=f.fReq&&f.fReq<TODAY;
   const [atts,sAtts]=useState<{type:string;label:string;val:string}[]>([]);const [showAtt,sShowAtt]=useState(false);const [attType,sAttType]=useState("");const [attVal,sAttVal]=useState("");
+  const [attUploading,sAttUploading]=useState(false);const fileRef=useRef<HTMLInputElement>(null);
   const attTypes=[{k:"link",l:"🔗 Link",ph:"https://..."},{k:"video",l:"🎬 Video",ph:"URL del video..."},{k:"foto",l:"📷 Foto",ph:"URL de la imagen..."},{k:"ubi",l:"📍 Ubicación",ph:"Dirección o link de Maps..."},{k:"doc",l:"📄 Documento",ph:"URL del documento..."}];
   const addAtt=()=>{if(attVal.trim()){const at=attTypes.find(a=>a.k===attType);sAtts(p=>[...p,{type:attType,label:at?at.l:"📎",val:attVal.trim()}]);sAttVal("");sAttType("");sShowAtt(false);}};
   return(<Card style={{maxWidth:mob?undefined:560}}>
@@ -89,11 +91,20 @@ export function NP({user,onSub,onX,preAssign,mob,canjeUsado}:any){
           {attTypes.map(a=><button key={a.k} onClick={()=>sAttType(a.k)} style={{padding:"8px 14px",borderRadius:10,border:"1px solid "+T.g3,background:"#fff",fontSize:11,cursor:"pointer",fontWeight:600,color:T.nv}}>{a.l}</button>)}
           <button onClick={()=>sShowAtt(false)} style={{padding:"8px 14px",borderRadius:10,border:"none",background:"transparent",fontSize:11,cursor:"pointer",color:T.g4}} title="Cerrar adjuntos">✕</button>
         </div>
-        :<div style={{display:"flex",gap:6,alignItems:"center"}}>
-          <span style={{fontSize:11,fontWeight:600}}>{attTypes.find(a=>a.k===attType)?.l}</span>
-          <input value={attVal} onChange={e=>sAttVal(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addAtt();}} placeholder={attTypes.find(a=>a.k===attType)?.ph} style={{flex:1,padding:"7px 10px",borderRadius:8,border:"1px solid "+T.g3,fontSize:11}} autoFocus/>
-          <Btn v="p" s="s" onClick={addAtt} disabled={!attVal.trim()}>Agregar</Btn>
-          <Btn v="g" s="s" onClick={()=>{sAttType("");sAttVal("");}}>←</Btn>
+        :<div>
+          <div style={{display:"flex",gap:6,alignItems:"center"}}>
+            <span style={{fontSize:11,fontWeight:600}}>{attTypes.find(a=>a.k===attType)?.l}</span>
+            <input value={attVal} onChange={e=>sAttVal(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addAtt();}} placeholder={attTypes.find(a=>a.k===attType)?.ph} style={{flex:1,padding:"7px 10px",borderRadius:8,border:"1px solid "+T.g3,fontSize:11}} autoFocus/>
+            <Btn v="p" s="s" onClick={addAtt} disabled={!attVal.trim()}>Agregar</Btn>
+            <Btn v="g" s="s" onClick={()=>{sAttType("");sAttVal("");}}>←</Btn>
+          </div>
+          {(attType==="foto"||attType==="doc")&&<div style={{display:"flex",alignItems:"center",gap:6,marginTop:6}}>
+            <label style={{padding:"7px 12px",borderRadius:8,border:"1px solid "+T.g3,background:"#fff",fontSize:11,fontWeight:600,color:T.nv,cursor:attUploading?"wait":"pointer",opacity:attUploading?.5:1}}>
+              {attUploading?"Subiendo...":"📎 Subir archivo"}
+              <input ref={fileRef} type="file" accept={attType==="foto"?"image/*":".pdf,.doc,.docx,.xls,.xlsx,.csv"} onChange={async(e)=>{const file=e.target.files?.[0];if(!file)return;sAttUploading(true);const res=await uploadFile(file,"tasks");sAttUploading(false);if("url" in res){const at=attTypes.find(a=>a.k===attType);sAtts(p=>[...p,{type:attType,label:at?.l||"📎",val:res.url}]);sAttVal("");sAttType("");sShowAtt(false);}else{sAttVal(res.error||"Error al subir");}if(fileRef.current)fileRef.current.value="";}} style={{display:"none"}} disabled={attUploading}/>
+            </label>
+            <span style={{fontSize:10,color:T.g4}}>o pega una URL arriba</span>
+          </div>}
         </div>}
       </div>}
       {atts.length>0&&<div style={{display:"flex",flexWrap:"wrap" as const,gap:4}}>{atts.map((a,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:4,padding:"4px 10px",background:"#E8F4FD",borderRadius:16,fontSize:10,border:"1px solid #B3D9F2"}}><span>{a.label}</span><span style={{color:T.bl,maxWidth:140,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{a.val}</span><button onClick={()=>sAtts(p=>p.filter((_,j)=>j!==i))} style={{background:"none",border:"none",cursor:"pointer",fontSize:10,color:T.g4,padding:0}} title="Quitar adjunto">✕</button></div>)}</div>}
