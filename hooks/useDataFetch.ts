@@ -55,10 +55,10 @@ export function useDataFetch(
       supabase.from("archivos").select("*").order("created_at", { ascending: false }).limit(500),
     ]);
     const errors: string[] = [];
-    if (pRes.error && !isAbort(pRes.error)) errors.push("Perfiles: " + pRes.error.message);
-    if (recentRes.error && !isAbort(recentRes.error)) errors.push("Tareas: " + recentRes.error.message);
-    if (omRes.error && !isAbort(omRes.error)) errors.push("Organigrama: " + omRes.error.message);
-    if (prRes.error && !isAbort(prRes.error)) errors.push("Presupuestos: " + prRes.error.message);
+    if (pRes.error && !isAbort(pRes.error)) errors.push("Perfiles: " + (pRes.error.message || pRes.error.code || "error"));
+    if (recentRes.error && !isAbort(recentRes.error)) errors.push("Tareas: " + (recentRes.error.message || recentRes.error.code || "error"));
+    if (omRes.error && !isAbort(omRes.error)) errors.push("Organigrama: " + (omRes.error.message || omRes.error.code || "error"));
+    if (prRes.error && !isAbort(prRes.error)) errors.push("Presupuestos: " + (prRes.error.message || prRes.error.code || "error"));
     if (errors.length) showT(errors.join("; "), "err");
 
     // Merge recent + user-assigned tasks without duplicates
