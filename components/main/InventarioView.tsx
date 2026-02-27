@@ -73,6 +73,7 @@ export function InventarioView({user,mob,onAdd,onUpd,onDel,onAddMaint,onUpdMaint
 
   /* helpers */
   const userName=(uid:string)=>{const u=(users||[]).find((u:any)=>u.id===uid);return u?fn(u):""};
+  const getItemName=(invId:number)=>{const it=(items||[]).find((i:any)=>i.id===invId);return it?it.name:"Material";};
   const enlaceUsers=(div?:string)=>(users||[]).filter((u:any)=>(u.role==="enlace"||u.role==="manager")&&(!div||u.div===div));
 
   const openAddActivo=()=>{sEditId(null);sForm(emptyActivo());};
@@ -254,7 +255,7 @@ export function InventarioView({user,mob,onAdd,onUpd,onDel,onAddMaint,onUpdMaint
       {loteDists.length>0&&<div style={{overflowX:"auto"}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
           <thead><tr style={{background:isDark?colors.g2:colors.g1}}>
-            {["División","Enlace","Entreg.","Devueltas","Perdidas","Rotas","Pend.","Estado",""].map(h=><th key={h} style={{padding:"8px 6px",textAlign:"left",fontWeight:700,color:colors.g5,borderBottom:"1px solid "+colors.g3,fontSize:10}}>{h}</th>)}
+            {["División","Enlace","Entreg.","Devueltas","Perdidas","Rotas","Pend.","Estado","Recibido",""].map(h=><th key={h} style={{padding:"8px 6px",textAlign:"left",fontWeight:700,color:colors.g5,borderBottom:"1px solid "+colors.g3,fontSize:10}}>{h}</th>)}
           </tr></thead>
           <tbody>
             {loteDists.map((d:any)=>{
@@ -269,6 +270,7 @@ export function InventarioView({user,mob,onAdd,onUpd,onDel,onAddMaint,onUpdMaint
                 <td style={{padding:"8px 6px",color:"#F59E0B"}}>{d.qty_broken||0}</td>
                 <td style={{padding:"8px 6px",fontWeight:700,color:pend>0?"#DC2626":colors.gn}}>{pend}</td>
                 <td style={{padding:"8px 6px"}}><span style={{padding:"2px 8px",borderRadius:10,background:st.bg,color:st.c,fontSize:9,fontWeight:700}}>{st.l}</span></td>
+                <td style={{padding:"8px 6px"}}>{d.received?<span title={d.received_at?new Date(d.received_at).toLocaleDateString():""} style={{padding:"2px 8px",borderRadius:10,background:"#DCFCE7",color:"#16A34A",fontSize:9,fontWeight:700}}>✅ {d.received_at?new Date(d.received_at).toLocaleDateString():""}</span>:<span style={{padding:"2px 8px",borderRadius:10,background:"#FEF3C7",color:"#D97706",fontSize:9,fontWeight:700}}>⏳ Pendiente</span>}</td>
                 <td style={{padding:"8px 6px"}}>
                   <div style={{display:"flex",gap:3}}>
                     {d.status==="activa"&&pend>0&&<button onClick={()=>sRetForm(retForm?.id===d.id?null:{id:d.id,returned:"",lost:"",broken:""})} style={{padding:"2px 6px",borderRadius:4,border:"1px solid "+colors.g3,background:"transparent",fontSize:9,cursor:"pointer",color:colors.nv}} title="Registrar devolución">📥</button>}
@@ -499,10 +501,11 @@ export function InventarioView({user,mob,onAdd,onUpd,onDel,onAddMaint,onUpdMaint
       {/* Division summary table */}
       <h4 style={{margin:"0 0 10px",fontSize:14,color:colors.nv}}>📊 Resumen por División</h4>
       {(()=>{
-        const divData:Record<string,{given:number;returned:number;lost:number;broken:number;pending:number}>={};
+        const divData:Record<string,{material:string;given:number;returned:number;lost:number;broken:number;pending:number}>={};
         (invDist||[]).forEach((d:any)=>{
-          if(!divData[d.division])divData[d.division]={given:0,returned:0,lost:0,broken:0,pending:0};
-          const dd=divData[d.division];
+          const key=d.division+"||"+d.inventory_id;
+          if(!divData[key])divData[key]={material:getItemName(d.inventory_id),given:0,returned:0,lost:0,broken:0,pending:0};
+          const dd=divData[key];
           dd.given+=(d.qty_given||0);dd.returned+=(d.qty_returned||0);dd.lost+=(d.qty_lost||0);dd.broken+=(d.qty_broken||0);
           dd.pending+=Math.max(0,(d.qty_given||0)-(d.qty_returned||0)-(d.qty_lost||0)-(d.qty_broken||0));
         });
@@ -510,17 +513,18 @@ export function InventarioView({user,mob,onAdd,onUpd,onDel,onAddMaint,onUpdMaint
         if(entries.length===0)return <Card style={{textAlign:"center" as const,padding:16,color:colors.g4,fontSize:11}}>Sin distribuciones registradas</Card>;
         return(<div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
           <thead><tr style={{background:isDark?colors.g2:colors.g1}}>
-            {["División","Entregadas","Devueltas","Perdidas","Rotas","Pendientes"].map(h=><th key={h} style={{padding:"8px 10px",textAlign:"left",fontWeight:700,color:colors.g5,borderBottom:"1px solid "+colors.g3,fontSize:10}}>{h}</th>)}
+            {["División","Material","Entregadas","Devueltas","Perdidas","Rotas","Pendientes"].map(h=><th key={h} style={{padding:"8px 10px",textAlign:"left",fontWeight:700,color:colors.g5,borderBottom:"1px solid "+colors.g3,fontSize:10}}>{h}</th>)}
           </tr></thead>
           <tbody>
-            {entries.map(([div,d])=><tr key={div} style={{borderBottom:"1px solid "+colors.g3+"66"}}>
+            {entries.map(([key,d])=>{const div=key.split("||")[0];return <tr key={key} style={{borderBottom:"1px solid "+colors.g3+"66"}}>
               <td style={{padding:"8px 10px",fontWeight:600}}>{div}</td>
+              <td style={{padding:"8px 10px"}}>{d.material}</td>
               <td style={{padding:"8px 10px"}}>{d.given}</td>
               <td style={{padding:"8px 10px",color:colors.gn}}>{d.returned}</td>
               <td style={{padding:"8px 10px",color:"#DC2626"}}>{d.lost}</td>
               <td style={{padding:"8px 10px",color:"#F59E0B"}}>{d.broken}</td>
               <td style={{padding:"8px 10px",fontWeight:700,color:d.pending>0?"#DC2626":colors.gn}}>{d.pending}</td>
-            </tr>)}
+            </tr>;})}
           </tbody>
         </table></div>);
       })()}

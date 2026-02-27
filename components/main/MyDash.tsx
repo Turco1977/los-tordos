@@ -4,7 +4,7 @@ import { T, ST, SC, fn, isOD } from "@/lib/constants";
 import { Card, Ring, Badge } from "@/components/ui";
 import { useDataStore } from "@/lib/store";
 
-export function MyDash({user,onSel,mob,search,onUpdDist,onNotifyAdmin}:any){
+export function MyDash({user,onSel,mob,search,onUpdDist,onNotifyAdmin,onConfirmReceipt}:any){
   const peds = useDataStore(s => s.peds);
   const users = useDataStore(s => s.users);
   const presu = useDataStore(s => s.presu);
@@ -15,15 +15,32 @@ export function MyDash({user,onSel,mob,search,onUpdDist,onNotifyAdmin}:any){
   const [matAction,sMatAction]=useState<{distId:number;type:string}|null>(null);
   const [matQty,sMatQty]=useState("");
   const [matNote,sMatNote]=useState("");
+  const [invTab,sInvTab]=useState<"activas"|"historial">("activas");
+  const [retDistId,sRetDistId]=useState<number|null>(null);
+  const [retQty,sRetQty]=useState("");
   const isEnl=user.role==="enlace"||user.role==="manager";
 
-  /* My distributions (enlace) */
-  const myDists=(invDist||[]).filter((d:any)=>d.enlace_id===user.id&&d.status==="activa");
+  /* My distributions (enlace) — all assigned to me */
+  const allMyDists=(invDist||[]).filter((d:any)=>d.enlace_id===user.id);
+  const myDists=allMyDists.filter((d:any)=>d.status==="activa");
+  const myDistsHist=allMyDists.filter((d:any)=>d.status!=="activa");
   const getItemName=(invId:number)=>{const it=(inventory||[]).find((i:any)=>i.id===invId);return it?it.name:"Material";};
+
+  const submitReturn=()=>{
+    if(!retDistId||!retQty)return;
+    const dist=allMyDists.find((d:any)=>d.id===retDistId);
+    if(!dist)return;
+    const qty=Number(retQty)||0;if(qty<=0)return;
+    const upd:any={qty_returned:(dist.qty_returned||0)+qty};
+    const itemName=getItemName(dist.inventory_id);
+    if(onUpdDist)onUpdDist(dist.id,upd);
+    if(onNotifyAdmin)onNotifyAdmin("Devolución de material",`${fn(user)} devolvió ${qty} ${itemName} de ${dist.division}.`);
+    sRetDistId(null);sRetQty("");
+  };
 
   const submitAction=()=>{
     if(!matAction||!matQty)return;
-    const dist=myDists.find((d:any)=>d.id===matAction.distId);
+    const dist=allMyDists.find((d:any)=>d.id===matAction.distId);
     if(!dist)return;
     const qty=Number(matQty)||0;if(qty<=0)return;
     const upd:any={};
@@ -56,29 +73,52 @@ export function MyDash({user,onSel,mob,search,onUpdDist,onNotifyAdmin}:any){
       <div style={{flex:1}}><h2 style={{margin:0,fontSize:20,color:T.nv,fontWeight:800}}>{isEnl?"Mis Pedidos":"Mis Tareas"}</h2><div style={{fontSize:12,color:T.g5}}>{fn(user)}{user.div?" · "+user.div:""}</div><div style={{display:"flex",gap:12,marginTop:8,fontSize:12}}><span onClick={()=>clk("active")} style={{fontWeight:700,color:T.nv,cursor:"pointer"}}>{total} total</span><span onClick={()=>clk("done")} style={{fontWeight:700,color:T.gn,cursor:"pointer"}}>✅ {okC}</span><span onClick={()=>clk("active")} style={{fontWeight:700,color:T.yl,cursor:"pointer"}}>🟡 {active.length}</span>{overdue.length>0&&<span onClick={()=>clk("active","venc")} style={{fontWeight:700,color:"#DC2626",cursor:"pointer"}}>⏰ {overdue.length}</span>}</div></div>
     </div>
 
-    {/* Mi Material section (only for enlace/manager with active distributions) */}
-    {isEnl&&myDists.length>0&&<div style={{marginBottom:20}}>
-      <h3 style={{margin:"0 0 10px",fontSize:15,color:T.nv,fontWeight:700}}>📦 Mi Material</h3>
+    {/* Mi Inventario section (enlace/manager) */}
+    {isEnl&&allMyDists.length>0&&<div style={{marginBottom:20}}>
+      <h3 style={{margin:"0 0 10px",fontSize:15,color:T.nv,fontWeight:700}}>📦 Mi Inventario</h3>
+      <div style={{display:"flex",gap:4,marginBottom:10}}>
+        <button onClick={()=>sInvTab("activas")} style={{padding:"6px 14px",borderRadius:8,border:"none",background:invTab==="activas"?T.nv:"#fff",color:invTab==="activas"?"#fff":T.g5,fontSize:11,fontWeight:600,cursor:"pointer"}}>Activas ({myDists.length})</button>
+        <button onClick={()=>sInvTab("historial")} style={{padding:"6px 14px",borderRadius:8,border:"none",background:invTab==="historial"?T.g5:"#fff",color:invTab==="historial"?"#fff":T.g5,fontSize:11,fontWeight:600,cursor:"pointer"}}>Historial ({myDistsHist.length})</button>
+      </div>
       <div style={{display:"flex",flexDirection:"column" as const,gap:8}}>
-        {myDists.map((d:any)=>{
+        {(invTab==="activas"?myDists:myDistsHist).map((d:any)=>{
           const pend=(d.qty_given||0)-(d.qty_returned||0)-(d.qty_lost||0)-(d.qty_broken||0);
           const itemName=getItemName(d.inventory_id);
-          return(<Card key={d.id} style={{padding:"12px 14px",borderLeft:"3px solid #C8102E"}}>
+          return(<Card key={d.id} style={{padding:"12px 14px",borderLeft:"3px solid "+(d.status==="activa"?"#C8102E":"#9CA3AF")}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"start",marginBottom:4}}>
               <div>
                 <div style={{fontSize:13,fontWeight:700,color:T.nv}}>{itemName}</div>
-                <div style={{fontSize:10,color:T.g5,marginTop:2}}>📍 {d.division} · Entregadas: {d.qty_given} · Pendientes: <strong style={{color:pend>0?"#DC2626":T.gn}}>{pend}</strong></div>
-                {(d.qty_lost>0||d.qty_broken>0)&&<div style={{fontSize:10,color:T.g4,marginTop:2}}>
-                  {d.qty_lost>0&&<span style={{color:"#DC2626"}}>Perdidas: {d.qty_lost} </span>}
-                  {d.qty_broken>0&&<span style={{color:"#F59E0B"}}>Rotas: {d.qty_broken}</span>}
-                </div>}
+                <div style={{fontSize:10,color:T.g5,marginTop:2}}>📍 {d.division} · Entregadas: {d.qty_given}{d.given_date?" · "+d.given_date:""}</div>
+                {d.received?<div style={{fontSize:10,color:T.gn,marginTop:2,fontWeight:600}}>✅ Recibido{d.received_at?" el "+new Date(d.received_at).toLocaleDateString():""}</div>:<div style={{fontSize:10,color:"#D97706",marginTop:2,fontWeight:600}}>⏳ Pendiente de confirmación</div>}
+                {d.status==="activa"&&<div style={{fontSize:10,color:T.g5,marginTop:2}}>Pendientes: <strong style={{color:pend>0?"#DC2626":T.gn}}>{pend}</strong>{d.qty_returned>0&&<span style={{color:T.gn}}> · Dev: {d.qty_returned}</span>}{d.qty_lost>0&&<span style={{color:"#DC2626"}}> · Perd: {d.qty_lost}</span>}{d.qty_broken>0&&<span style={{color:"#F59E0B"}}> · Rotas: {d.qty_broken}</span>}</div>}
+                {d.status!=="activa"&&<div style={{fontSize:10,color:T.g4,marginTop:2}}>Estado: <span style={{fontWeight:700}}>{d.status}</span> · Entregadas: {d.qty_given} · Dev: {d.qty_returned||0} · Perd: {d.qty_lost||0}</div>}
               </div>
             </div>
-            {pend>0&&(()=>{const ma=matAction;const isA=(t:string)=>ma!==null&&ma.distId===d.id&&ma.type===t;return <div style={{display:"flex",gap:4,marginTop:6}}>
+            {/* Confirm receipt button */}
+            {d.status==="activa"&&!d.received&&onConfirmReceipt&&<button onClick={()=>onConfirmReceipt(d.id)} style={{marginTop:6,padding:"6px 14px",borderRadius:8,border:"1px solid "+T.gn,background:"#DCFCE7",color:"#16A34A",fontSize:11,cursor:"pointer",fontWeight:700}}>✅ Confirmar recepción</button>}
+            {/* Receipt summary after confirmed */}
+            {d.received&&d.status==="activa"&&<div style={{marginTop:6,padding:8,background:"#F0FDF4",borderRadius:8,border:"1px solid #BBF7D0",fontSize:10,color:T.g5}}>
+              <strong>Recibo:</strong> {d.qty_given} {itemName} · {d.division}{d.received_at?" · Confirmado: "+new Date(d.received_at).toLocaleDateString():""}
+            </div>}
+            {/* Actions for active distributions */}
+            {d.status==="activa"&&pend>0&&<div style={{display:"flex",gap:4,marginTop:6,flexWrap:"wrap" as const}}>
+              {(()=>{const ma=matAction;const isA=(t:string)=>ma!==null&&ma.distId===d.id&&ma.type===t;return <>
               <button onClick={()=>sMatAction(isA("perdida")?null:{distId:d.id,type:"perdida"})} style={{padding:"4px 10px",borderRadius:6,border:"1px solid #FCA5A5",background:isA("perdida")?"#FEE2E2":"transparent",fontSize:10,cursor:"pointer",color:"#DC2626",fontWeight:600}}>Declarar pérdida</button>
               <button onClick={()=>sMatAction(isA("rotura")?null:{distId:d.id,type:"rotura"})} style={{padding:"4px 10px",borderRadius:6,border:"1px solid #FDE68A",background:isA("rotura")?"#FEF3C7":"transparent",fontSize:10,cursor:"pointer",color:"#F59E0B",fontWeight:600}}>Reportar rotura</button>
               <button onClick={()=>sMatAction(isA("arreglo")?null:{distId:d.id,type:"arreglo"})} style={{padding:"4px 10px",borderRadius:6,border:"1px solid "+T.bl+"66",background:isA("arreglo")?"#DBEAFE":"transparent",fontSize:10,cursor:"pointer",color:T.bl,fontWeight:600}}>Pedir arreglo</button>
-            </div>;})()}
+              <button onClick={()=>sRetDistId(retDistId===d.id?null:d.id)} style={{padding:"4px 10px",borderRadius:6,border:"1px solid "+T.gn,background:retDistId===d.id?"#DCFCE7":"transparent",fontSize:10,cursor:"pointer",color:T.gn,fontWeight:600}}>Devolver</button>
+              </>;})()}
+            </div>}
+            {/* Return form */}
+            {retDistId===d.id&&<div style={{marginTop:8,padding:10,background:"#F0FDF4",borderRadius:8,border:"1px solid #BBF7D0"}}>
+              <div style={{fontSize:11,fontWeight:600,color:T.gn,marginBottom:6}}>📥 Devolver material (máx {pend})</div>
+              <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                <input type="number" min={1} max={pend} value={retQty} onChange={e=>sRetQty(e.target.value)} placeholder="Cantidad" style={{width:80,padding:"5px 8px",borderRadius:6,border:"1px solid #E5E7EB",fontSize:11}}/>
+                <button onClick={()=>{sRetDistId(null);sRetQty("");}} style={{padding:"4px 10px",borderRadius:6,border:"1px solid #E5E7EB",background:"transparent",fontSize:10,cursor:"pointer",color:T.g5}}>Cancelar</button>
+                <button onClick={submitReturn} disabled={!retQty||Number(retQty)<=0||Number(retQty)>pend} style={{padding:"4px 10px",borderRadius:6,border:"none",background:T.gn,color:"#fff",fontSize:10,cursor:"pointer",fontWeight:600,opacity:!retQty||Number(retQty)<=0||Number(retQty)>pend?0.5:1}}>Devolver</button>
+              </div>
+            </div>}
+            {/* Action form (perdida/rotura/arreglo) */}
             {matAction&&matAction.distId===d.id&&<div style={{marginTop:8,padding:10,background:"#F9FAFB",borderRadius:8,border:"1px solid #E5E7EB"}}>
               <div style={{fontSize:11,fontWeight:600,color:T.g5,marginBottom:6}}>
                 {matAction.type==="perdida"?"⚠️ Declarar pérdida":matAction.type==="rotura"?"🔧 Reportar rotura":"🛠️ Pedir arreglo"}
@@ -94,6 +134,7 @@ export function MyDash({user,onSel,mob,search,onUpdDist,onNotifyAdmin}:any){
             </div>}
           </Card>);
         })}
+        {(invTab==="activas"?myDists:myDistsHist).length===0&&<Card style={{textAlign:"center" as const,padding:20,color:T.g4}}><span style={{fontSize:20}}>📭</span><div style={{marginTop:4,fontSize:11}}>{invTab==="activas"?"Sin distribuciones activas":"Sin historial"}</div></Card>}
       </div>
     </div>}
 

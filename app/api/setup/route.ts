@@ -367,6 +367,15 @@ CREATE POLICY inventory_distributions_all ON inventory_distributions FOR ALL USI
     });
   }
 
+  // Check inventory_distributions.received column
+  const { error: eDistReceived } = await admin.from("inventory_distributions").select("received").limit(1);
+  if (eDistReceived && eDistReceived.code === "42703") {
+    missing.push({
+      table: "inventory_distributions (ALTER received)",
+      sql: `ALTER TABLE inventory_distributions ADD COLUMN IF NOT EXISTS received BOOLEAN DEFAULT false, ADD COLUMN IF NOT EXISTS received_at TIMESTAMPTZ;`,
+    });
+  }
+
   // Check dep_athletes.cuota_hasta column
   const { error: eCuotaCol } = await admin.from("dep_athletes").select("cuota_hasta").limit(1);
   if (eCuotaCol && eCuotaCol.code === "42703") {
