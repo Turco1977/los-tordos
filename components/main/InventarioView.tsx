@@ -74,7 +74,7 @@ export function InventarioView({user,mob,onAdd,onUpd,onDel,onAddMaint,onUpdMaint
   /* helpers */
   const userName=(uid:string)=>{const u=(users||[]).find((u:any)=>u.id===uid);return u?fn(u):""};
   const getItemName=(invId:number)=>{const it=(items||[]).find((i:any)=>i.id===invId);return it?it.name:"Material";};
-  const enlaceUsers=(div?:string)=>(users||[]).filter((u:any)=>(u.role==="enlace"||u.role==="manager")&&(!div||u.div===div));
+  const enlaceUsers=(div?:string)=>(users||[]).filter((u:any)=>(u.role==="enlace"||u.role==="manager")&&(!div||u.div===div||(u.div&&u.div.includes(div))||(u.div&&div.includes(u.div))));
 
   const openAddActivo=()=>{sEditId(null);sForm(emptyActivo());};
   const openAddLote=()=>{sEditId(null);sForm(emptyLote());};

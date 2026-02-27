@@ -30,7 +30,7 @@ export function SB({aA,aD,onAC,onDC,col,onCol,isPersonal,mob,sbOpen,onClose,vw,o
         {k:"archivos",l:"Archivos",icon:"📂",show:!isPersonal},
         {k:"reservas",l:"Espacios",icon:"🏟️",show:true},
         {k:"sponsors",l:"Sponsors",icon:"🥇",show:!isPersonal&&user&&(user.role==="admin"||user.role==="superadmin"||user.role==="coordinador"||user.role==="embudo")},
-        {k:"viajes",l:"Viajes",icon:"🚌",show:!isPersonal&&user&&(user.role==="admin"||user.role==="superadmin"||user.role==="coordinador")},
+        {k:"viajes",l:"Viajes",icon:"🚌",show:false},
       ].filter(n=>n.show).map(n=><div key={n.k} onClick={()=>{onNav(n.k);if(mob)onClose();}} style={{display:"flex",alignItems:"center",gap:8,padding:mob?"10px 10px":"7px 8px",borderRadius:7,cursor:"pointer",background:vw===n.k?"rgba(255,255,255,.1)":"transparent",fontSize:mob?13:11,fontWeight:vw===n.k?700:500,color:vw===n.k?"#fff":"rgba(255,255,255,.55)",marginBottom:1,minHeight:mob?44:undefined}}><span style={{fontSize:mob?15:13}}>{n.icon}</span>{n.l}</div>)}
     </div>}
   </div>);
