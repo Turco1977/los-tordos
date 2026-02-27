@@ -21,7 +21,7 @@ export function MyDash({user,onSel,mob,search,onUpdDist,onNotifyAdmin,onConfirmR
   const isEnl=user.role==="enlace"||user.role==="manager";
 
   /* My distributions (enlace) — all assigned to me */
-  const allMyDists=(invDist||[]).filter((d:any)=>d.enlace_id===user.id);
+  const allMyDists=(invDist||[]).filter((d:any)=>d.enlace_id===user.id||(user.div&&d.division===user.div&&!d.enlace_id));
   const myDists=allMyDists.filter((d:any)=>d.status==="activa");
   const myDistsHist=allMyDists.filter((d:any)=>d.status!=="activa");
   const getItemName=(invId:number)=>{const it=(inventory||[]).find((i:any)=>i.id===invId);return it?it.name:"Material";};
@@ -167,7 +167,7 @@ export function EnlaceInventario({user,mob,onUpdDist,onNotifyAdmin,onConfirmRece
   const [retDistId,sRetDistId]=useState<number|null>(null);
   const [retQty,sRetQty]=useState("");
 
-  const allMyDists=(invDist||[]).filter((d:any)=>d.enlace_id===user.id);
+  const allMyDists=(invDist||[]).filter((d:any)=>d.enlace_id===user.id||(user.div&&d.division===user.div&&!d.enlace_id));
   const myDists=allMyDists.filter((d:any)=>d.status==="activa");
   const myDistsHist=allMyDists.filter((d:any)=>d.status!=="activa");
   const getItemName=(invId:number)=>{const it=(inventory||[]).find((i:any)=>i.id===invId);return it?it.name:"Material";};
