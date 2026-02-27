@@ -485,7 +485,7 @@ export function InventarioView({user,mob,onAdd,onUpd,onDel,onAddMaint,onUpdMaint
             if(pend>0)divPend[d.division]=(divPend[d.division]||0)+pend;
           });
           return Object.entries(divPend).map(([div,cnt])=>(
-            <Card key={"pend-"+div} style={{padding:"10px 14px",borderLeft:"3px solid #F59E0B"}}>
+            <Card key={"pend-"+div} style={{padding:"10px 14px",borderLeft:"3px solid #F59E0B",cursor:"pointer"}} onClick={()=>{sTab("material");}}>
               <div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:14}}>⏳</span><span style={{fontSize:12,fontWeight:700,color:"#F59E0B"}}>Devolución pendiente:</span><span style={{fontSize:12,color:colors.nv}}>{div}</span><span style={{fontSize:10,color:colors.g4}}>· {cnt} items</span></div>
             </Card>
           ));
@@ -516,9 +516,9 @@ export function InventarioView({user,mob,onAdd,onUpd,onDel,onAddMaint,onUpdMaint
             {["División","Material","Entregadas","Devueltas","Perdidas","Rotas","Pendientes"].map(h=><th key={h} style={{padding:"8px 10px",textAlign:"left",fontWeight:700,color:colors.g5,borderBottom:"1px solid "+colors.g3,fontSize:10}}>{h}</th>)}
           </tr></thead>
           <tbody>
-            {entries.map(([key,d])=>{const div=key.split("||")[0];return <tr key={key} style={{borderBottom:"1px solid "+colors.g3+"66"}}>
+            {entries.map(([key,d])=>{const div=key.split("||")[0];const invId=Number(key.split("||")[1]);return <tr key={key} onClick={()=>{const lote=lotes.find((l:any)=>l.id===invId);if(lote){sTab("material");sLoteDetId(invId);}}} style={{borderBottom:"1px solid "+colors.g3+"66",cursor:"pointer"}}>
               <td style={{padding:"8px 10px",fontWeight:600}}>{div}</td>
-              <td style={{padding:"8px 10px"}}>{d.material}</td>
+              <td style={{padding:"8px 10px",color:colors.bl}}>{d.material}</td>
               <td style={{padding:"8px 10px"}}>{d.given}</td>
               <td style={{padding:"8px 10px",color:colors.gn}}>{d.returned}</td>
               <td style={{padding:"8px 10px",color:"#DC2626"}}>{d.lost}</td>
