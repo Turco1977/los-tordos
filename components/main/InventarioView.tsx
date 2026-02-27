@@ -32,6 +32,7 @@ export function InventarioView({user,mob,onAdd,onUpd,onDel,onAddMaint,onUpdMaint
   const [distForm,sDistForm]=useState<any>(null);
   const [loteDetId,sLoteDetId]=useState<number|null>(null);
   const [retForm,sRetForm]=useState<any>(null);
+  const [editDistForm,sEditDistForm]=useState<any>(null);
   const [showImport,sShowImport]=useState(false);
   const [matSport,sMatSport]=useState<"pick"|"rugby"|"hockey">("pick");
 
@@ -273,6 +274,7 @@ export function InventarioView({user,mob,onAdd,onUpd,onDel,onAddMaint,onUpdMaint
                 <td style={{padding:"8px 6px"}}>{d.received?<span title={d.received_at?new Date(d.received_at).toLocaleDateString():""} style={{padding:"2px 8px",borderRadius:10,background:"#DCFCE7",color:"#16A34A",fontSize:9,fontWeight:700}}>✅ {d.received_at?new Date(d.received_at).toLocaleDateString():""}</span>:<span style={{padding:"2px 8px",borderRadius:10,background:"#FEF3C7",color:"#D97706",fontSize:9,fontWeight:700}}>⏳ Pendiente</span>}</td>
                 <td style={{padding:"8px 6px"}}>
                   <div style={{display:"flex",gap:3}}>
+                    <button onClick={()=>sEditDistForm(editDistForm?.id===d.id?null:{id:d.id,division:d.division||"",enlace_id:d.enlace_id||"",enlace_name:d.enlace_name||"",qty_given:d.qty_given||0,given_date:d.given_date||"",notes:d.notes||""})} style={{padding:"2px 6px",borderRadius:4,border:"1px solid "+colors.bl,background:"transparent",fontSize:9,cursor:"pointer",color:colors.bl}} title="Editar">✏️</button>
                     {d.status==="activa"&&pend>0&&<button onClick={()=>sRetForm(retForm?.id===d.id?null:{id:d.id,returned:"",lost:"",broken:""})} style={{padding:"2px 6px",borderRadius:4,border:"1px solid "+colors.g3,background:"transparent",fontSize:9,cursor:"pointer",color:colors.nv}} title="Registrar devolución">📥</button>}
                     {d.status==="activa"&&pend===0&&<button onClick={()=>onUpdDist(d.id,{status:"cerrada"})} style={{padding:"2px 6px",borderRadius:4,border:"1px solid "+colors.gn,background:"transparent",fontSize:9,cursor:"pointer",color:colors.gn}} title="Cerrar">✅</button>}
                     <button onClick={()=>{if(confirm("Eliminar distribución?"))onDelDist(d.id);}} style={{padding:"2px 6px",borderRadius:4,border:"1px solid #FCA5A5",background:"transparent",fontSize:9,cursor:"pointer",color:"#DC2626"}} title="Eliminar">🗑</button>
@@ -293,6 +295,19 @@ export function InventarioView({user,mob,onAdd,onUpd,onDel,onAddMaint,onUpdMaint
           <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Rotas</label><input type="number" min={0} value={retForm.broken} onChange={e=>sRetForm((f:any)=>({...f,broken:e.target.value}))} style={{...iS,width:80,marginTop:2}}/></div>
         </div>
         <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}><Btn v="g" s="s" onClick={()=>sRetForm(null)}>Cancelar</Btn><Btn v="pu" s="s" onClick={()=>{const d=loteDists.find((x:any)=>x.id===retForm.id);if(d)saveReturn(d);}}>✅ Guardar</Btn></div>
+      </Card>}
+
+      {/* Edit distribution form */}
+      {editDistForm&&<Card style={{marginTop:8,padding:12,background:isDark?"rgba(59,130,246,.08)":"#EFF6FF",border:"1px solid "+colors.bl+"33"}}>
+        <div style={{fontSize:11,fontWeight:700,color:colors.bl,marginBottom:6}}>✏️ Editar distribución</div>
+        <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr 1fr",gap:8,marginBottom:8}}>
+          <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>División</label><select value={editDistForm.division} onChange={e=>{const div=e.target.value;const eu=enlaceUsers(div);const auto=eu.length===1?eu[0]:null;sEditDistForm((f:any)=>({...f,division:div,enlace_id:auto?auto.id:f.enlace_id,enlace_name:auto?fn(auto):f.enlace_name}));}} style={{...iS,marginTop:2}}><option value="">Seleccionar...</option>{DIV.map(d=><option key={d} value={d}>{d}</option>)}</select></div>
+          <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Enlace</label><select value={editDistForm.enlace_id} onChange={e=>{const u=(users||[]).find((u:any)=>u.id===e.target.value);sEditDistForm((f:any)=>({...f,enlace_id:e.target.value,enlace_name:u?fn(u):""}));}} style={{...iS,marginTop:2}}><option value="">Sin asignar</option>{enlaceUsers(editDistForm.division).map((u:any)=><option key={u.id} value={u.id}>{fn(u)}</option>)}</select></div>
+          <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Cantidad</label><input type="number" min={1} value={editDistForm.qty_given} onChange={e=>sEditDistForm((f:any)=>({...f,qty_given:e.target.value}))} style={{...iS,marginTop:2}}/></div>
+          <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Fecha entrega</label><input type="date" value={editDistForm.given_date} onChange={e=>sEditDistForm((f:any)=>({...f,given_date:e.target.value}))} style={{...iS,marginTop:2}}/></div>
+          <div style={{gridColumn:mob?"1":"2/4"}}><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Notas</label><input value={editDistForm.notes} onChange={e=>sEditDistForm((f:any)=>({...f,notes:e.target.value}))} placeholder="Observaciones..." style={{...iS,marginTop:2}}/></div>
+        </div>
+        <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}><Btn v="g" s="s" onClick={()=>sEditDistForm(null)}>Cancelar</Btn><Btn v="p" s="s" onClick={()=>{const upd:any={division:editDistForm.division,enlace_id:editDistForm.enlace_id||null,enlace_name:editDistForm.enlace_name||"",qty_given:Number(editDistForm.qty_given)||0,given_date:editDistForm.given_date||null,notes:editDistForm.notes||""};onUpdDist(editDistForm.id,upd);sEditDistForm(null);}}>💾 Guardar</Btn></div>
       </Card>}
     </div>);
   };
