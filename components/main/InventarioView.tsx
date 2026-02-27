@@ -232,6 +232,21 @@ export function InventarioView({user,mob,onAdd,onUpd,onDel,onAddMaint,onUpdMaint
         </div>
       </Card>
 
+      {/* Edit lote form (inline in detail view) */}
+      {form&&form.item_type==="lote"&&editId===loteItem.id&&<Card style={{marginBottom:14,background:isDark?"rgba(200,16,46,.08)":"#FEF2F2",border:"1px solid #C8102E33"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><div style={{fontSize:12,fontWeight:700,color:"#C8102E"}}>✏️ Editar lote</div><button onClick={closeForm} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:colors.g4}} title="Cerrar">✕</button></div>
+        <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr 1fr",gap:8,marginBottom:8}}>
+          <div style={{gridColumn:mob?"1":"1/4"}}><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Nombre *</label><input value={form.name} onChange={e=>sForm((f:any)=>({...f,name:e.target.value}))} style={{...iS,marginTop:2}}/></div>
+          <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Cantidad comprada</label><input type="number" min={1} value={form.quantity} onChange={e=>sForm((f:any)=>({...f,quantity:e.target.value}))} style={{...iS,marginTop:2}}/></div>
+          <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Temporada</label><input value={form.season} onChange={e=>sForm((f:any)=>({...f,season:e.target.value}))} style={{...iS,marginTop:2}}/></div>
+          <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Fecha compra</label><input type="date" value={form.purchase_date} onChange={e=>sForm((f:any)=>({...f,purchase_date:e.target.value}))} style={{...iS,marginTop:2}}/></div>
+          <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Marca</label><input value={form.brand} onChange={e=>sForm((f:any)=>({...f,brand:e.target.value}))} style={{...iS,marginTop:2}}/></div>
+          <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Costo unitario ($)</label><input type="number" min={0} value={form.unit_cost} onChange={e=>sForm((f:any)=>({...f,unit_cost:e.target.value}))} style={{...iS,marginTop:2}}/></div>
+          <div style={{gridColumn:mob?"1":"1/4"}}><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Notas</label><textarea value={form.notes} onChange={e=>sForm((f:any)=>({...f,notes:e.target.value}))} rows={2} style={{...iS,marginTop:2,resize:"vertical" as const}}/></div>
+        </div>
+        <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}><Btn v="g" s="s" onClick={closeForm}>Cancelar</Btn><Btn v="pu" s="s" disabled={!form.name.trim()} onClick={save}>💾 Guardar</Btn></div>
+      </Card>}
+
       {/* Distribute button */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
         <h4 style={{margin:0,fontSize:14,color:colors.nv}}>📦 Distribuciones</h4>
