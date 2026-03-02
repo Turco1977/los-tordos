@@ -51,7 +51,7 @@ export function SB({aA,aD,onAC,onDC,col,onCol,isPersonal,mob,sbOpen,onClose,vw,o
         {k:"presu",l:"Presupuestos",icon:"💰",show:!isPersonal&&user&&(user.role==="admin"||user.role==="superadmin"||user.role==="coordinador"||user.role==="embudo")},
         {k:"reun",l:"Reuniones",icon:"🤝",show:!isPersonal&&user&&(user.role==="admin"||user.role==="superadmin"||user.role==="coordinador")},
         {k:"proyectos",l:"Proyectos",icon:"📋",show:!isPersonal},
-        {k:"recurrentes",l:"Recurrentes",icon:"🔁",show:!isPersonal&&user&&(user.role==="admin"||user.role==="superadmin"||user.role==="coordinador")},
+        {k:"recurrentes",l:"Recurrentes",icon:"🔁",show:false},
         {k:"comm",l:"Comunicar",icon:"📢",show:!isPersonal&&user&&(user.role==="admin"||user.role==="superadmin"||user.role==="coordinador")},
         {k:"inventario",l:"Inventario",icon:"📦",show:user&&((!isPersonal&&(user.role==="admin"||user.role==="superadmin"||user.role==="coordinador"))||(user.role==="enlace"||user.role==="manager"))},
         {k:"archivos",l:"Archivos",icon:"📂",show:!isPersonal},

@@ -38,7 +38,7 @@ function lastGenLabel(d:string|null){
   return d.split("-").reverse().join("/");
 }
 
-export function RecurrentTasks({user,mob,onAdd,onUpd,onDel}:any){
+export function RecurrentTasks({user,mob,onAdd,onUpd,onDel,onBack}:any){
   const templates = useDataStore(s => s.taskTemplates);
   const users = useDataStore(s => s.users);
   const peds = useDataStore(s => s.peds);
@@ -183,6 +183,7 @@ export function RecurrentTasks({user,mob,onAdd,onUpd,onDel}:any){
 
   // ── LIST ──
   return(<div style={{maxWidth:900}}>
+    {onBack&&<button onClick={onBack} style={{background:"none",border:"1px solid "+colors.g3,borderRadius:6,cursor:"pointer",fontSize:12,padding:"4px 10px",color:colors.g5,marginBottom:10}}>← Volver</button>}
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
       <div>
         <h2 style={{margin:0,fontSize:mob?16:19,fontWeight:800,color:colors.nv}}>🔁 Tareas Recurrentes</h2>
