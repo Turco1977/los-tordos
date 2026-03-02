@@ -645,12 +645,14 @@ function AlquileresTab({user,mob,bookings,users,rentalConfig,colors,isDark,cardB
     if(r.rental_status==="solicitado"){
       const dow=new Date(r.date+"T12:00:00").getDay();
       const isFriSat=dow===5||dow===6;
-      if((isFriSat&&isVB)||(!isFriSat&&isLG)||isAd) return true;
+      if(isVB&&isFriSat) return true;
+      if(isLG&&!isFriSat) return true;
+      if(isSA) return true;
     }
-    if(r.rental_status==="pendiente_pago") return true;
+    if(r.rental_status==="pendiente_pago"&&(isSA||user.role==="admin")) return true;
     if(r.rental_status==="pago_recibido"&&(isBP||isSA)) return true;
     return false;
-  }),[rentals,isVB,isLG,isBP,isSA,isAd]);
+  }),[rentals,isVB,isLG,isBP,isSA,user.role]);
   const approved=useMemo(()=>rentals.filter((r:any)=>["aprobado","condicion_ok","condicion_problema"].includes(r.rental_status)),[rentals]);
   const filteredRentals=secFilter==="pendientes"?myPending:secFilter==="aprobadas"?approved:rentals;
 

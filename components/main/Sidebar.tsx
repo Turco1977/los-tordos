@@ -24,9 +24,11 @@ export function SB({aA,aD,onAC,onDC,col,onCol,isPersonal,mob,sbOpen,onClose,vw,o
       if(r.rental_status==="solicitado"){
         const dow=new Date(r.date+"T12:00:00").getDay();
         const isFriSat=dow===5||dow===6;
-        if((isFriSat&&isVB)||(!isFriSat&&isLG)||isAd) count++;
+        if(isVB&&isFriSat) count++;
+        else if(isLG&&!isFriSat) count++;
+        else if(isSA) count++;
       }
-      if(r.rental_status==="pendiente_pago"&&isAd) count++;
+      if(r.rental_status==="pendiente_pago"&&(isSA||user.role==="admin")) count++;
       if(r.rental_status==="pago_recibido"&&(isBP||isSA)) count++;
     }
     return count;
@@ -54,7 +56,7 @@ export function SB({aA,aD,onAC,onDC,col,onCol,isPersonal,mob,sbOpen,onClose,vw,o
         {k:"reservas",l:"Espacios",icon:"🏟️",show:true},
         {k:"sponsors",l:"Sponsors",icon:"🥇",show:!isPersonal&&user&&(user.role==="admin"||user.role==="superadmin"||user.role==="coordinador"||user.role==="embudo")},
         {k:"viajes",l:"Viajes",icon:"🚌",show:false},
-      ].filter(n=>n.show).map(n=><div key={n.k} onClick={()=>{onNav(n.k);if(mob)onClose();}} style={{display:"flex",alignItems:"center",gap:8,padding:mob?"10px 10px":"7px 8px",borderRadius:7,cursor:"pointer",background:vw===n.k?"rgba(255,255,255,.1)":"transparent",fontSize:mob?13:11,fontWeight:vw===n.k?700:500,color:vw===n.k?"#fff":"rgba(255,255,255,.55)",marginBottom:1,minHeight:mob?44:undefined}}><span style={{fontSize:mob?15:13}}>{n.icon}</span>{n.l}{n.k==="reservas"&&rentalBadge>0&&<span style={{background:"#DC2626",color:"#fff",fontSize:9,fontWeight:800,borderRadius:10,padding:"1px 6px",minWidth:16,textAlign:"center" as const,marginLeft:"auto",lineHeight:"14px"}}>{rentalBadge}</span>}</div>)}
+      ].filter(n=>n.show).map(n=><div key={n.k} onClick={()=>{onNav(n.k);if(mob)onClose();}} style={{display:"flex",alignItems:"center",gap:8,padding:mob?"10px 10px":"7px 8px",borderRadius:7,cursor:"pointer",background:vw===n.k?"rgba(255,255,255,.1)":"transparent",fontSize:mob?13:11,fontWeight:vw===n.k?700:500,color:vw===n.k?"#fff":"rgba(255,255,255,.55)",marginBottom:1,minHeight:mob?44:undefined}}><span style={{fontSize:mob?15:13}}>{n.icon}</span>{n.l}{n.k==="reservas"&&rentalBadge>0&&vw!=="reservas"&&<span style={{background:"#DC2626",color:"#fff",fontSize:9,fontWeight:800,borderRadius:10,padding:"1px 6px",minWidth:16,textAlign:"center" as const,marginLeft:"auto",lineHeight:"14px"}}>{rentalBadge}</span>}</div>)}
     </div>}
   </div>);
   if(mob){
