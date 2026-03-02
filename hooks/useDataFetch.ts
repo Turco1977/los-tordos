@@ -31,7 +31,7 @@ export function useDataFetch(
     // Ensure auth token is fresh before parallel queries (prevents abort from token refresh)
     await supabase.auth.getSession();
     // Phase 1: Load 50 most recent tasks + user's assigned tasks immediately, plus core data
-    const [pRes, recentRes, userRes, omRes, msRes, agRes, miRes, prRes, pvRes, remRes, projRes, ptRes, ttRes, invRes, bkRes, spRes, pbRes, imRes, idRes, sdRes, archRes, vjRes, rcRes] = await Promise.all([
+    const [pRes, recentRes, userRes, omRes, msRes, agRes, miRes, prRes, pvRes, remRes, projRes, ptRes, ttRes, invRes, bkRes, spRes, pbRes, imRes, idRes, sdRes, archRes, rcRes] = await Promise.all([
       supabase.from("profiles").select("*"),
       supabase.from("tasks").select("*").order("id", { ascending: false }).limit(50),
       user ? supabase.from("tasks").select("*").eq("assigned_to", user.id).order("id", { ascending: false }) : Promise.resolve({ data: [] }),
@@ -53,7 +53,6 @@ export function useDataFetch(
       supabase.from("inventory_distributions").select("*").order("id", { ascending: false }),
       supabase.from("sponsor_deliveries").select("*").order("id", { ascending: false }),
       supabase.from("archivos").select("*").order("created_at", { ascending: false }).limit(500),
-      supabase.from("viajes").select("*").order("created_at", { ascending: false }),
       supabase.from("rental_config").select("*"),
     ]);
     const errors: string[] = [];
@@ -101,7 +100,6 @@ export function useDataFetch(
       ...(sdRes.data ? { sponDeliveries: sdRes.data } : {}),
       ...(pbRes.data ? { projBudgets: pbRes.data } : {}),
       ...(archRes.data ? { archivos: archRes.data } : {}),
-      ...(vjRes.data ? { viajes: vjRes.data } : {}),
       ...(rcRes.data ? { rentalConfig: rcRes.data } : {}),
       ...(mappedPeds ? { peds: mappedPeds } : {}),
     });
