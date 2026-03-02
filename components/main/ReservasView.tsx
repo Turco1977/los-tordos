@@ -880,7 +880,11 @@ function AlquileresTab({user,mob,bookings,users,rentalConfig,colors,isDark,cardB
           <div style={{fontSize:11,fontWeight:700,color:"#7C3AED",marginBottom:4}}>💰 Datos de pago</div>
           <div style={{fontSize:11,color:isDark?"#C4B5FD":"#5B21B6"}}>Transferir a: <strong>{RENTAL_PAYMENT.alias}</strong></div>
           <div style={{fontSize:11,color:isDark?"#C4B5FD":"#5B21B6"}}>Monto: <strong>{fmtMoney(r.rental_fee)}</strong></div>
-          <div style={{fontSize:11,color:isDark?"#C4B5FD":"#5B21B6"}}>Enviar comprobante a: <strong>{RENTAL_PAYMENT.phone}</strong></div>
+          <div style={{fontSize:11,color:isDark?"#C4B5FD":"#5B21B6",marginBottom:8}}>Enviar comprobante a: <strong>{RENTAL_PAYMENT.phone}</strong></div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap" as const}}>
+            <a href={`https://wa.me/${RENTAL_PAYMENT.phone}?text=${encodeURIComponent(`Alquiler ${RENTAL_FAC_LABELS[r.facility]||r.facility} - ${r.date} ${r.time_start||""}-${r.time_end||""}\nSolicitante: ${r.renter_name}\nMonto: $${Number(r.rental_fee||0).toLocaleString("es-AR")}\nAlias: ${RENTAL_PAYMENT.alias}`)}`} target="_blank" rel="noopener noreferrer" style={{display:"inline-flex",alignItems:"center",gap:4,padding:"6px 14px",borderRadius:8,background:"#25D366",color:"#fff",fontSize:11,fontWeight:700,textDecoration:"none",cursor:"pointer"}}>📲 Compartir por WhatsApp</a>
+            {(isSA||user.role==="admin")&&<button onClick={()=>onUpdRental(r.id,{rental_status:"pago_recibido"})} style={{padding:"6px 14px",borderRadius:8,border:"1px solid #7C3AED",background:isDark?"#312E81":"#F5F3FF",color:"#7C3AED",fontSize:11,fontWeight:700,cursor:"pointer"}}>✅ Confirmar pago recibido</button>}
+          </div>
         </div>}
 
         {/* ── Proof image (when uploaded) ── */}
@@ -895,9 +899,6 @@ function AlquileresTab({user,mob,bookings,users,rentalConfig,colors,isDark,cardB
             <button onClick={()=>onUpdRental(r.id,{rental_status:"pendiente_pago"})} style={{padding:"5px 12px",borderRadius:8,border:"1px solid #3B82F6",background:isDark?"#1E3A5F":"#DBEAFE",color:"#3B82F6",fontSize:10,fontWeight:700,cursor:"pointer"}}>👍 Disponible</button>
             <button onClick={()=>onUpdRental(r.id,{rental_status:"no_disponible"})} style={{padding:"5px 12px",borderRadius:8,border:"1px solid #DC2626",background:isDark?"#7F1D1D":"#FEE2E2",color:"#DC2626",fontSize:10,fontWeight:700,cursor:"pointer"}}>❌ No disponible</button>
           </>}
-
-          {/* Step 2: pendiente_pago → upload comprobante (any user) */}
-          {r.rental_status==="pendiente_pago"&&<button onClick={()=>{sUploading(r.id);fileRef.current?.click();}} disabled={uploading===r.id} style={{padding:"5px 12px",borderRadius:8,border:"1px solid #8B5CF6",background:isDark?"#1E1B4B":"#EDE9FE",color:"#8B5CF6",fontSize:10,fontWeight:700,cursor:"pointer"}}>{uploading===r.id?"⏳ Subiendo...":"🧾 Subir comprobante"}</button>}
 
           {/* Step 3: pago_recibido → aprobado/rechazado (Bautista or superadmin) */}
           {r.rental_status==="pago_recibido"&&canApproveFinal()&&<>
