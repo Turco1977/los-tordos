@@ -67,6 +67,9 @@
 - [x] Upload de archivos en adjuntos Foto/Documento de nueva tarea
 - [x] Galería de Archivos con categorías (tareas, facturas, presupuestos) en sidebar
 - [x] Formulario "+ Factura" en pantalla de creación (titulo, proveedor, monto obligatorios)
+- [x] Mensajes Directos estilo Slack (tabla dm_messages, DMView, botón 💬 en Organigrama, badge sidebar, realtime, mark-read)
+- [x] Barra de búsqueda de personas en DMs (🔍 Nuevo)
+- [x] Borrar mensajes individuales y conversaciones completas en DMs
 
 ## Tareas propuestas por Claude (realizadas)
 
