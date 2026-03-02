@@ -10,7 +10,7 @@ const supabase = createClient();
 
 function dmKey(a: string, b: string) { return [a, b].sort().join("_"); }
 
-export function DMView({ user, users, dmMsgs, sDmMsgs, dmPeer, sDmPeer, mob, onSendDm, onDeleteDm }: any) {
+export function DMView({ user, users, dmMsgs, sDmMsgs, dmPeer, sDmPeer, mob, onSendDm, onDeleteDm, onDeleteConvo }: any) {
   const { colors, isDark, cardBg } = useC();
   const [activePeer, setActivePeer] = useState<string | null>(dmPeer || null);
   const [searchQ, setSearchQ] = useState("");
@@ -115,6 +115,7 @@ export function DMView({ user, users, dmMsgs, sDmMsgs, dmPeer, sDmPeer, mob, onS
                 <div style={{ fontSize: 11, color: colors.g4, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" }}>{lastTxt.slice(0, 40)}</div>
               </div>
               {c.unread > 0 && <span style={{ background: "#DC2626", color: "#fff", fontSize: 9, fontWeight: 800, borderRadius: 10, padding: "1px 6px", minWidth: 16, textAlign: "center" as const, lineHeight: "14px" }}>{c.unread}</span>}
+              {onDeleteConvo && <button onClick={(e: any) => { e.stopPropagation(); if (confirm("Borrar toda la conversacion con " + peerName(c.peerId) + "?")) { onDeleteConvo(c.peerId); if (activePeer === c.peerId) { setActivePeer(null); sDmPeer(null); } } }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 10, color: colors.g4, padding: 2, opacity: 0.3, flexShrink: 0 }} onMouseEnter={e => (e.currentTarget.style.opacity = "1")} onMouseLeave={e => (e.currentTarget.style.opacity = "0.3")} title="Borrar conversacion">🗑️</button>}
             </div>
           );
         })}
