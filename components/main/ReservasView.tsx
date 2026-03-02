@@ -634,6 +634,8 @@ function AlquileresTab({user,mob,bookings,users,rentalConfig,colors,isDark,cardB
   const [saving,sSaving]=useState(false);
   const [rForm,sRForm]=useState<any>({facility:"salon",date:TODAY,time_start:"18:00",time_end:"23:00",renter_name:"",renter_phone:"",rental_fee:40000,notes:""});
   const [secFilter,sSecFilter]=useState<"pendientes"|"todas"|"aprobadas">("pendientes");
+  const [editRentalId,sEditRentalId]=useState<number|null>(null);
+  const [editRForm,sEditRForm]=useState<any>(null);
 
   /* rentals only */
   const rentals=useMemo(()=>(bookings||[]).filter((b:any)=>b.is_rental).sort((a:any,b:any)=>b.date>a.date?1:b.date<a.date?-1:0),[bookings]);
@@ -824,6 +826,9 @@ function AlquileresTab({user,mob,bookings,users,rentalConfig,colors,isDark,cardB
       const fac=BOOK_FAC[r.facility]||{l:"?",i:"?",c:colors.g4};
       const rst=RENTAL_ST[r.rental_status]||RENTAL_ST.solicitado;
       const isPast=r.date<TODAY;
+      const canEdit=(!isPast&&isAd)||(isSA);
+      const canDel=(!isPast&&isAd)||(isSA);
+      const isEditing=editRentalId===r.id;
 
       return(<Card key={r.id} style={{padding:"12px 14px",marginBottom:8,borderLeft:"4px solid "+(rst.c||"#8B5CF6")}}>
         {/* header */}
@@ -835,7 +840,38 @@ function AlquileresTab({user,mob,bookings,users,rentalConfig,colors,isDark,cardB
             {r.approved_by_name&&<div style={{fontSize:10,color:colors.g4,marginTop:2}}>Aprobado por: {r.approved_by_name}</div>}
             {r.notes&&<div style={{fontSize:10,color:colors.g4,marginTop:2,fontStyle:"italic" as const}}>Notas: {r.notes}</div>}
           </div>
+          {/* Edit / Delete buttons */}
+          <div style={{display:"flex",gap:4,flexShrink:0}}>
+            {canEdit&&!isEditing&&<button onClick={()=>{sEditRentalId(r.id);sEditRForm({facility:r.facility,date:r.date,time_start:r.time_start,time_end:r.time_end,renter_name:r.renter_name||"",renter_phone:r.renter_phone||"",rental_fee:r.rental_fee||0,notes:r.notes||""});}} style={{padding:"3px 8px",borderRadius:6,border:"1px solid "+colors.bl,background:"none",fontSize:9,fontWeight:700,color:colors.bl,cursor:"pointer"}}>✏️</button>}
+            {canDel&&<button onClick={()=>{if(confirm("Eliminar este alquiler?"))onUpdRental(r.id,{is_rental:false,rental_status:null});}} style={{padding:"3px 8px",borderRadius:6,border:"1px solid #DC2626",background:"none",fontSize:9,fontWeight:700,color:"#DC2626",cursor:"pointer"}}>🗑️</button>}
+          </div>
         </div>
+
+        {/* ── INLINE EDIT FORM ── */}
+        {isEditing&&editRForm&&<div style={{padding:10,borderRadius:8,background:isDark?"#1E293B":"#F8FAFC",border:"1px solid "+colors.g3,marginBottom:8}}>
+          <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:6,marginBottom:6}}>
+            <div><label style={lblSt}>Espacio</label>
+              <select value={editRForm.facility} onChange={e=>sEditRForm((p:any)=>({...p,facility:e.target.value}))} style={iSt}>
+                {RENTABLE_FAC.map(k=><option key={k} value={k}>{RENTAL_FAC_LABELS[k]}</option>)}
+              </select>
+            </div>
+            <div><label style={lblSt}>Fecha</label><input type="date" value={editRForm.date} onChange={e=>sEditRForm((p:any)=>({...p,date:e.target.value}))} style={iSt}/></div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:mob?"1fr 1fr":"1fr 1fr 1fr 1fr",gap:6,marginBottom:6}}>
+            <div><label style={lblSt}>Hora inicio</label><input type="time" value={editRForm.time_start} onChange={e=>sEditRForm((p:any)=>({...p,time_start:e.target.value}))} style={iSt}/></div>
+            <div><label style={lblSt}>Hora fin</label><input type="time" value={editRForm.time_end} onChange={e=>sEditRForm((p:any)=>({...p,time_end:e.target.value}))} style={iSt}/></div>
+            <div><label style={lblSt}>Nombre</label><input value={editRForm.renter_name} onChange={e=>sEditRForm((p:any)=>({...p,renter_name:e.target.value}))} style={iSt}/></div>
+            <div><label style={lblSt}>Teléfono</label><input value={editRForm.renter_phone} onChange={e=>sEditRForm((p:any)=>({...p,renter_phone:e.target.value}))} style={iSt}/></div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:6,marginBottom:6}}>
+            <div><label style={lblSt}>Fee ($)</label><input type="number" value={editRForm.rental_fee} onChange={e=>sEditRForm((p:any)=>({...p,rental_fee:Number(e.target.value)}))} style={iSt}/></div>
+            <div><label style={lblSt}>Notas</label><input value={editRForm.notes} onChange={e=>sEditRForm((p:any)=>({...p,notes:e.target.value}))} style={iSt}/></div>
+          </div>
+          <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}>
+            <button onClick={()=>{sEditRentalId(null);sEditRForm(null);}} style={{padding:"5px 12px",borderRadius:8,border:"1px solid "+colors.g3,background:cardBg,color:colors.g5,fontSize:10,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
+            <button onClick={()=>{onUpdRental(r.id,{...editRForm,title:"🏠 "+(RENTAL_FAC_LABELS[editRForm.facility]||editRForm.facility),description:"Alquiler: "+editRForm.renter_name});sEditRentalId(null);sEditRForm(null);}} style={{padding:"5px 12px",borderRadius:8,border:"1px solid "+colors.bl,background:colors.bl,color:"#fff",fontSize:10,fontWeight:700,cursor:"pointer"}}>💾 Guardar</button>
+          </div>
+        </div>}
 
         {/* ── Payment info box (when pendiente_pago) ── */}
         {r.rental_status==="pendiente_pago"&&<div style={{padding:"10px 14px",borderRadius:8,background:isDark?"#1E1B4B":"#EDE9FE",border:"1px solid #C4B5FD",marginBottom:8}}>
@@ -861,7 +897,7 @@ function AlquileresTab({user,mob,bookings,users,rentalConfig,colors,isDark,cardB
           {/* Step 2: pendiente_pago → upload comprobante (any user) */}
           {r.rental_status==="pendiente_pago"&&<button onClick={()=>{sUploading(r.id);fileRef.current?.click();}} disabled={uploading===r.id} style={{padding:"5px 12px",borderRadius:8,border:"1px solid #8B5CF6",background:isDark?"#1E1B4B":"#EDE9FE",color:"#8B5CF6",fontSize:10,fontWeight:700,cursor:"pointer"}}>{uploading===r.id?"⏳ Subiendo...":"🧾 Subir comprobante"}</button>}
 
-          {/* Step 3: pago_recibido → aprobado/rechazado (Bautista or admin) */}
+          {/* Step 3: pago_recibido → aprobado/rechazado (Bautista or superadmin) */}
           {r.rental_status==="pago_recibido"&&canApproveFinal()&&<>
             <button onClick={()=>onUpdRental(r.id,{rental_status:"aprobado",approved_by_name:fn(user)})} style={{padding:"5px 12px",borderRadius:8,border:"1px solid #10B981",background:isDark?"#064E3B":"#D1FAE5",color:"#10B981",fontSize:10,fontWeight:700,cursor:"pointer"}}>✅ Aprobar</button>
             <button onClick={()=>onUpdRental(r.id,{rental_status:"rechazado"})} style={{padding:"5px 12px",borderRadius:8,border:"1px solid #DC2626",background:isDark?"#7F1D1D":"#FEE2E2",color:"#DC2626",fontSize:10,fontWeight:700,cursor:"pointer"}}>❌ Rechazar</button>
