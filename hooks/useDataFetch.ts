@@ -31,7 +31,7 @@ export function useDataFetch(
     // Ensure auth token is fresh before parallel queries (prevents abort from token refresh)
     await supabase.auth.getSession();
     // Phase 1: Load 50 most recent tasks + user's assigned tasks immediately, plus core data
-    const [pRes, recentRes, userRes, omRes, msRes, agRes, miRes, prRes, pvRes, remRes, projRes, ptRes, ttRes, invRes, bkRes, spRes, pbRes, imRes, idRes, sdRes, archRes, rcRes] = await Promise.all([
+    const [pRes, recentRes, userRes, omRes, msRes, agRes, miRes, prRes, pvRes, remRes, projRes, ptRes, ttRes, invRes, bkRes, spRes, pbRes, imRes, idRes, sdRes, archRes, rcRes, dmRes] = await Promise.all([
       supabase.from("profiles").select("*"),
       supabase.from("tasks").select("*").order("id", { ascending: false }).limit(50),
       user ? supabase.from("tasks").select("*").eq("assigned_to", user.id).order("id", { ascending: false }) : Promise.resolve({ data: [] }),
@@ -54,6 +54,7 @@ export function useDataFetch(
       supabase.from("sponsor_deliveries").select("*").order("id", { ascending: false }),
       supabase.from("archivos").select("*").order("created_at", { ascending: false }).limit(500),
       supabase.from("rental_config").select("*"),
+      user ? supabase.from("dm_messages").select("*").or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`).order("created_at", { ascending: true }).limit(500) : Promise.resolve({ data: [] }),
     ]);
     const errors: string[] = [];
     if (pRes.error && !isAbort(pRes.error)) errors.push("Perfiles: " + (pRes.error.message || pRes.error.code || "error"));
@@ -101,6 +102,7 @@ export function useDataFetch(
       ...(pbRes.data ? { projBudgets: pbRes.data } : {}),
       ...(archRes.data ? { archivos: archRes.data } : {}),
       ...(rcRes.data ? { rentalConfig: rcRes.data } : {}),
+      ...(dmRes.data ? { dmMsgs: dmRes.data } : {}),
       ...(mappedPeds ? { peds: mappedPeds } : {}),
     });
 

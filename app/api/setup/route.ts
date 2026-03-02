@@ -483,6 +483,29 @@ CREATE POLICY rental_config_all ON rental_config FOR ALL USING (true) WITH CHECK
     });
   }
 
+  // Check dm_messages table
+  const { error: eDm } = await admin.from("dm_messages").select("id").limit(1);
+  if (isMissing(eDm)) {
+    missing.push({
+      table: "dm_messages",
+      sql: `CREATE TABLE dm_messages (
+  id SERIAL PRIMARY KEY,
+  sender_id UUID NOT NULL,
+  sender_name TEXT NOT NULL DEFAULT '',
+  receiver_id UUID NOT NULL,
+  content TEXT NOT NULL DEFAULT '',
+  type TEXT DEFAULT 'msg',
+  read BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX idx_dm_sender ON dm_messages(sender_id, created_at);
+CREATE INDEX idx_dm_receiver ON dm_messages(receiver_id, created_at);
+CREATE INDEX idx_dm_unread ON dm_messages(receiver_id, read) WHERE read = false;
+ALTER TABLE dm_messages ENABLE ROW LEVEL SECURITY;
+CREATE POLICY dm_messages_all ON dm_messages FOR ALL USING (true) WITH CHECK (true);`,
+    });
+  }
+
   if (missing.length > 0) {
     return NextResponse.json({
       status: "missing",

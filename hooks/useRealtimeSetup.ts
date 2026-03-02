@@ -11,7 +11,7 @@ export function useRealtimeSetup(
   const {
     sPd, sPr, sProjects, sProjTasks, sTaskTemplates,
     sInventory, sInvMaint, sInvDist, sBookings, sSponsors,
-    sSponMsgs, sSponDeliveries, sProjBudgets,
+    sSponMsgs, sSponDeliveries, sProjBudgets, sDmMsgs,
   } = useDataStore();
 
   useRealtime([
@@ -105,6 +105,20 @@ export function useRealtimeSetup(
       onInsert: (row: any) => sProjBudgets(p => [row, ...p]),
       onUpdate: (row: any) => sProjBudgets(p => p.map(x => x.id === row.id ? row : x)),
       onDelete: (row: any) => sProjBudgets(p => p.filter(x => x.id !== row.id)),
+    },
+    {
+      table: "dm_messages", onInsert: (msg: any) => {
+        if (!user || (msg.sender_id !== user.id && msg.receiver_id !== user.id)) return;
+        sDmMsgs(p => {
+          const dup = p.some((m: any) => m.sender_id === msg.sender_id && m.content === msg.content && m.created_at?.slice(0, 16) === msg.created_at?.slice(0, 16));
+          if (dup) return p;
+          return [...p, msg];
+        });
+      },
+      onUpdate: (msg: any) => {
+        if (!user || (msg.sender_id !== user.id && msg.receiver_id !== user.id)) return;
+        sDmMsgs(p => p.map(m => m.id === msg.id ? { ...m, ...msg } : m));
+      },
     },
     { table: "notifications", onChange: () => refreshNotifs() },
   ], !!user && isOnline);

@@ -6,6 +6,7 @@ import { useDataStore } from "@/lib/store";
 export function SB({aA,aD,onAC,onDC,col,onCol,isPersonal,mob,sbOpen,onClose,vw,onNav,user}:any){
   const pedidos = useDataStore(s => s.peds);
   const bookings = useDataStore(s => s.bookings);
+  const dmMsgs = useDataStore(s => s.dmMsgs);
   const areas = AREAS;
   const deptos = DEPTOS;
   const {colors,isDark,cardBg}=useC();
@@ -33,6 +34,7 @@ export function SB({aA,aD,onAC,onDC,col,onCol,isPersonal,mob,sbOpen,onClose,vw,o
     }
     return count;
   })();
+  const dmUnread=(()=>{if(!user||!dmMsgs)return 0;return dmMsgs.filter((m:any)=>m.receiver_id===user.id&&!m.read).length;})();
   const sbContent=(<div style={{flex:1,overflowY:"auto" as const,padding:"8px 6px"}}>
     {!isPersonal&&areas.map((ar:any)=>{const ds=deptos.filter((d:any)=>d.aId===ar.id),ids=ds.map((d:any)=>d.id),ap=pedidos.filter((p:any)=>ids.indexOf(p.dId)>=0),pe=ap.filter((p:any)=>p.st===ST.P).length,cu=ap.filter((p:any)=>[ST.C,ST.E,ST.V].indexOf(p.st)>=0).length,ok=ap.filter((p:any)=>p.st===ST.OK).length;
       return(<div key={ar.id} style={{marginBottom:4}}><div onClick={()=>{onAC(ar.id);if(mob)onClose();}} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:mob?"10px 10px":"7px 8px",borderRadius:7,cursor:"pointer",background:aA===ar.id?"rgba(255,255,255,.1)":"transparent",borderLeft:"3px solid "+ar.color,minHeight:mob?44:undefined}}><span style={{fontSize:mob?13:11,fontWeight:600}}>{ar.icon} {ar.name}</span><div style={{display:"flex",gap:4,fontSize:mob?10:9}}>{pe>0&&<span style={{color:colors.rd}}>🔴{pe}</span>}{cu>0&&<span style={{color:colors.yl}}>🟡{cu}</span>}{ok>0&&<span style={{color:colors.gn}}>🟢{ok}</span>}</div></div>
@@ -56,7 +58,8 @@ export function SB({aA,aD,onAC,onDC,col,onCol,isPersonal,mob,sbOpen,onClose,vw,o
         {k:"reservas",l:"Espacios",icon:"🏟️",show:true},
         {k:"sponsors",l:"Sponsors",icon:"🥇",show:!isPersonal&&user&&(user.role==="admin"||user.role==="superadmin"||user.role==="coordinador"||user.role==="embudo")},
         {k:"viajes",l:"Viajes",icon:"🚌",show:false},
-      ].filter(n=>n.show).map(n=><div key={n.k} onClick={()=>{onNav(n.k);if(mob)onClose();}} style={{display:"flex",alignItems:"center",gap:8,padding:mob?"10px 10px":"7px 8px",borderRadius:7,cursor:"pointer",background:vw===n.k?"rgba(255,255,255,.1)":"transparent",fontSize:mob?13:11,fontWeight:vw===n.k?700:500,color:vw===n.k?"#fff":"rgba(255,255,255,.55)",marginBottom:1,minHeight:mob?44:undefined}}><span style={{fontSize:mob?15:13}}>{n.icon}</span>{n.l}{n.k==="reservas"&&rentalBadge>0&&vw!=="reservas"&&<span style={{background:"#DC2626",color:"#fff",fontSize:9,fontWeight:800,borderRadius:10,padding:"1px 6px",minWidth:16,textAlign:"center" as const,marginLeft:"auto",lineHeight:"14px"}}>{rentalBadge}</span>}</div>)}
+        {k:"dm",l:"Mensajes",icon:"💬",show:true},
+      ].filter(n=>n.show).map(n=><div key={n.k} onClick={()=>{onNav(n.k);if(mob)onClose();}} style={{display:"flex",alignItems:"center",gap:8,padding:mob?"10px 10px":"7px 8px",borderRadius:7,cursor:"pointer",background:vw===n.k?"rgba(255,255,255,.1)":"transparent",fontSize:mob?13:11,fontWeight:vw===n.k?700:500,color:vw===n.k?"#fff":"rgba(255,255,255,.55)",marginBottom:1,minHeight:mob?44:undefined}}><span style={{fontSize:mob?15:13}}>{n.icon}</span>{n.l}{n.k==="reservas"&&rentalBadge>0&&vw!=="reservas"&&<span style={{background:"#DC2626",color:"#fff",fontSize:9,fontWeight:800,borderRadius:10,padding:"1px 6px",minWidth:16,textAlign:"center" as const,marginLeft:"auto",lineHeight:"14px"}}>{rentalBadge}</span>}{n.k==="dm"&&dmUnread>0&&vw!=="dm"&&<span style={{background:"#DC2626",color:"#fff",fontSize:9,fontWeight:800,borderRadius:10,padding:"1px 6px",minWidth:16,textAlign:"center" as const,marginLeft:"auto",lineHeight:"14px"}}>{dmUnread}</span>}</div>)}
     </div>}
   </div>);
   if(mob){

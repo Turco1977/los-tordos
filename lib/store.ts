@@ -29,9 +29,11 @@ interface DataStore {
   notifPrefs: any;
   viajes: any[];
   rentalConfig: any[];
+  dmMsgs: any[];
+  dmPeer: string | null;
 
   // Batch setter (for fetchAll)
-  setAll: (data: Partial<Pick<DataStore, "users"|"om"|"peds"|"hitos"|"agendas"|"minutas"|"presu"|"provs"|"reminders"|"projects"|"projTasks"|"taskTemplates"|"projBudgets"|"inventory"|"invMaint"|"invDist"|"bookings"|"sponsors"|"sponMsgs"|"sponDeliveries"|"dbNotifs"|"archivos"|"viajes"|"rentalConfig">>) => void;
+  setAll: (data: Partial<Pick<DataStore, "users"|"om"|"peds"|"hitos"|"agendas"|"minutas"|"presu"|"provs"|"reminders"|"projects"|"projTasks"|"taskTemplates"|"projBudgets"|"inventory"|"invMaint"|"invDist"|"bookings"|"sponsors"|"sponMsgs"|"sponDeliveries"|"dbNotifs"|"archivos"|"viajes"|"rentalConfig"|"dmMsgs">>) => void;
 
   // Functional setters (same API as useState setters)
   sUs: Setter<any>;
@@ -59,6 +61,8 @@ interface DataStore {
   sNotifPrefs: (fn: (prev: any) => any) => void;
   sViajes: Setter<any>;
   sRentalConfig: Setter<any>;
+  sDmMsgs: Setter<any>;
+  sDmPeer: (peer: string | null) => void;
 
   // Reset all data (logout)
   clear: () => void;
@@ -92,6 +96,8 @@ export const useDataStore = create<DataStore>((set) => ({
   notifPrefs: null,
   viajes: empty,
   rentalConfig: empty,
+  dmMsgs: empty,
+  dmPeer: null,
 
   setAll: (data) => set(data),
 
@@ -120,6 +126,8 @@ export const useDataStore = create<DataStore>((set) => ({
   sNotifPrefs: (fn) => set((s) => ({ notifPrefs: fn(s.notifPrefs) })),
   sViajes: (fn) => set((s) => ({ viajes: fn(s.viajes) })),
   sRentalConfig: (fn) => set((s) => ({ rentalConfig: fn(s.rentalConfig) })),
+  sDmMsgs: (fn) => set((s) => ({ dmMsgs: fn(s.dmMsgs) })),
+  sDmPeer: (peer) => set({ dmPeer: peer }),
 
   clear: () => set({
     users: empty,
@@ -147,5 +155,7 @@ export const useDataStore = create<DataStore>((set) => ({
     notifPrefs: null,
     viajes: empty,
     rentalConfig: empty,
+    dmMsgs: empty,
+    dmPeer: null,
   }),
 }));
