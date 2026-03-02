@@ -83,7 +83,7 @@ export function DMView({ user, users, dmMsgs, sDmMsgs, dmPeer, sDmPeer, mob, onS
       <div style={{ padding: "10px 14px", borderBottom: "1px solid " + colors.g2 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
           <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: colors.nv }}>Mensajes Directos</h3>
-          <button onClick={() => { setShowSearch(!showSearch); setSearchQ(""); }} style={{ background: "none", border: "none", fontSize: 16, cursor: "pointer", color: showSearch ? colors.bl : colors.g4, padding: "2px 4px" }} title="Buscar persona">🔍</button>
+          <button onClick={() => { setShowSearch(!showSearch); setSearchQ(""); }} style={{ background: showSearch ? colors.bl + "15" : colors.g1, border: "1px solid " + (showSearch ? colors.bl : colors.g2), borderRadius: 8, fontSize: 14, cursor: "pointer", color: showSearch ? colors.bl : colors.nv, padding: "4px 10px", fontWeight: 600 }} title="Buscar persona">🔍 Nuevo</button>
         </div>
         {showSearch && <div style={{ position: "relative" }}>
           <input value={searchQ} onChange={e => setSearchQ(e.target.value)} placeholder="Buscar por nombre..." autoFocus style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: "1px solid " + colors.g3, fontSize: 12, outline: "none", boxSizing: "border-box" as const, background: cardBg, color: colors.nv }} />
