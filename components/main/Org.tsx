@@ -1,9 +1,9 @@
 "use client";
-import { useState } from "react";
-import { T, ROLES, fn } from "@/lib/constants";
+import { useState, useEffect } from "react";
+import { T, ROLES, fn, DEPT_DESC } from "@/lib/constants";
 import { Btn, Card, Bread } from "@/components/ui";
 
-function OrgNode({icon,title,sub,color,children,cnt,ex,onTog,mob}:any){return(<div style={{marginBottom:6}}><div onClick={onTog} style={{display:"flex",alignItems:"center",gap:8,padding:mob?"8px 10px":"10px 14px",background:"#fff",borderRadius:10,border:"1px solid "+T.g2,cursor:"pointer",borderLeft:"4px solid "+color}}><span style={{fontSize:18}}>{icon}</span><div style={{flex:1}}><div style={{fontSize:13,fontWeight:700,color:T.nv}}>{title}</div>{sub&&<div style={{fontSize:10,color:T.g4}}>{sub}</div>}</div>{cnt!==undefined&&<span style={{background:T.g1,borderRadius:12,padding:"1px 8px",fontSize:10,fontWeight:600,color:T.g5}}>{cnt}</span>}<span style={{fontSize:12,color:T.g4,transform:ex?"rotate(90deg)":"none",transition:"transform .2s"}}>▶</span></div>{ex&&<div style={{marginLeft:mob?12:24,marginTop:4,borderLeft:"2px solid "+color+"22",paddingLeft:mob?8:14}}>{children}</div>}</div>);}
+function OrgNode({icon,title,sub,color,children,cnt,ex,onTog,mob,onFicha}:any){return(<div style={{marginBottom:6}}><div onClick={onTog} style={{display:"flex",alignItems:"center",gap:8,padding:mob?"8px 10px":"10px 14px",background:"#fff",borderRadius:10,border:"1px solid "+T.g2,cursor:"pointer",borderLeft:"4px solid "+color}}><span style={{fontSize:18}}>{icon}</span><div style={{flex:1}}><div style={{fontSize:13,fontWeight:700,color:T.nv}}>{title}</div>{sub&&<div style={{fontSize:10,color:T.g4}}>{sub}</div>}</div>{onFicha&&<span onClick={(e:any)=>{e.stopPropagation();onFicha();}} style={{fontSize:14,cursor:"pointer",padding:"2px 6px",borderRadius:6,background:T.g1,border:"1px solid "+T.g2}} title="Ver ficha de puesto">📋</span>}{cnt!==undefined&&<span style={{background:T.g1,borderRadius:12,padding:"1px 8px",fontSize:10,fontWeight:600,color:T.g5}}>{cnt}</span>}<span style={{fontSize:12,color:T.g4,transform:ex?"rotate(90deg)":"none",transition:"transform .2s"}}>▶</span></div>{ex&&<div style={{marginLeft:mob?12:24,marginTop:4,borderLeft:"2px solid "+color+"22",paddingLeft:mob?8:14}}>{children}</div>}</div>);}
 
 function OrgMember({m,isSA,onEdit,onDel,onAssign,onUp,onDown,isFirst,isLast}:any){const ok=m.n&&m.a;return(<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",background:ok?"#FAFAFA":T.g1,borderRadius:7,border:"1px solid "+T.g2,marginBottom:3}}><div><div style={{fontSize:9,fontWeight:700,color:T.rd,textTransform:"uppercase" as const}}>{m.cargo}</div>{ok?<div style={{fontSize:12,fontWeight:700,color:T.nv}}>{m.n} {m.a}</div>:<div style={{fontSize:11,color:T.g3,fontStyle:"italic"}}>Sin asignar</div>}</div><div style={{display:"flex",gap:3,alignItems:"center"}}>{isSA&&onUp&&!isFirst&&<Btn v="g" s="s" onClick={()=>onUp(m.id)}>▲</Btn>}{isSA&&onDown&&!isLast&&<Btn v="g" s="s" onClick={()=>onDown(m.id)}>▼</Btn>}{ok&&onAssign&&<span title="Asignar tarea"><Btn v="g" s="s" onClick={()=>onAssign(m)}>📋</Btn></span>}{isSA&&<Btn v="g" s="s" onClick={()=>onEdit(m)}>✏️</Btn>}{isSA&&<Btn v="g" s="s" onClick={()=>onDel&&onDel(m.id)} style={{color:T.rd}}>🗑️</Btn>}</div></div>);}
 
@@ -152,9 +152,48 @@ function AcademiaOrg({mob,ex,tog}:any){
   </div>);
 }
 
+function FichaModal({deptId,onX,mob}:{deptId:number;onX:()=>void;mob:boolean}){
+  const f=DEPT_DESC[deptId];
+  const [op,sOp]=useState<Record<string,boolean>>({pr:true,es:true,fn:true,kp:true,rl:true,ob:true});
+  useEffect(()=>{const h=(e:KeyboardEvent)=>{if(e.key==="Escape")onX();};document.addEventListener("keydown",h);return()=>document.removeEventListener("keydown",h);},[onX]);
+  useEffect(()=>{document.body.style.overflow="hidden";return()=>{document.body.style.overflow="";};},[]);
+  if(!f)return null;
+  const tg=(k:string)=>sOp(p=>({...p,[k]:!p[k]}));
+  const hd=(k:string,icon:string,t:string)=>(<div onClick={()=>tg(k)} style={{display:"flex",alignItems:"center",gap:6,padding:"8px 0",cursor:"pointer",borderBottom:"1px solid "+T.g2}}><span>{icon}</span><span style={{flex:1,fontSize:13,fontWeight:700,color:T.nv}}>{t}</span><span style={{fontSize:11,color:T.g4,transform:op[k]?"rotate(90deg)":"none",transition:"transform .2s"}}>▶</span></div>);
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(10,22,40,.6)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,padding:mob?8:12}} onClick={onX}>
+      <div onClick={(e:any)=>e.stopPropagation()} style={{background:"#fff",borderRadius:14,maxWidth:640,width:"100%",maxHeight:"85vh",display:"flex",flexDirection:"column" as const,overflow:"hidden"}}>
+        <div style={{padding:"16px 20px 12px",borderBottom:"1px solid "+T.g2}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:22}}>📋</span>
+              <div><h2 style={{margin:0,fontSize:16,fontWeight:800,color:T.nv}}>{f.titulo}</h2><span style={{fontSize:10,color:"#fff",background:T.bl,borderRadius:10,padding:"1px 8px",fontWeight:600}}>{f.responsable}</span></div>
+            </div>
+            <button onClick={onX} style={{background:"none",border:"none",fontSize:18,cursor:"pointer",color:T.g4}}>✕</button>
+          </div>
+        </div>
+        <div style={{flex:1,padding:"12px 20px",overflowY:"auto" as const}}>
+          {hd("pr","🎯","Propósito del Departamento")}
+          {op.pr&&<p style={{margin:"6px 0 8px",fontSize:12,color:T.g5,lineHeight:1.5}}>{f.proposito}</p>}
+          {hd("es","🏗️","Estructura Interna")}
+          {op.es&&<div style={{padding:"6px 0 8px"}}>{f.estructura.map((e,i)=>(<div key={i} style={{marginBottom:6}}><div style={{fontSize:12,fontWeight:700,color:T.nv}}>{e.area}</div>{e.items.map((it,j)=><div key={j} style={{fontSize:12,color:T.g5,paddingLeft:12}}>• {it}</div>)}</div>))}</div>}
+          {hd("fn","✅","Funciones Principales")}
+          {op.fn&&<div style={{padding:"6px 0 8px"}}>{f.funciones.map((fc,i)=><div key={i} style={{fontSize:12,color:T.g5,padding:"2px 0 2px 4px"}}>• {fc}</div>)}</div>}
+          {hd("kp","📊","KPIs / Indicadores de Gestión")}
+          {op.kp&&<div style={{padding:"6px 0 8px"}}>{f.kpis.map((k,i)=><div key={i} style={{fontSize:12,color:T.g5,padding:"2px 0 2px 4px"}}>• {k}</div>)}</div>}
+          {hd("rl","🔗","Relaciones Transversales")}
+          {op.rl&&<div style={{padding:"6px 0 8px"}}>{f.relaciones.map((r,i)=>(<div key={i} style={{display:"flex",gap:6,padding:"3px 0",flexWrap:"wrap" as const}}><span style={{fontSize:12,fontWeight:700,color:T.nv,minWidth:mob?80:120}}>{r.area}:</span><span style={{fontSize:12,color:T.g5}}>{r.desc}</span></div>))}</div>}
+          {hd("ob","⚠️","Obligaciones")}
+          {op.ob&&<div style={{padding:"6px 0 8px"}}>{f.obligaciones.map((o,i)=>(<div key={i} style={{fontSize:12,color:i===0?"#DC2626":T.g5,fontWeight:i===0?700:400,padding:"4px 8px",marginBottom:4,background:i===0?"#FEE2E2":"transparent",borderRadius:i===0?6:0,border:i===0?"1px solid #FECACA":"none",lineHeight:1.4}}>{o}</div>))}</div>}
+        </div>
+        <div style={{padding:"12px 20px",borderTop:"1px solid "+T.g2,display:"flex",justifyContent:"flex-end"}}><button onClick={onX} style={{padding:"8px 24px",borderRadius:8,border:"none",background:T.nv,color:"#fff",fontSize:12,fontWeight:600,cursor:"pointer"}}>Cerrar</button></div>
+      </div>
+    </div>);
+}
+
 export function Org({areas,deptos,users,om,onEditSave,onDelOm,onDelUser,onEditUser,isSA,onAssignTask,mob,pedidos,onSel,KPIs,Circles,DeptCircles,TList,onReorderOm,onReorderUser}:any){
   const [ex,sEx]=useState<any>({});const [ed,sEd]=useState<any>(null);const [ef,sEf]=useState({n:"",a:"",mail:"",tel:""});
-  const [tab,sTab]=useState("struct");const [tA,sTa]=useState<number|null>(null);const [tD,sTd]=useState<number|null>(null);
+  const [tab,sTab]=useState("struct");const [tA,sTa]=useState<number|null>(null);const [tD,sTd]=useState<number|null>(null);const [detDept,sDetDept]=useState<number|null>(null);
   const tog=(k:string)=>sEx((p:any)=>({...p,[k]:!p[k]}));
   const findUser=(m:any)=>users.find((u:any)=>u.mail&&m.mail&&u.mail===m.mail)||users.find((u:any)=>u.n===m.n&&u.a===m.a);
   /* Depts sub-view */
@@ -174,7 +213,7 @@ export function Org({areas,deptos,users,om,onEditSave,onDelOm,onDelUser,onEditUs
     <OrgNode mob={mob} icon="🏛️" title="Comisión Directiva" color={T.nv} ex={!!ex.cd} onTog={()=>tog("cd")} cnt={om.filter((m:any)=>m.t==="cd"&&m.n).length+"/8"}>{om.filter((m:any)=>m.t==="cd").sort((a:any,b:any)=>(a.so||0)-(b.so||0)).map((m:any,i:number,arr:any[])=><OrgMember key={m.id} m={m} isSA={isSA} isFirst={i===0} isLast={i===arr.length-1} onUp={onReorderOm?(id:string)=>onReorderOm(id,"up","cd"):undefined} onDown={onReorderOm?(id:string)=>onReorderOm(id,"down","cd"):undefined} onEdit={(mm:any)=>{sEd(mm);sEf({n:mm.n,a:mm.a,mail:mm.mail,tel:mm.tel});}} onDel={(id:string)=>onDelOm(id)} onAssign={(mm:any)=>{const u=findUser(mm);if(u)onAssignTask(u);}}/>)}</OrgNode>
     <OrgNode mob={mob} icon="⚡" title="Secretaría Ejecutiva" sub="Depende de CD" color={T.rd} ex={!!ex.se} onTog={()=>tog("se")} cnt={om.filter((m:any)=>m.t==="se"&&m.n).length+"/5"}>{om.filter((m:any)=>m.t==="se").sort((a:any,b:any)=>(a.so||0)-(b.so||0)).map((m:any,i:number,arr:any[])=><OrgMember key={m.id} m={m} isSA={isSA} isFirst={i===0} isLast={i===arr.length-1} onUp={onReorderOm?(id:string)=>onReorderOm(id,"up","se"):undefined} onDown={onReorderOm?(id:string)=>onReorderOm(id,"down","se"):undefined} onEdit={(mm:any)=>{sEd(mm);sEf({n:mm.n,a:mm.a,mail:mm.mail,tel:mm.tel});}} onDel={(id:string)=>onDelOm(id)} onAssign={(mm:any)=>{const u=findUser(mm);if(u)onAssignTask(u);}}/>)}</OrgNode>
     <div style={{marginLeft:mob?12:24,borderLeft:"2px solid "+T.rd+"22",paddingLeft:mob?8:14}}>
-      {areas.filter((ar:any)=>ar.id!==100&&ar.id!==101).map((ar:any)=>{const ds=deptos.filter((d:any)=>d.aId===ar.id);const dsWithPeople=ds.filter((d:any)=>users.some((u:any)=>u.dId===d.id));const topDs=ds.filter((d:any)=>!d.pId);const hasContent=(d:any)=>{const hasPeople=users.some((u:any)=>u.dId===d.id);const hasChildren=ds.some((ch:any)=>ch.pId===d.id&&users.some((u:any)=>u.dId===ch.id));return hasPeople||hasChildren;};const renderDept=(d:any,color:string)=>{let pp=users.filter((u:any)=>u.dId===d.id).sort((a:any,b:any)=>(a.so||0)-(b.so||0));if(d.id===10)pp=pp.filter((u:any)=>(u.n||"").toLowerCase().includes("franco")&&(u.a||"").toLowerCase().includes("lucchini"));const children=ds.filter((ch:any)=>ch.pId===d.id).filter(hasContent);const resp=pp.find((u:any)=>u.role==="coordinador")||pp.find((u:any)=>u.role==="admin")||pp[0];const others=pp.filter((u:any)=>u.id!==(resp?resp.id:""));const cnt=pp.length+(children.length?` + ${children.length}`:``);return(<OrgNode mob={mob} key={d.id} icon="📂" title={d.name} color={color} ex={!!ex["d"+d.id]} onTog={()=>tog("d"+d.id)} cnt={cnt}>
+      {areas.filter((ar:any)=>ar.id!==100&&ar.id!==101).map((ar:any)=>{const ds=deptos.filter((d:any)=>d.aId===ar.id);const dsWithPeople=ds.filter((d:any)=>users.some((u:any)=>u.dId===d.id));const topDs=ds.filter((d:any)=>!d.pId);const hasContent=(d:any)=>{const hasPeople=users.some((u:any)=>u.dId===d.id);const hasChildren=ds.some((ch:any)=>ch.pId===d.id&&users.some((u:any)=>u.dId===ch.id));return hasPeople||hasChildren;};const renderDept=(d:any,color:string)=>{let pp=users.filter((u:any)=>u.dId===d.id).sort((a:any,b:any)=>(a.so||0)-(b.so||0));if(d.id===10)pp=pp.filter((u:any)=>(u.n||"").toLowerCase().includes("franco")&&(u.a||"").toLowerCase().includes("lucchini"));const children=ds.filter((ch:any)=>ch.pId===d.id).filter(hasContent);const resp=pp.find((u:any)=>u.role==="coordinador")||pp.find((u:any)=>u.role==="admin")||pp[0];const others=pp.filter((u:any)=>u.id!==(resp?resp.id:""));const cnt=pp.length+(children.length?` + ${children.length}`:``);return(<OrgNode mob={mob} key={d.id} icon="📂" title={d.name} color={color} ex={!!ex["d"+d.id]} onTog={()=>tog("d"+d.id)} cnt={cnt} onFicha={DEPT_DESC[d.id]?()=>sDetDept(d.id):undefined}>
             {resp&&<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:6,padding:"6px 10px",background:"#FEE2E2",borderRadius:7,border:"1px solid #FECACA",marginBottom:4}}><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:10}}>⭐</span><div><div style={{fontSize:9,fontWeight:700,color:T.rd,textTransform:"uppercase" as const}}>Responsable</div><div style={{fontSize:12,fontWeight:700,color:T.nv}}>{fn(resp)}</div></div></div><div style={{display:"flex",gap:3,alignItems:"center"}}>{isSA&&onReorderUser&&pp.indexOf(resp)>0&&<Btn v="g" s="s" onClick={()=>onReorderUser(resp.id,"up",d.id)}>▲</Btn>}{isSA&&onReorderUser&&pp.indexOf(resp)<pp.length-1&&<Btn v="g" s="s" onClick={()=>onReorderUser(resp.id,"down",d.id)}>▼</Btn>}{isSA&&<Btn v="g" s="s" onClick={()=>onEditUser(resp)}>✏️</Btn>}{isSA&&<Btn v="g" s="s" onClick={()=>onDelUser(resp.id)} style={{color:T.rd}}>🗑️</Btn>}</div></div>}
             {others.map((u:any)=>{const uIdx=pp.indexOf(u);return(<div key={u.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:6,padding:"6px 10px",background:"#FAFAFA",borderRadius:7,border:"1px solid "+T.g2,marginBottom:3}}><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:10}}>👤</span><div><div style={{fontSize:9,fontWeight:700,color:T.rd,textTransform:"uppercase" as const}}>{u.div||ROLES[u.role]?.l||""}</div><div style={{fontSize:12,fontWeight:700,color:T.nv}}>{fn(u)}</div></div></div><div style={{display:"flex",gap:3,alignItems:"center"}}>{isSA&&onReorderUser&&uIdx>0&&<Btn v="g" s="s" onClick={()=>onReorderUser(u.id,"up",d.id)}>▲</Btn>}{isSA&&onReorderUser&&uIdx<pp.length-1&&<Btn v="g" s="s" onClick={()=>onReorderUser(u.id,"down",d.id)}>▼</Btn>}{isSA&&<Btn v="g" s="s" onClick={()=>onEditUser(u)}>✏️</Btn>}{isSA&&<Btn v="g" s="s" onClick={()=>onDelUser(u.id)} style={{color:T.rd}}>🗑️</Btn>}</div></div>);})}
             {others.length===0&&!resp&&children.length===0&&<div style={{fontSize:10,color:T.g4,fontStyle:"italic",padding:4}}>Sin integrantes</div>}
@@ -200,5 +239,6 @@ export function Org({areas,deptos,users,om,onEditSave,onDelOm,onDelUser,onEditUs
       <Bread parts={[{label:"Áreas",onClick:()=>{sTa(null);sTd(null);}},{label:tDeptoArea?.name||"",onClick:()=>sTd(null)},{label:tDepto.name}]} mob={mob}/>
       {TList&&<TList title={tDepto.name} icon="📂" color={tDeptoArea?tDeptoArea.color:T.nv} peds={tPeds} users={users} onSel={onSel} search="" mob={mob}/>}
     </div>}
+    {detDept!==null&&DEPT_DESC[detDept]&&<FichaModal deptId={detDept} onX={()=>sDetDept(null)} mob={mob}/>}
   </div>);
 }

@@ -211,3 +211,50 @@ export const VIAJE_MOTIVOS=[
   {k:"gira",l:"Gira",i:"🌍"},
 ] as const;
 
+/* ── Fichas de Puesto por Departamento ── */
+export const DEPT_DESC:Record<number,{titulo:string;proposito:string;responsable:string;estructura:{area:string;items:string[]}[];funciones:string[];kpis:string[];relaciones:{area:string;desc:string}[];obligaciones:string[]}>={
+  1:{
+    titulo:"Coordinación General",
+    proposito:"Garantizar la operación diaria del club, articulando las áreas de Intendencia, Logística, Administración y Gestión de Espacios para que todas las actividades se ejecuten de manera ordenada, eficiente y con trazabilidad completa.",
+    responsable:"Coordinador General",
+    estructura:[
+      {area:"Intendencia",items:["Mantenimiento de instalaciones","Limpieza y orden","Seguridad y control de acceso","Gestión de servicios (agua, luz, gas)"]},
+      {area:"Logística",items:["Coordinación de eventos deportivos y sociales","Gestión de proveedores","Transporte y traslados","Equipamiento e insumos"]},
+      {area:"Administración",items:["Gestión documental","Atención al socio","Cobros y pagos operativos","Correspondencia institucional"]},
+      {area:"Gestión de Espacios",items:["Reservas de instalaciones","Alquileres a terceros","Coordinación de uso de canchas","Mantenimiento de espacios verdes"]},
+    ],
+    funciones:[
+      "Supervisar y coordinar las operaciones diarias del club",
+      "Gestionar el personal de intendencia y mantenimiento",
+      "Coordinar la logística de eventos deportivos y sociales",
+      "Administrar las reservas y uso de instalaciones",
+      "Controlar presupuesto operativo y gastos corrientes",
+      "Articular con todas las áreas del club para resolver necesidades operativas",
+      "Reportar avances y stoppers a la Secretaría Ejecutiva",
+      "Asegurar el cumplimiento de normas de seguridad e higiene",
+    ],
+    kpis:[
+      "% de tareas completadas en plazo",
+      "Tiempo promedio de resolución de pedidos",
+      "Satisfacción de socios (encuestas)",
+      "Cumplimiento de presupuesto operativo",
+      "Disponibilidad de instalaciones (% sin problemas)",
+      "Tasa de ocupación de espacios alquilables",
+    ],
+    relaciones:[
+      {area:"Secretaría Ejecutiva",desc:"Reporte directo, escalamiento de decisiones"},
+      {area:"Deportiva",desc:"Coordinación de canchas, logística de partidos y entrenamientos"},
+      {area:"Social",desc:"Apoyo logístico para eventos sociales y actividades comunitarias"},
+      {area:"Infraestructura",desc:"Coordinación de obras, mantenimiento mayor y proyectos edilicios"},
+      {area:"Tesorería",desc:"Gestión de pagos a proveedores, control de gastos operativos"},
+      {area:"Comunicación",desc:"Difusión de novedades operativas, señalética, cartelería"},
+    ],
+    obligaciones:[
+      "Registrar y gestionar todas las tareas, pedidos y seguimientos a través de la app de gestión del club (los-tordos.vercel.app). El uso de la plataforma es obligatorio y no opcional — toda actividad debe quedar documentada en la app para garantizar trazabilidad y visibilidad del trabajo.",
+      "Mantener actualizados los estados de tareas en la plataforma de forma diaria",
+      "Documentar toda comunicación relevante con proveedores y terceros",
+      "Reportar semanalmente el avance de tareas y KPIs al superior directo",
+    ],
+  },
+};
+
