@@ -41,6 +41,7 @@ const ReservasView = dynamic(() => import("@/components/main/ReservasView").then
 const Reuniones = dynamic(() => import("@/components/main/Reuniones").then(m => ({ default: m.Reuniones })), { ssr: false });
 const ArchivosView = dynamic(() => import("@/components/main/ArchivosView").then(m => ({ default: m.ArchivosView })), { ssr: false });
 const NewFactura = dynamic(() => import("@/components/main/NewFactura").then(m => ({ default: m.NewFactura })), { ssr: false });
+const ViajesManager = dynamic(() => import("@/components/main/ViajesManager"), { ssr: false });
 
 // Custom hooks
 import { useAuth } from "@/hooks/useAuth";
@@ -111,7 +112,7 @@ export default function App() {
   useRecurringTasks(user, dataLoading, fetchAll);
 
   // Store access
-  const { users, om, peds, hitos, presu, provs, reminders, projects, projTasks, taskTemplates, projBudgets, inventory, invMaint, invDist, bookings, sponsors, sponMsgs, sponDeliveries, archivos, dbNotifs, sUs, sOm, sPd, sHi, sAgs, sMins, sPr, sPv, sRems, sProjects, sProjTasks, sTaskTemplates, sProjBudgets, sInventory, sInvMaint, sInvDist, sBookings, sSponsors, sSponMsgs, sSponDeliveries, sArchivos, sDbNotifs } = useDataStore();
+  const { users, om, peds, hitos, presu, provs, reminders, projects, projTasks, taskTemplates, projBudgets, inventory, invMaint, invDist, bookings, sponsors, sponMsgs, sponDeliveries, archivos, dbNotifs, viajes, sUs, sOm, sPd, sHi, sAgs, sMins, sPr, sPv, sRems, sProjects, sProjTasks, sTaskTemplates, sProjBudgets, sInventory, sInvMaint, sInvDist, sBookings, sSponsors, sSponMsgs, sSponDeliveries, sArchivos, sDbNotifs, sViajes } = useDataStore();
 
   // Canje usage per sponsor
   const canjeUsado = useMemo(() => { const m: Record<number, number> = {}; presu.forEach((pr: any) => { if (pr.is_canje && pr.sponsor_id && pr.status === "aprobado") { m[pr.sponsor_id] = (m[pr.sponsor_id] || 0) + Number(pr.monto || 0); } }); sponDeliveries.forEach((d: any) => { if (d.sponsor_id) { m[d.sponsor_id] = (m[d.sponsor_id] || 0) + Number(d.total_value || 0); } }); return m; }, [presu, sponDeliveries]);
@@ -195,6 +196,7 @@ export default function App() {
             onUpdDelivery={async (id: number, d: any) => { try { sSponDeliveries(prev => prev.map(x => x.id === id ? { ...x, ...d } : x)); await supabase.from("sponsor_deliveries").update(d).eq("id", id); } catch (e: any) { showT(e.message || "Error", "err"); } }}
           />}
           {vw === "archivos" && !isPersonal && <ArchivosView user={user} mob={mob} showT={showT} />}
+          {vw === "viajes" && (isAd || user.role === "coordinador") && <ViajesManager viajes={viajes} userId={user.id} userLevel={ROLES[user.role]?.lv || 0} onRefresh={async () => { const { data } = await supabase.from("viajes").select("*").order("created_at", { ascending: false }); if (data) sViajes(() => data); }} mob={mob} />}
           {vw === "proyectos" && !isPersonal && <ProyectosView user={user} mob={mob} filteredProjects={projects}
             onAddProject={async (p: any) => { try { const row = { name: p.name, description: p.description || "", created_by: user.id, created_by_name: fn(user), status: p.status || "borrador" }; const { data, error } = await supabase.from("projects").insert(row).select().single(); if (error) throw new Error(error.message); if (data) sProjects(prev => [data, ...prev]); showT(p.status === "enviado" ? "Proyecto enviado" : "Borrador guardado"); } catch (e: any) { showT(e.message || "Error", "err"); } }}
             onUpdProject={async (id: number, d: any) => { try { sProjects(prev => prev.map(p => p.id === id ? { ...p, ...d } : p)); await supabase.from("projects").update(d).eq("id", id); showT("Proyecto actualizado"); } catch (e: any) { showT(e.message || "Error", "err"); } }}

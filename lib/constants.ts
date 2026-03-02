@@ -174,3 +174,17 @@ export const SPON_ST:Record<string,{l:string;c:string;bg:string}>={
 export const SPON_PAY_TYPES=["pago mensual","pago trimestral","pago anual","canje","cheques","transferencia","efectivo","otro"];
 export const DOLAR_REF=1250;
 
+/* ── Viajes ── */
+export const VIAJE_ST={BORR:"borrador",PEND:"pendiente",APR:"aprobado",CANC:"cancelado"} as const;
+export const VIAJE_SC:Record<string,{l:string;c:string;bg:string;i:string}>={
+  [VIAJE_ST.BORR]:{l:"Borrador",c:T.g5,bg:"#F3F4F6",i:"📝"},
+  [VIAJE_ST.PEND]:{l:"Pendiente",c:T.yl,bg:"#FEF3C7",i:"🟡"},
+  [VIAJE_ST.APR]:{l:"Aprobado",c:T.gn,bg:"#D1FAE5",i:"✅"},
+  [VIAJE_ST.CANC]:{l:"Cancelado",c:T.rd,bg:"#FEE2E2",i:"❌"},
+};
+export const VIAJE_MOTIVOS=[
+  {k:"torneo",l:"Torneo",i:"🏆"},
+  {k:"amistoso",l:"Amistoso",i:"🤝"},
+  {k:"gira",l:"Gira",i:"🌍"},
+] as const;
+

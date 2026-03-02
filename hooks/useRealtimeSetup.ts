@@ -11,7 +11,7 @@ export function useRealtimeSetup(
   const {
     sPd, sPr, sProjects, sProjTasks, sTaskTemplates,
     sInventory, sInvMaint, sInvDist, sBookings, sSponsors,
-    sSponMsgs, sSponDeliveries, sProjBudgets,
+    sSponMsgs, sSponDeliveries, sProjBudgets, sViajes,
   } = useDataStore();
 
   useRealtime([
@@ -105,6 +105,12 @@ export function useRealtimeSetup(
       onInsert: (row: any) => sProjBudgets(p => [row, ...p]),
       onUpdate: (row: any) => sProjBudgets(p => p.map(x => x.id === row.id ? row : x)),
       onDelete: (row: any) => sProjBudgets(p => p.filter(x => x.id !== row.id)),
+    },
+    {
+      table: "viajes",
+      onInsert: (row: any) => sViajes(p => [row, ...p]),
+      onUpdate: (row: any) => sViajes(p => p.map(x => x.id === row.id ? row : x)),
+      onDelete: (row: any) => sViajes(p => p.filter(x => x.id !== row.id)),
     },
     { table: "notifications", onChange: () => refreshNotifs() },
   ], !!user && isOnline);
