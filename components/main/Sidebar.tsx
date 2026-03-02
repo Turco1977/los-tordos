@@ -1,13 +1,36 @@
 "use client";
-import { ST, AREAS, DEPTOS } from "@/lib/constants";
+import { ST, AREAS, DEPTOS, RENTAL_APPROVERS } from "@/lib/constants";
 import { useC } from "@/lib/theme-context";
 import { useDataStore } from "@/lib/store";
 
 export function SB({aA,aD,onAC,onDC,col,onCol,isPersonal,mob,sbOpen,onClose,vw,onNav,user}:any){
   const pedidos = useDataStore(s => s.peds);
+  const bookings = useDataStore(s => s.bookings);
   const areas = AREAS;
   const deptos = DEPTOS;
   const {colors,isDark,cardBg}=useC();
+
+  /* rental badge: count items needing MY action */
+  const rentalBadge=(()=>{
+    if(!user) return 0;
+    const rentals=(bookings||[]).filter((b:any)=>b.is_rental);
+    let count=0;
+    const isSA=user.role==="superadmin";
+    const isAd=user.role==="admin"||user.role==="superadmin"||user.role==="coordinador";
+    const isVB=user.n===RENTAL_APPROVERS.friSat.first_name&&user.a===RENTAL_APPROVERS.friSat.last_name;
+    const isLG=user.n===RENTAL_APPROVERS.other.first_name&&user.a===RENTAL_APPROVERS.other.last_name;
+    const isBP=user.n===RENTAL_APPROVERS.final.first_name&&user.a===RENTAL_APPROVERS.final.last_name;
+    for(const r of rentals){
+      if(r.rental_status==="solicitado"){
+        const dow=new Date(r.date+"T12:00:00").getDay();
+        const isFriSat=dow===5||dow===6;
+        if((isFriSat&&isVB)||(!isFriSat&&isLG)||isAd) count++;
+      }
+      if(r.rental_status==="pendiente_pago"&&isAd) count++;
+      if(r.rental_status==="pago_recibido"&&(isBP||isSA)) count++;
+    }
+    return count;
+  })();
   const sbContent=(<div style={{flex:1,overflowY:"auto" as const,padding:"8px 6px"}}>
     {!isPersonal&&areas.map((ar:any)=>{const ds=deptos.filter((d:any)=>d.aId===ar.id),ids=ds.map((d:any)=>d.id),ap=pedidos.filter((p:any)=>ids.indexOf(p.dId)>=0),pe=ap.filter((p:any)=>p.st===ST.P).length,cu=ap.filter((p:any)=>[ST.C,ST.E,ST.V].indexOf(p.st)>=0).length,ok=ap.filter((p:any)=>p.st===ST.OK).length;
       return(<div key={ar.id} style={{marginBottom:4}}><div onClick={()=>{onAC(ar.id);if(mob)onClose();}} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:mob?"10px 10px":"7px 8px",borderRadius:7,cursor:"pointer",background:aA===ar.id?"rgba(255,255,255,.1)":"transparent",borderLeft:"3px solid "+ar.color,minHeight:mob?44:undefined}}><span style={{fontSize:mob?13:11,fontWeight:600}}>{ar.icon} {ar.name}</span><div style={{display:"flex",gap:4,fontSize:mob?10:9}}>{pe>0&&<span style={{color:colors.rd}}>🔴{pe}</span>}{cu>0&&<span style={{color:colors.yl}}>🟡{cu}</span>}{ok>0&&<span style={{color:colors.gn}}>🟢{ok}</span>}</div></div>
@@ -31,7 +54,7 @@ export function SB({aA,aD,onAC,onDC,col,onCol,isPersonal,mob,sbOpen,onClose,vw,o
         {k:"reservas",l:"Espacios",icon:"🏟️",show:true},
         {k:"sponsors",l:"Sponsors",icon:"🥇",show:!isPersonal&&user&&(user.role==="admin"||user.role==="superadmin"||user.role==="coordinador"||user.role==="embudo")},
         {k:"viajes",l:"Viajes",icon:"🚌",show:false},
-      ].filter(n=>n.show).map(n=><div key={n.k} onClick={()=>{onNav(n.k);if(mob)onClose();}} style={{display:"flex",alignItems:"center",gap:8,padding:mob?"10px 10px":"7px 8px",borderRadius:7,cursor:"pointer",background:vw===n.k?"rgba(255,255,255,.1)":"transparent",fontSize:mob?13:11,fontWeight:vw===n.k?700:500,color:vw===n.k?"#fff":"rgba(255,255,255,.55)",marginBottom:1,minHeight:mob?44:undefined}}><span style={{fontSize:mob?15:13}}>{n.icon}</span>{n.l}</div>)}
+      ].filter(n=>n.show).map(n=><div key={n.k} onClick={()=>{onNav(n.k);if(mob)onClose();}} style={{display:"flex",alignItems:"center",gap:8,padding:mob?"10px 10px":"7px 8px",borderRadius:7,cursor:"pointer",background:vw===n.k?"rgba(255,255,255,.1)":"transparent",fontSize:mob?13:11,fontWeight:vw===n.k?700:500,color:vw===n.k?"#fff":"rgba(255,255,255,.55)",marginBottom:1,minHeight:mob?44:undefined}}><span style={{fontSize:mob?15:13}}>{n.icon}</span>{n.l}{n.k==="reservas"&&rentalBadge>0&&<span style={{background:"#DC2626",color:"#fff",fontSize:9,fontWeight:800,borderRadius:10,padding:"1px 6px",minWidth:16,textAlign:"center" as const,marginLeft:"auto",lineHeight:"14px"}}>{rentalBadge}</span>}</div>)}
     </div>}
   </div>);
   if(mob){

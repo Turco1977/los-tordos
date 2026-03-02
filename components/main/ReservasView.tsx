@@ -623,15 +623,34 @@ const RENTAL_FAC_LABELS:Record<string,string>={salon:"Salon Blanco",pergola:"Pé
 
 function AlquileresTab({user,mob,bookings,users,rentalConfig,colors,isDark,cardBg,iSt,lblSt,onAddRental,onUpdRental,onUpdRentalConfig}:any){
   const isAd=user.role==="admin"||user.role==="superadmin"||user.role==="coordinador";
+  const isSA=user.role==="superadmin";
+  const isVB=user.n===RENTAL_APPROVERS.friSat.first_name&&user.a===RENTAL_APPROVERS.friSat.last_name;
+  const isLG=user.n===RENTAL_APPROVERS.other.first_name&&user.a===RENTAL_APPROVERS.other.last_name;
+  const isBP=user.n===RENTAL_APPROVERS.final.first_name&&user.a===RENTAL_APPROVERS.final.last_name;
   const [showForm,sShowForm]=useState(false);
   const [showTarifas,sShowTarifas]=useState(false);
   const [uploading,sUploading]=useState<number|null>(null);
   const fileRef=useRef<HTMLInputElement>(null);
   const [saving,sSaving]=useState(false);
   const [rForm,sRForm]=useState<any>({facility:"salon",date:TODAY,time_start:"18:00",time_end:"23:00",renter_name:"",renter_phone:"",rental_fee:40000,notes:""});
+  const [secFilter,sSecFilter]=useState<"pendientes"|"todas"|"aprobadas">("pendientes");
 
   /* rentals only */
   const rentals=useMemo(()=>(bookings||[]).filter((b:any)=>b.is_rental).sort((a:any,b:any)=>b.date>a.date?1:b.date<a.date?-1:0),[bookings]);
+
+  /* section counts */
+  const myPending=useMemo(()=>rentals.filter((r:any)=>{
+    if(r.rental_status==="solicitado"){
+      const dow=new Date(r.date+"T12:00:00").getDay();
+      const isFriSat=dow===5||dow===6;
+      if((isFriSat&&isVB)||(!isFriSat&&isLG)||isAd) return true;
+    }
+    if(r.rental_status==="pendiente_pago") return true;
+    if(r.rental_status==="pago_recibido"&&(isBP||isSA)) return true;
+    return false;
+  }),[rentals,isVB,isLG,isBP,isSA,isAd]);
+  const approved=useMemo(()=>rentals.filter((r:any)=>["aprobado","condicion_ok","condicion_problema"].includes(r.rental_status)),[rentals]);
+  const filteredRentals=secFilter==="pendientes"?myPending:secFilter==="aprobadas"?approved:rentals;
 
   /* KPIs */
   const thisMonth=new Date().toISOString().slice(0,7);
@@ -783,13 +802,25 @@ function AlquileresTab({user,mob,bookings,users,rentalConfig,colors,isDark,cardB
     {/* hidden file input for proof upload */}
     <input ref={fileRef} type="file" accept="image/*,.pdf" style={{display:"none"}} onChange={e=>{const f=e.target.files?.[0];if(f&&uploading!==null) handleUploadProof(uploading,f);e.target.value="";}}/>
 
+    {/* ── SECTION FILTERS ── */}
+    <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap" as const}}>
+      {([
+        {k:"pendientes" as const,l:"Requieren acción",i:"🔔",c:"#DC2626",cnt:myPending.length},
+        {k:"aprobadas" as const,l:"Aprobadas",i:"✅",c:"#10B981",cnt:approved.length},
+        {k:"todas" as const,l:"Todas",i:"📋",c:colors.bl,cnt:rentals.length},
+      ]).map(s=><button key={s.k} onClick={()=>sSecFilter(s.k)} style={{padding:mob?"8px 14px":"6px 14px",borderRadius:10,border:secFilter===s.k?"2px solid "+s.c:"1px solid "+colors.g3,background:secFilter===s.k?(s.c+"18"):cardBg,color:secFilter===s.k?s.c:colors.g5,fontSize:mob?12:11,fontWeight:secFilter===s.k?700:500,cursor:"pointer",display:"flex",alignItems:"center",gap:6,minHeight:mob?40:undefined}}>
+        {s.i} {s.l}
+        {s.cnt>0&&<span style={{background:secFilter===s.k?s.c:"#6B7280",color:"#fff",fontSize:9,fontWeight:800,borderRadius:10,padding:"1px 6px",minWidth:16,textAlign:"center" as const,lineHeight:"14px"}}>{s.cnt}</span>}
+      </button>)}
+    </div>
+
     {/* ── RENTAL LIST ── */}
-    {rentals.length===0&&<Card style={{textAlign:"center" as const,padding:24,color:colors.g4}}>
-      <span style={{fontSize:24}}>🏠</span>
-      <div style={{marginTop:6,fontSize:12}}>Sin alquileres registrados</div>
+    {filteredRentals.length===0&&<Card style={{textAlign:"center" as const,padding:24,color:colors.g4}}>
+      <span style={{fontSize:24}}>{secFilter==="pendientes"?"👌":"🏠"}</span>
+      <div style={{marginTop:6,fontSize:12}}>{secFilter==="pendientes"?"Sin alquileres pendientes de acción":"Sin alquileres"+(secFilter==="aprobadas"?" aprobados":" registrados")}</div>
     </Card>}
 
-    {rentals.map((r:any)=>{
+    {filteredRentals.map((r:any)=>{
       const fac=BOOK_FAC[r.facility]||{l:"?",i:"?",c:colors.g4};
       const rst=RENTAL_ST[r.rental_status]||RENTAL_ST.solicitado;
       const isPast=r.date<TODAY;
