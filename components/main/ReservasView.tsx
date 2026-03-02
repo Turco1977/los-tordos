@@ -619,7 +619,7 @@ export function ReservasView({user,mob,onAdd,onUpd,onDel,onDelMulti,onUpdMulti,o
    ALQUILERES TAB — Separate component for clarity
    ═══════════════════════════════════════════════════════════════════ */
 
-const RENTAL_FAC_LABELS:Record<string,string>={salon:"Salon Blanco",pergola:"Pérgola",pajarera:"Pajarera"};
+const RENTAL_FAC_LABELS:Record<string,string>={salon:"Salon Blanco",pergola:"Pérgola",pajarera1:"Pajarera 1",pajarera2:"Pajarera 2"};
 
 function AlquileresTab({user,mob,bookings,users,rentalConfig,colors,isDark,cardBg,iSt,lblSt,onAddRental,onUpdRental,onUpdRentalConfig}:any){
   const isAd=user.role==="admin"||user.role==="superadmin"||user.role==="coordinador";

@@ -149,10 +149,11 @@ export const BOOK_FAC:Record<string,{l:string;i:string;c:string}>={
   gimnasio:{l:"Gimnasio",i:"🏋️",c:"#DC2626"},
   salon:{l:"Salon Blanco",i:"🏠",c:"#6B7280"},
   cantina:{l:"Cantina",i:"🍽️",c:"#C8102E"},
-  pajarera:{l:"Pajarera",i:"🏡",c:"#059669"},
+  pajarera1:{l:"Pajarera 1",i:"🏡",c:"#059669"},
+  pajarera2:{l:"Pajarera 2",i:"🏡",c:"#047857"},
   pergola:{l:"Pérgola",i:"⛱️",c:"#7C3AED"}
 };
-export const RENTABLE_FAC = ["salon", "pergola", "pajarera"] as const;
+export const RENTABLE_FAC = ["salon", "pergola", "pajarera1", "pajarera2"] as const;
 
 export const RENTAL_ST: Record<string,{l:string;c:string;bg:string;i:string}>={
   solicitado:       {l:"Solicitado",      c:T.yl, bg:"#FEF3C7", i:"📩"},

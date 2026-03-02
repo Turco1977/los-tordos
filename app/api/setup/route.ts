@@ -477,7 +477,7 @@ CREATE POLICY archivos_all ON archivos FOR ALL USING (true) WITH CHECK (true);`,
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 INSERT INTO rental_config (facility, fee) VALUES
-  ('salon', 40000), ('pergola', 40000), ('pajarera', 40000);
+  ('salon', 40000), ('pergola', 40000), ('pajarera1', 40000), ('pajarera2', 40000);
 ALTER TABLE rental_config ENABLE ROW LEVEL SECURITY;
 CREATE POLICY rental_config_all ON rental_config FOR ALL USING (true) WITH CHECK (true);`,
     });
