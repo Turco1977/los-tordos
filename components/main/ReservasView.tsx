@@ -655,9 +655,9 @@ function AlquileresTab({user,mob,bookings,users,rentalConfig,colors,isDark,cardB
     return approver&&approver.id===user.id;
   };
 
-  /* can current user act as final approver (Bautista Pontis)? */
+  /* can current user act as final approver (Bautista Pontis or superadmin only)? */
   const canApproveFinal=()=>{
-    if(isAd) return true;
+    if(user.role==="superadmin") return true;
     const bp=RENTAL_APPROVERS.final;
     return user.n===bp.first_name&&user.a===bp.last_name;
   };
@@ -827,8 +827,8 @@ function AlquileresTab({user,mob,bookings,users,rentalConfig,colors,isDark,cardB
             <button onClick={()=>onUpdRental(r.id,{rental_status:"no_disponible"})} style={{padding:"5px 12px",borderRadius:8,border:"1px solid #DC2626",background:isDark?"#7F1D1D":"#FEE2E2",color:"#DC2626",fontSize:10,fontWeight:700,cursor:"pointer"}}>❌ No disponible</button>
           </>}
 
-          {/* Step 2: pendiente_pago → upload comprobante (admin) */}
-          {r.rental_status==="pendiente_pago"&&isAd&&<button onClick={()=>{sUploading(r.id);fileRef.current?.click();}} disabled={uploading===r.id} style={{padding:"5px 12px",borderRadius:8,border:"1px solid #8B5CF6",background:isDark?"#1E1B4B":"#EDE9FE",color:"#8B5CF6",fontSize:10,fontWeight:700,cursor:"pointer"}}>{uploading===r.id?"⏳ Subiendo...":"🧾 Subir comprobante"}</button>}
+          {/* Step 2: pendiente_pago → upload comprobante (any user) */}
+          {r.rental_status==="pendiente_pago"&&<button onClick={()=>{sUploading(r.id);fileRef.current?.click();}} disabled={uploading===r.id} style={{padding:"5px 12px",borderRadius:8,border:"1px solid #8B5CF6",background:isDark?"#1E1B4B":"#EDE9FE",color:"#8B5CF6",fontSize:10,fontWeight:700,cursor:"pointer"}}>{uploading===r.id?"⏳ Subiendo...":"🧾 Subir comprobante"}</button>}
 
           {/* Step 3: pago_recibido → aprobado/rechazado (Bautista or admin) */}
           {r.rental_status==="pago_recibido"&&canApproveFinal()&&<>
