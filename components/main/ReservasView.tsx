@@ -1,11 +1,12 @@
 "use client";
-import { useState, useMemo } from "react";
-import { BOOK_FAC, BOOK_ST, fn } from "@/lib/constants";
+import { useState, useMemo, useRef } from "react";
+import { BOOK_FAC, BOOK_ST, RENTABLE_FAC, RENTAL_ST, RENTAL_APPROVERS, RENTAL_PAYMENT, fn } from "@/lib/constants";
 import { fmtD } from "@/lib/mappers";
 import { Btn, Card } from "@/components/ui";
 import { useC } from "@/lib/theme-context";
 import { ClubMap } from "./ClubMap";
 import { useDataStore } from "@/lib/store";
+import { uploadFile } from "@/lib/storage";
 
 const TODAY=new Date().toISOString().slice(0,10);
 const FKEYS=Object.keys(BOOK_FAC);
@@ -74,13 +75,14 @@ const DIV_LIST=["","Escuelita","M5","M6","M7","M8","M9","M10","M11","M12","M13",
 const emptyForm=()=>({facility:"cancha1",date:TODAY,time_start:"09:00",time_end:"10:00",title:"",division:"",description:"",notes:"",status:"pendiente",recurrence:"none",recDays:[] as number[]});
 const genSeriesId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 
-export function ReservasView({user,mob,onAdd,onUpd,onDel,onDelMulti,onUpdMulti}:any){
+export function ReservasView({user,mob,onAdd,onUpd,onDel,onDelMulti,onUpdMulti,onAddRental,onUpdRental,onUpdRentalConfig}:any){
   const bookings = useDataStore(s => s.bookings);
   const users = useDataStore(s => s.users);
+  const rentalConfig = useDataStore(s => s.rentalConfig);
   const {colors,isDark,cardBg}=useC();
 
   /* tabs */
-  const [tab,sTab]=useState<"calendario"|"mapa">("calendario");
+  const [tab,sTab]=useState<"calendario"|"mapa"|"alquileres">("calendario");
   const [mapDate,sMapDate]=useState(TODAY);
   /* week nav */
   const [weekStart,sWeekStart]=useState(()=>getMonday(new Date()));
@@ -322,7 +324,7 @@ export function ReservasView({user,mob,onAdd,onUpd,onDel,onDelMulti,onUpdMulti}:
 
     {/* ── TABS ── */}
     <div style={{display:"flex",gap:4,marginBottom:14}}>
-      {(["calendario","mapa"] as const).map(t=><button key={t} onClick={()=>sTab(t)} style={{padding:mob?"10px 20px":"7px 18px",borderRadius:8,border:tab===t?"2px solid "+colors.bl:"1px solid "+colors.g3,background:tab===t?(isDark?"#1E3A5F":"#EFF6FF"):cardBg,color:tab===t?colors.bl:colors.g5,fontSize:mob?13:12,fontWeight:tab===t?700:500,cursor:"pointer",minHeight:mob?44:undefined}}>{t==="calendario"?"📅 Calendario":"🗺️ Mapa"}</button>)}
+      {(["calendario","mapa","alquileres"] as const).map(t=><button key={t} onClick={()=>sTab(t)} style={{padding:mob?"10px 20px":"7px 18px",borderRadius:8,border:tab===t?"2px solid "+colors.bl:"1px solid "+colors.g3,background:tab===t?(isDark?"#1E3A5F":"#EFF6FF"):cardBg,color:tab===t?colors.bl:colors.g5,fontSize:mob?13:12,fontWeight:tab===t?700:500,cursor:"pointer",minHeight:mob?44:undefined}}>{t==="calendario"?"📅 Calendario":t==="mapa"?"🗺️ Mapa":"🏠 Alquileres"}</button>)}
     </div>
 
     {/* ── FILTERS + ADD ── */}
@@ -511,9 +513,9 @@ export function ReservasView({user,mob,onAdd,onUpd,onDel,onDelMulti,onUpdMulti}:
                   {groups.map((grp,gi)=>(
                     <div key={gi} style={{display:"flex",gap:2}}>
                       {grp.map((b:any)=>{const st=BOOK_ST[b.status];const div=b.division||extractDiv(b.title);const dc=div?DIV_COL[div]:null;return(
-                        <div key={b.id} onClick={e=>{e.stopPropagation();startEdit(b);}} onTouchEnd={e=>{e.stopPropagation();e.preventDefault();startEdit(b);}} style={{padding:"3px 4px",borderRadius:5,background:dc?dc+"20":st.bg,cursor:"pointer",border:"1px solid "+(dc||st.c)+"40",position:"relative" as const,zIndex:2,minHeight:24,touchAction:"manipulation" as const,flex:1,minWidth:0}} title={(div?div+": ":"")+b.title+" ("+b.time_start+"-"+b.time_end+")"}>
-                          <div style={{fontSize:9,fontWeight:800,color:dc||st.c,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const,lineHeight:1.2}}>{div||b.title}</div>
-                          <div style={{fontSize:7,color:dc||colors.g5,fontWeight:600}}>{b.time_start}</div>
+                        <div key={b.id} onClick={e=>{e.stopPropagation();startEdit(b);}} onTouchEnd={e=>{e.stopPropagation();e.preventDefault();startEdit(b);}} style={{padding:"3px 4px",borderRadius:5,background:b.is_rental?"#7C3AED18":(dc?dc+"20":st.bg),cursor:"pointer",border:"1px solid "+(b.is_rental?"#7C3AED":(dc||st.c))+"40",position:"relative" as const,zIndex:2,minHeight:24,touchAction:"manipulation" as const,flex:1,minWidth:0}} title={(b.is_rental?"🏠 ":"")+(div?div+": ":"")+b.title+" ("+b.time_start+"-"+b.time_end+")"}>
+                          <div style={{fontSize:9,fontWeight:800,color:b.is_rental?"#7C3AED":(dc||st.c),overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const,lineHeight:1.2}}>{b.is_rental?"🏠 ":""}{div||b.title}</div>
+                          <div style={{fontSize:7,color:b.is_rental?"#7C3AED":(dc||colors.g5),fontWeight:600}}>{b.time_start}</div>
                         </div>);})}
                     </div>))}
                 </div>);
@@ -607,5 +609,240 @@ export function ReservasView({user,mob,onAdd,onUpd,onDel,onDelMulti,onUpdMulti}:
         <Btn v="p" s="s" onClick={handleSaveClick}>Guardar</Btn>
       </div>
     </Card>}
+
+    {/* ═══════ TAB: ALQUILERES ═══════ */}
+    {tab==="alquileres"&&<AlquileresTab user={user} mob={mob} bookings={bookings} users={users} rentalConfig={rentalConfig} colors={colors} isDark={isDark} cardBg={cardBg} iSt={iSt} lblSt={lblSt} onAddRental={onAddRental} onUpdRental={onUpdRental} onUpdRentalConfig={onUpdRentalConfig}/>}
+  </div>);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ALQUILERES TAB — Separate component for clarity
+   ═══════════════════════════════════════════════════════════════════ */
+
+const RENTAL_FAC_LABELS:Record<string,string>={salon:"Salon Blanco",pergola:"Pérgola",pajarera:"Pajarera"};
+
+function AlquileresTab({user,mob,bookings,users,rentalConfig,colors,isDark,cardBg,iSt,lblSt,onAddRental,onUpdRental,onUpdRentalConfig}:any){
+  const isAd=user.role==="admin"||user.role==="superadmin"||user.role==="coordinador";
+  const [showForm,sShowForm]=useState(false);
+  const [showTarifas,sShowTarifas]=useState(false);
+  const [uploading,sUploading]=useState<number|null>(null);
+  const fileRef=useRef<HTMLInputElement>(null);
+  const [saving,sSaving]=useState(false);
+  const [rForm,sRForm]=useState<any>({facility:"salon",date:TODAY,time_start:"18:00",time_end:"23:00",renter_name:"",renter_phone:"",rental_fee:40000,notes:""});
+
+  /* rentals only */
+  const rentals=useMemo(()=>(bookings||[]).filter((b:any)=>b.is_rental).sort((a:any,b:any)=>b.date>a.date?1:b.date<a.date?-1:0),[bookings]);
+
+  /* KPIs */
+  const thisMonth=new Date().toISOString().slice(0,7);
+  const kSolicited=rentals.filter((r:any)=>r.rental_status==="solicitado").length;
+  const kPendPago=rentals.filter((r:any)=>r.rental_status==="pendiente_pago").length;
+  const kConfirmed=rentals.filter((r:any)=>(r.rental_status==="aprobado"||r.rental_status==="condicion_ok")&&r.date?.startsWith(thisMonth)).length;
+  const kTotal=rentals.filter((r:any)=>(r.rental_status==="aprobado"||r.rental_status==="condicion_ok"||r.rental_status==="pago_recibido")).reduce((s:number,r:any)=>s+Number(r.rental_fee||0),0);
+
+  /* who is the approver for a given date */
+  const getApprover=(date:string)=>{
+    const dow=new Date(date+"T12:00:00").getDay();
+    const isFriSat=dow===5||dow===6;
+    const target=isFriSat?RENTAL_APPROVERS.friSat:RENTAL_APPROVERS.other;
+    return (users||[]).find((u:any)=>u.n===target.first_name&&u.a===target.last_name);
+  };
+
+  /* can current user act as first approver for this date? */
+  const canApproveFirst=(date:string)=>{
+    if(isAd) return true;
+    const approver=getApprover(date);
+    return approver&&approver.id===user.id;
+  };
+
+  /* can current user act as final approver (Bautista Pontis)? */
+  const canApproveFinal=()=>{
+    if(isAd) return true;
+    const bp=RENTAL_APPROVERS.final;
+    return user.n===bp.first_name&&user.a===bp.last_name;
+  };
+
+  /* auto-fill fee when facility changes */
+  const updateFee=(fac:string)=>{
+    const cfg=(rentalConfig||[]).find((c:any)=>c.facility===fac);
+    return cfg?Number(cfg.fee):40000;
+  };
+
+  /* submit new rental */
+  const handleSubmit=async()=>{
+    if(!rForm.renter_name.trim()){alert("Nombre del solicitante es obligatorio");return;}
+    if(saving) return;
+    sSaving(true);
+    try{
+      const title=RENTAL_FAC_LABELS[rForm.facility]||rForm.facility;
+      await onAddRental({
+        facility:rForm.facility,date:rForm.date,time_start:rForm.time_start,time_end:rForm.time_end,
+        title:"🏠 "+title,description:"Alquiler: "+rForm.renter_name,notes:rForm.notes,
+        booked_by:user.id,booked_by_name:fn(user),
+        is_rental:true,rental_status:"solicitado",status:"pendiente",
+        renter_name:rForm.renter_name,renter_phone:rForm.renter_phone,rental_fee:rForm.rental_fee,
+        payment_proof_url:"",approved_by_name:"",condition_status:null
+      });
+      sRForm({facility:"salon",date:TODAY,time_start:"18:00",time_end:"23:00",renter_name:"",renter_phone:"",rental_fee:updateFee("salon"),notes:""});
+      sShowForm(false);
+    }catch{}
+    finally{sSaving(false);}
+  };
+
+  /* upload comprobante */
+  const handleUploadProof=async(rentalId:number,file:File)=>{
+    sUploading(rentalId);
+    const res=await uploadFile(file,"comprobantes");
+    if("error" in res){alert(res.error);sUploading(null);return;}
+    await onUpdRental(rentalId,{payment_proof_url:res.url,rental_status:"pago_recibido"});
+    sUploading(null);
+  };
+
+  /* approver name label */
+  const approverLabel=(date:string)=>{
+    const dow=new Date(date+"T12:00:00").getDay();
+    const isFriSat=dow===5||dow===6;
+    const t=isFriSat?RENTAL_APPROVERS.friSat:RENTAL_APPROVERS.other;
+    return t.first_name+" "+t.last_name;
+  };
+
+  const fmtMoney=(n:number)=>"$"+Number(n||0).toLocaleString("es-AR");
+
+  return(<div>
+    {/* ── KPI CARDS ── */}
+    <div style={{display:"grid",gridTemplateColumns:mob?"repeat(2,1fr)":"repeat(4,1fr)",gap:10,marginBottom:18}}>
+      <Card style={{padding:"10px 12px",borderTop:"3px solid #F59E0B"}}>
+        <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:16}}>📩</span><span style={{fontSize:17,fontWeight:800,color:"#F59E0B"}}>{kSolicited}</span></div>
+        <div style={{fontSize:10,color:colors.g4,marginTop:3}}>Solicitados</div>
+      </Card>
+      <Card style={{padding:"10px 12px",borderTop:"3px solid #8B5CF6"}}>
+        <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:16}}>💰</span><span style={{fontSize:17,fontWeight:800,color:"#8B5CF6"}}>{kPendPago}</span></div>
+        <div style={{fontSize:10,color:colors.g4,marginTop:3}}>Pendientes Pago</div>
+      </Card>
+      <Card style={{padding:"10px 12px",borderTop:"3px solid #10B981"}}>
+        <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:16}}>✅</span><span style={{fontSize:17,fontWeight:800,color:"#10B981"}}>{kConfirmed}</span></div>
+        <div style={{fontSize:10,color:colors.g4,marginTop:3}}>Confirmados (mes)</div>
+      </Card>
+      <Card style={{padding:"10px 12px",borderTop:"3px solid "+colors.nv}}>
+        <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:16}}>💵</span><span style={{fontSize:17,fontWeight:800,color:colors.nv}}>{fmtMoney(kTotal)}</span></div>
+        <div style={{fontSize:10,color:colors.g4,marginTop:3}}>Total recaudado</div>
+      </Card>
+    </div>
+
+    {/* ── CONFIGURAR TARIFAS (admin only) ── */}
+    {isAd&&onUpdRentalConfig&&<Card style={{marginBottom:14,border:"1px solid "+colors.g3}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}} onClick={()=>sShowTarifas(!showTarifas)}>
+        <div style={{fontSize:12,fontWeight:700,color:colors.nv}}>⚙️ Configurar Tarifas</div>
+        <span style={{fontSize:12,color:colors.g4}}>{showTarifas?"▲":"▼"}</span>
+      </div>
+      {showTarifas&&<div style={{marginTop:10}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+          {(rentalConfig||[]).map((cfg:any)=><div key={cfg.id} style={{padding:10,borderRadius:8,border:"1px solid "+colors.g3,background:cardBg}}>
+            <div style={{fontSize:11,fontWeight:700,color:colors.nv,marginBottom:4}}>{RENTAL_FAC_LABELS[cfg.facility]||cfg.facility}</div>
+            <label style={lblSt}>Fee ($)</label>
+            <input type="number" value={cfg.fee} onChange={e=>{const val=Number(e.target.value);onUpdRentalConfig(cfg.id,{fee:val});}} style={{...iSt,width:120}}/>
+          </div>)}
+        </div>
+      </div>}
+    </Card>}
+
+    {/* ── NEW RENTAL BUTTON + FORM ── */}
+    <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
+      {onAddRental&&<Btn v="s" s="s" onClick={()=>sShowForm(!showForm)}>{showForm?"✕ Cancelar":"+ Nuevo Alquiler"}</Btn>}
+    </div>
+
+    {showForm&&onAddRental&&<Card style={{marginBottom:14,background:isDark?"#1A0D2E":"#F5F3FF",border:"1px solid #C4B5FD"}}>
+      <div style={{fontSize:12,fontWeight:700,color:isDark?"#A78BFA":"#5B21B6",marginBottom:10}}>🏠 Nuevo Alquiler</div>
+      <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8,marginBottom:8}}>
+        <div><label style={lblSt}>Espacio *</label>
+          <select value={rForm.facility} onChange={e=>{const f=e.target.value;sRForm((p:any)=>({...p,facility:f,rental_fee:updateFee(f)}));}} style={iSt}>
+            {RENTABLE_FAC.map(k=><option key={k} value={k}>{BOOK_FAC[k]?.i} {RENTAL_FAC_LABELS[k]}</option>)}
+          </select>
+        </div>
+        <div><label style={lblSt}>Fecha *</label><input type="date" value={rForm.date} onChange={e=>sRForm((p:any)=>({...p,date:e.target.value}))} style={iSt}/></div>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:mob?"1fr 1fr":"1fr 1fr 1fr 1fr",gap:8,marginBottom:8}}>
+        <div><label style={lblSt}>Hora inicio *</label><input type="time" value={rForm.time_start} onChange={e=>sRForm((p:any)=>({...p,time_start:e.target.value}))} style={iSt}/></div>
+        <div><label style={lblSt}>Hora fin *</label><input type="time" value={rForm.time_end} onChange={e=>sRForm((p:any)=>({...p,time_end:e.target.value}))} style={iSt}/></div>
+        <div><label style={lblSt}>Nombre solicitante *</label><input value={rForm.renter_name} onChange={e=>sRForm((p:any)=>({...p,renter_name:e.target.value}))} placeholder="Juan Pérez" style={iSt}/></div>
+        <div><label style={lblSt}>Teléfono</label><input value={rForm.renter_phone} onChange={e=>sRForm((p:any)=>({...p,renter_phone:e.target.value}))} placeholder="261-555-1234" style={iSt}/></div>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8,marginBottom:8}}>
+        <div><label style={lblSt}>Fee ($)</label><input type="number" value={rForm.rental_fee} onChange={e=>sRForm((p:any)=>({...p,rental_fee:Number(e.target.value)}))} style={iSt}/></div>
+        <div><label style={lblSt}>Notas</label><input value={rForm.notes} onChange={e=>sRForm((p:any)=>({...p,notes:e.target.value}))} placeholder="Notas adicionales..." style={iSt}/></div>
+      </div>
+      <div style={{fontSize:10,color:colors.g4,marginBottom:8,fontStyle:"italic" as const}}>
+        Aprobador disponibilidad: {approverLabel(rForm.date)} ({new Date(rForm.date+"T12:00:00").getDay()===5||new Date(rForm.date+"T12:00:00").getDay()===6?"Vie/Sáb":"Lun-Jue/Dom"})
+      </div>
+      <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}>
+        <Btn v="g" s="s" onClick={()=>sShowForm(false)}>Cancelar</Btn>
+        <Btn v="s" s="s" disabled={saving} onClick={handleSubmit}>{saving?"⏳ Guardando...":"✅ Registrar Alquiler"}</Btn>
+      </div>
+    </Card>}
+
+    {/* hidden file input for proof upload */}
+    <input ref={fileRef} type="file" accept="image/*,.pdf" style={{display:"none"}} onChange={e=>{const f=e.target.files?.[0];if(f&&uploading!==null) handleUploadProof(uploading,f);e.target.value="";}}/>
+
+    {/* ── RENTAL LIST ── */}
+    {rentals.length===0&&<Card style={{textAlign:"center" as const,padding:24,color:colors.g4}}>
+      <span style={{fontSize:24}}>🏠</span>
+      <div style={{marginTop:6,fontSize:12}}>Sin alquileres registrados</div>
+    </Card>}
+
+    {rentals.map((r:any)=>{
+      const fac=BOOK_FAC[r.facility]||{l:"?",i:"?",c:colors.g4};
+      const rst=RENTAL_ST[r.rental_status]||RENTAL_ST.solicitado;
+      const isPast=r.date<TODAY;
+
+      return(<Card key={r.id} style={{padding:"12px 14px",marginBottom:8,borderLeft:"4px solid "+(rst.c||"#8B5CF6")}}>
+        {/* header */}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"start",marginBottom:6}}>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:13,fontWeight:700,color:colors.nv}}>🏠 {RENTAL_FAC_LABELS[r.facility]||fac.l} · {fmtD(r.date)} · {r.time_start}-{r.time_end}</div>
+            <div style={{fontSize:11,color:colors.g5,marginTop:2}}>👤 {r.renter_name||"—"}{r.renter_phone?(" · 📱 "+r.renter_phone):""}</div>
+            <div style={{fontSize:11,color:colors.g5,marginTop:2}}>💰 {fmtMoney(r.rental_fee)} · <span style={{background:rst.bg,color:rst.c,padding:"1px 8px",borderRadius:12,fontSize:10,fontWeight:600}}>{rst.i} {rst.l}</span></div>
+            {r.approved_by_name&&<div style={{fontSize:10,color:colors.g4,marginTop:2}}>Aprobado por: {r.approved_by_name}</div>}
+            {r.notes&&<div style={{fontSize:10,color:colors.g4,marginTop:2,fontStyle:"italic" as const}}>Notas: {r.notes}</div>}
+          </div>
+        </div>
+
+        {/* ── Payment info box (when pendiente_pago) ── */}
+        {r.rental_status==="pendiente_pago"&&<div style={{padding:"10px 14px",borderRadius:8,background:isDark?"#1E1B4B":"#EDE9FE",border:"1px solid #C4B5FD",marginBottom:8}}>
+          <div style={{fontSize:11,fontWeight:700,color:"#7C3AED",marginBottom:4}}>💰 Datos de pago</div>
+          <div style={{fontSize:11,color:isDark?"#C4B5FD":"#5B21B6"}}>Transferir a: <strong>{RENTAL_PAYMENT.alias}</strong></div>
+          <div style={{fontSize:11,color:isDark?"#C4B5FD":"#5B21B6"}}>Monto: <strong>{fmtMoney(r.rental_fee)}</strong></div>
+          <div style={{fontSize:11,color:isDark?"#C4B5FD":"#5B21B6"}}>Enviar comprobante a: <strong>{RENTAL_PAYMENT.phone}</strong></div>
+        </div>}
+
+        {/* ── Proof image (when uploaded) ── */}
+        {r.payment_proof_url&&<div style={{marginBottom:8}}>
+          <a href={r.payment_proof_url} target="_blank" rel="noopener noreferrer" style={{fontSize:10,color:colors.bl,fontWeight:600}}>🧾 Ver comprobante de pago</a>
+        </div>}
+
+        {/* ── Actions ── */}
+        <div style={{display:"flex",gap:4,flexWrap:"wrap" as const}}>
+          {/* Step 1: solicitado → disponible/no_disponible (Victoria/Lucía or admin) */}
+          {r.rental_status==="solicitado"&&canApproveFirst(r.date)&&<>
+            <button onClick={()=>onUpdRental(r.id,{rental_status:"pendiente_pago"})} style={{padding:"5px 12px",borderRadius:8,border:"1px solid #3B82F6",background:isDark?"#1E3A5F":"#DBEAFE",color:"#3B82F6",fontSize:10,fontWeight:700,cursor:"pointer"}}>👍 Disponible</button>
+            <button onClick={()=>onUpdRental(r.id,{rental_status:"no_disponible"})} style={{padding:"5px 12px",borderRadius:8,border:"1px solid #DC2626",background:isDark?"#7F1D1D":"#FEE2E2",color:"#DC2626",fontSize:10,fontWeight:700,cursor:"pointer"}}>❌ No disponible</button>
+          </>}
+
+          {/* Step 2: pendiente_pago → upload comprobante (admin) */}
+          {r.rental_status==="pendiente_pago"&&isAd&&<button onClick={()=>{sUploading(r.id);fileRef.current?.click();}} disabled={uploading===r.id} style={{padding:"5px 12px",borderRadius:8,border:"1px solid #8B5CF6",background:isDark?"#1E1B4B":"#EDE9FE",color:"#8B5CF6",fontSize:10,fontWeight:700,cursor:"pointer"}}>{uploading===r.id?"⏳ Subiendo...":"🧾 Subir comprobante"}</button>}
+
+          {/* Step 3: pago_recibido → aprobado/rechazado (Bautista or admin) */}
+          {r.rental_status==="pago_recibido"&&canApproveFinal()&&<>
+            <button onClick={()=>onUpdRental(r.id,{rental_status:"aprobado",approved_by_name:fn(user)})} style={{padding:"5px 12px",borderRadius:8,border:"1px solid #10B981",background:isDark?"#064E3B":"#D1FAE5",color:"#10B981",fontSize:10,fontWeight:700,cursor:"pointer"}}>✅ Aprobar</button>
+            <button onClick={()=>onUpdRental(r.id,{rental_status:"rechazado"})} style={{padding:"5px 12px",borderRadius:8,border:"1px solid #DC2626",background:isDark?"#7F1D1D":"#FEE2E2",color:"#DC2626",fontSize:10,fontWeight:700,cursor:"pointer"}}>❌ Rechazar</button>
+          </>}
+
+          {/* Step 4: Post-event condition (admin) */}
+          {r.rental_status==="aprobado"&&isPast&&isAd&&<>
+            <button onClick={()=>onUpdRental(r.id,{rental_status:"condicion_ok",condition_status:"ok"})} style={{padding:"5px 12px",borderRadius:8,border:"1px solid #10B981",background:isDark?"#064E3B":"#D1FAE5",color:"#10B981",fontSize:10,fontWeight:700,cursor:"pointer"}}>👌 Condición OK</button>
+            <button onClick={()=>onUpdRental(r.id,{rental_status:"condicion_problema",condition_status:"problema"})} style={{padding:"5px 12px",borderRadius:8,border:"1px solid #DC2626",background:isDark?"#7F1D1D":"#FEE2E2",color:"#DC2626",fontSize:10,fontWeight:700,cursor:"pointer"}}>⚠️ Problema</button>
+          </>}
+        </div>
+      </Card>);
+    })}
   </div>);
 }

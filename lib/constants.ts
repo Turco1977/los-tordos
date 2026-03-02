@@ -152,6 +152,28 @@ export const BOOK_FAC:Record<string,{l:string;i:string;c:string}>={
   pajarera:{l:"Pajarera",i:"🏡",c:"#059669"},
   pergola:{l:"Pérgola",i:"⛱️",c:"#7C3AED"}
 };
+export const RENTABLE_FAC = ["salon", "pergola", "pajarera"] as const;
+
+export const RENTAL_ST: Record<string,{l:string;c:string;bg:string;i:string}>={
+  solicitado:       {l:"Solicitado",      c:T.yl, bg:"#FEF3C7", i:"📩"},
+  disponible:       {l:"Disponible",      c:"#3B82F6", bg:"#DBEAFE", i:"👍"},
+  no_disponible:    {l:"No disponible",   c:T.rd, bg:"#FEE2E2", i:"❌"},
+  pendiente_pago:   {l:"Pendiente Pago",  c:"#8B5CF6", bg:"#EDE9FE", i:"💰"},
+  pago_recibido:    {l:"Pago Recibido",   c:"#F59E0B", bg:"#FEF3C7", i:"🧾"},
+  aprobado:         {l:"Aprobado",        c:T.gn, bg:"#D1FAE5", i:"✅"},
+  rechazado:        {l:"Rechazado",       c:T.rd, bg:"#FEE2E2", i:"❌"},
+  condicion_ok:     {l:"Condición OK",    c:T.gn, bg:"#D1FAE5", i:"👌"},
+  condicion_problema:{l:"Problema",       c:T.rd, bg:"#FEE2E2", i:"⚠️"},
+};
+
+export const RENTAL_APPROVERS = {
+  friSat: { first_name: "Victoria", last_name: "Brandi" },
+  other:  { first_name: "Lucía", last_name: "Gil" },
+  final:  { first_name: "Bautista", last_name: "Pontis" },
+};
+
+export const RENTAL_PAYMENT = { alias: "LTRC.SUPER", phone: "2613028410" };
+
 export const BOOK_ST:Record<string,{l:string;c:string;bg:string;i:string}>={
   pendiente:{l:"Pendiente",c:"#F59E0B",bg:"#FEF3C7",i:"⏳"},
   confirmada:{l:"Confirmada",c:"#10B981",bg:"#D1FAE5",i:"✅"},

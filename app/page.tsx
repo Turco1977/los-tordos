@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/client";
-import { T, AREAS, DEPTOS, ROLES, ST, SC, PST, FREQ, fn, isOD } from "@/lib/constants";
+import { T, AREAS, DEPTOS, ROLES, ST, SC, PST, FREQ, fn, isOD, BOOK_FAC, RENTAL_APPROVERS } from "@/lib/constants";
 import { exportCSV, exportPDF, exportICal, exportMinutaPDF, exportMinutaWord, exportReportPDF, exportProjectPDF, exportAuditPDF } from "@/lib/export";
 import { useTheme, darkCSS } from "@/lib/theme";
 import { ThemeCtx } from "@/lib/theme-context";
@@ -112,7 +112,7 @@ export default function App() {
   useRecurringTasks(user, dataLoading, fetchAll);
 
   // Store access
-  const { users, om, peds, hitos, presu, provs, reminders, projects, projTasks, taskTemplates, projBudgets, inventory, invMaint, invDist, bookings, sponsors, sponMsgs, sponDeliveries, archivos, dbNotifs, viajes, sUs, sOm, sPd, sHi, sAgs, sMins, sPr, sPv, sRems, sProjects, sProjTasks, sTaskTemplates, sProjBudgets, sInventory, sInvMaint, sInvDist, sBookings, sSponsors, sSponMsgs, sSponDeliveries, sArchivos, sDbNotifs, sViajes } = useDataStore();
+  const { users, om, peds, hitos, presu, provs, reminders, projects, projTasks, taskTemplates, projBudgets, inventory, invMaint, invDist, bookings, sponsors, sponMsgs, sponDeliveries, archivos, dbNotifs, viajes, rentalConfig, sUs, sOm, sPd, sHi, sAgs, sMins, sPr, sPv, sRems, sProjects, sProjTasks, sTaskTemplates, sProjBudgets, sInventory, sInvMaint, sInvDist, sBookings, sSponsors, sSponMsgs, sSponDeliveries, sArchivos, sDbNotifs, sViajes, sRentalConfig } = useDataStore();
 
   // Canje usage per sponsor
   const canjeUsado = useMemo(() => { const m: Record<number, number> = {}; presu.forEach((pr: any) => { if (pr.is_canje && pr.sponsor_id && pr.status === "aprobado") { m[pr.sponsor_id] = (m[pr.sponsor_id] || 0) + Number(pr.monto || 0); } }); sponDeliveries.forEach((d: any) => { if (d.sponsor_id) { m[d.sponsor_id] = (m[d.sponsor_id] || 0) + Number(d.total_value || 0); } }); return m; }, [presu, sponDeliveries]);
@@ -186,6 +186,51 @@ export default function App() {
             onDel={async (id: number) => { try { sBookings(prev => prev.filter(x => x.id !== Number(id))); await supabase.from("bookings").delete().eq("id", id); showT("Espacio eliminado"); } catch (e: any) { showT(e.message || "Error", "err"); } }}
             onDelMulti={async (ids: string[]) => { try { const numIds = ids.map(Number); sBookings(prev => prev.filter(x => !numIds.includes(x.id))); await supabase.from("bookings").delete().in("id", numIds); showT(`${ids.length} espacios eliminados`); } catch (e: any) { showT(e.message || "Error", "err"); } }}
             onUpdMulti={async (ids: string[], d: any) => { try { const numIds = ids.map(Number); sBookings(prev => prev.map(x => numIds.includes(x.id) ? { ...x, ...d } : x)); await supabase.from("bookings").update(d).in("id", numIds); showT(`${ids.length} espacios actualizados`); } catch (e: any) { showT(e.message || "Error", "err"); } }}
+            onAddRental={async (d: any) => {
+              try {
+                const { data, error } = await supabase.from("bookings").insert(d).select().single();
+                if (error) throw new Error(error.message);
+                if (data) sBookings(prev => [data, ...prev]);
+                const dow = new Date(data.date + "T12:00:00").getDay();
+                const isFriSat = dow === 5 || dow === 6;
+                const target = isFriSat ? { n: "Victoria", a: "Brandi" } : { n: "Lucía", a: "Gil" };
+                const approver = users.find((u: any) => u.n === target.n && u.a === target.a);
+                if (approver) sendNotif(approver.id, "Nuevo alquiler para aprobar", `${BOOK_FAC[data.facility]?.l || data.facility} - ${data.renter_name} - ${data.date}`, "info");
+                showT("Alquiler registrado");
+              } catch (e: any) { showT(e.message || "Error", "err"); }
+            }}
+            onUpdRental={async (id: number, d: any) => {
+              try {
+                sBookings(prev => prev.map(x => x.id === id ? { ...x, ...d } : x));
+                await supabase.from("bookings").update(d).eq("id", id);
+                const booking = bookings.find((b: any) => b.id === id);
+                const facName = BOOK_FAC[booking?.facility]?.l || booking?.facility;
+                if (d.rental_status === "pendiente_pago" && booking?.booked_by) {
+                  sendNotif(booking.booked_by, "Espacio disponible — pendiente pago", `${facName} - ${booking.date}`, "info");
+                }
+                if (d.rental_status === "no_disponible" && booking?.booked_by) {
+                  sendNotif(booking.booked_by, "Espacio no disponible", `${facName} - ${booking.date}`, "info");
+                }
+                if (d.rental_status === "pago_recibido") {
+                  const bp = users.find((u: any) => u.n === "Bautista" && u.a === "Pontis");
+                  if (bp) sendNotif(bp.id, "Alquiler pendiente aprobación final", `${facName} - ${booking?.renter_name} - ${booking?.date}`, "info");
+                }
+                if (d.rental_status === "aprobado" && booking?.booked_by) {
+                  sendNotif(booking.booked_by, "Alquiler aprobado por Coordinación", `${facName} - ${booking.date}`, "info");
+                }
+                if (d.rental_status === "rechazado" && booking?.booked_by) {
+                  sendNotif(booking.booked_by, "Alquiler rechazado", `${facName} - ${booking.date}`, "info");
+                }
+                showT("Actualizado");
+              } catch (e: any) { showT(e.message || "Error", "err"); }
+            }}
+            onUpdRentalConfig={async (id: number, d: any) => {
+              try {
+                sRentalConfig(prev => prev.map(x => x.id === id ? { ...x, ...d } : x));
+                await supabase.from("rental_config").update({ ...d, updated_at: new Date().toISOString() }).eq("id", id);
+                showT("Tarifa actualizada");
+              } catch (e: any) { showT(e.message || "Error", "err"); }
+            }}
           />}
           {vw === "sponsors" && (isAd || user.role === "coordinador" || user.role === "embudo") && <SponsorsView user={user} mob={mob} canjeUsado={canjeUsado} sponMsgs={sponMsgs} sponDeliveries={sponDeliveries}
             onAdd={async (d: any) => { const row = { ...d, created_by: user.id, created_by_name: fn(user) }; const { data, error } = await supabase.from("sponsors").insert(row).select().single(); if (error) throw new Error(error.message); if (data) { sSponsors(prev => [data, ...prev]); showT("Sponsor agregado"); } }}

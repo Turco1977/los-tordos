@@ -447,6 +447,42 @@ CREATE POLICY archivos_all ON archivos FOR ALL USING (true) WITH CHECK (true);`,
     });
   }
 
+  // Check if bookings table needs rental columns
+  const { error: eRentalCol } = await admin.from("bookings").select("is_rental").limit(1);
+  if (eRentalCol && eRentalCol.code === "42703") {
+    missing.push({
+      table: "bookings (ALTER rental)",
+      sql: `ALTER TABLE bookings
+  ADD COLUMN IF NOT EXISTS is_rental BOOLEAN DEFAULT false,
+  ADD COLUMN IF NOT EXISTS rental_status TEXT DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS renter_name TEXT DEFAULT '',
+  ADD COLUMN IF NOT EXISTS renter_phone TEXT DEFAULT '',
+  ADD COLUMN IF NOT EXISTS rental_fee NUMERIC DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS payment_proof_url TEXT DEFAULT '',
+  ADD COLUMN IF NOT EXISTS approved_by_name TEXT DEFAULT '',
+  ADD COLUMN IF NOT EXISTS condition_status TEXT DEFAULT NULL;`,
+    });
+  }
+
+  // Check rental_config table
+  const { error: eRentalCfg } = await admin.from("rental_config").select("id").limit(1);
+  if (isMissing(eRentalCfg)) {
+    missing.push({
+      table: "rental_config",
+      sql: `CREATE TABLE rental_config (
+  id SERIAL PRIMARY KEY,
+  facility TEXT NOT NULL UNIQUE,
+  fee NUMERIC DEFAULT 40000,
+  notes TEXT DEFAULT '',
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+INSERT INTO rental_config (facility, fee) VALUES
+  ('salon', 40000), ('pergola', 40000), ('pajarera', 40000);
+ALTER TABLE rental_config ENABLE ROW LEVEL SECURITY;
+CREATE POLICY rental_config_all ON rental_config FOR ALL USING (true) WITH CHECK (true);`,
+    });
+  }
+
   if (missing.length > 0) {
     return NextResponse.json({
       status: "missing",
