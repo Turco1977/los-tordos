@@ -31,9 +31,12 @@ interface DataStore {
   rentalConfig: any[];
   dmMsgs: any[];
   dmPeer: string | null;
+  torneos: any[];
+  torneoHitos: any[];
+  torneoClubes: any[];
 
   // Batch setter (for fetchAll)
-  setAll: (data: Partial<Pick<DataStore, "users"|"om"|"peds"|"hitos"|"agendas"|"minutas"|"presu"|"provs"|"reminders"|"projects"|"projTasks"|"taskTemplates"|"projBudgets"|"inventory"|"invMaint"|"invDist"|"bookings"|"sponsors"|"sponMsgs"|"sponDeliveries"|"dbNotifs"|"archivos"|"viajes"|"rentalConfig"|"dmMsgs">>) => void;
+  setAll: (data: Partial<Pick<DataStore, "users"|"om"|"peds"|"hitos"|"agendas"|"minutas"|"presu"|"provs"|"reminders"|"projects"|"projTasks"|"taskTemplates"|"projBudgets"|"inventory"|"invMaint"|"invDist"|"bookings"|"sponsors"|"sponMsgs"|"sponDeliveries"|"dbNotifs"|"archivos"|"viajes"|"rentalConfig"|"dmMsgs"|"torneos"|"torneoHitos"|"torneoClubes">>) => void;
 
   // Functional setters (same API as useState setters)
   sUs: Setter<any>;
@@ -63,6 +66,9 @@ interface DataStore {
   sRentalConfig: Setter<any>;
   sDmMsgs: Setter<any>;
   sDmPeer: (peer: string | null) => void;
+  sTorneos: Setter<any>;
+  sTorneoHitos: Setter<any>;
+  sTorneoClubes: Setter<any>;
 
   // Reset all data (logout)
   clear: () => void;
@@ -98,6 +104,9 @@ export const useDataStore = create<DataStore>((set) => ({
   rentalConfig: empty,
   dmMsgs: empty,
   dmPeer: null,
+  torneos: empty,
+  torneoHitos: empty,
+  torneoClubes: empty,
 
   setAll: (data) => set(data),
 
@@ -128,6 +137,9 @@ export const useDataStore = create<DataStore>((set) => ({
   sRentalConfig: (fn) => set((s) => ({ rentalConfig: fn(s.rentalConfig) })),
   sDmMsgs: (fn) => set((s) => ({ dmMsgs: fn(s.dmMsgs) })),
   sDmPeer: (peer) => set({ dmPeer: peer }),
+  sTorneos: (fn) => set((s) => ({ torneos: fn(s.torneos) })),
+  sTorneoHitos: (fn) => set((s) => ({ torneoHitos: fn(s.torneoHitos) })),
+  sTorneoClubes: (fn) => set((s) => ({ torneoClubes: fn(s.torneoClubes) })),
 
   clear: () => set({
     users: empty,
@@ -157,5 +169,8 @@ export const useDataStore = create<DataStore>((set) => ({
     rentalConfig: empty,
     dmMsgs: empty,
     dmPeer: null,
+    torneos: empty,
+    torneoHitos: empty,
+    torneoClubes: empty,
   }),
 }));

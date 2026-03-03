@@ -43,6 +43,7 @@ const Reuniones = dynamic(() => import("@/components/main/Reuniones").then(m => 
 const ArchivosView = dynamic(() => import("@/components/main/ArchivosView").then(m => ({ default: m.ArchivosView })), { ssr: false });
 const NewFactura = dynamic(() => import("@/components/main/NewFactura").then(m => ({ default: m.NewFactura })), { ssr: false });
 const ViajesManager = dynamic(() => import("@/components/main/ViajesManager"), { ssr: false });
+const TorneosView = dynamic(() => import("@/components/main/TorneosView").then(m => ({ default: m.TorneosView })), { ssr: false });
 
 // Custom hooks
 import { useAuth } from "@/hooks/useAuth";
@@ -113,7 +114,7 @@ export default function App() {
   useRecurringTasks(user, dataLoading, fetchAll);
 
   // Store access
-  const { users, om, peds, hitos, presu, provs, reminders, projects, projTasks, taskTemplates, projBudgets, inventory, invMaint, invDist, bookings, sponsors, sponMsgs, sponDeliveries, archivos, dbNotifs, viajes, rentalConfig, dmMsgs, dmPeer, sUs, sOm, sPd, sHi, sAgs, sMins, sPr, sPv, sRems, sProjects, sProjTasks, sTaskTemplates, sProjBudgets, sInventory, sInvMaint, sInvDist, sBookings, sSponsors, sSponMsgs, sSponDeliveries, sArchivos, sDbNotifs, sViajes, sRentalConfig, sDmMsgs, sDmPeer } = useDataStore();
+  const { users, om, peds, hitos, presu, provs, reminders, projects, projTasks, taskTemplates, projBudgets, inventory, invMaint, invDist, bookings, sponsors, sponMsgs, sponDeliveries, archivos, dbNotifs, viajes, rentalConfig, dmMsgs, dmPeer, torneos, torneoHitos, torneoClubes, sUs, sOm, sPd, sHi, sAgs, sMins, sPr, sPv, sRems, sProjects, sProjTasks, sTaskTemplates, sProjBudgets, sInventory, sInvMaint, sInvDist, sBookings, sSponsors, sSponMsgs, sSponDeliveries, sArchivos, sDbNotifs, sViajes, sRentalConfig, sDmMsgs, sDmPeer, sTorneos, sTorneoHitos, sTorneoClubes } = useDataStore();
 
   // Canje usage per sponsor
   const canjeUsado = useMemo(() => { const m: Record<number, number> = {}; presu.forEach((pr: any) => { if (pr.is_canje && pr.sponsor_id && pr.status === "aprobado") { m[pr.sponsor_id] = (m[pr.sponsor_id] || 0) + Number(pr.monto || 0); } }); sponDeliveries.forEach((d: any) => { if (d.sponsor_id) { m[d.sponsor_id] = (m[d.sponsor_id] || 0) + Number(d.total_value || 0); } }); return m; }, [presu, sponDeliveries]);
@@ -128,6 +129,7 @@ export default function App() {
   // Computed values (after early returns is OK — not hooks)
   const nav = computeNav();
   const { vT, vI, vC, vP } = computeViewFilter(peds);
+  const userLevel = ROLES[user.role]?.lv || 0;
 
   if (isPersonal && vw === "dash") { setTimeout(() => sVw("my"), 0); return null; }
 
@@ -255,7 +257,17 @@ export default function App() {
             onUpdBudget={async (id: number, d: any) => { try { sProjBudgets(prev => prev.map(b => b.id === id ? { ...b, ...d } : b)); await supabase.from("project_budgets").update(d).eq("id", id); showT("Presupuesto actualizado"); } catch (e: any) { showT(e.message || "Error", "err"); } }}
             onDelBudget={async (id: number) => { try { sProjBudgets(prev => prev.filter(b => b.id !== id)); await supabase.from("project_budgets").delete().eq("id", id); showT("Presupuesto eliminado"); } catch (e: any) { showT(e.message || "Error", "err"); } }}
           />}
-          {vw === "org" && <Org areas={areas} deptos={deptos} users={users} om={om} pedidos={peds} onSel={(p: any) => sSl(p)} onEditSave={async (id: string, d: any) => { sOm(p => p.map(m => m.id === id ? { ...m, ...d } : m)); await supabase.from("org_members").update({ first_name: d.n, last_name: d.a, email: d.mail || "", phone: d.tel || "" }).eq("id", id); }} onDelOm={async (id: string) => { sOm(p => p.filter(m => m.id !== id)); await supabase.from("org_members").delete().eq("id", id); }} onDelUser={async (id: string) => { sUs(p => p.filter(u => u.id !== id)); await supabase.from("profiles").delete().eq("id", id); }} onEditUser={() => { sVw("profs"); }} isSA={isSA} onAssignTask={(u: any) => { sPreAT(u); sVw("new"); }} onDm={(u: any) => { sDmPeer(u.id); sVw("dm"); }} mob={mob} showT={showT}
+          {vw === "torneos" && !isPersonal && (isAd || user.role === "coordinador") && <TorneosView user={user} mob={mob}
+            onAdd={async (d: any) => { try { const { data, error } = await supabase.from("torneos").insert(d).select().single(); if (error) throw new Error(error.message); if (data) sTorneos(prev => [data, ...prev]); showT("Torneo creado"); return data; } catch (e: any) { showT(e.message || "Error", "err"); return null; } }}
+            onUpd={async (id: number, d: any) => { try { sTorneos(prev => prev.map(t => t.id === id ? { ...t, ...d } : t)); await supabase.from("torneos").update(d).eq("id", id); showT("Torneo actualizado"); } catch (e: any) { showT(e.message || "Error", "err"); } }}
+            onDel={async (id: number) => { try { sTorneos(prev => prev.filter(t => t.id !== id)); sTorneoHitos(prev => prev.filter((h: any) => h.torneo_id !== id)); sTorneoClubes(prev => prev.filter((c: any) => c.torneo_id !== id)); await supabase.from("torneos").delete().eq("id", id); showT("Torneo eliminado"); } catch (e: any) { showT(e.message || "Error", "err"); } }}
+            onAddHito={async (rows: any[]) => { try { const { data, error } = await supabase.from("torneo_hitos").insert(rows).select(); if (error) throw new Error(error.message); if (data) sTorneoHitos(prev => [...prev, ...data]); } catch (e: any) { showT(e.message || "Error al crear hitos", "err"); } }}
+            onUpdHito={async (id: number, d: any) => { try { sTorneoHitos(prev => prev.map(h => h.id === id ? { ...h, ...d } : h)); await supabase.from("torneo_hitos").update(d).eq("id", id); } catch (e: any) { showT(e.message || "Error", "err"); } }}
+            onAddClub={async (d: any) => { try { const { data, error } = await supabase.from("torneo_clubes").insert(d).select().single(); if (error) throw new Error(error.message); if (data) sTorneoClubes(prev => [data, ...prev]); showT("Club agregado"); } catch (e: any) { showT(e.message || "Error", "err"); } }}
+            onUpdClub={async (id: number, d: any) => { try { sTorneoClubes(prev => prev.map(c => c.id === id ? { ...c, ...d } : c)); await supabase.from("torneo_clubes").update(d).eq("id", id); showT("Club actualizado"); } catch (e: any) { showT(e.message || "Error", "err"); } }}
+            onDelClub={async (id: number) => { try { sTorneoClubes(prev => prev.filter(c => c.id !== id)); await supabase.from("torneo_clubes").delete().eq("id", id); showT("Club eliminado"); } catch (e: any) { showT(e.message || "Error", "err"); } }}
+          />}
+          {vw === "org" && <Org areas={areas} deptos={deptos} users={users} om={om} pedidos={peds} onSel={(p: any) => sSl(p)} onEditSave={async (id: string, d: any) => { sOm(p => p.map(m => m.id === id ? { ...m, ...d } : m)); await supabase.from("org_members").update({ first_name: d.n, last_name: d.a, email: d.mail || "", phone: d.tel || "" }).eq("id", id); }} onDelOm={async (id: string) => { sOm(p => p.filter(m => m.id !== id)); await supabase.from("org_members").delete().eq("id", id); }} onDelUser={async (id: string) => { sUs(p => p.filter(u => u.id !== id)); await supabase.from("profiles").delete().eq("id", id); }} onEditUser={() => { sVw("profs"); }} isSA={isSA} onAssignTask={(u: any) => { sPreAT(u); sVw("new"); }} onDm={(u: any) => { sDmPeer(u.id); sVw("dm"); }} mob={mob} showT={showT} userLevel={userLevel}
             onReorderOm={async (id: string, dir: string, type: string) => { const grp = om.filter((m: any) => m.t === type).sort((a: any, b: any) => (a.so || 0) - (b.so || 0)); const idx = grp.findIndex((m: any) => m.id === id); const si = dir === "up" ? idx - 1 : idx + 1; if (si < 0 || si >= grp.length) return; [grp[idx], grp[si]] = [grp[si], grp[idx]]; const upd: any = {}; grp.forEach((m: any, i: number) => { upd[m.id] = i; }); sOm(prev => prev.map((m: any) => upd[m.id] !== undefined ? { ...m, so: upd[m.id] } : m)); for (const m of grp) { await supabase.from("org_members").update({ sort_order: upd[m.id] }).eq("id", m.id); } }}
             onReorderUser={async (uid: string, dir: string, dId: number) => { const grp = users.filter((u: any) => u.dId === dId).sort((a: any, b: any) => (a.so || 0) - (b.so || 0)); const idx = grp.findIndex((u: any) => u.id === uid); const si = dir === "up" ? idx - 1 : idx + 1; if (si < 0 || si >= grp.length) return; [grp[idx], grp[si]] = [grp[si], grp[idx]]; const upd: any = {}; grp.forEach((u: any, i: number) => { upd[u.id] = i; }); sUs(prev => prev.map((u: any) => upd[u.id] !== undefined ? { ...u, so: upd[u.id] } : u)); for (const u of grp) { await supabase.from("profiles").update({ sort_order: upd[u.id] }).eq("id", u.id); } }}
           />}

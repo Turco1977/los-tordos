@@ -211,6 +211,82 @@ export const VIAJE_MOTIVOS=[
   {k:"gira",l:"Gira",i:"🌍"},
 ] as const;
 
+/* ── Torneos Institucionales ── */
+export const TN_ST: Record<string,{l:string;c:string;bg:string;i:string}>={
+  planificacion:{l:"Planificación",c:"#6B7280",bg:"#F3F4F6",i:"📋"},
+  inscripcion:{l:"Inscripción",c:"#3B82F6",bg:"#DBEAFE",i:"✍️"},
+  enmarcha:{l:"En Marcha",c:"#F59E0B",bg:"#FEF3C7",i:"🏟️"},
+  finalizado:{l:"Finalizado",c:"#10B981",bg:"#D1FAE5",i:"🏆"},
+};
+
+export const TN_HITOS_TEMPLATE=[
+  {code:"D-120",desc:"Definición fecha, categoría y formato deportivo",resp:"Resp. Torneo"},
+  {code:"D-90",desc:"Presupuesto base aprobado por SE",resp:"Resp. Torneo + SE"},
+  {code:"D-90b",desc:"Invitaciones oficiales enviadas a clubes",resp:"Resp. Torneo + Coord. Adm."},
+  {code:"D-75",desc:"Sponsor principal confirmado",resp:"Sponsoreo"},
+  {code:"D-60",desc:"Confirmación de clubes participantes (corte)",resp:"Resp. Torneo"},
+  {code:"D-60b",desc:"Reglamento del torneo redactado y aprobado",resp:"Resp. Torneo + URC"},
+  {code:"D-45",desc:"Fixture armado y comunicado a clubes",resp:"Resp. Torneo"},
+  {code:"D-45b",desc:"Alojamiento confirmado",resp:"Hospitalidad"},
+  {code:"D-30",desc:"Validación operativa completa (reunión con SE)",resp:"Resp. Torneo + Tesorería"},
+  {code:"D-30b",desc:"Carpeta del torneo enviada a clubes",resp:"Resp. Torneo"},
+  {code:"D-21",desc:"Coordinadores por delegación asignados",resp:"Resp. Torneo"},
+  {code:"D-15",desc:"Plan de comunicación y cobertura activado",resp:"Comunicación"},
+  {code:"D-7",desc:"Checklist final completo",resp:"Resp. Torneo"},
+  {code:"D-1",desc:"Arribo delegaciones y acreditaciones",resp:"Hospitalidad"},
+  {code:"D0",desc:"Ejecución del torneo",resp:"Director del Torneo"},
+  {code:"D+15",desc:"Informe económico + organizativo a SE",resp:"Resp. Torneo"},
+  {code:"D+30",desc:"Actualización del PRD con lecciones aprendidas",resp:"Resp. Torneo"},
+];
+
+export const TN_CHECKLIST=[
+  {title:"Área deportiva",emoji:"🏉",items:[
+    "Fixture definitivo publicado y enviado a clubes",
+    "Reglamento aprobado y distribuido",
+    "Lista de 30 jugadores por equipo recibida",
+    "Canchas demarcadas y en condiciones (3 mínimo)",
+    "Pelotas oficiales (mínimo 3 por cancha + reserva)",
+    "Banderines de corner y postes verificados",
+    "Botiquines completos por cancha",
+    "Ambulancia contratada y confirmada",
+    "Protocolo de premiación definido (copas, placas, premios)",
+    "Árbitros confirmados con cronograma de partidos",
+    "Mesa de control preparada (planillas, cronómetros, tarjetas)",
+  ]},
+  {title:"Hospitalidad y logística",emoji:"🏨",items:[
+    "Alojamiento confirmado para todas las delegaciones",
+    "Menú y turnos de comidas coordinados",
+    "Hidratación por equipo asegurada (2 fardos agua/día + hielo)",
+    "Vestuarios asignados con horarios de ingreso/egreso",
+    "Transporte delegaciones coordinado",
+    "Coordinador por delegación asignado y comunicado",
+    "Estacionamiento organizado y señalizado",
+    "Cena de camaradería coordinada",
+    "Tercer tiempo final organizado",
+  ]},
+  {title:"Comunicación y sponsoreo",emoji:"📣",items:[
+    "Cartelería y señalética del torneo lista",
+    "Sponsors activados (banners, stands, presencia)",
+    "Equipo audiovisual coordinado (fotos, video, streaming)",
+    "Plan de redes sociales activo",
+    "Merchandising y remeras del torneo listas",
+    "Presentes institucionales para clubes preparados",
+  ]},
+  {title:"Institucional",emoji:"🏛️",items:[
+    "Invitaciones a autoridades enviadas (URC, Municipalidad)",
+    "Video homenaje / proyección institucional preparada",
+    "Placa conmemorativa anual lista",
+    "Carpeta del torneo impresa/enviada digitalmente",
+    "Voluntarios M14-M19 convocados y con roles asignados",
+  ]},
+];
+
+export const TN_BUDGET_RUBROS=[
+  "Alojamiento","Alimentación","Canchas y materiales","Arbitraje",
+  "Médico / ambulancia","Comunicación y branding","Premiación",
+  "Eventos sociales","Logística","Merchandising","Imprevistos (10%)",
+];
+
 /* ── Fichas de Puesto por Departamento ── */
 export const DEPT_DESC:Record<number,{titulo:string;proposito:string;responsable:string;estructura:{area:string;items:string[]}[];funciones:string[];kpis:string[];relaciones:{area:string;desc:string}[];obligaciones:string[]}>={
   1:{
