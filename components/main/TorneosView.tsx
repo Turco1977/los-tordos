@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { useC } from "@/lib/theme-context";
 import { useDataStore } from "@/lib/store";
 import { TN_ST, TN_HITOS_TEMPLATE, TN_CHECKLIST, TN_BUDGET_RUBROS, PST, PSC, ST, SC, MONEDAS, fn } from "@/lib/constants";
@@ -77,6 +77,13 @@ export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHi
   const [presuForm, sPresuForm] = useState<any | null>(null);
   const [provSearch, sProvSearch] = useState("");
   const [commForm, sCommForm] = useState<any | null>(null);
+  const [budgetLocal, sBudgetLocal] = useState<any[] | null>(null);
+  const budDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveBudget = useCallback((id: number, nb: any[]) => {
+    sBudgetLocal(nb);
+    if (budDebounce.current) clearTimeout(budDebounce.current);
+    budDebounce.current = setTimeout(() => { onUpd(id, { budget: nb }); }, 600);
+  }, [onUpd]);
 
   const sel = useMemo(() => torneos.find((t: any) => t.id === selId), [torneos, selId]);
   const hitos = useMemo(() => torneoHitos.filter((h: any) => h.torneo_id === selId).sort((a: any, b: any) => {
@@ -122,7 +129,7 @@ export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHi
           const tc = torneoClubes.filter((c: any) => c.torneo_id === t.id);
           const conf = tc.filter((c: any) => c.status === "confirmado").length;
           const pct = th.length ? Math.round(done / th.length * 100) : 0;
-          return (<Card key={t.id} style={{ cursor: "pointer", padding: mob ? 16 : 14 }} onClick={() => { sSelId(t.id); sTab("resumen"); sMode("detail"); }}>
+          return (<Card key={t.id} style={{ cursor: "pointer", padding: mob ? 16 : 14 }} onClick={() => { sSelId(t.id); sTab("resumen"); sMode("detail"); sBudgetLocal(null); }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
               <div><div style={{ fontSize: mob ? 15 : 14, fontWeight: 700, color: colors.nv }}>{t.name}</div>
                 {t.category && <div style={{ fontSize: 11, color: colors.g4, marginTop: 2 }}>{t.category}</div>}</div>
@@ -210,7 +217,7 @@ export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHi
   };
 
   // Budget (JSON planning estimates)
-  const budget: any[] = Array.isArray(sel.budget) ? sel.budget : [];
+  const budget: any[] = budgetLocal ?? (Array.isArray(sel.budget) ? sel.budget : []);
   const budgetTotal = budget.reduce((s: number, r: any) => s + Number(r.estimado || 0), 0);
   const budgetReal = budget.reduce((s: number, r: any) => s + Number(r.real || 0), 0);
 
@@ -517,24 +524,24 @@ export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHi
                     </div>
                   </td>}
                   <td style={{ padding: "6px 8px", fontWeight: 600, color: colors.nv }}>{budEdit
-                    ? <input value={r.rubro || ""} onChange={e => { const nb = [...budget]; nb[i] = { ...nb[i], rubro: e.target.value }; onUpd(sel.id, { budget: nb }); }} style={{ ...iS, padding: "4px 6px", fontWeight: 600 }} />
+                    ? <input value={r.rubro || ""} onChange={e => { const nb = [...budget]; nb[i] = { ...nb[i], rubro: e.target.value }; saveBudget(sel.id, nb); }} style={{ ...iS, padding: "4px 6px", fontWeight: 600 }} />
                     : r.rubro}</td>
                   <td style={{ padding: "4px 4px", textAlign: "right" }}>
                     <input type="number" value={r.estimado || ""} placeholder="0" onChange={e => {
                       const nb = [...budget]; nb[i] = { ...nb[i], estimado: Number(e.target.value) || 0 };
-                      onUpd(sel.id, { budget: nb });
+                      saveBudget(sel.id, nb);
                     }} style={{ ...iS, width: 90, textAlign: "right", padding: "4px 6px" }} />
                   </td>
                   <td style={{ padding: "4px 4px", textAlign: "right" }}>
                     <input type="number" value={r.real || ""} placeholder="0" onChange={e => {
                       const nb = [...budget]; nb[i] = { ...nb[i], real: Number(e.target.value) || 0 };
-                      onUpd(sel.id, { budget: nb });
+                      saveBudget(sel.id, nb);
                     }} style={{ ...iS, width: 90, textAlign: "right", padding: "4px 6px" }} />
                   </td>
                   <td style={{ padding: "4px 4px" }}>
                     <input value={r.notas || ""} onChange={e => {
                       const nb = [...budget]; nb[i] = { ...nb[i], notas: e.target.value };
-                      onUpd(sel.id, { budget: nb });
+                      saveBudget(sel.id, nb);
                     }} style={{ ...iS, padding: "4px 6px" }} />
                   </td>
                   {budEdit && <td style={{ padding: "4px 2px" }}><button onClick={async () => { const nb = budget.filter((_: any, ii: number) => ii !== i); await onUpd(sel.id, { budget: nb }); }} style={{ background: "#FEE2E2", border: "1px solid #DC262640", borderRadius: 4, cursor: "pointer", fontSize: 10, padding: "1px 5px", color: "#DC2626" }}>✕</button></td>}
