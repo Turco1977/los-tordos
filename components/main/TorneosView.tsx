@@ -2,8 +2,8 @@
 import { useState, useMemo } from "react";
 import { useC } from "@/lib/theme-context";
 import { useDataStore } from "@/lib/store";
-import { TN_ST, TN_HITOS_TEMPLATE, TN_CHECKLIST, TN_BUDGET_RUBROS, PST, PSC, ST, SC, fn } from "@/lib/constants";
-import { Btn, Card } from "@/components/ui";
+import { TN_ST, TN_HITOS_TEMPLATE, TN_CHECKLIST, TN_BUDGET_RUBROS, PST, PSC, ST, SC, MONEDAS, fn } from "@/lib/constants";
+import { Btn, Card, PBadge, FileField } from "@/components/ui";
 
 const TODAY = new Date().toISOString().slice(0, 10);
 
@@ -61,6 +61,7 @@ export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHi
   const users = useDataStore(s => s.users);
   const presu = useDataStore(s => s.presu);
   const peds = useDataStore(s => s.peds);
+  const provs = useDataStore(s => s.provs);
 
   const [mode, sMode] = useState<"list" | "form" | "detail">("list");
   const [selId, sSelId] = useState<number | null>(null);
@@ -74,6 +75,7 @@ export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHi
   const [budEdit, sBudEdit] = useState(false);
   const [newRubro, sNewRubro] = useState("");
   const [presuForm, sPresuForm] = useState<any | null>(null);
+  const [provSearch, sProvSearch] = useState("");
   const [commForm, sCommForm] = useState<any | null>(null);
 
   const sel = useMemo(() => torneos.find((t: any) => t.id === selId), [torneos, selId]);
@@ -436,61 +438,51 @@ export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHi
 
     {/* ── TAB: PRESUPUESTO ── */}
     {tab === "presupuesto" && <div>
-      {/* Stats badges */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 8, background: "#FEF3C7", fontSize: 11, fontWeight: 700, color: "#B45309" }}>📤 Pendientes: {presuSol.length} (${presuSol.reduce((s: number, p: any) => s + Number(p.monto || 0), 0).toLocaleString()})</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 8, background: "#D1FAE5", fontSize: 11, fontWeight: 700, color: "#065F46" }}>✅ Aprobados: {presuApr.length} (${presuTotalApr.toLocaleString()})</div>
-        {presuRech.length > 0 && <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 8, background: "#FEE2E2", fontSize: 11, fontWeight: 700, color: "#991B1B" }}>❌ Rechazados: {presuRech.length}</div>}
+      {/* Summary badges — same as PresView */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+        {Object.keys(PSC).map(k => { const cnt = torneoPresu.filter((pr: any) => pr.status === k).length; return <span key={k} style={{ padding: "3px 10px", borderRadius: 14, background: cardBg, border: "1px solid " + colors.g3, fontSize: 10, fontWeight: 600, color: PSC[k].c }}>{PSC[k].i} {cnt}</span>; })}
       </div>
 
-      {/* Real presupuestos list */}
-      <Card style={{ padding: mob ? 14 : 18, marginBottom: 14 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: colors.nv }}>💰 Presupuestos reales</div>
-          <Btn v="p" s="s" onClick={() => sPresuForm({ proveedor_nombre: "", descripcion: "", monto: "", moneda: "ARS", notas: "" })}>+ Nuevo Presupuesto</Btn>
+      {/* Header + button — same v="pu" as PresView */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: colors.nv }}>💰 Presupuestos</div>
+        <Btn v="pu" s="s" onClick={() => { sPresuForm({ prov_id: "", prov_nombre: "", prov_contacto: "", descripcion: "", monto: "", moneda: "ARS", archivo_url: "", notas: "" }); sProvSearch(""); }}>+ Nuevo Presupuesto</Btn>
+      </div>
+
+      {/* Form — replicates PresView form exactly */}
+      {presuForm && <Card style={{ marginBottom: 14, background: "#F5F3FF", border: "1px solid " + colors.pr + "33" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}><div style={{ fontSize: 12, fontWeight: 700, color: colors.pr }}>➕ Nuevo presupuesto</div><button onClick={() => sPresuForm(null)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: colors.g4 }}>✕</button></div>
+        <div style={{ marginBottom: 8 }}><label style={{ fontSize: 10, fontWeight: 600, color: colors.g5 }}>Proveedor *</label>
+          <input value={provSearch} onChange={e => { sProvSearch(e.target.value); sPresuForm({ ...presuForm, prov_nombre: e.target.value, prov_id: "" }); }} placeholder="Buscar o escribir proveedor..." style={{ width: "100%", padding: 7, borderRadius: 7, border: "1px solid " + colors.g3, fontSize: 12, boxSizing: "border-box" as const, marginTop: 2 }} />
+          {provSearch && provs.filter((pv: any) => pv.nombre.toLowerCase().includes(provSearch.toLowerCase())).length > 0 && <div style={{ border: "1px solid " + colors.g3, borderRadius: 8, marginTop: 2, maxHeight: 100, overflowY: "auto" as const, background: cardBg }}>
+            {provs.filter((pv: any) => pv.nombre.toLowerCase().includes(provSearch.toLowerCase())).map((pv: any) => <div key={pv.id} onClick={() => { sPresuForm({ ...presuForm, prov_id: String(pv.id), prov_nombre: pv.nombre, prov_contacto: pv.contacto || pv.telefono || pv.email }); sProvSearch(pv.nombre); }} style={{ padding: "6px 10px", fontSize: 11, cursor: "pointer", borderBottom: "1px solid " + colors.g1 }}>{pv.nombre} <span style={{ color: colors.g4 }}>({pv.rubro})</span></div>)}
+          </div>}
         </div>
+        <div style={{ marginBottom: 8 }}><label style={{ fontSize: 10, fontWeight: 600, color: colors.g5 }}>Contacto proveedor</label><input value={presuForm.prov_contacto || ""} onChange={e => sPresuForm({ ...presuForm, prov_contacto: e.target.value })} style={{ width: "100%", padding: 7, borderRadius: 7, border: "1px solid " + colors.g3, fontSize: 12, boxSizing: "border-box" as const, marginTop: 2 }} /></div>
+        <div style={{ marginBottom: 8 }}><label style={{ fontSize: 10, fontWeight: 600, color: colors.g5 }}>Descripción</label><textarea value={presuForm.descripcion || ""} onChange={e => sPresuForm({ ...presuForm, descripcion: e.target.value })} rows={2} style={{ width: "100%", padding: 7, borderRadius: 7, border: "1px solid " + colors.g3, fontSize: 12, resize: "vertical" as const, boxSizing: "border-box" as const, marginTop: 2 }} /></div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 80px", gap: 8, marginBottom: 8 }}>
+          <div><label style={{ fontSize: 10, fontWeight: 600, color: colors.g5 }}>Monto ($) *</label><input type="number" value={presuForm.monto || ""} onChange={e => sPresuForm({ ...presuForm, monto: e.target.value })} style={{ width: "100%", padding: 7, borderRadius: 7, border: "1px solid " + colors.g3, fontSize: 12, boxSizing: "border-box" as const, marginTop: 2 }} /></div>
+          <div><label style={{ fontSize: 10, fontWeight: 600, color: colors.g5 }}>Moneda</label><select value={presuForm.moneda || "ARS"} onChange={e => sPresuForm({ ...presuForm, moneda: e.target.value })} style={{ width: "100%", padding: 7, borderRadius: 7, border: "1px solid " + colors.g3, fontSize: 12, marginTop: 2 }}>{MONEDAS.map(m => <option key={m} value={m}>{m}</option>)}</select></div>
+        </div>
+        <div style={{ marginBottom: 8 }}><FileField value={presuForm.archivo_url || ""} onChange={(url: string) => sPresuForm({ ...presuForm, archivo_url: url })} folder="presupuestos" /></div>
+        <div style={{ marginBottom: 8 }}><label style={{ fontSize: 10, fontWeight: 600, color: colors.g5 }}>Notas</label><input value={presuForm.notas || ""} onChange={e => sPresuForm({ ...presuForm, notas: e.target.value })} style={{ width: "100%", padding: 7, borderRadius: 7, border: "1px solid " + colors.g3, fontSize: 12, boxSizing: "border-box" as const, marginTop: 2 }} /></div>
+        <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}><Btn v="g" s="s" onClick={() => sPresuForm(null)}>Cancelar</Btn><Btn v="pu" s="s" disabled={!presuForm.prov_nombre || !presuForm.monto} onClick={async () => {
+          await onAddPresu({ proveedor_id: presuForm.prov_id ? Number(presuForm.prov_id) : null, proveedor_nombre: presuForm.prov_nombre, proveedor_contacto: presuForm.prov_contacto || "", descripcion: presuForm.descripcion || "", monto: Number(presuForm.monto), moneda: presuForm.moneda || "ARS", archivo_url: presuForm.archivo_url || "", notas: presuForm.notas || "", torneo_id: sel.id, status: PST.SOL, solicitado_por: fn(user), solicitado_at: TODAY });
+          sPresuForm(null); sProvSearch("");
+        }}>💰 Cargar presupuesto</Btn></div>
+      </Card>}
 
-        {/* Inline form */}
-        {presuForm && <Card style={{ padding: mob ? 14 : 16, marginBottom: 12, border: "2px solid " + colors.nv + "30" }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: colors.nv, marginBottom: 8 }}>Nuevo presupuesto para {sel.name}</div>
-          <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 8 }}>
-            <div><label style={lbl}>Proveedor *</label><input style={iS} value={presuForm.proveedor_nombre || ""} onChange={e => sPresuForm({ ...presuForm, proveedor_nombre: e.target.value })} placeholder="Nombre del proveedor" /></div>
-            <div><label style={lbl}>Descripción *</label><input style={iS} value={presuForm.descripcion || ""} onChange={e => sPresuForm({ ...presuForm, descripcion: e.target.value })} placeholder="Qué se presupuesta" /></div>
-            <div><label style={lbl}>Monto *</label><input type="number" style={iS} value={presuForm.monto || ""} onChange={e => sPresuForm({ ...presuForm, monto: e.target.value })} placeholder="0" /></div>
-            <div><label style={lbl}>Moneda</label><select style={iS} value={presuForm.moneda || "ARS"} onChange={e => sPresuForm({ ...presuForm, moneda: e.target.value })}><option value="ARS">ARS</option><option value="USD">USD</option></select></div>
+      {/* List — same Card+borderLeft+PBadge layout as PresView */}
+      {torneoPresu.length === 0 && !presuForm && <Card style={{ textAlign: "center" as const, padding: 24, color: colors.g4 }}><span style={{ fontSize: 24 }}>📭</span><div style={{ marginTop: 6, fontSize: 12 }}>Sin presupuestos para este torneo</div></Card>}
+      {torneoPresu.map((pr: any) => (
+        <Card key={pr.id} style={{ padding: "10px 14px", marginBottom: 6, borderLeft: "3px solid " + (PSC[pr.status]?.c || colors.g3) }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
+            <div><div style={{ fontSize: 12, fontWeight: 700, color: colors.nv }}>{pr.proveedor_nombre || "Sin proveedor"}</div><div style={{ fontSize: 10, color: colors.g4 }}>{pr.descripcion}</div></div>
+            <div style={{ textAlign: "right" as const }}><div style={{ fontSize: 14, fontWeight: 800, color: pr.status === PST.APR ? colors.gn : colors.nv }}>${Number(pr.monto).toLocaleString()}</div><PBadge s={pr.status} sm /></div>
           </div>
-          <div style={{ marginTop: 8 }}><label style={lbl}>Notas</label><input style={iS} value={presuForm.notas || ""} onChange={e => sPresuForm({ ...presuForm, notas: e.target.value })} placeholder="Notas adicionales" /></div>
-          <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
-            <Btn v="p" s="s" onClick={async () => {
-              if (!presuForm.proveedor_nombre?.trim() || !presuForm.monto) return;
-              await onAddPresu({ ...presuForm, monto: Number(presuForm.monto), torneo_id: sel.id, status: PST.SOL, solicitado_por: fn(user), solicitado_at: TODAY });
-              sPresuForm(null);
-            }}>Solicitar</Btn>
-            <Btn v="g" s="s" onClick={() => sPresuForm(null)}>Cancelar</Btn>
-          </div>
-        </Card>}
-
-        {torneoPresu.length === 0 && !presuForm && <div style={{ fontSize: 12, color: colors.g4, textAlign: "center", padding: 20 }}>No hay presupuestos vinculados a este torneo. Creá uno para iniciar el flujo de aprobación.</div>}
-        {torneoPresu.length > 0 && <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {torneoPresu.map((p: any) => {
-            const ps = PSC[p.status] || PSC[PST.SOL];
-            return (<div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", borderRadius: 8, border: "1px solid " + colors.g2, background: cardBg }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: colors.nv }}>{p.proveedor_nombre}</div>
-                <div style={{ fontSize: 11, color: colors.g5, marginTop: 1 }}>{p.descripcion}</div>
-                {p.notas && <div style={{ fontSize: 10, color: colors.g4, marginTop: 1 }}>{p.notas}</div>}
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: colors.nv }}>${Number(p.monto || 0).toLocaleString()}</div>
-                  <div style={{ fontSize: 9, color: colors.g4 }}>{p.moneda}</div>
-                </div>
-                <span style={{ fontSize: 9, fontWeight: 700, color: ps.c, background: ps.bg, padding: "2px 8px", borderRadius: 8, whiteSpace: "nowrap" }}>{ps.i} {ps.l}</span>
-              </div>
-            </div>);
-          })}
-        </div>}
-      </Card>
+          <div style={{ display: "flex", gap: 8, marginTop: 4, fontSize: 10, color: colors.g5 }}>{pr.solicitado_at && <span>📤 {fmtDate(pr.solicitado_at)}</span>}{pr.archivo_url && <span style={{ color: colors.bl }}>📎</span>}{pr.moneda !== "ARS" && <span>{pr.moneda}</span>}</div>
+        </Card>
+      ))}
 
       {/* Budget planning (JSON estimates) */}
       <Card style={{ padding: mob ? 14 : 18 }}>
