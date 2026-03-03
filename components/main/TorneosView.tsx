@@ -83,6 +83,22 @@ export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHi
   }), [torneoHitos, selId]);
   const clubes = useMemo(() => torneoClubes.filter((c: any) => c.torneo_id === selId), [torneoClubes, selId]);
 
+  // Hooks that MUST be before early returns (Rules of Hooks)
+  const clSections: { title: string; emoji: string; items: { text: string; done: boolean }[] }[] = useMemo(() => {
+    const raw = sel?.checklist;
+    if (!raw) return [];
+    if (Array.isArray(raw?.sections)) return raw.sections;
+    if (typeof raw === "object" && !raw.sections) {
+      return TN_CHECKLIST.map((sec, si) => ({
+        title: sec.title, emoji: sec.emoji,
+        items: sec.items.map((text, ii) => ({ text, done: !!raw[si + "-" + ii] })),
+      }));
+    }
+    return [];
+  }, [sel?.checklist]);
+  const torneoPresu = useMemo(() => presu.filter((p: any) => p.torneo_id === selId), [presu, selId]);
+  const torneoComm = useMemo(() => peds.filter((p: any) => p.torneo_id === selId && p.tipo === "Comunicación"), [peds, selId]);
+
   const iS: React.CSSProperties = { width: "100%", padding: mob ? "10px 12px" : "8px 10px", borderRadius: 8, border: "1px solid " + colors.g3, background: cardBg, color: colors.nv, fontSize: mob ? 14 : 12 };
   const lbl: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: colors.g5, marginBottom: 3, display: "block" };
 
@@ -183,21 +199,6 @@ export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHi
   const hitosPct = hitos.length ? Math.round(hitosDone / hitos.length * 100) : 0;
   const clubConf = clubes.filter((c: any) => c.status === "confirmado").length;
 
-  // Checklist — new format: { sections: [{ title, emoji, items: [{ text, done }] }] }
-  // Migration from old flat format {"0-0": true, ...} to new structured format
-  const clSections: { title: string; emoji: string; items: { text: string; done: boolean }[] }[] = useMemo(() => {
-    const raw = sel.checklist;
-    if (!raw) return [];
-    if (Array.isArray(raw?.sections)) return raw.sections;
-    // old format — flat keys: migrate using TN_CHECKLIST template
-    if (typeof raw === "object" && !raw.sections) {
-      return TN_CHECKLIST.map((sec, si) => ({
-        title: sec.title, emoji: sec.emoji,
-        items: sec.items.map((text, ii) => ({ text, done: !!raw[si + "-" + ii] })),
-      }));
-    }
-    return [];
-  }, [sel.checklist]);
   const totalCheckItems = clSections.reduce((s, sec) => s + sec.items.length, 0);
   const checkedItems = clSections.reduce((s, sec) => s + sec.items.filter(i => i.done).length, 0);
   const checkPct = totalCheckItems ? Math.round(checkedItems / totalCheckItems * 100) : 0;
@@ -211,16 +212,11 @@ export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHi
   const budgetTotal = budget.reduce((s: number, r: any) => s + Number(r.estimado || 0), 0);
   const budgetReal = budget.reduce((s: number, r: any) => s + Number(r.real || 0), 0);
 
-  // Real presupuestos linked to this torneo
-  const torneoPresu = useMemo(() => presu.filter((p: any) => p.torneo_id === selId), [presu, selId]);
   const presuSol = torneoPresu.filter((p: any) => p.status === PST.SOL || p.status === PST.REC);
   const presuApr = torneoPresu.filter((p: any) => p.status === PST.APR);
   const presuRech = torneoPresu.filter((p: any) => p.status === PST.RECH);
   const presuTotalSol = torneoPresu.reduce((s: number, p: any) => s + Number(p.monto || 0), 0);
   const presuTotalApr = presuApr.reduce((s: number, p: any) => s + Number(p.monto || 0), 0);
-
-  // Communication tasks linked to this torneo
-  const torneoComm = useMemo(() => peds.filter((p: any) => p.torneo_id === selId && p.tipo === "Comunicación"), [peds, selId]);
 
   const tabs = [
     { k: "resumen", l: "Resumen", i: "📊" },
