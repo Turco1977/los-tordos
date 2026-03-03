@@ -2,8 +2,10 @@
 import { useState, useMemo } from "react";
 import { useC } from "@/lib/theme-context";
 import { useDataStore } from "@/lib/store";
-import { TN_ST, TN_HITOS_TEMPLATE, TN_CHECKLIST, TN_BUDGET_RUBROS, fn } from "@/lib/constants";
+import { TN_ST, TN_HITOS_TEMPLATE, TN_CHECKLIST, TN_BUDGET_RUBROS, PST, PSC, ST, SC, fn } from "@/lib/constants";
 import { Btn, Card } from "@/components/ui";
+
+const TODAY = new Date().toISOString().slice(0, 10);
 
 /* ── helpers ── */
 const codeDays = (c: string): number => {
@@ -47,20 +49,32 @@ interface Props {
   onAddClub: (d: any) => Promise<void>;
   onUpdClub: (id: number, d: any) => Promise<void>;
   onDelClub: (id: number) => Promise<void>;
+  onAddPresu: (d: any) => Promise<void>;
+  onAddComm: (d: any) => Promise<void>;
 }
 
-export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHito, onAddClub, onUpdClub, onDelClub }: Props) {
+export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHito, onAddClub, onUpdClub, onDelClub, onAddPresu, onAddComm }: Props) {
   const { colors, isDark, cardBg } = useC();
   const torneos = useDataStore(s => s.torneos);
   const torneoHitos = useDataStore(s => s.torneoHitos);
   const torneoClubes = useDataStore(s => s.torneoClubes);
   const users = useDataStore(s => s.users);
+  const presu = useDataStore(s => s.presu);
+  const peds = useDataStore(s => s.peds);
 
   const [mode, sMode] = useState<"list" | "form" | "detail">("list");
   const [selId, sSelId] = useState<number | null>(null);
   const [tab, sTab] = useState("resumen");
   const [form, sForm] = useState<any>({});
   const [clubForm, sClubForm] = useState<any | null>(null);
+  const [clEdit, sClEdit] = useState(false);
+  const [newSec, sNewSec] = useState<{ title: string; emoji: string } | null>(null);
+  const [newItemIdx, sNewItemIdx] = useState<number | null>(null);
+  const [newItemText, sNewItemText] = useState("");
+  const [budEdit, sBudEdit] = useState(false);
+  const [newRubro, sNewRubro] = useState("");
+  const [presuForm, sPresuForm] = useState<any | null>(null);
+  const [commForm, sCommForm] = useState<any | null>(null);
 
   const sel = useMemo(() => torneos.find((t: any) => t.id === selId), [torneos, selId]);
   const hitos = useMemo(() => torneoHitos.filter((h: any) => h.torneo_id === selId).sort((a: any, b: any) => {
@@ -169,16 +183,44 @@ export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHi
   const hitosPct = hitos.length ? Math.round(hitosDone / hitos.length * 100) : 0;
   const clubConf = clubes.filter((c: any) => c.status === "confirmado").length;
 
-  // Checklist stats
-  const checklist: Record<string, boolean> = sel.checklist || {};
-  const totalCheckItems = TN_CHECKLIST.reduce((s, sec) => s + sec.items.length, 0);
-  const checkedItems = Object.values(checklist).filter(Boolean).length;
+  // Checklist — new format: { sections: [{ title, emoji, items: [{ text, done }] }] }
+  // Migration from old flat format {"0-0": true, ...} to new structured format
+  const clSections: { title: string; emoji: string; items: { text: string; done: boolean }[] }[] = useMemo(() => {
+    const raw = sel.checklist;
+    if (!raw) return [];
+    if (Array.isArray(raw?.sections)) return raw.sections;
+    // old format — flat keys: migrate using TN_CHECKLIST template
+    if (typeof raw === "object" && !raw.sections) {
+      return TN_CHECKLIST.map((sec, si) => ({
+        title: sec.title, emoji: sec.emoji,
+        items: sec.items.map((text, ii) => ({ text, done: !!raw[si + "-" + ii] })),
+      }));
+    }
+    return [];
+  }, [sel.checklist]);
+  const totalCheckItems = clSections.reduce((s, sec) => s + sec.items.length, 0);
+  const checkedItems = clSections.reduce((s, sec) => s + sec.items.filter(i => i.done).length, 0);
   const checkPct = totalCheckItems ? Math.round(checkedItems / totalCheckItems * 100) : 0;
 
-  // Budget
+  const saveChecklist = async (sections: typeof clSections) => {
+    await onUpd(sel.id, { checklist: { sections } });
+  };
+
+  // Budget (JSON planning estimates)
   const budget: any[] = Array.isArray(sel.budget) ? sel.budget : [];
   const budgetTotal = budget.reduce((s: number, r: any) => s + Number(r.estimado || 0), 0);
   const budgetReal = budget.reduce((s: number, r: any) => s + Number(r.real || 0), 0);
+
+  // Real presupuestos linked to this torneo
+  const torneoPresu = useMemo(() => presu.filter((p: any) => p.torneo_id === selId), [presu, selId]);
+  const presuSol = torneoPresu.filter((p: any) => p.status === PST.SOL || p.status === PST.REC);
+  const presuApr = torneoPresu.filter((p: any) => p.status === PST.APR);
+  const presuRech = torneoPresu.filter((p: any) => p.status === PST.RECH);
+  const presuTotalSol = torneoPresu.reduce((s: number, p: any) => s + Number(p.monto || 0), 0);
+  const presuTotalApr = presuApr.reduce((s: number, p: any) => s + Number(p.monto || 0), 0);
+
+  // Communication tasks linked to this torneo
+  const torneoComm = useMemo(() => peds.filter((p: any) => p.torneo_id === selId && p.tipo === "Comunicación"), [peds, selId]);
 
   const tabs = [
     { k: "resumen", l: "Resumen", i: "📊" },
@@ -186,6 +228,7 @@ export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHi
     { k: "clubes", l: "Clubes", i: "🏉" },
     { k: "checklist", l: "Checklist D-7", i: "✅" },
     { k: "presupuesto", l: "Presupuesto", i: "💰" },
+    { k: "comunicacion", l: "Comunicación", i: "📣" },
   ];
 
   return (<div>
@@ -220,7 +263,7 @@ export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHi
       <Card style={{ padding: 14, textAlign: "center" }}><div style={{ fontSize: 22, fontWeight: 800, color: colors.nv }}>{hitosPct}%</div><div style={{ fontSize: 10, color: colors.g4 }}>Timeline ({hitosDone}/{hitos.length})</div><div style={{ marginTop: 6, height: 4, background: colors.g2, borderRadius: 2, overflow: "hidden" }}><div style={{ height: "100%", width: hitosPct + "%", background: "#10B981", borderRadius: 2 }} /></div></Card>
       <Card style={{ padding: 14, textAlign: "center" }}><div style={{ fontSize: 22, fontWeight: 800, color: colors.nv }}>{clubConf}/{clubes.length}</div><div style={{ fontSize: 10, color: colors.g4 }}>Clubes confirmados</div></Card>
       <Card style={{ padding: 14, textAlign: "center" }}><div style={{ fontSize: 22, fontWeight: 800, color: colors.nv }}>{checkPct}%</div><div style={{ fontSize: 10, color: colors.g4 }}>Checklist D-7 ({checkedItems}/{totalCheckItems})</div><div style={{ marginTop: 6, height: 4, background: colors.g2, borderRadius: 2, overflow: "hidden" }}><div style={{ height: "100%", width: checkPct + "%", background: "#3B82F6", borderRadius: 2 }} /></div></Card>
-      <Card style={{ padding: 14, textAlign: "center" }}><div style={{ fontSize: 22, fontWeight: 800, color: colors.nv }}>${budgetTotal.toLocaleString()}</div><div style={{ fontSize: 10, color: colors.g4 }}>Presupuesto estimado</div></Card>
+      <Card style={{ padding: 14, textAlign: "center" }}><div style={{ fontSize: 22, fontWeight: 800, color: colors.nv }}>${presuTotalApr.toLocaleString()}</div><div style={{ fontSize: 10, color: colors.g4 }}>Aprobado ({presuApr.length})</div>{presuSol.length > 0 && <div style={{ fontSize: 10, color: "#F59E0B", marginTop: 2 }}>${presuTotalSol.toLocaleString()} solicitado</div>}</Card>
     </div>}
 
     {/* ── TAB: TIMELINE ── */}
@@ -315,86 +358,287 @@ export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHi
     {/* ── TAB: CHECKLIST D-7 ── */}
     {tab === "checklist" && <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: colors.nv }}>✅ Checklist D-7</div>
-        <div style={{ fontSize: 11, color: colors.g4 }}>{checkedItems}/{totalCheckItems} ({checkPct}%)</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: colors.nv }}>✅ Checklist D-7</div>
+          <span style={{ fontSize: 11, color: colors.g4 }}>{checkedItems}/{totalCheckItems} ({checkPct}%)</span>
+        </div>
+        <div style={{ display: "flex", gap: 6 }}>
+          {clSections.length === 0 && <Btn v="p" s="s" onClick={async () => {
+            const initial = TN_CHECKLIST.map(sec => ({ title: sec.title, emoji: sec.emoji, items: sec.items.map(t => ({ text: t, done: false })) }));
+            await saveChecklist(initial);
+          }}>Cargar template PRD</Btn>}
+          <Btn v="g" s="s" onClick={() => sClEdit(!clEdit)}>{clEdit ? "Listo" : "Editar"}</Btn>
+        </div>
       </div>
-      <div style={{ marginBottom: 12, height: 6, background: colors.g2, borderRadius: 3, overflow: "hidden" }}><div style={{ height: "100%", width: checkPct + "%", background: "#3B82F6", borderRadius: 3, transition: "width .3s" }} /></div>
-      {TN_CHECKLIST.map((sec, si) => {
-        const secChecked = sec.items.filter((_, ii) => checklist[si + "-" + ii]).length;
+      {clSections.length > 0 && <div style={{ marginBottom: 12, height: 6, background: colors.g2, borderRadius: 3, overflow: "hidden" }}><div style={{ height: "100%", width: checkPct + "%", background: "#3B82F6", borderRadius: 3, transition: "width .3s" }} /></div>}
+      {clSections.length === 0 && <Card style={{ textAlign: "center", padding: 30 }}><div style={{ fontSize: 12, color: colors.g4 }}>Checklist vacío. Cargá el template del PRD o agregá secciones manualmente.</div></Card>}
+
+      {clSections.map((sec, si) => {
+        const secChecked = sec.items.filter(i => i.done).length;
         const secPct = sec.items.length ? Math.round(secChecked / sec.items.length * 100) : 0;
         return (<Card key={si} style={{ padding: mob ? 14 : 16, marginBottom: 10 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: colors.nv }}>{sec.emoji} {sec.title}</div>
-            <span style={{ fontSize: 10, color: colors.g4 }}>{secChecked}/{sec.items.length} ({secPct}%)</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 10, color: colors.g4 }}>{secChecked}/{sec.items.length} ({secPct}%)</span>
+              {clEdit && <>
+                {si > 0 && <button onClick={async () => { const ns = [...clSections]; [ns[si - 1], ns[si]] = [ns[si], ns[si - 1]]; await saveChecklist(ns); }} style={{ background: "none", border: "1px solid " + colors.g3, borderRadius: 4, cursor: "pointer", fontSize: 11, padding: "1px 5px", color: colors.g5 }} title="Subir">▲</button>}
+                {si < clSections.length - 1 && <button onClick={async () => { const ns = [...clSections]; [ns[si], ns[si + 1]] = [ns[si + 1], ns[si]]; await saveChecklist(ns); }} style={{ background: "none", border: "1px solid " + colors.g3, borderRadius: 4, cursor: "pointer", fontSize: 11, padding: "1px 5px", color: colors.g5 }} title="Bajar">▼</button>}
+                <button onClick={async () => { if (confirm("Eliminar sección \"" + sec.title + "\"?")) { const ns = clSections.filter((_, i) => i !== si); await saveChecklist(ns); } }} style={{ background: "#FEE2E2", border: "1px solid #DC262640", borderRadius: 4, cursor: "pointer", fontSize: 10, padding: "1px 5px", color: "#DC2626" }}>✕</button>
+              </>}
+            </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            {sec.items.map((item, ii) => {
-              const key = si + "-" + ii;
-              const checked = !!checklist[key];
-              return (<label key={key} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: checked ? colors.g4 : colors.nv, cursor: "pointer", padding: "3px 0", textDecoration: checked ? "line-through" : "none" }}>
-                <input type="checkbox" checked={checked} onChange={async () => {
-                  const newCL = { ...checklist, [key]: !checked };
-                  await onUpd(sel.id, { checklist: newCL });
+            {sec.items.map((item, ii) => (
+              <div key={ii} style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0" }}>
+                <input type="checkbox" checked={item.done} onChange={async () => {
+                  const ns = clSections.map((s, ssi) => ssi !== si ? s : { ...s, items: s.items.map((it, iii) => iii !== ii ? it : { ...it, done: !it.done }) });
+                  await saveChecklist(ns);
                 }} style={{ accentColor: "#3B82F6", cursor: "pointer" }} />
-                {item}
-              </label>);
-            })}
+                <span style={{ flex: 1, fontSize: 12, color: item.done ? colors.g4 : colors.nv, textDecoration: item.done ? "line-through" : "none" }}>{item.text}</span>
+                {clEdit && <button onClick={async () => { if (confirm("Eliminar item?")) { const ns = clSections.map((s, ssi) => ssi !== si ? s : { ...s, items: s.items.filter((_, iii) => iii !== ii) }); await saveChecklist(ns); } }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 10, color: "#DC2626", padding: "0 2px" }}>✕</button>}
+              </div>
+            ))}
           </div>
+          {/* Add item inline */}
+          {clEdit && newItemIdx === si && <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+            <input style={{ ...iS, flex: 1, padding: "5px 8px" }} placeholder="Nuevo item..." value={newItemText} onChange={e => sNewItemText(e.target.value)} onKeyDown={async e => {
+              if (e.key === "Enter" && newItemText.trim()) {
+                const ns = clSections.map((s, ssi) => ssi !== si ? s : { ...s, items: [...s.items, { text: newItemText.trim(), done: false }] });
+                await saveChecklist(ns); sNewItemText(""); sNewItemIdx(null);
+              }
+            }} autoFocus />
+            <Btn v="p" s="s" onClick={async () => {
+              if (!newItemText.trim()) return;
+              const ns = clSections.map((s, ssi) => ssi !== si ? s : { ...s, items: [...s.items, { text: newItemText.trim(), done: false }] });
+              await saveChecklist(ns); sNewItemText(""); sNewItemIdx(null);
+            }}>+</Btn>
+            <Btn v="g" s="s" onClick={() => { sNewItemIdx(null); sNewItemText(""); }}>✕</Btn>
+          </div>}
+          {clEdit && newItemIdx !== si && <button onClick={() => { sNewItemIdx(si); sNewItemText(""); }} style={{ marginTop: 6, background: "none", border: "1px dashed " + colors.g3, borderRadius: 6, padding: "4px 10px", fontSize: 11, color: colors.g4, cursor: "pointer", width: "100%" }}>+ Agregar item</button>}
         </Card>);
       })}
+
+      {/* Add section form */}
+      {clEdit && !newSec && <button onClick={() => sNewSec({ title: "", emoji: "" })} style={{ background: "none", border: "2px dashed " + colors.g3, borderRadius: 10, padding: "14px 10px", fontSize: 12, color: colors.g4, cursor: "pointer", width: "100%", fontWeight: 600 }}>+ Agregar sección</button>}
+      {clEdit && newSec && <Card style={{ padding: mob ? 14 : 16, marginBottom: 10 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: colors.nv, marginBottom: 8 }}>Nueva sección</div>
+        <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+          <div style={{ width: 60 }}><label style={lbl}>Emoji</label><input style={{ ...iS, textAlign: "center" }} value={newSec.emoji} onChange={e => sNewSec({ ...newSec, emoji: e.target.value })} placeholder="🔧" maxLength={4} /></div>
+          <div style={{ flex: 1 }}><label style={lbl}>Título *</label><input style={iS} value={newSec.title} onChange={e => sNewSec({ ...newSec, title: e.target.value })} placeholder="Nombre de la sección" /></div>
+        </div>
+        <div style={{ display: "flex", gap: 6 }}>
+          <Btn v="p" s="s" onClick={async () => {
+            if (!newSec.title.trim()) return;
+            const ns = [...clSections, { title: newSec.title.trim(), emoji: newSec.emoji || "📌", items: [] }];
+            await saveChecklist(ns); sNewSec(null);
+          }}>Agregar</Btn>
+          <Btn v="g" s="s" onClick={() => sNewSec(null)}>Cancelar</Btn>
+        </div>
+      </Card>}
     </div>}
 
     {/* ── TAB: PRESUPUESTO ── */}
-    {tab === "presupuesto" && <Card style={{ padding: mob ? 14 : 18 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: colors.nv }}>💰 Presupuesto</div>
-        {budget.length === 0 && <Btn v="p" s="s" onClick={async () => {
-          const initial = TN_BUDGET_RUBROS.map(r => ({ rubro: r, estimado: 0, real: 0, notas: "" }));
-          await onUpd(sel.id, { budget: initial });
-        }}>Inicializar rubros</Btn>}
+    {tab === "presupuesto" && <div>
+      {/* Stats badges */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 8, background: "#FEF3C7", fontSize: 11, fontWeight: 700, color: "#B45309" }}>📤 Pendientes: {presuSol.length} (${presuSol.reduce((s: number, p: any) => s + Number(p.monto || 0), 0).toLocaleString()})</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 8, background: "#D1FAE5", fontSize: 11, fontWeight: 700, color: "#065F46" }}>✅ Aprobados: {presuApr.length} (${presuTotalApr.toLocaleString()})</div>
+        {presuRech.length > 0 && <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 8, background: "#FEE2E2", fontSize: 11, fontWeight: 700, color: "#991B1B" }}>❌ Rechazados: {presuRech.length}</div>}
       </div>
-      {budget.length === 0 && <div style={{ fontSize: 12, color: colors.g4, textAlign: "center", padding: 20 }}>Presupuesto sin rubros. Hacé clic en "Inicializar rubros" para cargar los rubros predefinidos.</div>}
-      {budget.length > 0 && <div>
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-            <thead><tr style={{ borderBottom: "2px solid " + colors.g2 }}>
-              <th style={{ textAlign: "left", padding: "6px 8px", color: colors.g5, fontSize: 10, fontWeight: 700 }}>Rubro</th>
-              <th style={{ textAlign: "right", padding: "6px 8px", color: colors.g5, fontSize: 10, fontWeight: 700 }}>Estimado</th>
-              <th style={{ textAlign: "right", padding: "6px 8px", color: colors.g5, fontSize: 10, fontWeight: 700 }}>Real</th>
-              <th style={{ textAlign: "left", padding: "6px 8px", color: colors.g5, fontSize: 10, fontWeight: 700 }}>Notas</th>
-            </tr></thead>
-            <tbody>
-              {budget.map((r: any, i: number) => (<tr key={i} style={{ borderBottom: "1px solid " + colors.g2 }}>
-                <td style={{ padding: "6px 8px", fontWeight: 600, color: colors.nv }}>{r.rubro}</td>
-                <td style={{ padding: "4px 4px", textAlign: "right" }}>
-                  <input type="number" value={r.estimado || ""} placeholder="0" onChange={e => {
-                    const nb = [...budget]; nb[i] = { ...nb[i], estimado: Number(e.target.value) || 0 };
-                    onUpd(sel.id, { budget: nb });
-                  }} style={{ ...iS, width: 90, textAlign: "right", padding: "4px 6px" }} />
-                </td>
-                <td style={{ padding: "4px 4px", textAlign: "right" }}>
-                  <input type="number" value={r.real || ""} placeholder="0" onChange={e => {
-                    const nb = [...budget]; nb[i] = { ...nb[i], real: Number(e.target.value) || 0 };
-                    onUpd(sel.id, { budget: nb });
-                  }} style={{ ...iS, width: 90, textAlign: "right", padding: "4px 6px" }} />
-                </td>
-                <td style={{ padding: "4px 4px" }}>
-                  <input value={r.notas || ""} onChange={e => {
-                    const nb = [...budget]; nb[i] = { ...nb[i], notas: e.target.value };
-                    onUpd(sel.id, { budget: nb });
-                  }} style={{ ...iS, padding: "4px 6px" }} />
-                </td>
-              </tr>))}
-              <tr style={{ fontWeight: 800, borderTop: "2px solid " + colors.g3 }}>
-                <td style={{ padding: "8px 8px", color: colors.nv }}>TOTAL</td>
-                <td style={{ padding: "8px 8px", textAlign: "right", color: colors.nv }}>${budgetTotal.toLocaleString()}</td>
-                <td style={{ padding: "8px 8px", textAlign: "right", color: budgetReal > budgetTotal ? "#DC2626" : "#10B981" }}>${budgetReal.toLocaleString()}</td>
-                <td style={{ padding: "8px 8px", fontSize: 10, color: colors.g4 }}>{budgetTotal > 0 ? Math.round(budgetReal / budgetTotal * 100) + "% ejecutado" : ""}</td>
-              </tr>
-            </tbody>
-          </table>
+
+      {/* Real presupuestos list */}
+      <Card style={{ padding: mob ? 14 : 18, marginBottom: 14 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: colors.nv }}>💰 Presupuestos reales</div>
+          <Btn v="p" s="s" onClick={() => sPresuForm({ proveedor_nombre: "", descripcion: "", monto: "", moneda: "ARS", notas: "" })}>+ Nuevo Presupuesto</Btn>
         </div>
+
+        {/* Inline form */}
+        {presuForm && <Card style={{ padding: mob ? 14 : 16, marginBottom: 12, border: "2px solid " + colors.nv + "30" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: colors.nv, marginBottom: 8 }}>Nuevo presupuesto para {sel.name}</div>
+          <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 8 }}>
+            <div><label style={lbl}>Proveedor *</label><input style={iS} value={presuForm.proveedor_nombre || ""} onChange={e => sPresuForm({ ...presuForm, proveedor_nombre: e.target.value })} placeholder="Nombre del proveedor" /></div>
+            <div><label style={lbl}>Descripción *</label><input style={iS} value={presuForm.descripcion || ""} onChange={e => sPresuForm({ ...presuForm, descripcion: e.target.value })} placeholder="Qué se presupuesta" /></div>
+            <div><label style={lbl}>Monto *</label><input type="number" style={iS} value={presuForm.monto || ""} onChange={e => sPresuForm({ ...presuForm, monto: e.target.value })} placeholder="0" /></div>
+            <div><label style={lbl}>Moneda</label><select style={iS} value={presuForm.moneda || "ARS"} onChange={e => sPresuForm({ ...presuForm, moneda: e.target.value })}><option value="ARS">ARS</option><option value="USD">USD</option></select></div>
+          </div>
+          <div style={{ marginTop: 8 }}><label style={lbl}>Notas</label><input style={iS} value={presuForm.notas || ""} onChange={e => sPresuForm({ ...presuForm, notas: e.target.value })} placeholder="Notas adicionales" /></div>
+          <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+            <Btn v="p" s="s" onClick={async () => {
+              if (!presuForm.proveedor_nombre?.trim() || !presuForm.monto) return;
+              await onAddPresu({ ...presuForm, monto: Number(presuForm.monto), torneo_id: sel.id, status: PST.SOL, solicitado_por: fn(user), solicitado_at: TODAY });
+              sPresuForm(null);
+            }}>Solicitar</Btn>
+            <Btn v="g" s="s" onClick={() => sPresuForm(null)}>Cancelar</Btn>
+          </div>
+        </Card>}
+
+        {torneoPresu.length === 0 && !presuForm && <div style={{ fontSize: 12, color: colors.g4, textAlign: "center", padding: 20 }}>No hay presupuestos vinculados a este torneo. Creá uno para iniciar el flujo de aprobación.</div>}
+        {torneoPresu.length > 0 && <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {torneoPresu.map((p: any) => {
+            const ps = PSC[p.status] || PSC[PST.SOL];
+            return (<div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", borderRadius: 8, border: "1px solid " + colors.g2, background: cardBg }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: colors.nv }}>{p.proveedor_nombre}</div>
+                <div style={{ fontSize: 11, color: colors.g5, marginTop: 1 }}>{p.descripcion}</div>
+                {p.notas && <div style={{ fontSize: 10, color: colors.g4, marginTop: 1 }}>{p.notas}</div>}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: colors.nv }}>${Number(p.monto || 0).toLocaleString()}</div>
+                  <div style={{ fontSize: 9, color: colors.g4 }}>{p.moneda}</div>
+                </div>
+                <span style={{ fontSize: 9, fontWeight: 700, color: ps.c, background: ps.bg, padding: "2px 8px", borderRadius: 8, whiteSpace: "nowrap" }}>{ps.i} {ps.l}</span>
+              </div>
+            </div>);
+          })}
+        </div>}
+      </Card>
+
+      {/* Budget planning (JSON estimates) */}
+      <Card style={{ padding: mob ? 14 : 18 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: colors.nv }}>📋 Planificación estimativa</div>
+          <div style={{ display: "flex", gap: 6 }}>
+            {budget.length === 0 && <Btn v="p" s="s" onClick={async () => {
+              const initial = TN_BUDGET_RUBROS.map(r => ({ rubro: r, estimado: 0, real: 0, notas: "" }));
+              await onUpd(sel.id, { budget: initial });
+            }}>Cargar template</Btn>}
+            {budget.length > 0 && <Btn v="g" s="s" onClick={() => sBudEdit(!budEdit)}>{budEdit ? "Listo" : "Editar"}</Btn>}
+          </div>
+        </div>
+        {budget.length === 0 && <div style={{ fontSize: 12, color: colors.g4, textAlign: "center", padding: 20 }}>Rubros estimativos sin cargar. Usá el template o editá manualmente.</div>}
+        {budget.length > 0 && <div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+              <thead><tr style={{ borderBottom: "2px solid " + colors.g2 }}>
+                {budEdit && <th style={{ width: 60, padding: "6px 4px", color: colors.g5, fontSize: 10, fontWeight: 700 }}></th>}
+                <th style={{ textAlign: "left", padding: "6px 8px", color: colors.g5, fontSize: 10, fontWeight: 700 }}>Rubro</th>
+                <th style={{ textAlign: "right", padding: "6px 8px", color: colors.g5, fontSize: 10, fontWeight: 700 }}>Estimado</th>
+                <th style={{ textAlign: "right", padding: "6px 8px", color: colors.g5, fontSize: 10, fontWeight: 700 }}>Real</th>
+                <th style={{ textAlign: "left", padding: "6px 8px", color: colors.g5, fontSize: 10, fontWeight: 700 }}>Notas</th>
+                {budEdit && <th style={{ width: 30, padding: "6px 4px" }}></th>}
+              </tr></thead>
+              <tbody>
+                {budget.map((r: any, i: number) => (<tr key={i} style={{ borderBottom: "1px solid " + colors.g2 }}>
+                  {budEdit && <td style={{ padding: "4px 4px", textAlign: "center" }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                      {i > 0 && <button onClick={async () => { const nb = [...budget]; [nb[i - 1], nb[i]] = [nb[i], nb[i - 1]]; await onUpd(sel.id, { budget: nb }); }} style={{ background: "none", border: "1px solid " + colors.g3, borderRadius: 3, cursor: "pointer", fontSize: 9, padding: "0px 4px", color: colors.g5, lineHeight: "14px" }}>▲</button>}
+                      {i < budget.length - 1 && <button onClick={async () => { const nb = [...budget]; [nb[i], nb[i + 1]] = [nb[i + 1], nb[i]]; await onUpd(sel.id, { budget: nb }); }} style={{ background: "none", border: "1px solid " + colors.g3, borderRadius: 3, cursor: "pointer", fontSize: 9, padding: "0px 4px", color: colors.g5, lineHeight: "14px" }}>▼</button>}
+                    </div>
+                  </td>}
+                  <td style={{ padding: "6px 8px", fontWeight: 600, color: colors.nv }}>{budEdit
+                    ? <input value={r.rubro || ""} onChange={e => { const nb = [...budget]; nb[i] = { ...nb[i], rubro: e.target.value }; onUpd(sel.id, { budget: nb }); }} style={{ ...iS, padding: "4px 6px", fontWeight: 600 }} />
+                    : r.rubro}</td>
+                  <td style={{ padding: "4px 4px", textAlign: "right" }}>
+                    <input type="number" value={r.estimado || ""} placeholder="0" onChange={e => {
+                      const nb = [...budget]; nb[i] = { ...nb[i], estimado: Number(e.target.value) || 0 };
+                      onUpd(sel.id, { budget: nb });
+                    }} style={{ ...iS, width: 90, textAlign: "right", padding: "4px 6px" }} />
+                  </td>
+                  <td style={{ padding: "4px 4px", textAlign: "right" }}>
+                    <input type="number" value={r.real || ""} placeholder="0" onChange={e => {
+                      const nb = [...budget]; nb[i] = { ...nb[i], real: Number(e.target.value) || 0 };
+                      onUpd(sel.id, { budget: nb });
+                    }} style={{ ...iS, width: 90, textAlign: "right", padding: "4px 6px" }} />
+                  </td>
+                  <td style={{ padding: "4px 4px" }}>
+                    <input value={r.notas || ""} onChange={e => {
+                      const nb = [...budget]; nb[i] = { ...nb[i], notas: e.target.value };
+                      onUpd(sel.id, { budget: nb });
+                    }} style={{ ...iS, padding: "4px 6px" }} />
+                  </td>
+                  {budEdit && <td style={{ padding: "4px 2px" }}><button onClick={async () => { const nb = budget.filter((_: any, ii: number) => ii !== i); await onUpd(sel.id, { budget: nb }); }} style={{ background: "#FEE2E2", border: "1px solid #DC262640", borderRadius: 4, cursor: "pointer", fontSize: 10, padding: "1px 5px", color: "#DC2626" }}>✕</button></td>}
+                </tr>))}
+                <tr style={{ fontWeight: 800, borderTop: "2px solid " + colors.g3 }}>
+                  {budEdit && <td></td>}
+                  <td style={{ padding: "8px 8px", color: colors.nv }}>TOTAL</td>
+                  <td style={{ padding: "8px 8px", textAlign: "right", color: colors.nv }}>${budgetTotal.toLocaleString()}</td>
+                  <td style={{ padding: "8px 8px", textAlign: "right", color: budgetReal > budgetTotal ? "#DC2626" : "#10B981" }}>${budgetReal.toLocaleString()}</td>
+                  <td style={{ padding: "8px 8px", fontSize: 10, color: colors.g4 }}>{budgetTotal > 0 ? Math.round(budgetReal / budgetTotal * 100) + "% ejecutado" : ""}</td>
+                  {budEdit && <td></td>}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          {budEdit && <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+            <input style={{ ...iS, flex: 1, padding: "6px 10px" }} placeholder="Nombre del rubro..." value={newRubro} onChange={e => sNewRubro(e.target.value)} onKeyDown={async e => {
+              if (e.key === "Enter" && newRubro.trim()) {
+                const nb = [...budget, { rubro: newRubro.trim(), estimado: 0, real: 0, notas: "" }];
+                await onUpd(sel.id, { budget: nb }); sNewRubro("");
+              }
+            }} />
+            <Btn v="p" s="s" onClick={async () => {
+              if (!newRubro.trim()) return;
+              const nb = [...budget, { rubro: newRubro.trim(), estimado: 0, real: 0, notas: "" }];
+              await onUpd(sel.id, { budget: nb }); sNewRubro("");
+            }}>+ Rubro</Btn>
+          </div>}
+        </div>}
+      </Card>
+    </div>}
+
+    {/* ── TAB: COMUNICACIÓN ── */}
+    {tab === "comunicacion" && <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: colors.nv }}>📣 Pedidos de Comunicación ({torneoComm.length})</div>
+        <Btn v="p" s="s" onClick={() => sCommForm({ descripcion: "", piezas: "", fecha_pub: "" })}>+ Pedido Comunicación</Btn>
+      </div>
+
+      {/* Inline form */}
+      {commForm && <Card style={{ padding: mob ? 14 : 16, marginBottom: 12, border: "2px solid #8B5CF630" }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "#8B5CF6", marginBottom: 8 }}>Nuevo pedido de comunicación</div>
+        <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 8 }}>
+          <div><label style={lbl}>Piezas *</label><input style={iS} value={commForm.piezas || ""} onChange={e => sCommForm({ ...commForm, piezas: e.target.value })} placeholder="Ej: Flyer + Post Instagram" /></div>
+          <div><label style={lbl}>Fecha publicación</label><input type="date" style={iS} value={commForm.fecha_pub || ""} onChange={e => sCommForm({ ...commForm, fecha_pub: e.target.value })} /></div>
+        </div>
+        <div style={{ marginTop: 8 }}><label style={lbl}>Descripción *</label><textarea style={{ ...iS, minHeight: 60 }} value={commForm.descripcion || ""} onChange={e => sCommForm({ ...commForm, descripcion: e.target.value })} placeholder="Detalle lo que necesitás: contenido, estilo, referencias..." /></div>
+        <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+          <Btn v="p" s="s" onClick={async () => {
+            if (!commForm.piezas?.trim() || !commForm.descripcion?.trim()) return;
+            const leo = users.find((u: any) => (u.a || "").toLowerCase() === "sturniolo" && (u.n || "").toLowerCase().startsWith("lea"));
+            const asTo = leo?.id || null;
+            const ts = TODAY + " " + new Date().toTimeString().slice(0, 5);
+            await onAddComm({
+              div: "", cId: user.id, cN: fn(user), dId: 3, tipo: "Comunicación",
+              tit: "Pedido Comunicación: " + commForm.piezas.trim(),
+              desc: "Torneo: " + sel.name + "\nPiezas: " + commForm.piezas.trim() + "\n\n" + commForm.descripcion.trim(),
+              fReq: commForm.fecha_pub || "", urg: "Normal",
+              st: asTo ? ST.C : ST.P, asTo, rG: false, eOk: null, resp: "", cAt: TODAY, monto: null,
+              torneo_id: sel.id,
+              log: [
+                { dt: ts, uid: user.id, by: fn(user), act: "Creó pedido de comunicación desde torneo " + sel.name, t: "sys" },
+                ...(asTo ? [{ dt: ts, uid: user.id, by: fn(user), act: "Asignó a " + fn(leo), t: "sys" }] : []),
+              ],
+            });
+            sCommForm(null);
+          }}>Crear pedido</Btn>
+          <Btn v="g" s="s" onClick={() => sCommForm(null)}>Cancelar</Btn>
+        </div>
+      </Card>}
+
+      {torneoComm.length === 0 && !commForm && <Card style={{ textAlign: "center", padding: 30 }}><div style={{ fontSize: 12, color: colors.g4 }}>No hay pedidos de comunicación para este torneo</div></Card>}
+      {torneoComm.length > 0 && <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {torneoComm.map((t: any) => {
+          const tSt = SC[t.st] || SC[ST.P];
+          const assignee = t.asTo ? users.find((u: any) => u.id === t.asTo) : null;
+          return (<Card key={t.id} style={{ padding: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: colors.nv }}>{t.tit || t.desc}</div>
+                {t.desc && t.tit && <div style={{ fontSize: 11, color: colors.g5, marginTop: 2, whiteSpace: "pre-line" }}>{t.desc.slice(0, 120)}{t.desc.length > 120 ? "…" : ""}</div>}
+              </div>
+              <span style={{ fontSize: 9, fontWeight: 700, color: tSt.c, background: tSt.bg, padding: "2px 8px", borderRadius: 8, whiteSpace: "nowrap", flexShrink: 0 }}>{tSt.i} {tSt.l}</span>
+            </div>
+            <div style={{ display: "flex", gap: 10, fontSize: 10, color: colors.g4, marginTop: 6, flexWrap: "wrap" }}>
+              {assignee && <span>👤 {fn(assignee)}</span>}
+              {t.fReq && <span>📅 {fmtDate(t.fReq)}</span>}
+              <span>#{t.id}</span>
+            </div>
+          </Card>);
+        })}
       </div>}
-    </Card>}
+    </div>}
   </div>);
 }
