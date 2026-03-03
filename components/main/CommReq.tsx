@@ -65,7 +65,8 @@ export function CommReq({user,mob,onSub,onX}:any){
     return lines.join("\n");
   };
 
-  return(<Card style={{maxWidth:mob?undefined:600}}>
+  return(<><button onClick={onX} style={{background:"none",border:"1px solid "+T.g3,borderRadius:6,cursor:"pointer",fontSize:12,padding:"4px 10px",color:T.g5,marginBottom:10}}>← Volver</button>
+    <Card style={{maxWidth:mob?undefined:600}}>
     <h2 style={{margin:"0 0 14px",fontSize:mob?15:17,color:T.nv,fontWeight:800}}>📣 Pedido de Comunicación</h2>
 
     {/* Solicitante */}
@@ -163,5 +164,5 @@ export function CommReq({user,mob,onSub,onX}:any){
         });
       }}>📨 Enviar pedido</Btn>
     </div>
-  </Card>);
+  </Card></>);
 }

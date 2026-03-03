@@ -71,7 +71,8 @@ export function NewFactura({ user, mob, onSub, onX }: {
   const labelSt: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: colors.nv, marginBottom: 4, display: "block" };
   const reqSt: React.CSSProperties = { color: "#DC2626", marginLeft: 2 };
 
-  return (
+  return (<>
+    <button onClick={onX} style={{background:"none",border:"1px solid "+colors.g2,borderRadius:6,cursor:"pointer",fontSize:12,padding:"4px 10px",color:colors.g4,marginBottom:10}}>← Volver</button>
     <Card style={{ maxWidth: 520, margin: "0 auto", padding: mob ? 16 : 24 }}>
       <h2 style={{ margin: "0 0 4px", fontSize: mob ? 16 : 18, fontWeight: 800, color: colors.nv }}>
         {"\u{1F9FE}"} Nueva Factura
@@ -153,5 +154,5 @@ export function NewFactura({ user, mob, onSub, onX }: {
         <Btn v="g" s="s" onClick={onX}>Cancelar</Btn>
       </div>
     </Card>
-  );
+  </>);
 }
