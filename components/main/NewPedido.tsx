@@ -38,8 +38,8 @@ export function NP({user,onSub,onX,preAssign,mob,canjeUsado}:any){
   const [attUploading,sAttUploading]=useState(false);const fileRef=useRef<HTMLInputElement>(null);
   const attTypes=[{k:"link",l:"🔗 Link",ph:"https://..."},{k:"video",l:"🎬 Video",ph:"URL del video..."},{k:"foto",l:"📷 Foto",ph:"URL de la imagen..."},{k:"ubi",l:"📍 Ubicación",ph:"Dirección o link de Maps..."},{k:"doc",l:"📄 Documento",ph:"URL del documento..."}];
   const addAtt=()=>{if(attVal.trim()){const at=attTypes.find(a=>a.k===attType);sAtts(p=>[...p,{type:attType,label:at?at.l:"📎",val:attVal.trim()}]);sAttVal("");sAttType("");sShowAtt(false);}};
-  return(<><button onClick={onX} style={{background:"none",border:"1px solid "+T.g3,borderRadius:6,cursor:"pointer",fontSize:12,padding:"4px 10px",color:T.g5,marginBottom:10}}>← Volver</button>
-    <Card style={{maxWidth:mob?undefined:560}}>
+  return(<Card style={{maxWidth:mob?undefined:560}}>
+    <button onClick={onX} style={{background:"none",border:"1px solid "+T.g3,borderRadius:6,cursor:"pointer",fontSize:12,padding:"4px 10px",color:T.g5,marginBottom:10}}>← Volver</button>
     <h2 style={{margin:"0 0 14px",fontSize:mob?15:17,color:T.nv,fontWeight:800}}>🏉 Nueva Tarea</h2>
     {preAssign&&<div style={{padding:"8px 12px",background:"#EDE9FE",borderRadius:8,fontSize:12,marginBottom:12,display:"flex",alignItems:"center",gap:6}}>📋 <span style={{fontWeight:600,color:"#5B21B6"}}>Asignando a: {fn(preAssign)}</span>{preAssign.div&&<span style={{fontSize:10,color:T.g4}}>· {preAssign.div}</span>}</div>}
     {isE&&!preAssign&&<div style={{padding:"8px 12px",background:T.g1,borderRadius:8,fontSize:12,marginBottom:12}}>{fn(user)}{user.div?" · "+user.div:""}</div>}
@@ -112,5 +112,5 @@ export function NP({user,onSub,onX,preAssign,mob,canjeUsado}:any){
     </div>
     {pastDate&&<div style={{padding:"6px 10px",background:"#FEF2F2",borderRadius:8,border:"1px solid #FECACA",fontSize:11,color:"#991B1B",marginBottom:8}}>⚠️ La fecha límite es anterior a hoy</div>}
     <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn v="g" onClick={onX}>Cancelar</Btn><Btn v="r" disabled={!ok} onClick={()=>{const dId=Number(f.dId)||user.dId;const pa=preAssign||assignedUser;const ts=TODAY+" "+new Date().toTimeString().slice(0,5);onSub({id:0,div:f.div||user.div||"",cId:user.id,cN:fn(user),dId,tipo:f.tipo,tit:f.tit.trim(),desc:f.desc,fReq:f.fReq,urg:f.urg,st:pa?ST.C:ST.P,asTo:pa?pa.id:null,rG:f.rG,eOk:null,resp:"",cAt:TODAY,monto:f.rG&&prf.monto?Number(prf.monto):null,log:[{dt:ts,uid:user.id,by:fn(user),act:"Creó la tarea",t:"sys"},...(pa?[{dt:ts,uid:user.id,by:fn(user),act:"Asignó a "+fn(pa),t:"sys"}]:[]),...atts.map(a=>({dt:ts,uid:user.id,by:fn(user),act:a.label+": "+a.val,t:"msg"}))],_presu:f.rG?{proveedor_id:prf.prov_id?Number(prf.prov_id):null,proveedor_nombre:prf.prov_nombre,proveedor_contacto:prf.prov_contacto,descripcion:prf.descripcion,monto:Number(prf.monto),moneda:prf.moneda,archivo_url:prf.archivo_url,notas:prf.notas,is_canje:isCanje,sponsor_id:isCanje&&canjeSpId?Number(canjeSpId):null}:null});}}>📨 Enviar</Btn></div>
-  </Card></>);
+  </Card>);
 }
