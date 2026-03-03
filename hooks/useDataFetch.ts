@@ -22,7 +22,7 @@ export function useDataFetch(
 
   const [dataLoading, sDataLoading] = useState(true);
 
-  const fetchAll = useCallback(async () => {
+  const fetchAll = useCallback(async (retry = true) => {
     const isAbort = (e: any) => {
       const m = String(e?.message || ""); const n = String(e?.name || "");
       return n === "AbortError" || m.includes("AbortError") || m.includes("aborted") || m.includes("signal");
@@ -56,12 +56,16 @@ export function useDataFetch(
       supabase.from("rental_config").select("*"),
       user ? supabase.from("dm_messages").select("*").or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`).order("created_at", { ascending: true }).limit(500) : Promise.resolve({ data: [] }),
     ]);
+    const errMsg = (e: any) => e?.message || e?.code || e?.details || "error de conexión";
     const errors: string[] = [];
-    if (pRes.error && !isAbort(pRes.error)) errors.push("Perfiles: " + (pRes.error.message || pRes.error.code || "error"));
-    if (recentRes.error && !isAbort(recentRes.error)) errors.push("Tareas: " + (recentRes.error.message || recentRes.error.code || "error"));
-    if (omRes.error && !isAbort(omRes.error)) errors.push("Organigrama: " + (omRes.error.message || omRes.error.code || "error"));
-    if (prRes.error && !isAbort(prRes.error)) errors.push("Presupuestos: " + (prRes.error.message || prRes.error.code || "error"));
-    if (errors.length) showT(errors.join("; "), "err");
+    if (pRes.error && !isAbort(pRes.error)) errors.push("Perfiles: " + errMsg(pRes.error));
+    if (recentRes.error && !isAbort(recentRes.error)) errors.push("Tareas: " + errMsg(recentRes.error));
+    if (omRes.error && !isAbort(omRes.error)) errors.push("Organigrama: " + errMsg(omRes.error));
+    if (prRes.error && !isAbort(prRes.error)) errors.push("Presupuestos: " + errMsg(prRes.error));
+    if (errors.length) {
+      if (retry) { setTimeout(() => fetchAll(false), 3000); return; }
+      showT(errors.join("; "), "err");
+    }
 
     // Merge recent + user-assigned tasks without duplicates
     const seen = new Set<number>();
