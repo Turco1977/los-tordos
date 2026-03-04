@@ -45,6 +45,13 @@ const groupByDate = (rows: any[]) => {
 };
 const dayHeader = (d: string) => { const dow = new Date(d + "T12:00:00").getDay(); return `${DIAS_FULL[dow]} ${fmtDShort(d)}`; };
 
+const FIX_DIV_GROUPS: { label: string; divs: string[] }[] = [
+  { label: "Mayores", divs: ["Primera", "Intermedia"] },
+  { label: "Juveniles", divs: ["M19 A", "M19 B", "M17", "M16", "M15"] },
+  { label: "Infantiles", divs: ["M14", "M13", "M12", "M11", "M10", "M9", "M8", "Escuelita"] },
+  { label: "Otros", divs: ["Pre Primera A", "Pre Primera B", "Femenino"] },
+];
+
 const emptyForm = () => ({ division: "", rival: "", date: TODAY, time: "", condicion: "", is_local: false, cancha: "", facility_key: "", status: "pendiente", notes: "" });
 
 export function FixturesView({ user, mob, onAdd, onUpd, onDel, onDelWeek, onAddBookings }: any) {
@@ -412,7 +419,11 @@ export function FixturesView({ user, mob, onAdd, onUpd, onDel, onDelWeek, onAddB
               <label style={lblSt}>División</label>
               <select value={form.division} onChange={e => sForm(p => ({ ...p, division: e.target.value }))} style={iSt}>
                 <option value="">Seleccionar...</option>
-                {DIV.map(d => <option key={d} value={d}>{d}</option>)}
+                {FIX_DIV_GROUPS.map(g => (
+                  <optgroup key={g.label} label={g.label}>
+                    {g.divs.map(d => <option key={d} value={d}>{d}</option>)}
+                  </optgroup>
+                ))}
               </select>
             </div>
             <div>
