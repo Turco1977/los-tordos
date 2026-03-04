@@ -85,6 +85,8 @@ const ALL_USERS = [
   {old_id:"s4",n:"Germán",a:"Luppoli",role:"usuario",dId:11,div:"Resp. Torneo Beto Jofre",mail:"gluppoli@lt.ar",tel:""},
   {old_id:"s5",n:"Joaquín",a:"Bancalari",role:"usuario",dId:11,div:"Resp. Hospitalidad y Recepción",mail:"jbancalari@lt.ar",tel:""},
   {old_id:"s6",n:"Federico",a:"Mexandeau",role:"usuario",dId:11,div:"Enlace con la URC",mail:"fmexandeau2@lt.ar",tel:""},
+  // Becas
+  {old_id:"md1",n:"Miguel",a:"Discépolo",role:"coordinador",dId:76,div:"",mail:"mdiscepolo@lostordos.com.ar",tel:""},
   // Academia Tordos
   {old_id:"at1",n:"Franco",a:"Lucchini",role:"coordinador",dId:10,div:"Director Deportivo",mail:"flucchini@lt.ar",tel:""},
   {old_id:"at2",n:"Fernando",a:"Higgs",role:"usuario",dId:10,div:"Director de Rugby",mail:"fhiggs@lt.ar",tel:""},

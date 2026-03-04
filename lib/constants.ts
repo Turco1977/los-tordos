@@ -10,7 +10,7 @@ export const DEPTOS=[
   {id:1,name:"Coordinación General",aId:1},{id:2,name:"Eventos",aId:1,pId:1},{id:3,name:"Comunicación",aId:1},{id:4,name:"Sponsoreo",aId:1},{id:66,name:"Comercial",aId:1,pId:4},{id:67,name:"Relacionamiento con Sponsors",aId:1,pId:4},{id:5,name:"Gastronomía y Recepción",aId:1,pId:2},{id:6,name:"Administración",aId:1,pId:1},
   {id:8,name:"Intendencia",aId:1,pId:1},{id:9,name:"Sistemas",aId:1,pId:1},{id:40,name:"Atención al Socio",aId:1,pId:1},{id:41,name:"Estandarización de Procesos",aId:1,pId:1},
   {id:43,name:"Diseño",aId:1,pId:3},{id:42,name:"Tordos TV",aId:1,pId:3},{id:44,name:"Redes",aId:1,pId:3},{id:45,name:"Fotografía",aId:1,pId:3},{id:46,name:"Filmación",aId:1,pId:3},{id:47,name:"Edición",aId:1,pId:3},{id:48,name:"Prensa",aId:1,pId:3},{id:49,name:"Creatividad",aId:1,pId:3},{id:60,name:"Asesoría Comunicación",aId:1,pId:3},
-  {id:61,name:"Tesorería",aId:1},{id:7,name:"Compras",aId:1,pId:61},{id:62,name:"Financiación",aId:1,pId:61},{id:63,name:"Financiamiento",aId:1,pId:61},{id:65,name:"Tordos Shop",aId:1,pId:2},
+  {id:61,name:"Tesorería",aId:1},{id:7,name:"Compras",aId:1,pId:61},{id:62,name:"Financiación",aId:1,pId:61},{id:63,name:"Financiamiento",aId:1,pId:61},{id:65,name:"Tordos Shop",aId:1,pId:2},{id:76,name:"Becas",aId:1},
   {id:10,name:"Academia Tordos",aId:2},{id:11,name:"Soporte Adm. del Deporte",aId:2},{id:12,name:"Mejora Continua",aId:2},
   {id:20,name:"Solidario",aId:3},{id:21,name:"Conecta",aId:3},{id:22,name:"Captación",aId:3},{id:23,name:"Club del Ex",aId:3},
   {id:30,name:"Anexo",aId:4},{id:31,name:"Estacionamiento Cancha 2",aId:4},{id:32,name:"Plan Estratégico",aId:4},{id:33,name:"Luces Cancha 2, 3 y 4",aId:4},{id:34,name:"Cantina: Ampliación y Tribunas",aId:4},{id:35,name:"Vestuarios y Depósito",aId:4},
@@ -174,6 +174,29 @@ export const RENTAL_APPROVERS = {
 };
 
 export const TESORERO = { first_name: "Gustavo", last_name: "Cialone" };
+
+/* ── Becas ── */
+export const BST={NUE:"nueva",EVA:"evaluando",PROP:"propuesta",DEL:"deliberacion",APR:"aprobada",RECH:"rechazada"};
+export const BSC:Record<string,{l:string;c:string;bg:string;i:string}>={
+  [BST.NUE]:{l:"Nueva Solicitud",c:"#8B5CF6",bg:"#EDE9FE",i:"🟣"},
+  [BST.EVA]:{l:"En Evaluación",c:T.yl,bg:"#FEF3C7",i:"🟡"},
+  [BST.PROP]:{l:"Propuesta a CD",c:T.bl,bg:"#DBEAFE",i:"🔵"},
+  [BST.DEL]:{l:"En Deliberación",c:"#F97316",bg:"#FFF7ED",i:"🟠"},
+  [BST.APR]:{l:"Aprobada",c:T.gn,bg:"#D1FAE5",i:"🟢"},
+  [BST.RECH]:{l:"Rechazada",c:T.rd,bg:"#FEE2E2",i:"🔴"},
+};
+
+/* ── Atención al Socio ── */
+export const AST={NUE:"nuevo",ANA:"analisis",PROP:"propuesta_se",DEL:"deliberacion_se",APR:"aprobada_se",RECH:"rechazada_se",EJE:"ejecutada"};
+export const ASC:Record<string,{l:string;c:string;bg:string;i:string}>={
+  [AST.NUE]:{l:"Caso Nuevo",c:"#8B5CF6",bg:"#EDE9FE",i:"🟣"},
+  [AST.ANA]:{l:"En Análisis",c:T.yl,bg:"#FEF3C7",i:"🟡"},
+  [AST.PROP]:{l:"Propuesta a SE",c:T.bl,bg:"#DBEAFE",i:"🔵"},
+  [AST.DEL]:{l:"En Deliberación",c:"#F97316",bg:"#FFF7ED",i:"🟠"},
+  [AST.APR]:{l:"Aprobada",c:T.gn,bg:"#D1FAE5",i:"🟢"},
+  [AST.RECH]:{l:"Rechazada",c:T.rd,bg:"#FEE2E2",i:"🔴"},
+  [AST.EJE]:{l:"Ejecutada",c:"#047857",bg:"#D1FAE5",i:"✅"},
+};
 
 export const RENTAL_PAYMENT = { alias: "LTRC.SUPER", phone: "2613028410" };
 
