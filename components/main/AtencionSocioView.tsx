@@ -37,6 +37,12 @@ export function AtencionSocioView({ user, mob, showT, casos, becasAprobadas, onA
   const safeC = (casos || []) as any[];
   const safeB = (becasAprobadas || []) as any[];
 
+  /* ── canVote check (same as minutas: SA/admin or Area 101 = SE) ── */
+  const isSA = user.role === "superadmin" || user.role === "admin";
+  const userAreaIds = user.dId ? DEPTOS.filter((d: any) => d.id === user.dId).map((d: any) => d.aId) : [];
+  const canVoteSe = isSA || userAreaIds.includes(101);
+  const pendingVotes = safeC.filter((c: any) => c.estado === AST.DEL && canVoteSe && !(c.votos || []).some((v: any) => v.userId === user.id));
+
   /* ── KPIs ── */
   const kBecas = safeB.length;
   const kTotal = safeC.length;
@@ -140,6 +146,19 @@ export function AtencionSocioView({ user, mob, showT, casos, becasAprobadas, onA
         {tabBtn("becas", "🎓 Becas Aprobadas", tab === "becas")}
         {tabBtn("deudas", "📋 Deudas y Condonaciones", tab === "deudas")}
       </div>
+
+      {/* Pending approvals card — same as minutas */}
+      {pendingVotes.length > 0 && <Card style={{ marginBottom: 14, borderLeft: "4px solid #F59E0B", padding: "12px 16px", background: "#FFFBEB" }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "#92400E", marginBottom: 8 }}>{"\uD83D\uDCCB"} Casos pendientes de tu aprobaci{"\u00F3"}n</div>
+        {pendingVotes.map((c: any) => { const q = 3; const votos = c.votos || []; return <div key={c.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #FDE68A" }}>
+          <div style={{ flex: 1, cursor: "pointer" }} onClick={() => { sTab("deudas"); sSelId(c.id); }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: colors.nv }}>{"\uD83D\uDCCB"} {c.nombre_socio} {"\u2013"} {c.tipo_resolucion ? ({"condonacion_total":"Condonaci\u00F3n total","condonacion_parcial":"Condonaci\u00F3n parcial","plan_pago":"Plan de pago"} as Record<string,string>)[c.tipo_resolucion] || c.tipo_resolucion : "Sin resoluci\u00F3n"}</div>
+            <div style={{ fontSize: 10, color: colors.g4 }}>Progreso: {votos.length}/{q} aprobaciones</div>
+            <div style={{ height: 4, background: "#FDE68A", borderRadius: 2, marginTop: 3, width: 120 }}><div style={{ height: "100%", background: "#F59E0B", borderRadius: 2, width: Math.min(100, votos.length / q * 100) + "%" }} /></div>
+          </div>
+          <Btn v="w" s="s" onClick={() => onVote(c.id)} style={{ background: "#F59E0B", color: "#fff", border: "none" }}>{"\u2705"} Aprobar</Btn>
+        </div>; })}
+      </Card>}
 
       {/* ═══════ TAB: BECAS APROBADAS ═══════ */}
       {tab === "becas" && (
@@ -288,9 +307,7 @@ export function AtencionSocioView({ user, mob, showT, casos, becasAprobadas, onA
                 const QUORUM = 3;
                 const votos = selCaso.votos || [];
                 if (selCaso.estado !== AST.DEL && selCaso.estado !== AST.APR) return null;
-                const isSA = user.role === "superadmin" || user.role === "admin";
-                const userAreaIds = user.dId ? DEPTOS.filter((d: any) => d.id === user.dId).map((d: any) => d.aId) : [];
-                const canVote = (isSA || userAreaIds.includes(101)) && !votos.some((v: any) => v.userId === user.id) && selCaso.estado === AST.DEL;
+                const canVote = canVoteSe && !votos.some((v: any) => v.userId === user.id) && selCaso.estado === AST.DEL;
                 const alreadyVoted = votos.some((v: any) => v.userId === user.id);
                 return <div style={{ marginTop: 14, padding: 12, borderRadius: 10, border: "1px solid " + (selCaso.estado === AST.APR ? "#6EE7B7" : "#FDE68A"), background: selCaso.estado === AST.APR ? "#ECFDF5" : "#FFFBEB" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>

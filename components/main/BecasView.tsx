@@ -31,6 +31,12 @@ export function BecasView({ user, mob, showT, becas, onAdd, onUpd, onDel, onVote
 
   const list = becas || [];
 
+  /* ── canVote check (same as minutas: SA/admin or Area 100 = CD) ── */
+  const isSA = user.role === "superadmin" || user.role === "admin";
+  const userAreaIds = user.dId ? DEPTOS.filter((d: any) => d.id === user.dId).map((d: any) => d.aId) : [];
+  const canVoteCd = isSA || userAreaIds.includes(100);
+  const pendingVotes = list.filter((b: any) => b.estado === BST.DEL && canVoteCd && !(b.votos || []).some((v: any) => v.userId === user.id));
+
   /* ── KPIs ── */
   const kTotal = list.length;
   const kAprobadas = list.filter((b: any) => b.estado === BST.APR).length;
@@ -135,9 +141,7 @@ export function BecasView({ user, mob, showT, becas, onAdd, onUpd, onDel, onVote
             const QUORUM = 5;
             const votos = sel.votos || [];
             if (sel.estado !== BST.DEL && sel.estado !== BST.APR) return null;
-            const isSA = user.role === "superadmin" || user.role === "admin";
-            const userAreaIds = user.dId ? DEPTOS.filter((d: any) => d.id === user.dId).map((d: any) => d.aId) : [];
-            const canVote = (isSA || userAreaIds.includes(100)) && !votos.some((v: any) => v.userId === user.id) && sel.estado === BST.DEL;
+            const canVote = canVoteCd && !votos.some((v: any) => v.userId === user.id) && sel.estado === BST.DEL;
             const alreadyVoted = votos.some((v: any) => v.userId === user.id);
             return <div style={{ marginTop: 14, padding: 12, borderRadius: 10, border: "1px solid " + (sel.estado === BST.APR ? "#6EE7B7" : "#FDE68A"), background: sel.estado === BST.APR ? "#ECFDF5" : "#FFFBEB" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
@@ -389,6 +393,19 @@ export function BecasView({ user, mob, showT, becas, onAdd, onUpd, onDel, onVote
           </Card>
         ))}
       </div>
+
+      {/* Pending approvals card — same as minutas */}
+      {pendingVotes.length > 0 && <Card style={{ marginBottom: 14, borderLeft: "4px solid #F59E0B", padding: "12px 16px", background: "#FFFBEB" }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "#92400E", marginBottom: 8 }}>{"\uD83D\uDCCB"} Becas pendientes de tu aprobaci{"\u00F3"}n</div>
+        {pendingVotes.map((b: any) => { const q = 5; const votos = b.votos || []; return <div key={b.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #FDE68A" }}>
+          <div style={{ flex: 1, cursor: "pointer" }} onClick={() => sSelId(b.id)}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: colors.nv }}>{"\uD83C\uDF93"} {b.nombre_completo} {"\u2013"} {b.deporte}{b.categoria ? " " + b.categoria : ""}</div>
+            <div style={{ fontSize: 10, color: colors.g4 }}>Progreso: {votos.length}/{q} aprobaciones</div>
+            <div style={{ height: 4, background: "#FDE68A", borderRadius: 2, marginTop: 3, width: 120 }}><div style={{ height: "100%", background: "#F59E0B", borderRadius: 2, width: Math.min(100, votos.length / q * 100) + "%" }} /></div>
+          </div>
+          <Btn v="w" s="s" onClick={() => onVote(b.id)} style={{ background: "#F59E0B", color: "#fff", border: "none" }}>{"\u2705"} Aprobar</Btn>
+        </div>; })}
+      </Card>}
 
       {/* New / Edit form */}
       {showForm && renderForm()}
