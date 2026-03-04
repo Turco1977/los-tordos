@@ -68,7 +68,7 @@ export function MentionInput({ as = "textarea", users, value, onChange, onMentio
   const El: any = as === "input" ? "input" : "textarea";
 
   return (
-    <div style={{ position: "relative", ...containerStyle }}>
+    <div style={{ position: "relative", width: "100%", ...containerStyle }}>
       {mentionOpen && filtUsers.length > 0 && (
         <div style={{ position: "absolute", bottom: "100%", left: 0, background: cardBg || "#fff", border: "1px solid " + colors.g3, borderRadius: 8, boxShadow: "0 4px 12px rgba(0,0,0,.1)", maxHeight: 140, overflowY: "auto", zIndex: 10, width: 220, marginBottom: 2 }}>
           {filtUsers.map((u: any, i: number) => (
