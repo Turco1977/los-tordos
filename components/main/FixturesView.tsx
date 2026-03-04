@@ -141,66 +141,79 @@ export function FixturesView({ user, mob, onAdd, onUpd, onDel, onDelWeek, onAddB
     if (!excelFile) return;
     sExcelError("");
     sExcelLoading(true);
-    let json: any[];
     try {
+      // 1) Send file to server for parsing
       const fd = new FormData();
       fd.append("file", excelFile);
       const res = await fetch("/api/parse-excel", { method: "POST", body: fd });
       const body = await res.json();
-      if (!res.ok || body.error) { sExcelError(body.error || "Error del servidor"); sExcelLoading(false); return; }
-      json = body.rows;
-      if (!json?.length) { sExcelError("El archivo no tiene datos"); sExcelLoading(false); return; }
-    } catch (e: any) { sExcelError("Error: " + (e.message || "no se pudo conectar")); sExcelLoading(false); return; }
-    // Map columns — flexible matching
-    const mapped = json.map((r: any) => {
-      const keys = Object.keys(r);
-      const find = (patterns: string[]) => keys.find(k => patterns.some(p => k.toUpperCase().includes(p))) || "";
-      const division = r[find(["DIVIS", "DIV", "CATEG"])] || "";
-      const rival = r[find(["RIVAL", "EQUIPO", "CLUB"])] || "";
-      const dia = r[find(["DIA", "FECHA", "DATE"])] || "";
-      const hora = r[find(["HORA", "TIME", "HORARIO"])] || "";
-      const condicion = r[find(["CONDIC", "COND", "LOC"])] || "";
-      const cancha = r[find(["CANCHA", "CAMPO", "FIELD"])] || "";
-      let date = TODAY;
-      if (dia) {
-        if (typeof dia === "number") {
-          const d = new Date((dia - 25569) * 86400 * 1000);
-          date = dateISO(d);
-        } else {
-          const s = String(dia);
-          if (s.includes("-")) date = s.slice(0, 10);
-          else if (s.includes("/")) {
-            const parts = s.split("/");
-            if (parts.length === 3) {
-              const [dd, mm, yy] = parts;
-              date = `${yy.length === 2 ? "20" + yy : yy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
+      if (!res.ok || body.error) { sExcelError(body.error || "Error del servidor"); return; }
+      const json: any[] = body.rows;
+      if (!json?.length) { sExcelError("El archivo no tiene datos"); return; }
+
+      // 2) Show what columns came back for debugging
+      const sampleKeys = Object.keys(json[0]);
+
+      // 3) Map columns — flexible matching
+      const mapped = json.map((r: any) => {
+        const keys = Object.keys(r);
+        const find = (patterns: string[]) => keys.find(k => patterns.some(p => k.toUpperCase().includes(p))) || "";
+        const division = r[find(["DIVIS", "DIV", "CATEG"])] || "";
+        const rival = r[find(["RIVAL", "EQUIPO", "CLUB"])] || "";
+        const dia = r[find(["DIA", "FECHA", "DATE"])] || "";
+        const hora = r[find(["HORA", "TIME", "HORARIO"])] || "";
+        const condicion = r[find(["CONDIC", "COND", "LOC"])] || "";
+        const cancha = r[find(["CANCHA", "CAMPO", "FIELD"])] || "";
+        let date = TODAY;
+        if (dia) {
+          if (typeof dia === "number") {
+            const d = new Date((dia - 25569) * 86400 * 1000);
+            date = dateISO(d);
+          } else {
+            const s = String(dia);
+            if (s.includes("-")) date = s.slice(0, 10);
+            else if (s.includes("/")) {
+              const parts = s.split("/");
+              if (parts.length === 3) {
+                const [dd, mm, yy] = parts;
+                date = `${yy.length === 2 ? "20" + yy : yy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
+              }
             }
           }
         }
+        return {
+          division: String(division).trim(),
+          rival: String(rival).trim(),
+          date,
+          time: String(hora).trim(),
+          condicion: String(condicion).trim(),
+          is_local: checkLocal(String(condicion)),
+          cancha: String(cancha).trim(),
+          facility_key: FIX_CANCHA_MAP[String(cancha).trim().toUpperCase()] || "",
+          status: "pendiente",
+          notes: "",
+          _missingCancha: !String(cancha).trim(),
+        };
+      }).filter((r: any) => r.division || r.rival);
+
+      if (!mapped.length) {
+        sExcelError("No se encontraron filas válidas. Columnas del archivo: " + sampleKeys.join(", ") + ". Se buscan: DIVISION, RIVAL, DIA, HORA, CONDICION, CANCHA.");
+        return;
       }
-      return {
-        division: String(division).trim(),
-        rival: String(rival).trim(),
-        date,
-        time: String(hora).trim(),
-        condicion: String(condicion).trim(),
-        is_local: checkLocal(String(condicion)),
-        cancha: String(cancha).trim(),
-        facility_key: FIX_CANCHA_MAP[String(cancha).trim().toUpperCase()] || "",
-        status: "pendiente",
-        notes: "",
-        _missingCancha: !String(cancha).trim(),
-      };
-    }).filter((r: any) => r.division || r.rival);
-    sExcelRows(mapped);
-    sExcelLoading(false);
-    // Auto-generate week label from dates
-    const uniqueDates = [...new Set(mapped.map((r: any) => r.date))].sort();
-    if (uniqueDates.length && !excelWeekLabel) {
-      const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-      const parts = uniqueDates.map(d => { const dt = new Date(d + "T12:00:00"); return `${DIAS_FULL[dt.getDay()]} ${dt.getDate()}`; });
-      const lastDt = new Date(uniqueDates[uniqueDates.length - 1] + "T12:00:00");
-      sExcelWeekLabel(`${parts.join(", ")} de ${MESES[lastDt.getMonth()]} ${lastDt.getFullYear()}`);
+
+      sExcelRows(mapped);
+      // Auto-generate week label from dates
+      const uniqueDates = [...new Set(mapped.map((r: any) => r.date))].sort();
+      if (uniqueDates.length && !excelWeekLabel) {
+        const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+        const parts = uniqueDates.map(d => { const dt = new Date(d + "T12:00:00"); return `${DIAS_FULL[dt.getDay()]} ${dt.getDate()}`; });
+        const lastDt = new Date(uniqueDates[uniqueDates.length - 1] + "T12:00:00");
+        sExcelWeekLabel(`${parts.join(", ")} de ${MESES[lastDt.getMonth()]} ${lastDt.getFullYear()}`);
+      }
+    } catch (e: any) {
+      sExcelError("Error: " + (e.message || "error inesperado"));
+    } finally {
+      sExcelLoading(false);
     }
   };
 
