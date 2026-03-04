@@ -70,6 +70,8 @@
 - [x] Mensajes Directos estilo Slack (tabla dm_messages, DMView, botón 💬 en Organigrama, badge sidebar, realtime, mark-read)
 - [x] Barra de búsqueda de personas en DMs (🔍 Nuevo)
 - [x] Borrar mensajes individuales y conversaciones completas en DMs
+- [x] Aprobación de minutas CD/SE con quórum (5 CD / 3 SE), barra de progreso, firmas y status automático
+- [x] Pre-cargar área/depto/responsable en "+ Tarea" desde departamento (salta pantalla selector)
 
 ## Tareas propuestas por Claude (realizadas)
 
