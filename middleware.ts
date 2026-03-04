@@ -26,7 +26,7 @@ setInterval(() => {
 }, 300_000);
 
 /* ── Routes that skip auth ── */
-const PUBLIC_PATHS = new Set(["/api/cron/daily-summary"]);
+const PUBLIC_PATHS = new Set(["/api/cron/daily-summary", "/api/parse-excel"]);
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
