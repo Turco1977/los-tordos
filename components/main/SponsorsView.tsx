@@ -776,15 +776,29 @@ function PropuestasPanel({propuestas,votos,mensajes,sponsors,tarifario,colors,is
    ══════════════════════════════════════════════════════════════ */
 function MaterialesPanel({materiales,colors,isDark,cardBg,mob,canUpload,onAdd,onDel}:any){
   const items:any[]=materiales||[];
+  const archivos=useDataStore(s=>s.archivos);
   const [showForm,sShowForm]=useState(false);
-  const [form,sForm]=useState({titulo:"",descripcion:"",categoria:"general",archivo_url:""});
+  const [form,sForm]=useState({titulo:"",descripcion:"",categoria:"general",archivo_url:"",archivo_nombre:""});
+  const [archSearch,sArchSearch]=useState("");
   const lbl:any={fontSize:10,fontWeight:600,color:colors.g5,display:"block",marginBottom:2};
   const inp:any={width:"100%",padding:"7px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,background:cardBg,color:colors.nv,boxSizing:"border-box"};
 
+  const filteredArch=useMemo(()=>{
+    const all:any[]=archivos||[];
+    if(!archSearch.trim())return all.slice(0,30);
+    const q=archSearch.toLowerCase();
+    return all.filter((a:any)=>((a.titulo||"")+(a.name||"")).toLowerCase().includes(q)).slice(0,30);
+  },[archivos,archSearch]);
+
+  const selectArchivo=(a:any)=>{
+    sForm(p=>({...p,archivo_url:a.url,archivo_nombre:a.titulo||a.name||"",titulo:p.titulo||a.titulo||a.name||""}));
+    sArchSearch("");
+  };
+
   const handleSave=async()=>{
-    if(!form.titulo.trim())return;
-    await onAdd({titulo:form.titulo.trim(),descripcion:form.descripcion.trim(),categoria:form.categoria,archivo_url:form.archivo_url.trim(),archivo_nombre:form.titulo.trim()});
-    sShowForm(false);sForm({titulo:"",descripcion:"",categoria:"general",archivo_url:""});
+    if(!form.titulo.trim()||!form.archivo_url)return;
+    await onAdd({titulo:form.titulo.trim(),descripcion:form.descripcion.trim(),categoria:form.categoria,archivo_url:form.archivo_url,archivo_nombre:form.archivo_nombre||form.titulo.trim()});
+    sShowForm(false);sForm({titulo:"",descripcion:"",categoria:"general",archivo_url:"",archivo_nombre:""});
   };
 
   const grouped:Record<string,any[]>={};
@@ -813,15 +827,42 @@ function MaterialesPanel({materiales,colors,isDark,cardBg,mob,canUpload,onAdd,on
     );})}
     {items.length===0&&<div style={{textAlign:"center",padding:40,color:colors.g4}}>No hay materiales cargados</div>}
     {showForm&&<div style={{position:"fixed" as const,inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>sShowForm(false)}>
-      <div style={{background:cardBg,borderRadius:16,padding:20,width:"100%",maxWidth:440,boxShadow:"0 8px 32px rgba(0,0,0,.2)"}} onClick={e=>e.stopPropagation()}>
-        <div style={{fontSize:14,fontWeight:800,color:colors.nv,marginBottom:14}}>Subir Material</div>
+      <div style={{background:cardBg,borderRadius:16,padding:20,width:"100%",maxWidth:480,maxHeight:"90vh",overflowY:"auto" as const,boxShadow:"0 8px 32px rgba(0,0,0,.2)"}} onClick={e=>e.stopPropagation()}>
+        <div style={{fontSize:14,fontWeight:800,color:colors.nv,marginBottom:14}}>Agregar Material</div>
+
+        {/* Archivo selector from Archivos */}
+        <div style={{marginBottom:10}}>
+          <label style={lbl}>Archivo (de la sección Archivos) *</label>
+          {form.archivo_url
+            ?<div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",borderRadius:8,background:isDark?"rgba(16,185,129,.1)":"#ECFDF5",border:"1px solid #10B981"}}>
+              <span style={{fontSize:12,fontWeight:600,color:"#10B981",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>✅ {form.archivo_nombre}</span>
+              <button onClick={()=>sForm(p=>({...p,archivo_url:"",archivo_nombre:""}))} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#DC2626"}} title="Quitar">✕</button>
+            </div>
+            :<div>
+              <input value={archSearch} onChange={e=>sArchSearch(e.target.value)} placeholder="Buscar en Archivos..." style={{...inp,marginBottom:4}}/>
+              <div style={{maxHeight:180,overflowY:"auto" as const,border:"1px solid "+colors.g3,borderRadius:8}}>
+                {filteredArch.length===0&&<div style={{padding:12,textAlign:"center",color:colors.g4,fontSize:11}}>No se encontraron archivos{archSearch?" con ese nombre":""}</div>}
+                {filteredArch.map((a:any)=>(
+                  <div key={a.id} onClick={()=>selectArchivo(a)} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",borderBottom:"1px solid "+colors.g2,cursor:"pointer",fontSize:11,transition:"background .15s"}} onMouseOver={e=>(e.currentTarget.style.background=isDark?"rgba(255,255,255,.05)":"#F7F8FA")} onMouseOut={e=>(e.currentTarget.style.background="transparent")}>
+                    <span style={{fontSize:16}}>{/\.(pdf)$/i.test(a.name||"")?"📄":/\.(xlsx?|csv)$/i.test(a.name||"")?"📊":/\.(jpg|jpeg|png|gif|webp|svg)$/i.test(a.name||"")?"🖼️":"📁"}</span>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontWeight:600,color:colors.nv,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{a.titulo||a.name}</div>
+                      {a.titulo&&a.name&&a.titulo!==a.name&&<div style={{fontSize:9,color:colors.g4}}>{a.name}</div>}
+                    </div>
+                    <span style={{fontSize:9,color:colors.g4,whiteSpace:"nowrap" as const}}>{a.created_at?.slice(0,10)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          }
+        </div>
+
         <div style={{marginBottom:8}}><label style={lbl}>Título *</label><input value={form.titulo} onChange={e=>sForm(p=>({...p,titulo:e.target.value}))} style={inp}/></div>
         <div style={{marginBottom:8}}><label style={lbl}>Categoría</label><select value={form.categoria} onChange={e=>sForm(p=>({...p,categoria:e.target.value}))} style={inp}>{Object.entries(MAT_CATS).map(([k,v])=><option key={k} value={k}>{v.i} {v.l}</option>)}</select></div>
-        <div style={{marginBottom:8}}><label style={lbl}>URL del archivo</label><input value={form.archivo_url} onChange={e=>sForm(p=>({...p,archivo_url:e.target.value}))} style={inp} placeholder="https://..."/></div>
         <div style={{marginBottom:12}}><label style={lbl}>Descripción</label><textarea value={form.descripcion} onChange={e=>sForm(p=>({...p,descripcion:e.target.value}))} rows={2} style={{...inp,resize:"vertical" as const}}/></div>
         <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
           <Btn v="g" s="s" onClick={()=>sShowForm(false)}>Cancelar</Btn>
-          <Btn v="s" s="s" onClick={handleSave}>Subir</Btn>
+          <Btn v="s" s="s" disabled={!form.archivo_url||!form.titulo.trim()} onClick={handleSave}>Agregar</Btn>
         </div>
       </div>
     </div>}
