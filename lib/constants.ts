@@ -235,6 +235,26 @@ export const TAR_VIS:Record<string,{l:string;c:string;bg:string}>={
   baja:{l:"Baja",c:"#6B7280",bg:"#F3F4F6"},
 };
 
+/* Pipeline stages */
+export const PIPE_ST={PROSP:"prospecto",CONT:"contacto",PROP:"propuesta",NEG:"negociacion",CIERRE:"cierre",PERD:"perdido"};
+export const PIPE_SC:Record<string,{l:string;c:string;bg:string;i:string}>={
+  [PIPE_ST.PROSP]:{l:"Prospecto",c:"#6B7280",bg:"#F3F4F6",i:"🔍"},
+  [PIPE_ST.CONT]:{l:"Contacto",c:"#3B82F6",bg:"#DBEAFE",i:"📞"},
+  [PIPE_ST.PROP]:{l:"Propuesta",c:"#8B5CF6",bg:"#EDE9FE",i:"📄"},
+  [PIPE_ST.NEG]:{l:"Negociación",c:"#F59E0B",bg:"#FEF3C7",i:"🤝"},
+  [PIPE_ST.CIERRE]:{l:"Cierre",c:"#10B981",bg:"#D1FAE5",i:"✅"},
+  [PIPE_ST.PERD]:{l:"Perdido",c:"#DC2626",bg:"#FEE2E2",i:"❌"},
+};
+
+/* Contract status */
+export const CONTR_ST={VIG:"vigente",PROX:"por_vencer",VENC:"vencido",REN:"renovado"};
+export const CONTR_SC:Record<string,{l:string;c:string;bg:string;i:string}>={
+  [CONTR_ST.VIG]:{l:"Vigente",c:"#10B981",bg:"#D1FAE5",i:"✅"},
+  [CONTR_ST.PROX]:{l:"Por Vencer",c:"#F59E0B",bg:"#FEF3C7",i:"⚠️"},
+  [CONTR_ST.VENC]:{l:"Vencido",c:"#DC2626",bg:"#FEE2E2",i:"🔴"},
+  [CONTR_ST.REN]:{l:"Renovado",c:"#3B82F6",bg:"#DBEAFE",i:"🔄"},
+};
+
 /* ── Fixtures ── */
 export const FIX_LOCAL = ["LOS TORDOS", "LOS TORDOS RC", "LTRC", "LOCAL"];
 export const FIX_CANCHA_MAP: Record<string, string> = {

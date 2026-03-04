@@ -718,3 +718,106 @@ ${tables}
   const w = window.open("", "_blank");
   if (w) { w.document.write(html); w.document.close(); }
 }
+
+/* ── Pipeline PDF ── */
+export function exportPipelinePDF(items: any[], dolarRef: number) {
+  const esc = (s: string) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const fmtN = (n: number) => n ? "$" + Math.round(n).toLocaleString("es-AR") : "–";
+  const stages: Record<string, string> = { prospecto: "Prospecto", contacto: "Contacto", propuesta: "Propuesta", negociacion: "Negociación", cierre: "Cierre", perdido: "Perdido" };
+  const totalDeals = items.filter(i => i.etapa !== "perdido").length;
+  const totalMonto = items.filter(i => i.etapa !== "perdido").reduce((s: number, i: any) => s + Number(i.monto_potencial_usd || 0), 0);
+  const ponderado = items.filter(i => i.etapa !== "perdido").reduce((s: number, i: any) => s + Number(i.monto_potencial_usd || 0) * (Number(i.probabilidad || 0) / 100), 0);
+
+  const grouped: Record<string, any[]> = {};
+  for (const i of items) { const k = i.etapa || "prospecto"; if (!grouped[k]) grouped[k] = []; grouped[k].push(i); }
+
+  let tables = "";
+  for (const [stage, rows] of Object.entries(grouped)) {
+    if (!rows.length) continue;
+    tables += `<h3 style="margin:14px 0 4px;font-size:12px;">${esc(stages[stage] || stage)} (${rows.length})</h3>
+<table><thead><tr><th>Nombre</th><th>Contacto</th><th>USD Potencial</th><th>Prob %</th><th>Responsable</th><th>Próx. Acción</th></tr></thead><tbody>`;
+    for (const r of rows) {
+      tables += `<tr><td>${esc(r.nombre)}</td><td>${esc(r.contacto)}</td><td>${fmtN(r.monto_potencial_usd)}</td><td>${r.probabilidad || 0}%</td><td>${esc(r.responsable)}</td><td>${esc(r.proxima_accion)}</td></tr>`;
+    }
+    tables += "</tbody></table>";
+  }
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Pipeline Comercial</title>
+<style>
+  @page { size: portrait; margin: 12mm; }
+  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 11px; color: #1a1a1a; }
+  h1 { font-size: 16px; margin: 0 0 4px; }
+  .meta { color: #666; font-size: 10px; margin-bottom: 8px; }
+  .kpis { display: flex; gap: 12px; margin-bottom: 12px; }
+  .kpi { padding: 8px 14px; border-radius: 8px; background: #F7F8FA; text-align: center; }
+  .kpi b { display: block; font-size: 15px; color: #0A1628; }
+  .kpi span { font-size: 9px; color: #666; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+  th { background: #0A1628; color: #fff; padding: 5px 7px; text-align: left; font-size: 9px; }
+  td { padding: 4px 7px; border-bottom: 1px solid #e5e5e5; font-size: 10px; }
+  tr:nth-child(even) { background: #f9f9f9; }
+</style></head><body>
+<h1>Pipeline Comercial — Sponsors</h1>
+<div class="meta">Los Tordos RC · ${new Date().toLocaleDateString("es-AR")} · Ref USD $${dolarRef.toLocaleString("es-AR")}</div>
+<div class="kpis">
+  <div class="kpi"><b>${totalDeals}</b><span>Deals activos</span></div>
+  <div class="kpi"><b>USD ${fmtN(totalMonto)}</b><span>Monto potencial</span></div>
+  <div class="kpi"><b>USD ${fmtN(ponderado)}</b><span>Ponderado</span></div>
+</div>
+${tables}
+<script>window.onload=()=>{window.print();}</script>
+</body></html>`;
+  const w = window.open("", "_blank");
+  if (w) { w.document.write(html); w.document.close(); }
+}
+
+/* ── Contracts PDF ── */
+export function exportContractsPDF(contracts: any[], sponsors: any[]) {
+  const esc = (s: string) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const fmtN = (n: number) => n ? "$" + Math.round(n).toLocaleString("es-AR") : "–";
+  const today = new Date().toISOString().slice(0, 10);
+  const getSponName = (id: number | null) => { if (!id) return "–"; const sp = sponsors.find((s: any) => s.id === id); return sp?.name || "Sponsor #" + id; };
+  const getEstado = (c: any) => { if (c.estado === "renovado") return "Renovado"; if (!c.fecha_fin) return "Vigente"; if (c.fecha_fin < today) return "Vencido"; const diff = Math.round((new Date(c.fecha_fin).getTime() - new Date(today).getTime()) / 864e5); return diff <= (c.alerta_dias || 30) ? "Por Vencer" : "Vigente"; };
+  const vigentes = contracts.filter(c => getEstado(c) === "Vigente").length;
+  const porVencer = contracts.filter(c => getEstado(c) === "Por Vencer").length;
+  const vencidos = contracts.filter(c => getEstado(c) === "Vencido").length;
+  const montoTotal = contracts.filter(c => getEstado(c) === "Vigente" || getEstado(c) === "Por Vencer").reduce((s: number, c: any) => s + Number(c.monto_cash || 0), 0);
+
+  let rows = "";
+  for (const c of contracts) {
+    const est = getEstado(c);
+    const ec = est === "Vigente" ? "#10B981" : est === "Por Vencer" ? "#F59E0B" : est === "Vencido" ? "#DC2626" : "#3B82F6";
+    rows += `<tr><td>${esc(getSponName(c.sponsor_id))}</td><td>${esc(c.titulo)}</td><td>${c.fecha_inicio || "–"}</td><td>${c.fecha_fin || "–"}</td><td>${fmtN(c.monto_cash)}</td><td>${fmtN(c.monto_canje)}</td><td><span style="color:${ec};font-weight:700;">${est}</span></td></tr>`;
+  }
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Contratos Sponsors</title>
+<style>
+  @page { size: portrait; margin: 12mm; }
+  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 11px; color: #1a1a1a; }
+  h1 { font-size: 16px; margin: 0 0 4px; }
+  .meta { color: #666; font-size: 10px; margin-bottom: 8px; }
+  .kpis { display: flex; gap: 12px; margin-bottom: 12px; }
+  .kpi { padding: 8px 14px; border-radius: 8px; background: #F7F8FA; text-align: center; }
+  .kpi b { display: block; font-size: 15px; color: #0A1628; }
+  .kpi span { font-size: 9px; color: #666; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: #0A1628; color: #fff; padding: 5px 7px; text-align: left; font-size: 9px; }
+  td { padding: 4px 7px; border-bottom: 1px solid #e5e5e5; font-size: 10px; }
+  tr:nth-child(even) { background: #f9f9f9; }
+</style></head><body>
+<h1>Contratos de Sponsors</h1>
+<div class="meta">Los Tordos RC · ${new Date().toLocaleDateString("es-AR")}</div>
+<div class="kpis">
+  <div class="kpi"><b>${vigentes}</b><span>Vigentes</span></div>
+  <div class="kpi"><b style="color:#F59E0B">${porVencer}</b><span>Por Vencer</span></div>
+  <div class="kpi"><b style="color:#DC2626">${vencidos}</b><span>Vencidos</span></div>
+  <div class="kpi"><b>${fmtN(montoTotal)}</b><span>Monto vigente</span></div>
+</div>
+<table><thead><tr><th>Sponsor</th><th>Título</th><th>Inicio</th><th>Fin</th><th>Cash $</th><th>Canje $</th><th>Estado</th></tr></thead><tbody>
+${rows}
+</tbody></table>
+<script>window.onload=()=>{window.print();}</script>
+</body></html>`;
+  const w = window.open("", "_blank");
+  if (w) { w.document.write(html); w.document.close(); }
+}

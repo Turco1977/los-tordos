@@ -1,7 +1,7 @@
 "use client";
 import { useState, useMemo, useRef, useEffect } from "react";
-import { SPON_ST, DOLAR_REF, DIV, TAR_CATS, TAR_VIS } from "@/lib/constants";
-import { exportTarifarioPDF } from "@/lib/export";
+import { SPON_ST, DOLAR_REF, DIV, TAR_CATS, TAR_VIS, PIPE_ST, PIPE_SC, CONTR_ST, CONTR_SC } from "@/lib/constants";
+import { exportTarifarioPDF, exportPipelinePDF, exportContractsPDF } from "@/lib/export";
 import { fmtD } from "@/lib/mappers";
 import { Btn, Card } from "@/components/ui";
 import { useC } from "@/lib/theme-context";
@@ -84,6 +84,9 @@ function TarifarioPanel({tarifario,sponsors,dolarRef,colors,isDark,cardBg,mob,ca
         <Card key={i} style={{flex:"1 1 140px",padding:"10px 14px",textAlign:"center" as const}}>
           <div style={{fontSize:18,fontWeight:800,color:k.c}}>{k.v}</div>
           <div style={{fontSize:10,color:colors.g4,marginTop:2}}>{k.l}</div>
+          {k.l==="Libres"&&total>0&&<div style={{marginTop:4,height:6,borderRadius:3,background:isDark?"rgba(255,255,255,.08)":"#F3F4F6",overflow:"hidden"}}>
+            <div style={{height:"100%",width:Math.round((ocupadas/total)*100)+"%",borderRadius:3,background:"#10B981",transition:"width .3s"}}/>
+          </div>}
         </Card>
       ))}
     </div>
@@ -188,8 +191,13 @@ function TarifarioPanel({tarifario,sponsors,dolarRef,colors,isDark,cardBg,mob,ca
                   <td style={{padding:"7px 10px",fontSize:12,color:colors.g5,textAlign:"right",fontFamily:"monospace"}}>{fN(Number(t.precio_max_usd||0)*dolarRef)}</td>
                   <td style={{padding:"7px 10px"}}>
                     {sponName
-                      ?<span style={{padding:"2px 8px",borderRadius:10,fontSize:10,fontWeight:600,background:"#D1FAE5",color:"#10B981"}}>{sponName}</span>
-                      :<span style={{padding:"2px 8px",borderRadius:10,fontSize:10,fontWeight:600,background:"#DBEAFE",color:"#3B82F6"}}>Libre</span>}
+                      ?<span style={{padding:"2px 8px",borderRadius:10,fontSize:10,fontWeight:600,background:"#D1FAE5",color:"#10B981",cursor:"pointer"}} title="Ver sponsor">{sponName}</span>
+                      :canFullEdit
+                        ?<select value="" onChange={async(e)=>{const sid=Number(e.target.value);if(sid)await onUpd(t.id,{sponsor_asignado_id:sid});}} style={{padding:"2px 6px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:10,background:cardBg,color:"#3B82F6",cursor:"pointer",maxWidth:100}}>
+                          <option value="">Libre</option>
+                          {(sponsors||[]).filter((s:any)=>s.status==="active").map((s:any)=><option key={s.id} value={s.id}>{s.name}</option>)}
+                        </select>
+                        :<span style={{padding:"2px 8px",borderRadius:10,fontSize:10,fontWeight:600,background:"#DBEAFE",color:"#3B82F6"}}>Libre</span>}
                   </td>
                   <td style={{padding:"7px 10px",whiteSpace:"nowrap"}}>
                     {canFullEdit&&<>
@@ -209,12 +217,421 @@ function TarifarioPanel({tarifario,sponsors,dolarRef,colors,isDark,cardBg,mob,ca
   </div>);
 }
 
-export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onSponMsg,onAddDelivery,sponDeliveries,onUpdDelivery,navTarget,onNavDone,onAddTarifa,onUpdTarifa,onDelTarifa}:any){
+/* ══════════════════════════════════════════════════════════════
+   PipelinePanel — Kanban comercial
+   ══════════════════════════════════════════════════════════════ */
+const emptyPipeForm=()=>({nombre:"",contacto:"",email:"",telefono:"",etapa:PIPE_ST.PROSP,monto_potencial_usd:"",probabilidad:"10",proxima_accion:"",proxima_fecha:"",responsable:"Jesús Herrera",notas:""});
+const PIPE_COLS=[PIPE_ST.PROSP,PIPE_ST.CONT,PIPE_ST.PROP,PIPE_ST.NEG,PIPE_ST.CIERRE];
+
+function PipelinePanel({items,sponsors,dolarRef,colors,isDark,cardBg,mob,canFullEdit,onAdd,onUpd,onDel,onAddSponsor}:any){
+  const deals:any[]=items||[];
+  const [showForm,sShowForm]=useState(false);
+  const [editId,sEditId]=useState<number|null>(null);
+  const [form,sForm]=useState(emptyPipeForm());
+  const [confirmDel,sConfirmDel]=useState<number|null>(null);
+  const [dragId,sDragId]=useState<number|null>(null);
+  const [showLost,sShowLost]=useState(false);
+
+  const activeDeals=deals.filter(d=>d.etapa!==PIPE_ST.PERD);
+  const lostDeals=deals.filter(d=>d.etapa===PIPE_ST.PERD);
+  const totalMonto=activeDeals.reduce((s:number,d:any)=>s+Number(d.monto_potencial_usd||0),0);
+  const ponderado=activeDeals.reduce((s:number,d:any)=>s+Number(d.monto_potencial_usd||0)*(Number(d.probabilidad||0)/100),0);
+  const cierreDeals=deals.filter(d=>d.etapa===PIPE_ST.CIERRE).length;
+  const totalActive=activeDeals.length;
+  const tasaConv=totalActive>0?Math.round((cierreDeals/(totalActive))*100):0;
+
+  const openAdd=()=>{sForm(emptyPipeForm());sEditId(null);sShowForm(true);};
+  const openEdit=(d:any)=>{sForm({nombre:d.nombre||"",contacto:d.contacto||"",email:d.email||"",telefono:d.telefono||"",etapa:d.etapa||PIPE_ST.PROSP,monto_potencial_usd:String(d.monto_potencial_usd||""),probabilidad:String(d.probabilidad||"10"),proxima_accion:d.proxima_accion||"",proxima_fecha:d.proxima_fecha||"",responsable:d.responsable||"Jesús Herrera",notas:d.notas||""});sEditId(d.id);sShowForm(true);};
+
+  const handleSave=async()=>{
+    if(!form.nombre.trim())return;
+    const d={nombre:form.nombre.trim(),contacto:form.contacto.trim(),email:form.email.trim(),telefono:form.telefono.trim(),etapa:form.etapa,monto_potencial_usd:Number(form.monto_potencial_usd)||0,probabilidad:Number(form.probabilidad)||0,proxima_accion:form.proxima_accion.trim(),proxima_fecha:form.proxima_fecha||null,responsable:form.responsable.trim(),notas:form.notas.trim()};
+    if(editId){await onUpd(editId,d);}else{await onAdd(d);}
+    sShowForm(false);sEditId(null);sForm(emptyPipeForm());
+  };
+
+  const handleDrop=(col:string)=>{
+    if(!dragId)return;
+    const deal=deals.find(d=>d.id===dragId);
+    if(deal&&deal.etapa!==col){onUpd(dragId,{etapa:col});}
+    sDragId(null);
+  };
+
+  const convertToSponsor=async(deal:any)=>{
+    const sponData={name:deal.nombre,amount_cash:0,amount_service:0,status:"active",notes:"Convertido desde pipeline. "+deal.notas,responsable:deal.responsable};
+    const newSpon=await onAddSponsor(sponData);
+    if(newSpon?.id){await onUpd(deal.id,{sponsor_id:newSpon.id,etapa:PIPE_ST.CIERRE});}
+  };
+
+  const fN=(n:number)=>n?"$"+Math.round(n).toLocaleString("es-AR"):"–";
+  const lbl:any={fontSize:10,fontWeight:600,color:colors.g5,display:"block",marginBottom:2};
+  const inp:any={width:"100%",padding:"7px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,background:cardBg,color:colors.nv,boxSizing:"border-box"};
+
+  return(<div>
+    {/* KPIs */}
+    <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:14}}>
+      {[{l:"Deals activos",v:totalActive,c:colors.bl},{l:"Monto USD",v:fN(totalMonto),c:"#10B981"},{l:"Ponderado USD",v:fN(ponderado),c:"#8B5CF6"},{l:"Tasa conversión",v:tasaConv+"%",c:colors.yl}].map((k,i)=>(
+        <Card key={i} style={{flex:"1 1 130px",padding:"10px 14px",textAlign:"center" as const}}>
+          <div style={{fontSize:18,fontWeight:800,color:k.c}}>{k.v}</div>
+          <div style={{fontSize:10,color:colors.g4,marginTop:2}}>{k.l}</div>
+        </Card>
+      ))}
+    </div>
+
+    {/* Actions */}
+    <div style={{display:"flex",justifyContent:"space-between",marginBottom:12,flexWrap:"wrap",gap:8}}>
+      <div style={{display:"flex",gap:6}}>
+        {lostDeals.length>0&&<button onClick={()=>sShowLost(!showLost)} style={{padding:"5px 12px",borderRadius:20,border:"1px solid #DC2626",background:showLost?"#FEE2E2":"transparent",color:"#DC2626",fontSize:11,fontWeight:600,cursor:"pointer"}}>❌ Perdidos ({lostDeals.length})</button>}
+      </div>
+      <div style={{display:"flex",gap:6}}>
+        <Btn v="g" s="s" onClick={()=>exportPipelinePDF(deals,dolarRef)}>PDF</Btn>
+        {canFullEdit&&<Btn v="pu" s="s" onClick={openAdd}>+ Deal</Btn>}
+      </div>
+    </div>
+
+    {/* Kanban columns */}
+    <div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:8,minHeight:200}}>
+      {PIPE_COLS.map(col=>{
+        const sc=PIPE_SC[col];
+        const colDeals=deals.filter(d=>d.etapa===col);
+        return(<div key={col} onDragOver={e=>{e.preventDefault();e.currentTarget.style.background=sc.bg;}} onDragLeave={e=>{e.currentTarget.style.background="transparent";}} onDrop={e=>{e.preventDefault();e.currentTarget.style.background="transparent";handleDrop(col);}} style={{flex:"1 1 160px",minWidth:mob?140:160,background:"transparent",borderRadius:10,padding:6,transition:"background .2s"}}>
+          <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:8,padding:"4px 8px",borderRadius:8,background:sc.bg}}>
+            <span>{sc.i}</span>
+            <span style={{fontSize:11,fontWeight:700,color:sc.c}}>{sc.l}</span>
+            <span style={{fontSize:10,fontWeight:700,color:sc.c,marginLeft:"auto",background:"rgba(0,0,0,.06)",borderRadius:10,padding:"1px 6px"}}>{colDeals.length}</span>
+          </div>
+          {colDeals.map(deal=>(
+            <div key={deal.id} draggable={canFullEdit} onDragStart={()=>sDragId(deal.id)} onClick={()=>openEdit(deal)} style={{background:cardBg,border:"1px solid "+colors.g2,borderRadius:10,padding:"8px 10px",marginBottom:6,cursor:"pointer",boxShadow:dragId===deal.id?"0 4px 12px rgba(0,0,0,.15)":"none",opacity:dragId===deal.id?.5:1,transition:"all .15s"}}>
+              <div style={{fontSize:12,fontWeight:700,color:colors.nv,marginBottom:2}}>{deal.nombre}</div>
+              {deal.monto_potencial_usd>0&&<div style={{fontSize:11,fontWeight:600,color:"#10B981"}}>USD {fN(deal.monto_potencial_usd)}</div>}
+              <div style={{display:"flex",justifyContent:"space-between",marginTop:4}}>
+                <span style={{fontSize:9,color:colors.g4}}>{deal.probabilidad||0}%</span>
+                <span style={{fontSize:9,color:colors.g5}}>{deal.responsable}</span>
+              </div>
+              {deal.proxima_accion&&<div style={{fontSize:9,color:colors.g5,marginTop:3,fontStyle:"italic"}}>→ {deal.proxima_accion}</div>}
+              {col===PIPE_ST.CIERRE&&!deal.sponsor_id&&canFullEdit&&<button onClick={e=>{e.stopPropagation();convertToSponsor(deal);}} style={{marginTop:6,width:"100%",padding:"4px 8px",borderRadius:6,border:"1px solid #10B981",background:"#D1FAE5",color:"#10B981",fontSize:10,fontWeight:700,cursor:"pointer"}}>Convertir a Sponsor</button>}
+            </div>
+          ))}
+        </div>);
+      })}
+    </div>
+
+    {/* Lost deals */}
+    {showLost&&<Card style={{marginTop:10,padding:12}}>
+      <div style={{fontSize:13,fontWeight:700,color:"#DC2626",marginBottom:8}}>❌ Deals perdidos</div>
+      {lostDeals.map(d=>(
+        <div key={d.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid "+colors.g2}}>
+          <div><span style={{fontWeight:600,color:colors.nv,fontSize:12}}>{d.nombre}</span>{d.monto_potencial_usd>0&&<span style={{fontSize:11,color:colors.g4,marginLeft:8}}>USD {fN(d.monto_potencial_usd)}</span>}</div>
+          {canFullEdit&&<div style={{display:"flex",gap:4}}>
+            <Btn v="g" s="s" onClick={()=>{onUpd(d.id,{etapa:PIPE_ST.PROSP});}}>Reactivar</Btn>
+            <Btn v="r" s="s" onClick={()=>{onDel(d.id);}}>Borrar</Btn>
+          </div>}
+        </div>
+      ))}
+    </Card>}
+
+    {/* Form modal */}
+    {showForm&&<div style={{position:"fixed" as const,inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>{sShowForm(false);sEditId(null);}}>
+      <div style={{background:cardBg,borderRadius:16,padding:mob?16:24,width:"100%",maxWidth:480,maxHeight:"90vh",overflowY:"auto" as const,boxShadow:"0 8px 32px rgba(0,0,0,.2)"}} onClick={e=>e.stopPropagation()}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+          <div style={{fontSize:14,fontWeight:800,color:colors.nv}}>{editId?"Editar Deal":"Nuevo Deal"}</div>
+          <button onClick={()=>{sShowForm(false);sEditId(null);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:colors.g4}}>✕</button>
+        </div>
+        <div style={{marginBottom:8}}><label style={lbl}>Nombre *</label><input value={form.nombre} onChange={e=>sForm(p=>({...p,nombre:e.target.value}))} style={inp}/></div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+          <div><label style={lbl}>Contacto</label><input value={form.contacto} onChange={e=>sForm(p=>({...p,contacto:e.target.value}))} style={inp}/></div>
+          <div><label style={lbl}>Email</label><input type="email" value={form.email} onChange={e=>sForm(p=>({...p,email:e.target.value}))} style={inp}/></div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+          <div><label style={lbl}>Teléfono</label><input value={form.telefono} onChange={e=>sForm(p=>({...p,telefono:e.target.value}))} style={inp}/></div>
+          <div><label style={lbl}>Etapa</label><select value={form.etapa} onChange={e=>sForm(p=>({...p,etapa:e.target.value}))} style={inp}>{Object.entries(PIPE_SC).map(([k,v])=><option key={k} value={k}>{v.i} {v.l}</option>)}</select></div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+          <div><label style={lbl}>Monto potencial USD</label><input type="number" value={form.monto_potencial_usd} onChange={e=>sForm(p=>({...p,monto_potencial_usd:e.target.value}))} style={inp}/></div>
+          <div><label style={lbl}>Probabilidad %</label><input type="number" value={form.probabilidad} onChange={e=>sForm(p=>({...p,probabilidad:e.target.value}))} style={inp} min={0} max={100}/></div>
+        </div>
+        <div style={{marginBottom:8}}><label style={lbl}>Responsable</label><input value={form.responsable} onChange={e=>sForm(p=>({...p,responsable:e.target.value}))} style={inp}/></div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+          <div><label style={lbl}>Próxima acción</label><input value={form.proxima_accion} onChange={e=>sForm(p=>({...p,proxima_accion:e.target.value}))} style={inp}/></div>
+          <div><label style={lbl}>Próxima fecha</label><input type="date" value={form.proxima_fecha} onChange={e=>sForm(p=>({...p,proxima_fecha:e.target.value}))} style={inp}/></div>
+        </div>
+        <div style={{marginBottom:12}}><label style={lbl}>Notas</label><textarea value={form.notas} onChange={e=>sForm(p=>({...p,notas:e.target.value}))} rows={2} style={{...inp,resize:"vertical" as const}}/></div>
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+          {editId&&canFullEdit&&<Btn v="r" s="s" onClick={()=>{onDel(editId);sShowForm(false);sEditId(null);}}>Eliminar</Btn>}
+          {editId&&form.etapa!==PIPE_ST.PERD&&canFullEdit&&<Btn v="g" s="s" onClick={()=>{onUpd(editId,{etapa:PIPE_ST.PERD});sShowForm(false);sEditId(null);}}>Marcar Perdido</Btn>}
+          <Btn v="g" s="s" onClick={()=>{sShowForm(false);sEditId(null);}}>Cancelar</Btn>
+          <Btn v="s" s="s" onClick={handleSave}>Guardar</Btn>
+        </div>
+      </div>
+    </div>}
+  </div>);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ContratosPanel — Gestión de contratos
+   ══════════════════════════════════════════════════════════════ */
+const emptyContrForm=()=>({sponsor_id:"",titulo:"",fecha_inicio:"",fecha_fin:"",monto_cash:"",monto_canje:"",ubicaciones_ids:[] as number[],condiciones:"",alerta_dias:"30"});
+
+function ContratosPanel({contracts,sponsors,tarifario,colors,isDark,cardBg,mob,canFullEdit,onAdd,onUpd,onDel}:any){
+  const items:any[]=contracts||[];
+  const [showForm,sShowForm]=useState(false);
+  const [editId,sEditId]=useState<number|null>(null);
+  const [form,sForm]=useState(emptyContrForm());
+  const [confirmDel,sConfirmDel]=useState<number|null>(null);
+
+  const getEstado=(c:any)=>{if(c.estado==="renovado")return CONTR_ST.REN;if(!c.fecha_fin)return CONTR_ST.VIG;if(c.fecha_fin<TODAY)return CONTR_ST.VENC;const diff=Math.round((new Date(c.fecha_fin).getTime()-new Date(TODAY).getTime())/864e5);return diff<=(c.alerta_dias||30)?CONTR_ST.PROX:CONTR_ST.VIG;};
+  const vigentes=items.filter(c=>getEstado(c)===CONTR_ST.VIG);
+  const porVencer=items.filter(c=>getEstado(c)===CONTR_ST.PROX);
+  const vencidos=items.filter(c=>getEstado(c)===CONTR_ST.VENC);
+  const montoVig=vigentes.reduce((s:number,c:any)=>s+Number(c.monto_cash||0),0)+porVencer.reduce((s:number,c:any)=>s+Number(c.monto_cash||0),0);
+
+  const getSponName=(id:number|null)=>{if(!id)return"–";const sp=(sponsors||[]).find((s:any)=>s.id===id);return sp?.name||"#"+id;};
+  const fN=(n:number)=>n?"$"+Math.round(n).toLocaleString("es-AR"):"–";
+
+  const openAdd=()=>{sForm(emptyContrForm());sEditId(null);sShowForm(true);};
+  const openEdit=(c:any)=>{sForm({sponsor_id:String(c.sponsor_id||""),titulo:c.titulo||"",fecha_inicio:c.fecha_inicio||"",fecha_fin:c.fecha_fin||"",monto_cash:String(c.monto_cash||""),monto_canje:String(c.monto_canje||""),ubicaciones_ids:c.ubicaciones_ids||[],condiciones:c.condiciones||"",alerta_dias:String(c.alerta_dias||30)});sEditId(c.id);sShowForm(true);};
+
+  const handleRenew=(c:any)=>{
+    const nextStart=c.fecha_fin?new Date(new Date(c.fecha_fin).getTime()+864e5).toISOString().slice(0,10):"";
+    sForm({sponsor_id:String(c.sponsor_id||""),titulo:c.titulo||"",fecha_inicio:nextStart,fecha_fin:"",monto_cash:String(c.monto_cash||""),monto_canje:String(c.monto_canje||""),ubicaciones_ids:c.ubicaciones_ids||[],condiciones:c.condiciones||"",alerta_dias:String(c.alerta_dias||30)});
+    sEditId(null);sShowForm(true);
+    // Mark old as renovado
+    onUpd(c.id,{estado:"renovado"});
+  };
+
+  const handleSave=async()=>{
+    if(!form.titulo.trim())return;
+    const d={sponsor_id:Number(form.sponsor_id)||null,titulo:form.titulo.trim(),fecha_inicio:form.fecha_inicio||null,fecha_fin:form.fecha_fin||null,monto_cash:Number(form.monto_cash)||0,monto_canje:Number(form.monto_canje)||0,ubicaciones_ids:form.ubicaciones_ids,condiciones:form.condiciones.trim(),alerta_dias:Number(form.alerta_dias)||30};
+    if(editId){await onUpd(editId,d);}else{await onAdd(d);}
+    sShowForm(false);sEditId(null);sForm(emptyContrForm());
+  };
+
+  const tarItems=(tarifario||[]).filter((t:any)=>t.activo!==false);
+  const lbl:any={fontSize:10,fontWeight:600,color:colors.g5,display:"block",marginBottom:2};
+  const inp:any={width:"100%",padding:"7px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,background:cardBg,color:colors.nv,boxSizing:"border-box"};
+
+  return(<div>
+    {/* Alert banner */}
+    {porVencer.length>0&&<Card style={{marginBottom:12,padding:"10px 14px",background:isDark?"rgba(245,158,11,.12)":"#FEF3C7",border:"1px solid #F59E0B"}}>
+      <div style={{fontSize:12,fontWeight:700,color:"#D97706",marginBottom:4}}>⚠️ {porVencer.length} contrato{porVencer.length>1?"s":""} por vencer</div>
+      {porVencer.map(c=><div key={c.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:11,padding:"3px 0"}}>
+        <span><strong>{getSponName(c.sponsor_id)}</strong> — {c.titulo} (vence {c.fecha_fin})</span>
+        {canFullEdit&&<Btn v="s" s="s" onClick={()=>handleRenew(c)}>Renovar</Btn>}
+      </div>)}
+    </Card>}
+    {vencidos.length>0&&<Card style={{marginBottom:12,padding:"10px 14px",background:isDark?"rgba(220,38,38,.12)":"#FEE2E2",border:"1px solid #DC2626"}}>
+      <div style={{fontSize:12,fontWeight:700,color:"#DC2626"}}>🔴 {vencidos.length} contrato{vencidos.length>1?"s":""} vencido{vencidos.length>1?"s":""}</div>
+    </Card>}
+
+    {/* KPIs */}
+    <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:14}}>
+      {[{l:"Vigentes",v:vigentes.length,c:"#10B981"},{l:"Por vencer",v:porVencer.length,c:"#F59E0B"},{l:"Vencidos",v:vencidos.length,c:"#DC2626"},{l:"Monto vigente",v:fN(montoVig),c:colors.nv}].map((k,i)=>(
+        <Card key={i} style={{flex:"1 1 130px",padding:"10px 14px",textAlign:"center" as const}}>
+          <div style={{fontSize:18,fontWeight:800,color:k.c}}>{k.v}</div>
+          <div style={{fontSize:10,color:colors.g4,marginTop:2}}>{k.l}</div>
+        </Card>
+      ))}
+    </div>
+
+    {/* Actions */}
+    <div style={{display:"flex",justifyContent:"flex-end",gap:6,marginBottom:12}}>
+      <Btn v="g" s="s" onClick={()=>exportContractsPDF(items,sponsors)}>PDF</Btn>
+      {canFullEdit&&<Btn v="pu" s="s" onClick={openAdd}>+ Contrato</Btn>}
+    </div>
+
+    {/* Table */}
+    <div style={{overflowX:"auto"}}>
+    <table style={{width:"100%",borderCollapse:"collapse" as const,fontSize:11}}>
+      <thead><tr style={{background:isDark?"rgba(255,255,255,.05)":"#F7F8FA"}}>
+        {["Sponsor","Título","Inicio","Fin","Cash $","Canje $","Estado",""].map((h,i)=><th key={i} style={{padding:"6px 8px",textAlign:i>=4&&i<=5?"right":"left" as const,fontWeight:700,color:colors.g5,fontSize:10,borderBottom:"2px solid "+colors.g2}}>{h}</th>)}
+      </tr></thead>
+      <tbody>{items.map(c=>{const est=getEstado(c);const sc=CONTR_SC[est];return(
+        <tr key={c.id} style={{borderBottom:"1px solid "+colors.g2}}>
+          <td style={{padding:"6px 8px",fontWeight:600,color:colors.nv}}>{getSponName(c.sponsor_id)}</td>
+          <td style={{padding:"6px 8px",color:colors.nv}}>{c.titulo}</td>
+          <td style={{padding:"6px 8px",color:colors.g5,fontSize:10}}>{c.fecha_inicio||"–"}</td>
+          <td style={{padding:"6px 8px",color:colors.g5,fontSize:10}}>{c.fecha_fin||"–"}</td>
+          <td style={{padding:"6px 8px",textAlign:"right",fontWeight:600,color:"#10B981"}}>{fN(c.monto_cash)}</td>
+          <td style={{padding:"6px 8px",textAlign:"right",fontWeight:600,color:"#3B82F6"}}>{fN(c.monto_canje)}</td>
+          <td style={{padding:"6px 8px"}}><span style={{padding:"2px 8px",borderRadius:10,fontSize:10,fontWeight:600,background:sc.bg,color:sc.c}}>{sc.i} {sc.l}</span></td>
+          <td style={{padding:"6px 8px"}}>
+            {canFullEdit&&<div style={{display:"flex",gap:4}}>
+              <button onClick={()=>openEdit(c)} style={{background:"none",border:"none",cursor:"pointer",fontSize:12}} title="Editar">✏️</button>
+              {est===CONTR_ST.PROX&&<button onClick={()=>handleRenew(c)} style={{background:"none",border:"none",cursor:"pointer",fontSize:12}} title="Renovar">🔄</button>}
+              {confirmDel===c.id?<><Btn v="r" s="s" onClick={()=>{onDel(c.id);sConfirmDel(null);}}>Sí</Btn><Btn v="g" s="s" onClick={()=>sConfirmDel(null)}>No</Btn></>:<button onClick={()=>sConfirmDel(c.id)} style={{background:"none",border:"none",cursor:"pointer",fontSize:12}} title="Eliminar">🗑️</button>}
+            </div>}
+          </td>
+        </tr>);})}</tbody>
+    </table>
+    {items.length===0&&<div style={{textAlign:"center",padding:40,color:colors.g4,fontSize:13}}>No hay contratos registrados</div>}
+    </div>
+
+    {/* Form modal */}
+    {showForm&&<div style={{position:"fixed" as const,inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>{sShowForm(false);sEditId(null);}}>
+      <div style={{background:cardBg,borderRadius:16,padding:mob?16:24,width:"100%",maxWidth:520,maxHeight:"90vh",overflowY:"auto" as const,boxShadow:"0 8px 32px rgba(0,0,0,.2)"}} onClick={e=>e.stopPropagation()}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+          <div style={{fontSize:14,fontWeight:800,color:colors.nv}}>{editId?"Editar Contrato":"Nuevo Contrato"}</div>
+          <button onClick={()=>{sShowForm(false);sEditId(null);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:colors.g4}}>✕</button>
+        </div>
+        <div style={{marginBottom:8}}><label style={lbl}>Sponsor</label><select value={form.sponsor_id} onChange={e=>sForm(p=>({...p,sponsor_id:e.target.value}))} style={inp}><option value="">— Seleccionar —</option>{(sponsors||[]).map((s:any)=><option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
+        <div style={{marginBottom:8}}><label style={lbl}>Título *</label><input value={form.titulo} onChange={e=>sForm(p=>({...p,titulo:e.target.value}))} style={inp}/></div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+          <div><label style={lbl}>Fecha inicio</label><input type="date" value={form.fecha_inicio} onChange={e=>sForm(p=>({...p,fecha_inicio:e.target.value}))} style={inp}/></div>
+          <div><label style={lbl}>Fecha fin</label><input type="date" value={form.fecha_fin} onChange={e=>sForm(p=>({...p,fecha_fin:e.target.value}))} style={inp}/></div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+          <div><label style={lbl}>Monto Cash $</label><input type="number" value={form.monto_cash} onChange={e=>sForm(p=>({...p,monto_cash:e.target.value}))} style={inp}/></div>
+          <div><label style={lbl}>Monto Canje $</label><input type="number" value={form.monto_canje} onChange={e=>sForm(p=>({...p,monto_canje:e.target.value}))} style={inp}/></div>
+        </div>
+        <div style={{marginBottom:8}}><label style={lbl}>Alerta días antes</label><input type="number" value={form.alerta_dias} onChange={e=>sForm(p=>({...p,alerta_dias:e.target.value}))} style={inp}/></div>
+        {tarItems.length>0&&<div style={{marginBottom:8}}><label style={lbl}>Ubicaciones del tarifario</label>
+          <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+            {tarItems.map((t:any)=>{const sel=form.ubicaciones_ids.includes(t.id);return(
+              <button key={t.id} onClick={()=>sForm(p=>({...p,ubicaciones_ids:sel?p.ubicaciones_ids.filter((x:number)=>x!==t.id):[...p.ubicaciones_ids,t.id]}))} style={{padding:"3px 8px",borderRadius:12,border:"1px solid "+(sel?"#10B981":colors.g3),background:sel?"#D1FAE5":"transparent",color:sel?"#10B981":colors.g5,fontSize:10,fontWeight:600,cursor:"pointer"}}>{t.ubicacion}</button>
+            );})}
+          </div>
+        </div>}
+        <div style={{marginBottom:12}}><label style={lbl}>Condiciones</label><textarea value={form.condiciones} onChange={e=>sForm(p=>({...p,condiciones:e.target.value}))} rows={2} style={{...inp,resize:"vertical" as const}}/></div>
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+          <Btn v="g" s="s" onClick={()=>{sShowForm(false);sEditId(null);}}>Cancelar</Btn>
+          <Btn v="s" s="s" onClick={handleSave}>Guardar</Btn>
+        </div>
+      </div>
+    </div>}
+  </div>);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   DashboardPanel — Métricas e ingresos
+   ══════════════════════════════════════════════════════════════ */
+function DashboardPanel({sponsors,tarifario,contracts,pipeline,dolarRef,colors,isDark,cardBg,mob}:any){
+  const sp:any[]=sponsors||[];
+  const tar:any[]=tarifario||[];
+  const ctr:any[]=contracts||[];
+  const pipe:any[]=pipeline||[];
+
+  const activeSpon=sp.filter(s=>s.status==="active");
+  const totalCash=activeSpon.reduce((s:number,x:any)=>s+Number(x.amount_cash||0),0);
+  const totalService=activeSpon.reduce((s:number,x:any)=>s+Number(x.amount_service||0),0);
+  const totalUSD=dolarRef>0?Math.round((totalCash+totalService)/dolarRef):0;
+  const activeTar=tar.filter(t=>t.activo!==false);
+  const ocupadas=activeTar.filter(t=>t.sponsor_asignado_id).length;
+  const ocupPct=activeTar.length>0?Math.round((ocupadas/activeTar.length)*100):0;
+  const pipeTotal=pipe.filter(p=>p.etapa!=="perdido").reduce((s:number,p:any)=>s+Number(p.monto_potencial_usd||0),0);
+
+  const fN=(n:number)=>n?"$"+Math.round(n).toLocaleString("es-AR"):"–";
+
+  /* Donut chart: Cash vs Canje */
+  const donutR=60;const donutC=Math.PI*2*donutR;
+  const cashPct=(totalCash+totalService)>0?totalCash/(totalCash+totalService):0;
+  const cashLen=cashPct*donutC;
+  const canjLen=(1-cashPct)*donutC;
+
+  /* Occupation by category */
+  const cats=["indumentaria_rugby","hockey","espacio","digital"];
+  const catLabels:Record<string,string>={indumentaria_rugby:"Indumentaria",hockey:"Hockey",espacio:"Espacio",digital:"Digital"};
+  const catColors:Record<string,string>={indumentaria_rugby:"#C8102E",hockey:"#EC4899",espacio:"#F59E0B",digital:"#3B82F6"};
+  const catData=cats.map(k=>{const all=activeTar.filter(t=>t.categoria===k);const occ=all.filter(t=>t.sponsor_asignado_id).length;return{k,l:catLabels[k],total:all.length,occ,pct:all.length>0?Math.round((occ/all.length)*100):0};});
+
+  /* Pipeline funnel */
+  const funnelStages=[PIPE_ST.PROSP,PIPE_ST.CONT,PIPE_ST.PROP,PIPE_ST.NEG,PIPE_ST.CIERRE];
+  const funnelData=funnelStages.map(s=>{const d=pipe.filter(p=>p.etapa===s);return{s,l:PIPE_SC[s].l,c:PIPE_SC[s].c,count:d.length,monto:d.reduce((a:number,p:any)=>a+Number(p.monto_potencial_usd||0),0)};});
+  const maxFunnel=Math.max(...funnelData.map(f=>f.count),1);
+
+  /* Top 10 sponsors */
+  const top10=[...sp].sort((a,b)=>(Number(b.amount_cash||0)+Number(b.amount_service||0))-(Number(a.amount_cash||0)+Number(a.amount_service||0))).slice(0,10);
+
+  return(<div>
+    {/* KPIs */}
+    <div style={{display:"grid",gridTemplateColumns:mob?"repeat(2,1fr)":"repeat(4,1fr)",gap:10,marginBottom:16}}>
+      {[{l:"Ingreso activo ARS",v:fN(totalCash+totalService),c:"#10B981"},{l:"Sponsors activos",v:activeSpon.length,c:"#8B5CF6"},{l:"Ocupación tarifario",v:ocupPct+"%",c:"#F59E0B"},{l:"Pipeline USD",v:fN(pipeTotal),c:"#3B82F6"}].map((k,i)=>(
+        <Card key={i} style={{padding:"12px 16px",textAlign:"center" as const,borderTop:"3px solid "+k.c}}>
+          <div style={{fontSize:22,fontWeight:800,color:k.c}}>{k.v}</div>
+          <div style={{fontSize:10,color:colors.g4,marginTop:2}}>{k.l}</div>
+        </Card>
+      ))}
+    </div>
+
+    <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:14,marginBottom:16}}>
+      {/* Donut: Cash vs Canje */}
+      <Card style={{padding:16}}>
+        <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:10}}>Ingresos por tipo</div>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:20}}>
+          <svg width={150} height={150} viewBox="0 0 150 150">
+            <circle cx={75} cy={75} r={donutR} fill="none" stroke={isDark?"#1E293B":"#E8ECF1"} strokeWidth={18}/>
+            {(totalCash+totalService)>0&&<><circle cx={75} cy={75} r={donutR} fill="none" stroke="#10B981" strokeWidth={18} strokeDasharray={`${cashLen} ${donutC}`} strokeDashoffset={donutC*0.25} strokeLinecap="round"/>
+            <circle cx={75} cy={75} r={donutR} fill="none" stroke="#3B82F6" strokeWidth={18} strokeDasharray={`${canjLen} ${donutC}`} strokeDashoffset={donutC*0.25-cashLen} strokeLinecap="round"/></>}
+            <text x={75} y={72} textAnchor="middle" fill={colors.nv} fontSize={14} fontWeight={800}>{fN(totalCash+totalService)}</text>
+            <text x={75} y={88} textAnchor="middle" fill={colors.g4} fontSize={9}>Total ARS</text>
+          </svg>
+          <div style={{fontSize:11}}>
+            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}><span style={{width:10,height:10,borderRadius:"50%",background:"#10B981",display:"inline-block"}}/><span style={{color:colors.nv}}>Cash {fN(totalCash)}</span></div>
+            <div style={{display:"flex",alignItems:"center",gap:6}}><span style={{width:10,height:10,borderRadius:"50%",background:"#3B82F6",display:"inline-block"}}/><span style={{color:colors.nv}}>Canje {fN(totalService)}</span></div>
+          </div>
+        </div>
+      </Card>
+
+      {/* Bar: Occupation by category */}
+      <Card style={{padding:16}}>
+        <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:10}}>Ocupación por categoría</div>
+        {catData.map(c=>(
+          <div key={c.k} style={{marginBottom:8}}>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:10,marginBottom:2}}>
+              <span style={{fontWeight:600,color:colors.nv}}>{c.l}</span>
+              <span style={{color:colors.g4}}>{c.occ}/{c.total} ({c.pct}%)</span>
+            </div>
+            <div style={{height:14,borderRadius:7,background:isDark?"rgba(255,255,255,.06)":"#F3F4F6",overflow:"hidden"}}>
+              <div style={{height:"100%",width:c.pct+"%",borderRadius:7,background:catColors[c.k],transition:"width .3s"}}/>
+            </div>
+          </div>
+        ))}
+      </Card>
+    </div>
+
+    {/* Pipeline funnel */}
+    <Card style={{padding:16,marginBottom:16}}>
+      <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:10}}>Pipeline Funnel</div>
+      <div style={{display:"flex",gap:6,alignItems:"flex-end",height:120}}>
+        {funnelData.map(f=>(
+          <div key={f.s} style={{flex:1,display:"flex",flexDirection:"column" as const,alignItems:"center"}}>
+            <div style={{fontSize:14,fontWeight:800,color:f.c,marginBottom:2}}>{f.count}</div>
+            <div style={{width:"100%",maxWidth:60,borderRadius:"6px 6px 0 0",background:f.c,height:Math.max(8,Math.round((f.count/maxFunnel)*80)),transition:"height .3s"}}/>
+            <div style={{fontSize:8,color:colors.g4,marginTop:4,textAlign:"center"}}>{f.l}</div>
+            {f.monto>0&&<div style={{fontSize:8,color:colors.g5,fontWeight:600}}>${Math.round(f.monto).toLocaleString("es-AR")}</div>}
+          </div>
+        ))}
+      </div>
+    </Card>
+
+    {/* Top 10 sponsors */}
+    <Card style={{padding:16}}>
+      <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:10}}>Top 10 Sponsors por monto</div>
+      <table style={{width:"100%",borderCollapse:"collapse" as const,fontSize:11}}>
+        <thead><tr style={{borderBottom:"2px solid "+colors.g2}}>
+          {["#","Sponsor","Cash","Canje","Total"].map((h,i)=><th key={i} style={{padding:"4px 6px",textAlign:i>=2?"right":"left" as const,fontWeight:700,color:colors.g5,fontSize:10}}>{h}</th>)}
+        </tr></thead>
+        <tbody>{top10.map((s,i)=>{const t=Number(s.amount_cash||0)+Number(s.amount_service||0);return(
+          <tr key={s.id} style={{borderBottom:"1px solid "+colors.g2}}>
+            <td style={{padding:"4px 6px",fontWeight:600,color:colors.g4}}>{i+1}</td>
+            <td style={{padding:"4px 6px",fontWeight:600,color:colors.nv}}>{s.name}</td>
+            <td style={{padding:"4px 6px",textAlign:"right",color:"#10B981",fontWeight:600}}>{fN(s.amount_cash)}</td>
+            <td style={{padding:"4px 6px",textAlign:"right",color:"#3B82F6",fontWeight:600}}>{fN(s.amount_service)}</td>
+            <td style={{padding:"4px 6px",textAlign:"right",fontWeight:800,color:colors.nv}}>{fN(t)}</td>
+          </tr>);})}</tbody>
+      </table>
+      {top10.length===0&&<div style={{textAlign:"center",padding:20,color:colors.g4}}>No hay sponsors</div>}
+    </Card>
+  </div>);
+}
+
+export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onSponMsg,onAddDelivery,sponDeliveries,onUpdDelivery,navTarget,onNavDone,onAddTarifa,onUpdTarifa,onDelTarifa,onAddContract,onUpdContract,onDelContract,onAddPipeline,onUpdPipeline,onDelPipeline}:any){
   const sponsors = useDataStore(s => s.sponsors);
   const users = useDataStore(s => s.users);
   const tarifario = useDataStore(s => s.tarifario);
+  const sponContracts = useDataStore(s => s.sponContracts);
+  const sponPipeline = useDataStore(s => s.sponPipeline);
   const{colors,isDark,cardBg}=useC();
-  const [topTab,sTopTab]=useState<"sponsors"|"tarifario">("sponsors");
+  const [topTab,sTopTab]=useState<"sponsors"|"tarifario"|"pipeline"|"contratos"|"dashboard">("sponsors");
   const [spTab,sSpTab]=useState<"chat"|"entregas"|"edit">("chat");
   const [showDelivery,sShowDelivery]=useState(false);
   const [detailId,sDetailId]=useState<number|null>(null);
@@ -709,13 +1126,16 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
      ══════════════════════════════════════════════════════════════ */
   return(<div style={{maxWidth:900}}>
     {/* ── Top-level tab bar ── */}
-    <div style={{display:"flex",gap:0,marginBottom:12,borderBottom:"2px solid "+colors.g2}}>
-      {(["sponsors","tarifario"] as const).map(t=>(
-        <button key={t} onClick={()=>sTopTab(t)} style={{padding:"8px 20px",fontSize:13,fontWeight:topTab===t?700:500,color:topTab===t?colors.rd:colors.g4,background:"none",border:"none",borderBottom:topTab===t?"2px solid "+colors.rd:"2px solid transparent",marginBottom:-2,cursor:"pointer",transition:"all .2s"}}>{t==="sponsors"?"Sponsors":"Tarifario"}</button>
+    <div style={{display:"flex",gap:0,marginBottom:12,borderBottom:"2px solid "+colors.g2,overflowX:"auto"}}>
+      {([["sponsors","Sponsors"],["tarifario","Tarifario"],["pipeline","Pipeline"],["contratos","Contratos"],["dashboard","Dashboard"]] as const).map(([t,l])=>(
+        <button key={t} onClick={()=>sTopTab(t as any)} style={{padding:"8px 16px",fontSize:mob?11:13,fontWeight:topTab===t?700:500,color:topTab===t?colors.rd:colors.g4,background:"none",border:"none",borderBottom:topTab===t?"2px solid "+colors.rd:"2px solid transparent",marginBottom:-2,cursor:"pointer",transition:"all .2s",whiteSpace:"nowrap"}}>{l}</button>
       ))}
     </div>
 
     {topTab==="tarifario"?<TarifarioPanel tarifario={tarifario} sponsors={sponsors} dolarRef={dolarRef} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob} canFullEdit={canFullEdit} onAdd={onAddTarifa} onUpd={onUpdTarifa} onDel={onDelTarifa}/>:null}
+    {topTab==="pipeline"?<PipelinePanel items={sponPipeline} sponsors={sponsors} dolarRef={dolarRef} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob} canFullEdit={canFullEdit} onAdd={onAddPipeline} onUpd={onUpdPipeline} onDel={onDelPipeline} onAddSponsor={onAdd}/>:null}
+    {topTab==="contratos"?<ContratosPanel contracts={sponContracts} sponsors={sponsors} tarifario={tarifario} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob} canFullEdit={canFullEdit} onAdd={onAddContract} onUpd={onUpdContract} onDel={onDelContract}/>:null}
+    {topTab==="dashboard"?<DashboardPanel sponsors={sponsors} tarifario={tarifario} contracts={sponContracts} pipeline={sponPipeline} dolarRef={dolarRef} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob}/>:null}
 
     {topTab==="sponsors"?<>
     {/* ── Header ── */}

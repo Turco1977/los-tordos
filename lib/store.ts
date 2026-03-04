@@ -38,9 +38,11 @@ interface DataStore {
   becas: any[];
   asCasos: any[];
   tarifario: any[];
+  sponContracts: any[];
+  sponPipeline: any[];
 
   // Batch setter (for fetchAll)
-  setAll: (data: Partial<Pick<DataStore, "users"|"om"|"peds"|"hitos"|"agendas"|"minutas"|"presu"|"provs"|"reminders"|"projects"|"projTasks"|"taskTemplates"|"projBudgets"|"inventory"|"invMaint"|"invDist"|"bookings"|"sponsors"|"sponMsgs"|"sponDeliveries"|"dbNotifs"|"archivos"|"viajes"|"rentalConfig"|"dmMsgs"|"torneos"|"torneoHitos"|"torneoClubes"|"fixtures"|"becas"|"asCasos"|"tarifario">>) => void;
+  setAll: (data: Partial<Pick<DataStore, "users"|"om"|"peds"|"hitos"|"agendas"|"minutas"|"presu"|"provs"|"reminders"|"projects"|"projTasks"|"taskTemplates"|"projBudgets"|"inventory"|"invMaint"|"invDist"|"bookings"|"sponsors"|"sponMsgs"|"sponDeliveries"|"dbNotifs"|"archivos"|"viajes"|"rentalConfig"|"dmMsgs"|"torneos"|"torneoHitos"|"torneoClubes"|"fixtures"|"becas"|"asCasos"|"tarifario"|"sponContracts"|"sponPipeline">>) => void;
 
   // Functional setters (same API as useState setters)
   sUs: Setter<any>;
@@ -77,6 +79,8 @@ interface DataStore {
   sBecas: Setter<any>;
   sAsCasos: Setter<any>;
   sTarifario: Setter<any>;
+  sSponContracts: Setter<any>;
+  sSponPipeline: Setter<any>;
 
   // Reset all data (logout)
   clear: () => void;
@@ -119,6 +123,8 @@ export const useDataStore = create<DataStore>((set) => ({
   becas: empty,
   asCasos: empty,
   tarifario: empty,
+  sponContracts: empty,
+  sponPipeline: empty,
 
   setAll: (data) => set(data),
 
@@ -156,6 +162,8 @@ export const useDataStore = create<DataStore>((set) => ({
   sBecas: (fn) => set((s) => ({ becas: fn(s.becas) })),
   sAsCasos: (fn) => set((s) => ({ asCasos: fn(s.asCasos) })),
   sTarifario: (fn) => set((s) => ({ tarifario: fn(s.tarifario) })),
+  sSponContracts: (fn) => set((s) => ({ sponContracts: fn(s.sponContracts) })),
+  sSponPipeline: (fn) => set((s) => ({ sponPipeline: fn(s.sponPipeline) })),
 
   clear: () => set({
     users: empty,
@@ -192,5 +200,7 @@ export const useDataStore = create<DataStore>((set) => ({
     becas: empty,
     asCasos: empty,
     tarifario: empty,
+    sponContracts: empty,
+    sponPipeline: empty,
   }),
 }));

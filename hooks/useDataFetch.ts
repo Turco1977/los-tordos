@@ -52,8 +52,8 @@ export function useDataFetch(
       supabase.from("rental_config").select("*"),
       user ? supabase.from("dm_messages").select("*").or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`).order("created_at", { ascending: true }).limit(500) : Promise.resolve({ data: [] }),
     ]);
-    // Batch 3: Secondary data (14 queries)
-    const [invRes, spRes, pbRes, imRes, idRes, sdRes, archRes, tnRes, thRes, tcRes, fxRes, becRes, ascRes, tarRes] = await Promise.all([
+    // Batch 3: Secondary data (16 queries)
+    const [invRes, spRes, pbRes, imRes, idRes, sdRes, archRes, tnRes, thRes, tcRes, fxRes, becRes, ascRes, tarRes, scRes, spipeRes] = await Promise.all([
       supabase.from("inventory").select("*").order("id", { ascending: false }),
       supabase.from("sponsors").select("*").order("id", { ascending: false }),
       supabase.from("project_budgets").select("*").order("id", { ascending: false }),
@@ -68,6 +68,8 @@ export function useDataFetch(
       supabase.from("becas").select("*").order("id", { ascending: false }),
       supabase.from("atencion_socio_casos").select("*").order("id", { ascending: false }),
       supabase.from("tarifario").select("*").order("id"),
+      supabase.from("sponsor_contracts").select("*").order("id", { ascending: false }),
+      supabase.from("sponsor_pipeline").select("*").order("id", { ascending: false }),
     ]);
     const errMsg = (e: any) => e?.message || e?.code || e?.details || "error de conexión";
     const errors: string[] = [];
@@ -127,6 +129,8 @@ export function useDataFetch(
       ...(becRes.data ? { becas: becRes.data } : {}),
       ...(ascRes.data ? { asCasos: ascRes.data } : {}),
       ...(tarRes.data ? { tarifario: tarRes.data } : {}),
+      ...(scRes.data ? { sponContracts: scRes.data } : {}),
+      ...(spipeRes.data ? { sponPipeline: spipeRes.data } : {}),
       ...(mappedPeds ? { peds: mappedPeds } : {}),
     });
 
@@ -168,6 +172,7 @@ export function useDataFetch(
         inventory: invRes.data || [], inventory_maintenance: imRes.data || [], inventory_distributions: idRes.data || [], bookings: bkRes.data || [],
         sponsors: spRes.data || [], sponsor_deliveries: sdRes.data || [], project_budgets: pbRes.data || [],
         fixtures: fxRes.data || [], tarifario: tarRes.data || [],
+        sponsor_contracts: scRes.data || [], sponsor_pipeline: spipeRes.data || [],
       });
     }
     } catch (e: any) { if (!isAbort(e)) throw e; }
