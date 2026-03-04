@@ -26,9 +26,10 @@ export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,on
   const areaDepts=selAreaObj?DEPTOS.filter((d:any)=>d.aId===selAreaObj.id):[];
   const members=tab==="cd"?om.filter((m:any)=>m.t==="cd"&&m.n):tab==="se"?om.filter((m:any)=>m.t==="se"&&m.n):areaName?(()=>{const ar=areas.find((a:any)=>a.name===areaName);if(!ar)return[];const dIds=DEPTOS.filter((d:any)=>d.aId===ar.id).map((d:any)=>d.id);return users.filter((u:any)=>dIds.includes(u.dId)).map((u:any)=>({id:u.id,n:u.n,a:u.a,cargo:ROLES[u.role]?.l||u.role}));})():[];
   const APPROVAL_QUORUM:{[k:string]:number}={cd:5,se:3};
+  const isSA=user.role==="superadmin"||user.role==="admin";
   const userDeptIds=(users.find((u:any)=>u.id===user.id))?.dId;
   const userAreaIds=userDeptIds?DEPTOS.filter((d:any)=>d.id===userDeptIds).map((d:any)=>d.aId):[];
-  const canApproveCd=userAreaIds.includes(100);const canApproveSe=userAreaIds.includes(101);
+  const canApproveCd=isSA||userAreaIds.includes(100);const canApproveSe=isSA||userAreaIds.includes(101);
   const canApproveType=(type:string)=>type==="cd"?canApproveCd:type==="se"?canApproveSe:false;
   const pendingApprovals=minutas.filter((m:any)=>(m.type==="cd"||m.type==="se")&&m.status==="final"&&canApproveType(m.type)&&!(m.approvals||[]).some((a:any)=>a.userId===user.id));
   const fAg=agendas.filter((a:any)=>a.type===tab&&(tab!=="area"||!areaName||a.areaName===areaName));const fMi=minutas.filter((m:any)=>m.type===tab&&(tab!=="area"||!areaName||m.areaName===areaName));
