@@ -86,6 +86,11 @@ export function ReservasView({user,mob,onAdd,onUpd,onDel,onDelMulti,onUpdMulti,o
   const [mapDate,sMapDate]=useState(TODAY);
   /* week nav */
   const [weekStart,sWeekStart]=useState(()=>getMonday(new Date()));
+  /* calendar view mode */
+  const [calView,sCalView]=useState<"semana"|"mes"|"dia">("semana");
+  const [selDay,sSelDay]=useState(TODAY);
+  const [calMonth,sCalMonth]=useState(()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;});
+  const [gotoDate,sGotoDate]=useState("");
   /* filters */
   const [fFac,sFFac]=useState("");
   const [fSearch,sFSearch]=useState("");
@@ -121,6 +126,30 @@ export function ReservasView({user,mob,onAdd,onUpd,onDel,onDelMulti,onUpdMulti,o
 
   /* ── week days ── */
   const weekDays=useMemo(()=>{const d:string[]=[];for(let i=0;i<7;i++) d.push(dateISO(addDays(weekStart,i)));return d;},[weekStart]);
+
+  /* ── month days for month view ── */
+  const monthDays=useMemo(()=>{
+    const [y,m]=calMonth.split("-").map(Number);
+    const first=new Date(y,m-1,1);const dow=first.getDay();const startOff=dow===0?-6:1-dow;
+    const days:string[]=[];for(let i=startOff;i<startOff+42;i++){const d=new Date(y,m-1,i);days.push(dateISO(d));}
+    return days;
+  },[calMonth]);
+
+  /* ── day view hours ── */
+  const DAY_HOURS=Array.from({length:16},(_,i)=>String(i+7).padStart(2,"0")+":00");
+
+  /* ── day bookings ── */
+  const dayBookings=useMemo(()=>(bookings||[]).filter((b:any)=>b.date===selDay&&b.status!=="cancelada"),[bookings,selDay]);
+
+  /* ── goto date handler ── */
+  const handleGotoDate=(d:string)=>{
+    if(!d)return;
+    sGotoDate(d);
+    const dt=new Date(d+"T12:00:00");
+    if(calView==="semana") sWeekStart(getMonday(dt));
+    else if(calView==="mes") sCalMonth(d.slice(0,7));
+    else if(calView==="dia") sSelDay(d);
+  };
 
   /* ── filtered bookings ── */
   const filtered=useMemo(()=>{
@@ -468,8 +497,20 @@ export function ReservasView({user,mob,onAdd,onUpd,onDel,onDelMulti,onUpdMulti,o
         </div>
       </Card>}
 
+      {/* ── VIEW SELECTOR + DATE SEARCH ── */}
+      <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10,flexWrap:"wrap"}}>
+        {(["semana","mes","dia"] as const).map(v=>(
+          <button key={v} onClick={()=>sCalView(v)} style={{padding:"5px 12px",borderRadius:8,fontSize:11,fontWeight:600,cursor:"pointer",border:calView===v?"2px solid "+colors.bl:"1px solid "+colors.g3,background:calView===v?(isDark?"rgba(59,130,246,.15)":"#EFF6FF"):cardBg,color:calView===v?colors.bl:colors.g5}}>
+            {v==="semana"?"📅 Semana":v==="mes"?"🗓️ Mes":"📆 Día"}
+          </button>
+        ))}
+        <div style={{flex:1}}/>
+        <label style={{fontSize:10,fontWeight:600,color:colors.g4}}>Ir a fecha:</label>
+        <input type="date" value={gotoDate} onChange={e=>handleGotoDate(e.target.value)} style={{padding:"4px 8px",borderRadius:7,border:"1px solid "+colors.g3,fontSize:11,background:cardBg,color:isDark?"#E2E8F0":undefined}}/>
+      </div>
+
       {/* ── WEEK VIEW ── */}
-      <Card style={{padding:mob?10:14,marginBottom:18,overflow:"auto"}}>
+      {calView==="semana"&&<Card style={{padding:mob?10:14,marginBottom:18,overflow:"auto"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
           <button onClick={()=>sWeekStart(addDays(weekStart,-7))} style={{background:"none",border:"1px solid "+colors.g3,borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:14,color:colors.nv}} title="Semana anterior">◀</button>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
@@ -522,7 +563,70 @@ export function ReservasView({user,mob,onAdd,onUpd,onDel,onDelMulti,onUpdMulti,o
               })}
             </div>);})}
         </div>
-      </Card>
+      </Card>}
+
+      {/* ── MONTH VIEW ── */}
+      {calView==="mes"&&<Card style={{padding:mob?10:14,marginBottom:18,overflow:"auto"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <button onClick={()=>{const [y,m]=calMonth.split("-").map(Number);const d=new Date(y,m-2,1);sCalMonth(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`);}} style={{background:"none",border:"1px solid "+colors.g3,borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:14,color:colors.nv}}>◀</button>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <div style={{fontSize:mob?12:14,fontWeight:800,color:colors.nv}}>{(()=>{const [y,m]=calMonth.split("-").map(Number);const mNames=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];return `${mNames[m-1]} ${y}`;})()}</div>
+            <button onClick={()=>{const d=new Date();sCalMonth(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`);}} style={{padding:"3px 8px",borderRadius:6,border:"1px solid "+colors.g3,background:cardBg,fontSize:10,fontWeight:600,color:colors.bl,cursor:"pointer"}}>Hoy</button>
+          </div>
+          <button onClick={()=>{const [y,m]=calMonth.split("-").map(Number);const d=new Date(y,m,1);sCalMonth(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`);}} style={{background:"none",border:"1px solid "+colors.g3,borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:14,color:colors.nv}}>▶</button>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2}}>
+          {DIAS_SEM.map(d=><div key={d} style={{textAlign:"center",fontSize:10,fontWeight:700,color:colors.g4,padding:4}}>{d}</div>)}
+          {monthDays.map(d=>{
+            const isToday=d===TODAY;const inMonth=d.slice(0,7)===calMonth;
+            const dayBks=(bookings||[]).filter((b:any)=>b.date===d&&b.status!=="cancelada");
+            return(<div key={d} onClick={()=>{sSelDay(d);sCalView("dia");}} style={{padding:4,minHeight:mob?50:70,background:isToday?(isDark?"#1E3A5F":"#EFF6FF"):inMonth?cardBg:(isDark?"#0F172A":"#F8FAFC"),border:"1px solid "+(isToday?colors.bl:colors.g2),borderRadius:6,cursor:"pointer",overflow:"hidden"}}>
+              <div style={{fontSize:10,fontWeight:isToday?800:600,color:isToday?colors.bl:inMonth?colors.nv:colors.g4,marginBottom:2}}>{d.slice(8)}</div>
+              {dayBks.slice(0,3).map((b:any)=>{const div=b.division||extractDiv(b.title);const dc=div?DIV_COL[div]:null;return(
+                <div key={b.id} style={{fontSize:7,padding:"1px 3px",borderRadius:3,background:(dc||BOOK_ST[b.status]?.c||colors.g4)+"20",color:dc||BOOK_ST[b.status]?.c||colors.g4,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:1}}>{b.time_start} {div||b.title}</div>
+              );})}
+              {dayBks.length>3&&<div style={{fontSize:7,color:colors.g4,fontWeight:600}}>+{dayBks.length-3} más</div>}
+            </div>);
+          })}
+        </div>
+      </Card>}
+
+      {/* ── DAY VIEW ── */}
+      {calView==="dia"&&<Card style={{padding:mob?10:14,marginBottom:18,overflow:"auto"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <button onClick={()=>{const d=new Date(selDay+"T12:00:00");d.setDate(d.getDate()-1);sSelDay(dateISO(d));}} style={{background:"none",border:"1px solid "+colors.g3,borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:14,color:colors.nv}}>◀</button>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <div style={{fontSize:mob?12:14,fontWeight:800,color:colors.nv}}>{(()=>{const dt=new Date(selDay+"T12:00:00");const dias=["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];return `${dias[dt.getDay()]} ${fmtD(selDay)}`;})()}</div>
+            <button onClick={()=>sSelDay(TODAY)} style={{padding:"3px 8px",borderRadius:6,border:"1px solid "+colors.g3,background:cardBg,fontSize:10,fontWeight:600,color:colors.bl,cursor:"pointer"}}>Hoy</button>
+          </div>
+          <button onClick={()=>{const d=new Date(selDay+"T12:00:00");d.setDate(d.getDate()+1);sSelDay(dateISO(d));}} style={{background:"none",border:"1px solid "+colors.g3,borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:14,color:colors.nv}}>▶</button>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"60px repeat("+FKEYS.length+",1fr)",gap:2,minWidth:mob?700:undefined}}>
+          {/* header row: hour label + facility names */}
+          <div style={{fontSize:9,fontWeight:700,color:colors.g4,padding:4}}>Hora</div>
+          {FKEYS.map(fk=>{const fac=BOOK_FAC[fk];return(
+            <div key={fk} style={{fontSize:9,fontWeight:700,color:fac.c,padding:4,textAlign:"center",borderLeft:"2px solid "+fac.c,background:fac.c+"10",borderRadius:4}}>{fac.i} {fac.l.replace(" Rugby","")}</div>
+          );})}
+          {/* hour rows */}
+          {DAY_HOURS.map(h=>{
+            const hNum=Number(h.split(":")[0]);
+            return(<>
+              <div key={h} style={{fontSize:10,fontWeight:600,color:colors.g5,padding:"6px 4px",borderTop:"1px solid "+colors.g2}}>{h}</div>
+              {FKEYS.map(fk=>{
+                const bks=dayBookings.filter((b:any)=>b.facility===fk&&timeToMin(b.time_start)>=hNum*60&&timeToMin(b.time_start)<(hNum+1)*60);
+                return(<div key={fk+h} style={{borderTop:"1px solid "+colors.g2,padding:2,minHeight:36,cursor:"pointer"}} onClick={()=>openForm(fk,selDay)}>
+                  {bks.map((b:any)=>{const div=b.division||extractDiv(b.title);const dc=div?DIV_COL[div]:null;const st=BOOK_ST[b.status];return(
+                    <div key={b.id} onClick={e=>{e.stopPropagation();startEdit(b);}} style={{padding:"3px 5px",borderRadius:5,background:(dc||st?.c||colors.g4)+"15",borderLeft:"3px solid "+(dc||st?.c||colors.g4),cursor:"pointer",marginBottom:2,fontSize:9}}>
+                      <div style={{fontWeight:700,color:dc||st?.c||colors.g5}}>{div||b.title}</div>
+                      <div style={{color:colors.g4,fontSize:8}}>{b.time_start}–{b.time_end}</div>
+                    </div>
+                  );})}
+                </div>);
+              })}
+            </>);
+          })}
+        </div>
+      </Card>}
 
       {/* ═══════ BOOKING LIST ═══════ */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8,gap:6}}>

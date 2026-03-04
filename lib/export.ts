@@ -631,3 +631,30 @@ export function exportICal(filename: string, events: {title:string;date:string;d
   const blob = new Blob([lines.join("\r\n")], { type: "text/calendar;charset=utf-8" });
   downloadBlob(blob, filename + ".ics");
 }
+
+/* ── Fixtures WhatsApp ── */
+export function shareFixturesWhatsApp(weekLabel: string, fixtures: any[]) {
+  const fmtD = (d: string) => { if (!d) return "–"; const [y, m, dd] = d.split("-"); return `${dd}/${m}`; };
+  let text = `*FIXTURE LOS TORDOS RUGBY CLUB*\n*(${weekLabel})*\n`;
+  // Group by date descending
+  const byDate: Record<string, any[]> = {};
+  for (const f of fixtures) {
+    const k = f.date || "";
+    if (!byDate[k]) byDate[k] = [];
+    byDate[k].push(f);
+  }
+  const dates = Object.keys(byDate).sort((a, b) => b.localeCompare(a));
+  const DIAS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+  for (const d of dates) {
+    const dow = new Date(d + "T12:00:00").getDay();
+    text += `\n*${DIAS[dow]} ${fmtD(d)}*\n`;
+    const sorted = byDate[d].sort((a: any, b: any) => (b.time || "").localeCompare(a.time || ""));
+    for (const f of sorted) {
+      const icon = f.is_local ? "🏠" : "🚗";
+      const time = f.time ? " - " + f.time : "";
+      text += `${icon} ${f.division} vs ${f.rival}${time}\n`;
+    }
+  }
+  text += `\n_Generado: ${new Date().toLocaleDateString("es-AR")}_`;
+  window.open("https://wa.me/?text=" + encodeURIComponent(text), "_blank");
+}

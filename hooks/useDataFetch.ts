@@ -17,7 +17,7 @@ export function useDataFetch(
     setAll, sUs, sOm, sPd, sHi, sAgs, sMins, sPr, sPv, sRems,
     sProjects, sProjTasks, sTaskTemplates, sProjBudgets,
     sInventory, sInvMaint, sInvDist, sBookings, sSponsors,
-    sSponDeliveries, sNotifPrefs, sRentalConfig,
+    sSponDeliveries, sNotifPrefs, sRentalConfig, sFixtures,
   } = useDataStore();
 
   const [dataLoading, sDataLoading] = useState(true);
@@ -31,7 +31,7 @@ export function useDataFetch(
     // Ensure auth token is fresh before parallel queries (prevents abort from token refresh)
     await supabase.auth.getSession();
     // Phase 1: Load 50 most recent tasks + user's assigned tasks immediately, plus core data
-    const [pRes, recentRes, userRes, omRes, msRes, agRes, miRes, prRes, pvRes, remRes, projRes, ptRes, ttRes, invRes, bkRes, spRes, pbRes, imRes, idRes, sdRes, archRes, rcRes, dmRes, tnRes, thRes, tcRes] = await Promise.all([
+    const [pRes, recentRes, userRes, omRes, msRes, agRes, miRes, prRes, pvRes, remRes, projRes, ptRes, ttRes, invRes, bkRes, spRes, pbRes, imRes, idRes, sdRes, archRes, rcRes, dmRes, tnRes, thRes, tcRes, fxRes] = await Promise.all([
       supabase.from("profiles").select("*"),
       supabase.from("tasks").select("*").order("id", { ascending: false }).limit(50),
       user ? supabase.from("tasks").select("*").eq("assigned_to", user.id).order("id", { ascending: false }) : Promise.resolve({ data: [] }),
@@ -58,6 +58,7 @@ export function useDataFetch(
       supabase.from("torneos").select("*").order("id", { ascending: false }),
       supabase.from("torneo_hitos").select("*").order("id"),
       supabase.from("torneo_clubes").select("*").order("id", { ascending: false }),
+      supabase.from("fixtures").select("*").order("date", { ascending: false }).limit(500),
     ]);
     const errMsg = (e: any) => e?.message || e?.code || e?.details || "error de conexión";
     const errors: string[] = [];
@@ -113,6 +114,7 @@ export function useDataFetch(
       ...(tnRes.data ? { torneos: tnRes.data } : {}),
       ...(thRes.data ? { torneoHitos: thRes.data } : {}),
       ...(tcRes.data ? { torneoClubes: tcRes.data } : {}),
+      ...(fxRes.data ? { fixtures: fxRes.data } : {}),
       ...(mappedPeds ? { peds: mappedPeds } : {}),
     });
 
@@ -153,6 +155,7 @@ export function useDataFetch(
         project_tasks: ptRes.data || [], task_templates: ttRes.data || [],
         inventory: invRes.data || [], inventory_maintenance: imRes.data || [], inventory_distributions: idRes.data || [], bookings: bkRes.data || [],
         sponsors: spRes.data || [], sponsor_deliveries: sdRes.data || [], project_budgets: pbRes.data || [],
+        fixtures: fxRes.data || [],
       });
     }
     } catch (e: any) { if (!isAbort(e)) throw e; }
@@ -181,6 +184,7 @@ export function useDataFetch(
       sponsors: (d: any[]) => sSponsors(() => d),
       sponsor_deliveries: (d: any[]) => sSponDeliveries(() => d),
       project_budgets: (d: any[]) => sProjBudgets(() => d),
+      fixtures: (d: any[]) => sFixtures(() => d),
     }).then(async () => {
       try {
         const { getAll } = await import("@/lib/offline-store");
@@ -191,7 +195,7 @@ export function useDataFetch(
         }
       } catch {}
     });
-  }, [user, cacheLoaded, loadFromCache, sUs, sOm, sPd, sHi, sAgs, sMins, sPr, sPv, sRems, sProjects, sProjTasks, sTaskTemplates, sInventory, sInvMaint, sInvDist, sBookings, sSponsors, sSponDeliveries, sProjBudgets]);
+  }, [user, cacheLoaded, loadFromCache, sUs, sOm, sPd, sHi, sAgs, sMins, sPr, sPv, sRems, sProjects, sProjTasks, sTaskTemplates, sInventory, sInvMaint, sInvDist, sBookings, sSponsors, sSponDeliveries, sProjBudgets, sFixtures]);
 
   // Fetch data when user logs in
   useEffect(() => {

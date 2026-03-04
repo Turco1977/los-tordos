@@ -197,6 +197,18 @@ export const SPON_ST:Record<string,{l:string;c:string;bg:string}>={
 export const SPON_PAY_TYPES=["pago mensual","pago trimestral","pago anual","canje","cheques","transferencia","efectivo","otro"];
 export const DOLAR_REF=1250;
 
+/* ── Fixtures ── */
+export const FIX_LOCAL = ["LOS TORDOS", "LOS TORDOS RC", "LTRC", "LOCAL"];
+export const FIX_CANCHA_MAP: Record<string, string> = {
+  "CANCHA 1": "cancha1", "CANCHA 2": "cancha2", "CANCHA 3": "cancha3",
+  "CANCHA 4": "cancha4", "CANCHA 5": "cancha5", "CANCHA 6": "cancha6",
+};
+export const FIX_ST: Record<string,{l:string;c:string;bg:string;i:string}>={
+  pendiente:{l:"Pendiente",c:"#F59E0B",bg:"#FEF3C7",i:"⏳"},
+  confirmada:{l:"Confirmada",c:"#10B981",bg:"#D1FAE5",i:"✅"},
+  cancelada:{l:"Cancelada",c:"#DC2626",bg:"#FEE2E2",i:"❌"}
+};
+
 /* ── Viajes ── */
 export const VIAJE_ST={BORR:"borrador",PEND:"pendiente",APR:"aprobado",CANC:"cancelado"} as const;
 export const VIAJE_SC:Record<string,{l:string;c:string;bg:string;i:string}>={
