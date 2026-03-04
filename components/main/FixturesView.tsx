@@ -194,7 +194,7 @@ export function FixturesView({ user, mob, onAdd, onUpd, onDel, onDelWeek, onAddB
           notes: "",
           _missingCancha: !String(cancha).trim(),
         };
-      }).filter((r: any) => r.division || r.rival);
+      }).filter((r: any) => r.rival);
 
       if (!mapped.length) {
         sExcelError("No se encontraron filas válidas. Columnas del archivo: " + sampleKeys.join(", ") + ". Se buscan: DIVISION, RIVAL, DIA, HORA, CONDICION, CANCHA.");
@@ -536,7 +536,7 @@ export function FixturesView({ user, mob, onAdd, onUpd, onDel, onDelWeek, onAddB
                           else { const s = String(dia); if (s.includes("-")) date = s.slice(0, 10); else if (s.includes("/")) { const pts = s.split("/"); if (pts.length === 3) { const [dd, mm, yy] = pts; date = `${yy.length === 2 ? "20" + yy : yy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`; } } }
                         }
                         return { division: String(division).trim(), rival: String(rival).trim(), date, time: String(hora).trim(), condicion: String(condicion).trim(), is_local: checkLocal(String(condicion)), cancha: String(cancha).trim(), facility_key: FIX_CANCHA_MAP[String(cancha).trim().toUpperCase()] || "", status: "pendiente", notes: "", _missingCancha: !String(cancha).trim() };
-                      }).filter((r: any) => r.division || r.rival);
+                      }).filter((r: any) => r.rival);
                       if (!mapped.length) { sExcelError("No se encontraron filas. Columnas: " + Object.keys(json[0]).join(", ")); return; }
                       sExcelRows(mapped);
                       const uniqueDates = [...new Set(mapped.map((r: any) => r.date))].sort();
