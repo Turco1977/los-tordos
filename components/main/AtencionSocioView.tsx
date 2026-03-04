@@ -9,20 +9,19 @@ const TIPO_RES: Record<string, { l: string; i: string; c: string }> = {
   condonacion_total: { l: "Condonacion total", i: "🟢", c: "#10B981" },
   condonacion_parcial: { l: "Condonacion parcial", i: "🟡", c: "#F59E0B" },
   plan_pago: { l: "Plan de pago", i: "🔵", c: "#3B82F6" },
-  sin_resolucion: { l: "Sin resolucion", i: "⚪", c: "#6B7280" },
 };
 
 const emptyForm = () => ({
-  nombre_completo: "",
+  nombre_socio: "",
   dni: "",
   nro_socio: "",
-  categoria_division: "",
-  monto_adeudado: "",
+  categoria: "",
+  monto_deuda: "",
   meses_adeudados: "",
   ultimo_pago: "",
   contacto: "",
   situacion: "",
-  tipo_resolucion: "sin_resolucion",
+  tipo_resolucion: "",
   estado: AST.NUE,
 });
 
@@ -43,14 +42,14 @@ export function AtencionSocioView({ user, mob, showT, casos, becasAprobadas, onA
   const kTotal = safeC.length;
   const kAprobadas = safeC.filter((c: any) => c.estado === AST.APR || c.estado === AST.EJE).length;
   const kPlanes = safeC.filter((c: any) => c.tipo_resolucion === "plan_pago" && c.estado !== AST.RECH).length;
-  const kMontoCond = safeC.filter((c: any) => c.estado === AST.APR || c.estado === AST.EJE).reduce((s: number, c: any) => s + (Number(c.monto_adeudado) || 0), 0);
+  const kMontoCond = safeC.filter((c: any) => c.estado === AST.APR || c.estado === AST.EJE).reduce((s: number, c: any) => s + (Number(c.monto_deuda) || 0), 0);
   const kPend = safeC.filter((c: any) => c.estado === AST.NUE || c.estado === AST.ANA || c.estado === AST.PROP || c.estado === AST.DEL).length;
 
   /* ── Filtered cases ── */
   const visCasos = useMemo(() => {
     let r = [...safeC];
     if (fEst !== "all") r = r.filter((c: any) => c.estado === fEst);
-    if (search) { const s = search.toLowerCase(); r = r.filter((c: any) => ((c.nombre_completo || "") + (c.dni || "") + (c.nro_socio || "") + (c.situacion || "")).toLowerCase().includes(s)); }
+    if (search) { const s = search.toLowerCase(); r = r.filter((c: any) => ((c.nombre_socio || "") + (c.dni || "") + (c.nro_socio || "") + (c.situacion || "")).toLowerCase().includes(s)); }
     return r.sort((a: any, b: any) => (b.id || 0) - (a.id || 0));
   }, [safeC, fEst, search]);
 
@@ -62,30 +61,29 @@ export function AtencionSocioView({ user, mob, showT, casos, becasAprobadas, onA
   const openEdit = (c: any) => {
     sEditId(c.id);
     sForm({
-      nombre_completo: c.nombre_completo || "",
+      nombre_socio: c.nombre_socio || "",
       dni: c.dni || "",
       nro_socio: c.nro_socio || "",
-      categoria_division: c.categoria_division || "",
-      monto_adeudado: c.monto_adeudado || "",
+      categoria: c.categoria || "",
+      monto_deuda: c.monto_deuda || "",
       meses_adeudados: c.meses_adeudados || "",
       ultimo_pago: c.ultimo_pago || "",
       contacto: c.contacto || "",
       situacion: c.situacion || "",
-      tipo_resolucion: c.tipo_resolucion || "sin_resolucion",
+      tipo_resolucion: c.tipo_resolucion || "",
       estado: c.estado || AST.NUE,
     });
   };
   const closeForm = () => { sForm(null); sEditId(null); };
   const save = () => {
-    if (!form || !form.nombre_completo.trim() || !form.dni.trim()) return;
+    if (!form || !form.nombre_socio.trim() || !form.dni.trim()) return;
     const payload = {
       ...form,
-      nombre_completo: form.nombre_completo.trim(),
+      nombre_socio: form.nombre_socio.trim(),
       dni: form.dni.trim(),
-      monto_adeudado: Number(form.monto_adeudado) || 0,
+      monto_deuda: Number(form.monto_deuda) || 0,
       meses_adeudados: Number(form.meses_adeudados) || 0,
       ultimo_pago: form.ultimo_pago || null,
-      created_by: user?.id || null,
     };
     if (editId) { onUpdCaso(editId, payload); }
     else { onAddCaso(payload); }
@@ -159,7 +157,7 @@ export function AtencionSocioView({ user, mob, showT, casos, becasAprobadas, onA
                 <Card key={b.id} style={{ padding: "12px 14px", borderLeft: "4px solid #10B981" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: colors.nv }}>{b.nombre || b.nombre_completo || "Sin nombre"}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: colors.nv }}>{b.nombre_completo || "Sin nombre"}</div>
                       <div style={{ fontSize: 11, color: colors.g5, marginTop: 2 }}>
                         {b.deporte || "Rugby"} {b.categoria ? " - " + b.categoria : ""}
                       </div>
@@ -213,11 +211,11 @@ export function AtencionSocioView({ user, mob, showT, casos, becasAprobadas, onA
                 <button onClick={closeForm} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: colors.g4 }}>x</button>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 10 }}>
-                <div><label style={lS}>Nombre completo *</label><input value={form.nombre_completo} onChange={e => sForm((p: any) => ({ ...p, nombre_completo: e.target.value }))} placeholder="Nombre y apellido" style={iS} /></div>
+                <div><label style={lS}>Nombre completo *</label><input value={form.nombre_socio} onChange={e => sForm((p: any) => ({ ...p, nombre_socio: e.target.value }))} placeholder="Nombre y apellido" style={iS} /></div>
                 <div><label style={lS}>DNI *</label><input value={form.dni} onChange={e => sForm((p: any) => ({ ...p, dni: e.target.value }))} placeholder="Ej: 30.123.456" style={iS} /></div>
                 <div><label style={lS}>Nro. de socio</label><input value={form.nro_socio} onChange={e => sForm((p: any) => ({ ...p, nro_socio: e.target.value }))} placeholder="Opcional" style={iS} /></div>
-                <div><label style={lS}>Categoria / Division</label><input value={form.categoria_division} onChange={e => sForm((p: any) => ({ ...p, categoria_division: e.target.value }))} placeholder="Ej: Plantel Superior, M15" style={iS} /></div>
-                <div><label style={lS}>Monto total adeudado ($)</label><input type="number" value={form.monto_adeudado} onChange={e => sForm((p: any) => ({ ...p, monto_adeudado: e.target.value }))} placeholder="0" style={iS} /></div>
+                <div><label style={lS}>Categoria / Division</label><input value={form.categoria} onChange={e => sForm((p: any) => ({ ...p, categoria: e.target.value }))} placeholder="Ej: Plantel Superior, M15" style={iS} /></div>
+                <div><label style={lS}>Monto total adeudado ($)</label><input type="number" value={form.monto_deuda} onChange={e => sForm((p: any) => ({ ...p, monto_deuda: e.target.value }))} placeholder="0" style={iS} /></div>
                 <div><label style={lS}>Meses adeudados</label><input type="number" value={form.meses_adeudados} onChange={e => sForm((p: any) => ({ ...p, meses_adeudados: e.target.value }))} placeholder="0" style={iS} /></div>
                 <div><label style={lS}>Ultimo pago registrado</label><input type="date" value={form.ultimo_pago} onChange={e => sForm((p: any) => ({ ...p, ultimo_pago: e.target.value }))} style={iS} /></div>
                 <div><label style={lS}>Contacto telefono/email</label><input value={form.contacto} onChange={e => sForm((p: any) => ({ ...p, contacto: e.target.value }))} placeholder="Tel. o email" style={iS} /></div>
@@ -244,7 +242,7 @@ export function AtencionSocioView({ user, mob, showT, casos, becasAprobadas, onA
               )}
               <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", marginTop: 14 }}>
                 <Btn v="g" s="s" onClick={closeForm}>Cancelar</Btn>
-                <Btn v="pu" s="s" disabled={!form.nombre_completo.trim() || !form.dni.trim()} onClick={save}>{editId ? "Guardar cambios" : "Crear caso"}</Btn>
+                <Btn v="pu" s="s" disabled={!form.nombre_socio.trim() || !form.dni.trim()} onClick={save}>{editId ? "Guardar cambios" : "Crear caso"}</Btn>
               </div>
             </Card>
           )}
@@ -254,7 +252,7 @@ export function AtencionSocioView({ user, mob, showT, casos, becasAprobadas, onA
             <Card style={{ marginBottom: 14, borderLeft: "4px solid " + borderForSt(selCaso.estado) }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", flexWrap: "wrap" as const, gap: 8 }}>
                 <div style={{ flex: 1, minWidth: 200 }}>
-                  <div style={{ fontSize: 16, fontWeight: 800, color: colors.nv, marginBottom: 4 }}>{selCaso.nombre_completo}</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: colors.nv, marginBottom: 4 }}>{selCaso.nombre_socio}</div>
                   <span style={{ display: "inline-block", padding: "2px 10px", borderRadius: 12, background: ASC[selCaso.estado]?.bg || "#F3F4F6", color: ASC[selCaso.estado]?.c || colors.g5, fontSize: 11, fontWeight: 600 }}>
                     {ASC[selCaso.estado]?.i} {ASC[selCaso.estado]?.l || selCaso.estado}
                   </span>
@@ -266,15 +264,15 @@ export function AtencionSocioView({ user, mob, showT, casos, becasAprobadas, onA
                 </div>
                 <div style={{ display: "flex", gap: 4 }}>
                   <Btn v="g" s="s" onClick={() => openEdit(selCaso)}>Editar</Btn>
-                  <Btn v="g" s="s" onClick={() => { if (confirm("Eliminar caso de " + selCaso.nombre_completo + "?")) { onDelCaso(selCaso.id); sSelId(null); } }}>Eliminar</Btn>
+                  <Btn v="g" s="s" onClick={() => { if (confirm("Eliminar caso de " + selCaso.nombre_socio + "?")) { onDelCaso(selCaso.id); sSelId(null); } }}>Eliminar</Btn>
                   <Btn v="g" s="s" onClick={() => sSelId(null)}>Cerrar</Btn>
                 </div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr 1fr", gap: 10, marginTop: 14 }}>
                 <div style={{ fontSize: 11 }}><span style={{ color: colors.g4 }}>DNI:</span> <strong style={{ color: colors.nv }}>{selCaso.dni || "-"}</strong></div>
                 <div style={{ fontSize: 11 }}><span style={{ color: colors.g4 }}>Nro. socio:</span> <strong style={{ color: colors.nv }}>{selCaso.nro_socio || "-"}</strong></div>
-                <div style={{ fontSize: 11 }}><span style={{ color: colors.g4 }}>Categoria:</span> <strong style={{ color: colors.nv }}>{selCaso.categoria_division || "-"}</strong></div>
-                <div style={{ fontSize: 11 }}><span style={{ color: colors.g4 }}>Monto adeudado:</span> <strong style={{ color: colors.rd }}>{fmtARS(Number(selCaso.monto_adeudado) || 0)}</strong></div>
+                <div style={{ fontSize: 11 }}><span style={{ color: colors.g4 }}>Categoria:</span> <strong style={{ color: colors.nv }}>{selCaso.categoria || "-"}</strong></div>
+                <div style={{ fontSize: 11 }}><span style={{ color: colors.g4 }}>Monto adeudado:</span> <strong style={{ color: colors.rd }}>{fmtARS(Number(selCaso.monto_deuda) || 0)}</strong></div>
                 <div style={{ fontSize: 11 }}><span style={{ color: colors.g4 }}>Meses adeudados:</span> <strong style={{ color: colors.nv }}>{selCaso.meses_adeudados || 0}</strong></div>
                 <div style={{ fontSize: 11 }}><span style={{ color: colors.g4 }}>Ultimo pago:</span> <strong style={{ color: colors.nv }}>{selCaso.ultimo_pago ? fmtD(selCaso.ultimo_pago) : "-"}</strong></div>
                 <div style={{ fontSize: 11, gridColumn: mob ? undefined : "1 / -1" }}><span style={{ color: colors.g4 }}>Contacto:</span> <strong style={{ color: colors.nv }}>{selCaso.contacto || "-"}</strong></div>
@@ -313,18 +311,18 @@ export function AtencionSocioView({ user, mob, showT, casos, becasAprobadas, onA
                 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: colors.nv, marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>{c.nombre_completo || "Sin nombre"}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: colors.nv, marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>{c.nombre_socio || "Sin nombre"}</div>
                       <div style={{ fontSize: 11, color: colors.g5 }}>
-                        {fmtARS(Number(c.monto_adeudado) || 0)}
+                        {fmtARS(Number(c.monto_deuda) || 0)}
                         {c.meses_adeudados ? " - " + c.meses_adeudados + " meses" : ""}
-                        {c.tipo_resolucion && c.tipo_resolucion !== "sin_resolucion" ? " - " + tr.l : ""}
+                        {c.tipo_resolucion ? " - " + tr.l : ""}
                       </div>
                     </div>
                     <span style={{ padding: "2px 8px", borderRadius: 12, background: st.bg, color: st.c, fontSize: 10, fontWeight: 600, whiteSpace: "nowrap" as const, flexShrink: 0, marginLeft: 6 }}>
                       {st.i} {st.l}
                     </span>
                   </div>
-                  {c.categoria_division && <div style={{ fontSize: 10, color: colors.g4, marginTop: 4 }}>{c.categoria_division}</div>}
+                  {c.categoria && <div style={{ fontSize: 10, color: colors.g4, marginTop: 4 }}>{c.categoria}</div>}
                   {c.dni && <div style={{ fontSize: 10, color: colors.g4, marginTop: 2 }}>DNI: {c.dni}{c.nro_socio ? " - Socio #" + c.nro_socio : ""}</div>}
                 </Card>
               );

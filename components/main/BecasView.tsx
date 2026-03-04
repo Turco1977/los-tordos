@@ -11,11 +11,11 @@ const SIN_BECA_OPTS = ["Continuaria practicando", "Abandonaria el deporte"];
 const STATUS_KEYS = Object.keys(BSC) as string[];
 
 const emptyForm = () => ({
-  nombre_completo: "", email: "", fecha_nacimiento: "", edad: "", dni: "",
-  direccion: "", nombre_tutor: "", ocupacion_tutor: "", cant_personas_hogar: "",
-  ingreso_mensual: "", telefono: "", colegio: "", grado: "", deporte: "Hockey",
-  categoria: "", anios_practicando: "", nombre_entrenador: "",
-  significado_deporte: "", sin_beca: "", estado: BST.NUE,
+  nombre_completo: "", email: "", fecha_nac: "", edad: "", dni: "",
+  direccion: "", tutor: "", ocupacion_tutor: "", integrantes_hogar: "",
+  ingreso_mensual: "", telefono: "", institucion_educativa: "", grado_anio: "", deporte: "Hockey",
+  categoria: "", anios_practicando: "", entrenador: "",
+  motivacion: "", sin_beca: "", estado: BST.NUE,
 });
 
 export function BecasView({ user, mob, showT, becas, onAdd, onUpd, onDel }: any) {
@@ -52,14 +52,14 @@ export function BecasView({ user, mob, showT, becas, onAdd, onUpd, onDel }: any)
     sEditId(b.id); sSelId(null);
     sForm({
       nombre_completo: b.nombre_completo || "", email: b.email || "",
-      fecha_nacimiento: b.fecha_nacimiento || "", edad: b.edad || "",
+      fecha_nac: b.fecha_nac || "", edad: b.edad || "",
       dni: b.dni || "", direccion: b.direccion || "",
-      nombre_tutor: b.nombre_tutor || "", ocupacion_tutor: b.ocupacion_tutor || "",
-      cant_personas_hogar: b.cant_personas_hogar || "", ingreso_mensual: b.ingreso_mensual || "",
-      telefono: b.telefono || "", colegio: b.colegio || "", grado: b.grado || "",
+      tutor: b.tutor || "", ocupacion_tutor: b.ocupacion_tutor || "",
+      integrantes_hogar: b.integrantes_hogar || "", ingreso_mensual: b.ingreso_mensual || "",
+      telefono: b.telefono || "", institucion_educativa: b.institucion_educativa || "", grado_anio: b.grado_anio || "",
       deporte: b.deporte || "Hockey", categoria: b.categoria || "",
-      anios_practicando: b.anios_practicando || "", nombre_entrenador: b.nombre_entrenador || "",
-      significado_deporte: b.significado_deporte || "", sin_beca: b.sin_beca || "",
+      anios_practicando: b.anios_practicando || "", entrenador: b.entrenador || "",
+      motivacion: b.motivacion || "", sin_beca: b.sin_beca || "",
       estado: b.estado || BST.NUE,
     });
     sShowForm(true);
@@ -71,9 +71,8 @@ export function BecasView({ user, mob, showT, becas, onAdd, onUpd, onDel }: any)
       ...form,
       nombre_completo: form.nombre_completo.trim(),
       edad: form.edad ? Number(form.edad) : null,
-      cant_personas_hogar: form.cant_personas_hogar ? Number(form.cant_personas_hogar) : null,
+      integrantes_hogar: form.integrantes_hogar ? Number(form.integrantes_hogar) : null,
       anios_practicando: form.anios_practicando ? Number(form.anios_practicando) : null,
-      created_at: editId ? undefined : TODAY,
     };
     if (editId) onUpd(editId, payload); else onAdd(payload);
     closeForm();
@@ -134,20 +133,20 @@ export function BecasView({ user, mob, showT, becas, onAdd, onUpd, onDel }: any)
             {[
               { l: "Email", v: sel.email },
               { l: "DNI", v: sel.dni },
-              { l: "Fecha nacimiento", v: sel.fecha_nacimiento },
+              { l: "Fecha nacimiento", v: sel.fecha_nac },
               { l: "Edad", v: sel.edad },
               { l: "Direccion", v: sel.direccion },
               { l: "Telefono", v: sel.telefono },
-              { l: "Tutor", v: sel.nombre_tutor },
+              { l: "Tutor", v: sel.tutor },
               { l: "Ocupacion tutor", v: sel.ocupacion_tutor },
-              { l: "Personas en hogar", v: sel.cant_personas_hogar },
+              { l: "Personas en hogar", v: sel.integrantes_hogar },
               { l: "Ingreso mensual", v: sel.ingreso_mensual },
-              { l: "Colegio/Instituto", v: sel.colegio },
-              { l: "Grado/Ano", v: sel.grado },
+              { l: "Colegio/Instituto", v: sel.institucion_educativa },
+              { l: "Grado/Ano", v: sel.grado_anio },
               { l: "Deporte", v: sel.deporte },
               { l: "Categoria", v: sel.categoria },
               { l: "Anos practicando", v: sel.anios_practicando },
-              { l: "Entrenador", v: sel.nombre_entrenador },
+              { l: "Entrenador", v: sel.entrenador },
               { l: "Si no obtiene beca", v: sel.sin_beca },
             ].map((f, i) => f.v ? (
               <div key={i}>
@@ -157,10 +156,10 @@ export function BecasView({ user, mob, showT, becas, onAdd, onUpd, onDel }: any)
             ) : null)}
           </div>
 
-          {sel.significado_deporte && (
+          {sel.motivacion && (
             <div style={{ marginTop: 14 }}>
               <div style={{ fontSize: 10, fontWeight: 600, color: colors.g4, marginBottom: 4 }}>Que significa para vos practicar este deporte</div>
-              <div style={{ fontSize: 12, color: colors.nv, background: isDark ? "rgba(255,255,255,.05)" : colors.g1, padding: 12, borderRadius: 8, lineHeight: 1.5, whiteSpace: "pre-wrap" as const }}>{sel.significado_deporte}</div>
+              <div style={{ fontSize: 12, color: colors.nv, background: isDark ? "rgba(255,255,255,.05)" : colors.g1, padding: 12, borderRadius: 8, lineHeight: 1.5, whiteSpace: "pre-wrap" as const }}>{sel.motivacion}</div>
             </div>
           )}
         </Card>
@@ -205,7 +204,7 @@ export function BecasView({ user, mob, showT, becas, onAdd, onUpd, onDel }: any)
 
         <div>
           <label style={lS}>Fecha de nacimiento</label>
-          <input type="date" value={form.fecha_nacimiento} onChange={e => sForm({ ...form, fecha_nacimiento: e.target.value })} style={iS} />
+          <input type="date" value={form.fecha_nac} onChange={e => sForm({ ...form, fecha_nac: e.target.value })} style={iS} />
         </div>
         <div>
           <label style={lS}>Edad</label>
@@ -223,7 +222,7 @@ export function BecasView({ user, mob, showT, becas, onAdd, onUpd, onDel }: any)
 
         <div>
           <label style={lS}>Nombre padre/madre/tutor</label>
-          <input value={form.nombre_tutor} onChange={e => sForm({ ...form, nombre_tutor: e.target.value })} style={iS} placeholder="Nombre del tutor" />
+          <input value={form.tutor} onChange={e => sForm({ ...form, tutor: e.target.value })} style={iS} placeholder="Nombre del tutor" />
         </div>
         <div>
           <label style={lS}>Ocupacion padre/madre/tutor</label>
@@ -232,7 +231,7 @@ export function BecasView({ user, mob, showT, becas, onAdd, onUpd, onDel }: any)
 
         <div>
           <label style={lS}>Cant. personas en el hogar</label>
-          <input type="number" value={form.cant_personas_hogar} onChange={e => sForm({ ...form, cant_personas_hogar: e.target.value })} style={iS} placeholder="Ej: 4" min={1} />
+          <input type="number" value={form.integrantes_hogar} onChange={e => sForm({ ...form, integrantes_hogar: e.target.value })} style={iS} placeholder="Ej: 4" min={1} />
         </div>
         <div>
           <label style={lS}>Ingreso mensual del hogar</label>
@@ -244,11 +243,11 @@ export function BecasView({ user, mob, showT, becas, onAdd, onUpd, onDel }: any)
 
         <div>
           <label style={lS}>Colegio / Instituto / Universidad</label>
-          <input value={form.colegio} onChange={e => sForm({ ...form, colegio: e.target.value })} style={iS} placeholder="Nombre de institucion" />
+          <input value={form.institucion_educativa} onChange={e => sForm({ ...form, institucion_educativa: e.target.value })} style={iS} placeholder="Nombre de institucion" />
         </div>
         <div>
           <label style={lS}>Grado / Ano</label>
-          <input value={form.grado} onChange={e => sForm({ ...form, grado: e.target.value })} style={iS} placeholder="Ej: 3er ano" />
+          <input value={form.grado_anio} onChange={e => sForm({ ...form, grado_anio: e.target.value })} style={iS} placeholder="Ej: 3er ano" />
         </div>
 
         <div>
@@ -268,12 +267,12 @@ export function BecasView({ user, mob, showT, becas, onAdd, onUpd, onDel }: any)
         </div>
         <div>
           <label style={lS}>Nombre del entrenador</label>
-          <input value={form.nombre_entrenador} onChange={e => sForm({ ...form, nombre_entrenador: e.target.value })} style={iS} placeholder="Nombre completo" />
+          <input value={form.entrenador} onChange={e => sForm({ ...form, entrenador: e.target.value })} style={iS} placeholder="Nombre completo" />
         </div>
 
         <div style={{ gridColumn: mob ? undefined : "1 / -1" }}>
           <label style={lS}>Que significa para vos practicar este deporte</label>
-          <textarea value={form.significado_deporte} onChange={e => sForm({ ...form, significado_deporte: e.target.value })} style={{ ...iS, minHeight: 70, resize: "vertical" as const }} placeholder="Contanos con tus palabras..." />
+          <textarea value={form.motivacion} onChange={e => sForm({ ...form, motivacion: e.target.value })} style={{ ...iS, minHeight: 70, resize: "vertical" as const }} placeholder="Contanos con tus palabras..." />
         </div>
 
         <div>
