@@ -5,7 +5,18 @@ import { Btn, Card, Ring } from "@/components/ui";
 import { useC } from "@/lib/theme-context";
 import { useDataStore } from "@/lib/store";
 import { shareFixturesWhatsApp } from "@/lib/export";
-import * as XLSX from "xlsx";
+
+// Load SheetJS from CDN at runtime (avoids bundler issues with xlsx)
+const loadXLSX = (): Promise<any> => {
+  if ((window as any).XLSX) return Promise.resolve((window as any).XLSX);
+  return new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = "https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js";
+    s.onload = () => resolve((window as any).XLSX);
+    s.onerror = () => reject(new Error("No se pudo cargar la librería Excel"));
+    document.head.appendChild(s);
+  });
+};
 
 const TODAY = new Date().toISOString().slice(0, 10);
 const FKEYS = Object.keys(BOOK_FAC).filter(k => k.startsWith("cancha"));
@@ -121,6 +132,7 @@ export function FixturesView({ user, mob, onAdd, onUpd, onDel, onDelWeek, onAddB
   // ── Excel import ──
   const handleExcelFile = async (file: File) => {
     sExcelFile(file);
+    const XLSX = await loadXLSX();
     const data = await file.arrayBuffer();
     const wb = XLSX.read(data);
     const ws = wb.Sheets[wb.SheetNames[0]];
