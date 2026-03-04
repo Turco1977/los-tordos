@@ -8,7 +8,7 @@ import { paginate } from "@/lib/pagination";
 import { exportCSV, exportPDF } from "@/lib/export";
 import { useDataStore } from "@/lib/store";
 
-export function TList({title,icon,color,peds,onSel,search,mob,onBulk,onImport,user}:any){
+export function TList({title,icon,color,peds,onSel,search,mob,onBulk,onImport,user,onNewTask}:any){
   const users = useDataStore(s => s.users);
   const{colors,isDark,cardBg}=useC();
   const [f,sF]=useState("all");
@@ -44,7 +44,7 @@ export function TList({title,icon,color,peds,onSel,search,mob,onBulk,onImport,us
   const allVis=v.map((p:any)=>p.id);
   const allSelected=allVis.length>0&&allVis.every((id:number)=>bulkSel.includes(id));
   return(<div>
-    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,justifyContent:"space-between"}}><div style={{display:"flex",alignItems:"center",gap:8}}><div style={{width:30,height:30,borderRadius:8,background:color+"15",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15}}>{icon}</div><div><h2 style={{margin:0,fontSize:mob?14:16,color:colors.nv,fontWeight:800}}>{title}</h2><p style={{margin:0,fontSize:11,color:colors.g4}}>{allFiltered.length} tareas</p></div></div><div style={{display:"flex",gap:4}}>{allFiltered.length>0&&<><Btn v="g" s="s" onClick={()=>doExport("csv")}>CSV</Btn><Btn v="g" s="s" onClick={()=>doExport("pdf")}>PDF</Btn></>}{onImport&&user&&(user.role==="superadmin"||user.role==="admin")&&<Btn v="g" s="s" onClick={()=>sShowImport(true)}>📥 Importar</Btn>}</div></div>
+    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,justifyContent:"space-between"}}><div style={{display:"flex",alignItems:"center",gap:8}}><div style={{width:30,height:30,borderRadius:8,background:color+"15",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15}}>{icon}</div><div><h2 style={{margin:0,fontSize:mob?14:16,color:colors.nv,fontWeight:800}}>{title}</h2><p style={{margin:0,fontSize:11,color:colors.g4}}>{allFiltered.length} tareas</p></div></div><div style={{display:"flex",gap:4}}>{allFiltered.length>0&&<><Btn v="g" s="s" onClick={()=>doExport("csv")}>CSV</Btn><Btn v="g" s="s" onClick={()=>doExport("pdf")}>PDF</Btn></>}{onImport&&user&&(user.role==="superadmin"||user.role==="admin")&&<Btn v="g" s="s" onClick={()=>sShowImport(true)}>📥 Importar</Btn>}{onNewTask&&<Btn v="p" s="s" onClick={onNewTask}>+ Tarea</Btn>}</div></div>
     {/* Bulk action bar (Feature 3) */}
     {bulkSel.length>0&&onBulk&&<div style={{display:"flex",gap:6,alignItems:"center",padding:"6px 10px",background:colors.nv+"10",borderRadius:8,marginBottom:8,flexWrap:"wrap" as const}}>
       <label style={{display:"flex",alignItems:"center",gap:4,fontSize:10,cursor:"pointer"}}><input type="checkbox" checked={allSelected} onChange={()=>{if(allSelected)sBulkSel([]);else sBulkSel(allVis);}}/><span style={{fontWeight:600}}>Todos</span></label>
