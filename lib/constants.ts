@@ -173,6 +173,8 @@ export const RENTAL_APPROVERS = {
   final:  { first_name: "Bautista", last_name: "Pontis" },
 };
 
+export const TESORERO = { first_name: "Gustavo", last_name: "Cialone" };
+
 export const RENTAL_PAYMENT = { alias: "LTRC.SUPER", phone: "2613028410" };
 
 export const BOOK_ST:Record<string,{l:string;c:string;bg:string;i:string}>={

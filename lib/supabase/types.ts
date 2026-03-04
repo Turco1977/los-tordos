@@ -35,6 +35,7 @@ export interface Task {
   assigned_to: string | null;
   requires_expense: boolean;
   expense_ok: boolean | null;
+  tesoreria_ok: boolean | null;
   resolution: string;
   created_at: string;
   amount: number | null;

@@ -58,6 +58,7 @@ export async function POST(req: NextRequest) {
     assigned_to: assigned_to || null,
     requires_expense: requires_expense || false,
     expense_ok: null,
+    tesoreria_ok: null,
     resolution: "",
     amount: null,
   };
@@ -80,7 +81,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const body = await req.json();
-  const { id, status, assigned_to, resolution, expense_ok, amount } = body;
+  const { id, status, assigned_to, resolution, expense_ok, tesoreria_ok, amount } = body;
 
   if (!id)
     return NextResponse.json({ error: "ID requerido" }, { status: 400 });
@@ -127,6 +128,7 @@ export async function PATCH(req: NextRequest) {
   if (assigned_to !== undefined) updates.assigned_to = assigned_to;
   if (resolution !== undefined) updates.resolution = resolution;
   if (expense_ok !== undefined) updates.expense_ok = expense_ok;
+  if (tesoreria_ok !== undefined) updates.tesoreria_ok = tesoreria_ok;
   if (amount !== undefined) updates.amount = amount;
 
   const { error } = await admin.from("tasks").update(updates).eq("id", id);

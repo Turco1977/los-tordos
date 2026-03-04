@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { T, ROLES, ST, SC, PSC, PST, TIPOS, MONEDAS, fn, isOD } from "@/lib/constants";
+import { T, ROLES, ST, SC, PSC, PST, TIPOS, MONEDAS, fn, isOD, TESORERO } from "@/lib/constants";
 import { rlv } from "@/lib/mappers";
 import { Btn, FileField, Badge, PBadge, UserPicker } from "@/components/ui";
 import { useC } from "@/lib/theme-context";
@@ -10,7 +10,7 @@ import { useDataStore } from "@/lib/store";
 
 const TODAY = new Date().toISOString().slice(0,10);
 
-export function Det({p,user,onX,onTk,onAs,onRe,onSE,onEO,onFi,onVa,onMsg,onMonto,onDel,onEditSave,onAddPresu,onUpdPresu,onDelPresu,onDup,onCheck,mob}:any){
+export function Det({p,user,onX,onTk,onAs,onRe,onSE,onEO,onTO,onFi,onVa,onMsg,onMonto,onDel,onEditSave,onAddPresu,onUpdPresu,onDelPresu,onDup,onCheck,mob}:any){
   const users = useDataStore(s => s.users);
   const presu = useDataStore(s => s.presu);
   const provs = useDataStore(s => s.provs);
@@ -28,6 +28,7 @@ export function Det({p,user,onX,onTk,onAs,onRe,onSE,onEO,onFi,onVa,onMsg,onMonto
   useEffect(()=>{triggerRef.current=document.activeElement;setTimeout(()=>closeRef.current?.focus(),50);return()=>{if(triggerRef.current instanceof HTMLElement)triggerRef.current.focus();};},[]);
   const ag=users.find((u:any)=>u.id===p.asTo),isCo=rlv(user.role)>=3,isEm=user.role==="embudo",isM=p.asTo===user.id,isCr=p.cId===user.id;
   const isSA=user.role==="superadmin";
+  const isTesorero=user.n===TESORERO.first_name&&user.a===TESORERO.last_name;
   const canT=rlv(user.role)>=2&&rlv(user.role)<=4&&p.st===ST.P;
   const stf=users.filter((u:any)=>rlv(u.role)>=2);
   const od=p.st!==ST.OK&&isOD(p.fReq);
@@ -73,7 +74,7 @@ export function Det({p,user,onX,onTk,onAs,onRe,onSE,onEO,onFi,onVa,onMsg,onMonto
         </div>}
         {tab==="info"&&<div>
           <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:10,marginBottom:12}}>
-            {[...(p.tit?[["TÍTULO",p.tit]]:[]),["DIVISIÓN",p.div||"–"],["SOLICITANTE",p.cN],["TIPO",p.tipo],["URGENCIA",p.urg],["FECHA LÍMITE",p.fReq],["CREADO",p.cAt],["REQUIERE GASTO",p.rG?"Sí 💰":"No"],["MONTO",p.monto?"$"+p.monto.toLocaleString():"–"]].map(([l,v],i)=>
+            {[...(p.tit?[["TÍTULO",p.tit]]:[]),["DIVISIÓN",p.div||"–"],["SOLICITANTE",p.cN],["TIPO",p.tipo],["URGENCIA",p.urg],["FECHA LÍMITE",p.fReq],["CREADO",p.cAt],["REQUIERE GASTO",p.rG?"Sí 💰":"No"],...(p.rG?[["COMPRAS",p.eOk===true?"✅ Aprobado":p.eOk===false?"❌ Rechazado":"⏳ Pendiente"],["TESORERÍA",p.tOk===true?"✅ Aprobado":p.tOk===false?"❌ Rechazado":"⏳ Pendiente"]]:[]),["MONTO",p.monto?"$"+p.monto.toLocaleString():"–"]].map(([l,v],i)=>
               <div key={i}><div style={{fontSize:9,color:colors.g4,fontWeight:700}}>{l}</div><div style={{fontSize:12,color:colors.nv}}>{v}</div></div>
             )}
           </div>
@@ -90,23 +91,31 @@ export function Det({p,user,onX,onTk,onAs,onRe,onSE,onEO,onFi,onVa,onMsg,onMonto
             {p.rG&&!p.eOk&&<div><label style={{fontSize:11,color:colors.g5}}>Monto ($)</label><input type="number" value={mt} onChange={(e:any)=>sMt(e.target.value)} style={{width:mob?"100%":160,padding:mob?"10px 10px":"6px 8px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:mob?14:12,marginLeft:mob?0:6,marginTop:mob?4:0,boxSizing:"border-box" as const,minHeight:mob?44:undefined}}/></div>}
             <div style={{display:"flex",gap:4,flexWrap:"wrap" as const}}>
               <Btn v="g" s="s" onClick={()=>onRe(p.id,rp)}>💾 Guardar</Btn>
-              {p.rG&&!p.eOk&&<Btn v="pu" s="s" onClick={()=>{if(mt)onMonto(p.id,Number(mt));onRe(p.id,rp);onSE(p.id);}}>💰 Enviar a Compras</Btn>}
-              <Btn v="s" s="s" onClick={()=>{onRe(p.id,rp);onFi(p.id);}} disabled={!rp.trim()||(p.rG&&!p.eOk)}>✅ Terminado</Btn>
+              {p.rG&&!p.eOk&&p.st!==ST.E&&<Btn v="pu" s="s" onClick={()=>{if(mt)onMonto(p.id,Number(mt));onRe(p.id,rp);onSE(p.id);}}>💰 Enviar a Compras</Btn>}
+              <Btn v="s" s="s" onClick={()=>{onRe(p.id,rp);onFi(p.id);}} disabled={!rp.trim()||(p.rG&&!(p.eOk&&p.tOk))}>✅ Terminado</Btn>
             </div>
           </div>}
           {isSA&&p.st!==ST.C&&p.st!==ST.OK&&<div style={{display:"flex",gap:4,flexWrap:"wrap" as const}}>
             {p.st===ST.P&&<Btn v="w" s="s" onClick={()=>{onTk(p.id);onX();}}>🙋 Tomar tarea</Btn>}
-            {p.st===ST.E&&(()=>{const cp=tPresu.find((pr:any)=>pr.is_canje);return<><Btn v="s" s="s" onClick={()=>onEO(p.id,true)}>✅ Aprobar {cp?"canje":"gasto"}</Btn><Btn v="r" s="s" onClick={()=>onEO(p.id,false)}>❌ Rechazar {cp?"canje":"gasto"}</Btn></>;})()}
+            {p.st===ST.E&&(()=>{const cp=tPresu.find((pr:any)=>pr.is_canje);return<>{!p.eOk&&<><Btn v="s" s="s" onClick={()=>onEO(p.id,true)}>✅ Compras: Aprobar {cp?"canje":"presupuesto"}</Btn><Btn v="r" s="s" onClick={()=>onEO(p.id,false)}>❌ Compras: Rechazar</Btn></>}{p.tOk===null&&<><Btn v="s" s="s" onClick={()=>onTO(p.id,true)}>🏦 Tesorería: Aprobar</Btn><Btn v="r" s="s" onClick={()=>onTO(p.id,false)}>🏦 Tesorería: Rechazar</Btn></>}</>;})()}
             {p.st===ST.V&&<><Btn v="s" s="s" onClick={()=>onVa(p.id,true)}>✅ Validar</Btn><Btn v="r" s="s" onClick={()=>onVa(p.id,false)}>❌ Rechazar</Btn></>}
           </div>}
           {isEm&&!isSA&&p.st===ST.E&&(()=>{const canjePresu=tPresu.find((pr:any)=>pr.is_canje);const canjeSp=canjePresu&&(sponsors||[]).find((s:any)=>s.id===canjePresu.sponsor_id);return <div style={{background:canjePresu?"#EFF6FF":"#EDE9FE",padding:14,borderRadius:10}}>
-            <div style={{fontSize:13,fontWeight:700,color:canjePresu?"#1E40AF":"#5B21B6",marginBottom:8}}>{canjePresu?"🔄 Canje":"💰 Aprobación"}{p.monto&&" – $"+p.monto.toLocaleString()}</div>
+            <div style={{fontSize:13,fontWeight:700,color:canjePresu?"#1E40AF":"#5B21B6",marginBottom:8}}>{canjePresu?"🔄 Canje":"💰 Gestión Presupuesto"}{p.monto&&" – $"+p.monto.toLocaleString()}</div>
+            <div style={{fontSize:11,color:colors.g5,marginBottom:6}}>{p.tOk===true?"✅ Tesorería aprobó":p.tOk===false?"❌ Tesorería rechazó":"⏳ Pendiente aprobación Tesorería"}</div>
             {canjeSp&&<div style={{padding:"6px 10px",background:"#DBEAFE",borderRadius:8,fontSize:11,marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontWeight:700,color:"#1E40AF"}}>Sponsor: {canjeSp.name}</span><span style={{fontWeight:600,color:"#059669"}}>Canjes: ${Math.round(Number(canjeSp.amount_service||0)).toLocaleString("es-AR")}</span></div>}
             {tPresu.length>0&&<div style={{fontSize:11,color:colors.pr,marginBottom:6,cursor:"pointer"}} onClick={()=>sTab("presu")}>📋 {tPresu.length} presupuesto(s) cargado(s) → Ver comparación</div>}
-            <div style={{display:"flex",gap:8}}><Btn v="s" onClick={()=>onEO(p.id,true)}>✅ Aprobar{canjePresu?" canje":""}</Btn><Btn v="r" onClick={()=>onEO(p.id,false)}>❌ Rechazar</Btn></div>
+            <div style={{display:"flex",gap:8}}><Btn v="s" onClick={()=>onEO(p.id,true)}>✅ Presupuesto listo</Btn><Btn v="r" onClick={()=>onEO(p.id,false)}>❌ Rechazar</Btn></div>
           </div>;})()}
+          {isTesorero&&!isSA&&p.st===ST.E&&p.tOk===null&&<div style={{background:"#F0FDF4",padding:14,borderRadius:10}}>
+            <div style={{fontSize:13,fontWeight:700,color:"#166534",marginBottom:8}}>🏦 Aprobación Tesorería</div>
+            <div style={{fontSize:11,color:colors.g5,marginBottom:6}}>{p.eOk===true?"✅ Compras ya aprobó el presupuesto":"⏳ Compras aún no aprobó el presupuesto"}</div>
+            {p.monto&&<div style={{fontSize:14,fontWeight:800,color:colors.nv,marginBottom:8}}>Monto: ${p.monto.toLocaleString()}</div>}
+            {tPresu.length>0&&<div style={{fontSize:11,color:colors.pr,marginBottom:6,cursor:"pointer"}} onClick={()=>sTab("presu")}>📋 {tPresu.length} presupuesto(s) cargado(s) → Ver</div>}
+            <div style={{display:"flex",gap:8}}><Btn v="s" onClick={()=>onTO(p.id,true)}>✅ Aprobar gasto</Btn><Btn v="r" onClick={()=>onTO(p.id,false)}>❌ Rechazar</Btn></div>
+          </div>}
           {isCr&&!isSA&&p.st===ST.V&&<div style={{background:"#F0FDF4",padding:14,borderRadius:10}}><div style={{fontSize:13,fontWeight:700,color:"#166534",marginBottom:8}}>¿Confirmás resolución?</div><div style={{display:"flex",gap:8}}><Btn v="s" onClick={()=>onVa(p.id,true)}>✅ Validar</Btn><Btn v="r" onClick={()=>onVa(p.id,false)}>❌ Rechazar</Btn></div></div>}
-          {!(canT||isCo||isSA||(isM&&p.st===ST.C)||(isEm&&p.st===ST.E)||(isCr&&p.st===ST.V)||p.st===ST.OK)&&<div style={{padding:16,textAlign:"center" as const,color:colors.g4,fontSize:12}}>No hay acciones disponibles.</div>}
+          {!(canT||isCo||isSA||(isM&&p.st===ST.C)||(isEm&&p.st===ST.E)||(isTesorero&&p.st===ST.E&&p.tOk===null)||(isCr&&p.st===ST.V)||p.st===ST.OK)&&<div style={{padding:16,textAlign:"center" as const,color:colors.g4,fontSize:12}}>No hay acciones disponibles.</div>}
         </div>}
         {tab==="check"&&<div style={{display:"flex",flexDirection:"column" as const,gap:8}}>
           {chkItems.length>0&&<div style={{marginBottom:4}}><div style={{display:"flex",justifyContent:"space-between",fontSize:10,marginBottom:3}}><span style={{fontWeight:600,color:colors.nv}}>Progreso</span><span style={{fontWeight:700,color:chkPct>=100?colors.gn:colors.yl}}>{chkPct}%</span></div><div style={{height:6,background:colors.g2,borderRadius:3,overflow:"hidden"}}><div style={{height:"100%",width:chkPct+"%",background:chkPct>=100?colors.gn:colors.yl,borderRadius:3,transition:"width .3s"}}/></div></div>}
