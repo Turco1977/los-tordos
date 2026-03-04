@@ -658,3 +658,63 @@ export function shareFixturesWhatsApp(weekLabel: string, fixtures: any[]) {
   text += `\n_Generado: ${new Date().toLocaleDateString("es-AR")}_`;
   window.open("https://wa.me/?text=" + encodeURIComponent(text), "_blank");
 }
+
+/* ── Tarifario PDF (landscape A4) ── */
+export function exportTarifarioPDF(items: any[], dolarRef: number) {
+  const esc = (s: string) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const fmtN = (n: number) => n ? "$" + Math.round(n).toLocaleString("es-AR") : "–";
+  const total = items.length;
+  const ocupadas = items.filter(t => t.sponsor_asignado_id).length;
+  const libres = total - ocupadas;
+  const ingresoMin = items.reduce((s: number, t: any) => s + Number(t.precio_min_usd || 0), 0);
+  const ingresoMax = items.reduce((s: number, t: any) => s + Number(t.precio_max_usd || 0), 0);
+
+  const cats: Record<string, any[]> = {};
+  for (const t of items) { const k = t.categoria || "otro"; if (!cats[k]) cats[k] = []; cats[k].push(t); }
+  const catLabels: Record<string, string> = { indumentaria_rugby: "Indumentaria Rugby", hockey: "Hockey", espacio: "Espacio Físico", digital: "Digital" };
+
+  let tables = "";
+  for (const [cat, rows] of Object.entries(cats)) {
+    tables += `<h3 style="margin:16px 0 6px;font-size:13px;color:#0A1628;">${esc(catLabels[cat] || cat)}</h3>
+<table><thead><tr><th>Ubicación</th><th>Visibilidad</th><th>USD Mín</th><th>USD Máx</th><th>ARS Mín</th><th>ARS Máx</th><th>Sponsor</th></tr></thead><tbody>`;
+    for (const r of rows) {
+      const vis = r.visibilidad || "media";
+      const visC = vis === "alta" ? "#10B981" : vis === "baja" ? "#6B7280" : "#F59E0B";
+      const spon = r.sponsor_asignado_id ? `<span style="color:#10B981;font-weight:600;">Asignado</span>` : `<span style="color:#3B82F6;">Libre</span>`;
+      tables += `<tr><td>${esc(r.ubicacion)}</td><td><span style="color:${visC};font-weight:600;">${vis.charAt(0).toUpperCase() + vis.slice(1)}</span></td>
+<td>${fmtN(r.precio_min_usd)}</td><td>${fmtN(r.precio_max_usd)}</td>
+<td>${fmtN(r.precio_min_usd * dolarRef)}</td><td>${fmtN(r.precio_max_usd * dolarRef)}</td><td>${spon}</td></tr>`;
+    }
+    tables += "</tbody></table>";
+  }
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Tarifario Sponsors</title>
+<style>
+  @page { size: landscape; margin: 10mm; }
+  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 11px; color: #1a1a1a; }
+  h1 { font-size: 16px; margin: 0 0 4px; }
+  h3 { page-break-after: avoid; }
+  .meta { color: #666; font-size: 10px; margin-bottom: 8px; }
+  .kpis { display: flex; gap: 16px; margin-bottom: 12px; }
+  .kpi { padding: 8px 14px; border-radius: 8px; background: #F7F8FA; text-align: center; }
+  .kpi b { display: block; font-size: 16px; color: #0A1628; }
+  .kpi span { font-size: 9px; color: #666; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+  th { background: #0A1628; color: #fff; padding: 5px 7px; text-align: left; font-size: 9px; font-weight: 700; }
+  td { padding: 4px 7px; border-bottom: 1px solid #e5e5e5; font-size: 9px; }
+  tr:nth-child(even) { background: #f9f9f9; }
+</style></head><body>
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;"><img src="/logo.jpg" alt="" style="width:40px;height:40px;object-fit:contain;"><div><h1>Tarifario Sponsors</h1><div class="meta">Los Tordos Rugby Club · Dólar: $${dolarRef.toLocaleString("es-AR")} · ${new Date().toLocaleDateString("es-AR")}</div></div></div>
+<div class="kpis">
+  <div class="kpi"><b>${total}</b><span>Total espacios</span></div>
+  <div class="kpi"><b>${ocupadas}</b><span>Ocupadas</span></div>
+  <div class="kpi"><b>${libres}</b><span>Libres</span></div>
+  <div class="kpi"><b>USD ${fmtN(ingresoMin)} – ${fmtN(ingresoMax)}</b><span>Ingreso potencial</span></div>
+</div>
+${tables}
+<script>window.onload=()=>{window.print();}</script>
+</body></html>`;
+
+  const w = window.open("", "_blank");
+  if (w) { w.document.write(html); w.document.close(); }
+}

@@ -1,6 +1,7 @@
 "use client";
 import { useState, useMemo, useRef, useEffect } from "react";
-import { SPON_ST, DOLAR_REF, DIV } from "@/lib/constants";
+import { SPON_ST, DOLAR_REF, DIV, TAR_CATS, TAR_VIS } from "@/lib/constants";
+import { exportTarifarioPDF } from "@/lib/export";
 import { fmtD } from "@/lib/mappers";
 import { Btn, Card } from "@/components/ui";
 import { useC } from "@/lib/theme-context";
@@ -32,10 +33,188 @@ const emptyForm=()=>({
   canje_instrucciones:"",
 });
 
-export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onSponMsg,onAddDelivery,sponDeliveries,onUpdDelivery,navTarget,onNavDone}:any){
+const emptyTarForm=()=>({categoria:"indumentaria_rugby",ubicacion:"",descripcion:"",visibilidad:"media",precio_min_usd:"",precio_max_usd:"",sponsor_asignado_id:""});
+
+/* ── TarifarioPanel ── */
+function TarifarioPanel({tarifario,sponsors,dolarRef,colors,isDark,cardBg,mob,canFullEdit,onAdd,onUpd,onDel}:any){
+  const items:any[]=tarifario||[];
+  const [catFilter,sCatFilter]=useState("all");
+  const [showForm,sShowForm]=useState(false);
+  const [editId,sEditId]=useState<number|null>(null);
+  const [form,sForm]=useState(emptyTarForm());
+  const [confirmDel,sConfirmDel]=useState<number|null>(null);
+
+  const vis=useMemo(()=>{
+    let v=[...items].filter((t:any)=>t.activo!==false);
+    if(catFilter!=="all")v=v.filter((t:any)=>t.categoria===catFilter);
+    return v;
+  },[items,catFilter]);
+
+  /* KPIs */
+  const total=items.filter((t:any)=>t.activo!==false).length;
+  const ocupadas=items.filter((t:any)=>t.activo!==false&&t.sponsor_asignado_id).length;
+  const libres=total-ocupadas;
+  const ingresoMin=items.filter((t:any)=>t.activo!==false).reduce((s:number,t:any)=>s+Number(t.precio_min_usd||0),0);
+  const ingresoMax=items.filter((t:any)=>t.activo!==false).reduce((s:number,t:any)=>s+Number(t.precio_max_usd||0),0);
+
+  /* Group by category */
+  const grouped=useMemo(()=>{
+    const g:Record<string,any[]>={};
+    for(const t of vis){const k=t.categoria||"otro";if(!g[k])g[k]=[];g[k].push(t);}
+    return g;
+  },[vis]);
+
+  const openAdd=()=>{sForm(emptyTarForm());sEditId(null);sShowForm(true);};
+  const openEdit=(t:any)=>{sForm({categoria:t.categoria||"indumentaria_rugby",ubicacion:t.ubicacion||"",descripcion:t.descripcion||"",visibilidad:t.visibilidad||"media",precio_min_usd:String(t.precio_min_usd||""),precio_max_usd:String(t.precio_max_usd||""),sponsor_asignado_id:String(t.sponsor_asignado_id||"")});sEditId(t.id);sShowForm(true);};
+
+  const handleSave=async()=>{
+    if(!form.ubicacion.trim())return;
+    const d={categoria:form.categoria,ubicacion:form.ubicacion.trim(),descripcion:form.descripcion.trim(),visibilidad:form.visibilidad,precio_min_usd:Number(form.precio_min_usd)||0,precio_max_usd:Number(form.precio_max_usd)||0,sponsor_asignado_id:form.sponsor_asignado_id?Number(form.sponsor_asignado_id):null};
+    if(editId){await onUpd(editId,d);}else{await onAdd(d);}
+    sShowForm(false);sEditId(null);sForm(emptyTarForm());
+  };
+
+  const fN=(n:number)=>n?"$"+Math.round(n).toLocaleString("es-AR"):"–";
+  const getSponName=(id:number|null)=>{if(!id)return null;const sp=(sponsors||[]).find((s:any)=>s.id===id);return sp?.name||"Sponsor #"+id;};
+
+  return(<div>
+    {/* KPIs */}
+    <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:14}}>
+      {[{l:"Total espacios",v:total,c:colors.bl},{l:"Ocupadas",v:ocupadas,c:"#10B981"},{l:"Libres",v:libres,c:"#F59E0B"},{l:"Ingreso potencial USD",v:`${fN(ingresoMin)} – ${fN(ingresoMax)}`,c:colors.nv}].map((k,i)=>(
+        <Card key={i} style={{flex:"1 1 140px",padding:"10px 14px",textAlign:"center" as const}}>
+          <div style={{fontSize:18,fontWeight:800,color:k.c}}>{k.v}</div>
+          <div style={{fontSize:10,color:colors.g4,marginTop:2}}>{k.l}</div>
+        </Card>
+      ))}
+    </div>
+
+    {/* Filter chips + actions */}
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,marginBottom:12}}>
+      <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+        <button onClick={()=>sCatFilter("all")} style={{padding:"5px 12px",borderRadius:20,border:"1px solid "+(catFilter==="all"?colors.rd:colors.g3),background:catFilter==="all"?colors.rd:"transparent",color:catFilter==="all"?"#fff":colors.g5,fontSize:11,fontWeight:600,cursor:"pointer"}}>Todos</button>
+        {Object.entries(TAR_CATS).map(([k,v])=>(
+          <button key={k} onClick={()=>sCatFilter(k)} style={{padding:"5px 12px",borderRadius:20,border:"1px solid "+(catFilter===k?v.c:colors.g3),background:catFilter===k?v.c:"transparent",color:catFilter===k?"#fff":colors.g5,fontSize:11,fontWeight:600,cursor:"pointer"}}>{v.i} {v.l}</button>
+        ))}
+      </div>
+      <div style={{display:"flex",gap:6}}>
+        <Btn v="g" s="s" onClick={()=>exportTarifarioPDF(items.filter((t:any)=>t.activo!==false),dolarRef)}>PDF</Btn>
+        {canFullEdit&&<Btn v="pu" s="s" onClick={openAdd}>+ Tarifa</Btn>}
+      </div>
+    </div>
+
+    {/* Form */}
+    {showForm&&canFullEdit&&<Card style={{padding:14,marginBottom:14}}>
+      <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:8}}>{editId?"Editar Tarifa":"Nueva Tarifa"}</div>
+      <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8}}>
+        <div>
+          <label style={{fontSize:10,color:colors.g4}}>Categoría</label>
+          <select value={form.categoria} onChange={e=>sForm({...form,categoria:e.target.value})} style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:12,background:cardBg,color:colors.nv}}>
+            {Object.entries(TAR_CATS).map(([k,v])=><option key={k} value={k}>{v.l}</option>)}
+          </select>
+        </div>
+        <div>
+          <label style={{fontSize:10,color:colors.g4}}>Ubicación</label>
+          <input value={form.ubicacion} onChange={e=>sForm({...form,ubicacion:e.target.value})} placeholder="Ej: Camiseta titular - pecho" style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:12,background:cardBg,color:colors.nv}}/>
+        </div>
+        <div>
+          <label style={{fontSize:10,color:colors.g4}}>Visibilidad</label>
+          <select value={form.visibilidad} onChange={e=>sForm({...form,visibilidad:e.target.value})} style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:12,background:cardBg,color:colors.nv}}>
+            {Object.entries(TAR_VIS).map(([k,v])=><option key={k} value={k}>{v.l}</option>)}
+          </select>
+        </div>
+        <div>
+          <label style={{fontSize:10,color:colors.g4}}>Descripción</label>
+          <input value={form.descripcion} onChange={e=>sForm({...form,descripcion:e.target.value})} placeholder="Descripción opcional" style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:12,background:cardBg,color:colors.nv}}/>
+        </div>
+        <div>
+          <label style={{fontSize:10,color:colors.g4}}>Precio Mín USD</label>
+          <input type="number" value={form.precio_min_usd} onChange={e=>sForm({...form,precio_min_usd:e.target.value})} placeholder="0" style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:12,background:cardBg,color:colors.nv}}/>
+        </div>
+        <div>
+          <label style={{fontSize:10,color:colors.g4}}>Precio Máx USD</label>
+          <input type="number" value={form.precio_max_usd} onChange={e=>sForm({...form,precio_max_usd:e.target.value})} placeholder="0" style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:12,background:cardBg,color:colors.nv}}/>
+        </div>
+        <div>
+          <label style={{fontSize:10,color:colors.g4}}>Sponsor Asignado</label>
+          <select value={form.sponsor_asignado_id} onChange={e=>sForm({...form,sponsor_asignado_id:e.target.value})} style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:12,background:cardBg,color:colors.nv}}>
+            <option value="">— Libre —</option>
+            {(sponsors||[]).filter((s:any)=>s.status==="active").map((s:any)=><option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </div>
+      </div>
+      <div style={{display:"flex",gap:8,marginTop:10}}>
+        <Btn v="pu" s="s" onClick={handleSave}>{editId?"Guardar":"Agregar"}</Btn>
+        <Btn v="g" s="s" onClick={()=>{sShowForm(false);sEditId(null);}}>Cancelar</Btn>
+      </div>
+    </Card>}
+
+    {/* Delete confirmation */}
+    {confirmDel!==null&&<Card style={{padding:14,marginBottom:14,borderLeft:"4px solid #DC2626"}}>
+      <div style={{fontSize:13,fontWeight:700,color:"#DC2626",marginBottom:8}}>Confirmar eliminación</div>
+      <div style={{display:"flex",gap:8}}>
+        <Btn v="r" s="s" onClick={()=>{onDel(confirmDel);sConfirmDel(null);}}>Eliminar</Btn>
+        <Btn v="g" s="s" onClick={()=>sConfirmDel(null)}>Cancelar</Btn>
+      </div>
+    </Card>}
+
+    {/* Tables grouped by category */}
+    {Object.entries(grouped).map(([cat,rows])=>{
+      const catInfo=TAR_CATS[cat]||{l:cat,i:"📦",c:"#6B7280"};
+      return(<Card key={cat} style={{padding:0,overflow:"hidden",marginBottom:14}}>
+        <div style={{padding:"10px 14px",background:isDark?"rgba(255,255,255,.05)":"rgba(0,0,0,.02)",borderBottom:"1px solid "+colors.g2,display:"flex",alignItems:"center",gap:8}}>
+          <span style={{fontSize:16}}>{catInfo.i}</span>
+          <span style={{fontSize:14,fontWeight:700,color:colors.nv}}>{catInfo.l}</span>
+          <span style={{fontSize:11,color:colors.g4}}>({rows.length})</span>
+        </div>
+        <div style={{overflowX:"auto",WebkitOverflowScrolling:"touch"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",minWidth:700}}>
+            <thead>
+              <tr style={{background:isDark?"rgba(255,255,255,.06)":"#F7F8FA"}}>
+                {["Ubicación","Vis.","USD Mín","USD Máx","ARS Mín","ARS Máx","Sponsor",""].map((h,i)=>(
+                  <th key={i} style={{padding:"7px 10px",fontSize:10,fontWeight:700,color:colors.g5,textAlign:i>=2&&i<=5?"right":"left",borderBottom:"1px solid "+colors.g2,whiteSpace:"nowrap"}}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((t:any)=>{
+                const vInfo=TAR_VIS[t.visibilidad]||TAR_VIS.media;
+                const sponName=getSponName(t.sponsor_asignado_id);
+                return(<tr key={t.id} style={{borderBottom:"1px solid "+colors.g2}}>
+                  <td style={{padding:"7px 10px",fontSize:12,color:colors.nv,fontWeight:500}}>{t.ubicacion}</td>
+                  <td style={{padding:"7px 10px"}}><span style={{padding:"2px 8px",borderRadius:10,fontSize:10,fontWeight:600,background:vInfo.bg,color:vInfo.c}}>{vInfo.l}</span></td>
+                  <td style={{padding:"7px 10px",fontSize:12,color:colors.nv,textAlign:"right",fontFamily:"monospace"}}>{fN(t.precio_min_usd)}</td>
+                  <td style={{padding:"7px 10px",fontSize:12,color:colors.nv,textAlign:"right",fontFamily:"monospace"}}>{fN(t.precio_max_usd)}</td>
+                  <td style={{padding:"7px 10px",fontSize:12,color:colors.g5,textAlign:"right",fontFamily:"monospace"}}>{fN(Number(t.precio_min_usd||0)*dolarRef)}</td>
+                  <td style={{padding:"7px 10px",fontSize:12,color:colors.g5,textAlign:"right",fontFamily:"monospace"}}>{fN(Number(t.precio_max_usd||0)*dolarRef)}</td>
+                  <td style={{padding:"7px 10px"}}>
+                    {sponName
+                      ?<span style={{padding:"2px 8px",borderRadius:10,fontSize:10,fontWeight:600,background:"#D1FAE5",color:"#10B981"}}>{sponName}</span>
+                      :<span style={{padding:"2px 8px",borderRadius:10,fontSize:10,fontWeight:600,background:"#DBEAFE",color:"#3B82F6"}}>Libre</span>}
+                  </td>
+                  <td style={{padding:"7px 10px",whiteSpace:"nowrap"}}>
+                    {canFullEdit&&<>
+                      <button onClick={()=>openEdit(t)} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,padding:2}} title="Editar">✏️</button>
+                      <button onClick={()=>sConfirmDel(t.id)} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,padding:2}} title="Eliminar">🗑️</button>
+                    </>}
+                  </td>
+                </tr>);
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>);
+    })}
+
+    {vis.length===0&&<div style={{textAlign:"center",padding:40,color:colors.g4,fontSize:13}}>No hay tarifas{catFilter!=="all"?" en esta categoría":""}</div>}
+  </div>);
+}
+
+export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onSponMsg,onAddDelivery,sponDeliveries,onUpdDelivery,navTarget,onNavDone,onAddTarifa,onUpdTarifa,onDelTarifa}:any){
   const sponsors = useDataStore(s => s.sponsors);
   const users = useDataStore(s => s.users);
+  const tarifario = useDataStore(s => s.tarifario);
   const{colors,isDark,cardBg}=useC();
+  const [topTab,sTopTab]=useState<"sponsors"|"tarifario">("sponsors");
   const [spTab,sSpTab]=useState<"chat"|"entregas"|"edit">("chat");
   const [showDelivery,sShowDelivery]=useState(false);
   const [detailId,sDetailId]=useState<number|null>(null);
@@ -529,6 +708,16 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
      LIST VIEW — main sponsors grid
      ══════════════════════════════════════════════════════════════ */
   return(<div style={{maxWidth:900}}>
+    {/* ── Top-level tab bar ── */}
+    <div style={{display:"flex",gap:0,marginBottom:12,borderBottom:"2px solid "+colors.g2}}>
+      {(["sponsors","tarifario"] as const).map(t=>(
+        <button key={t} onClick={()=>sTopTab(t)} style={{padding:"8px 20px",fontSize:13,fontWeight:topTab===t?700:500,color:topTab===t?colors.rd:colors.g4,background:"none",border:"none",borderBottom:topTab===t?"2px solid "+colors.rd:"2px solid transparent",marginBottom:-2,cursor:"pointer",transition:"all .2s"}}>{t==="sponsors"?"Sponsors":"Tarifario"}</button>
+      ))}
+    </div>
+
+    {topTab==="tarifario"&&<TarifarioPanel tarifario={tarifario} sponsors={sponsors} dolarRef={dolarRef} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob} canFullEdit={canFullEdit} onAdd={onAddTarifa} onUpd={onUpdTarifa} onDel={onDelTarifa}/>}
+
+    {topTab==="sponsors"&&<>
     {/* ── Header ── */}
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"start",marginBottom:4}}>
       <div>
@@ -839,5 +1028,6 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
         </div>
       </div>
     </Card>}
+  </>}
   </div>);
 }

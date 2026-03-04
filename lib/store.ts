@@ -37,9 +37,10 @@ interface DataStore {
   fixtures: any[];
   becas: any[];
   asCasos: any[];
+  tarifario: any[];
 
   // Batch setter (for fetchAll)
-  setAll: (data: Partial<Pick<DataStore, "users"|"om"|"peds"|"hitos"|"agendas"|"minutas"|"presu"|"provs"|"reminders"|"projects"|"projTasks"|"taskTemplates"|"projBudgets"|"inventory"|"invMaint"|"invDist"|"bookings"|"sponsors"|"sponMsgs"|"sponDeliveries"|"dbNotifs"|"archivos"|"viajes"|"rentalConfig"|"dmMsgs"|"torneos"|"torneoHitos"|"torneoClubes"|"fixtures"|"becas"|"asCasos">>) => void;
+  setAll: (data: Partial<Pick<DataStore, "users"|"om"|"peds"|"hitos"|"agendas"|"minutas"|"presu"|"provs"|"reminders"|"projects"|"projTasks"|"taskTemplates"|"projBudgets"|"inventory"|"invMaint"|"invDist"|"bookings"|"sponsors"|"sponMsgs"|"sponDeliveries"|"dbNotifs"|"archivos"|"viajes"|"rentalConfig"|"dmMsgs"|"torneos"|"torneoHitos"|"torneoClubes"|"fixtures"|"becas"|"asCasos"|"tarifario">>) => void;
 
   // Functional setters (same API as useState setters)
   sUs: Setter<any>;
@@ -75,6 +76,7 @@ interface DataStore {
   sFixtures: Setter<any>;
   sBecas: Setter<any>;
   sAsCasos: Setter<any>;
+  sTarifario: Setter<any>;
 
   // Reset all data (logout)
   clear: () => void;
@@ -116,6 +118,7 @@ export const useDataStore = create<DataStore>((set) => ({
   fixtures: empty,
   becas: empty,
   asCasos: empty,
+  tarifario: empty,
 
   setAll: (data) => set(data),
 
@@ -152,6 +155,7 @@ export const useDataStore = create<DataStore>((set) => ({
   sFixtures: (fn) => set((s) => ({ fixtures: fn(s.fixtures) })),
   sBecas: (fn) => set((s) => ({ becas: fn(s.becas) })),
   sAsCasos: (fn) => set((s) => ({ asCasos: fn(s.asCasos) })),
+  sTarifario: (fn) => set((s) => ({ tarifario: fn(s.tarifario) })),
 
   clear: () => set({
     users: empty,
@@ -187,5 +191,6 @@ export const useDataStore = create<DataStore>((set) => ({
     fixtures: empty,
     becas: empty,
     asCasos: empty,
+    tarifario: empty,
   }),
 }));

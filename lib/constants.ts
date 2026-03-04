@@ -222,6 +222,19 @@ export const SPON_ST:Record<string,{l:string;c:string;bg:string}>={
 export const SPON_PAY_TYPES=["pago mensual","pago trimestral","pago anual","canje","cheques","transferencia","efectivo","otro"];
 export const DOLAR_REF=1250;
 
+/* ── Tarifario ── */
+export const TAR_CATS:Record<string,{l:string;i:string;c:string}>={
+  indumentaria_rugby:{l:"Indumentaria Rugby",i:"🏉",c:"#C8102E"},
+  hockey:{l:"Hockey",i:"🏑",c:"#EC4899"},
+  espacio:{l:"Espacio Físico",i:"📍",c:"#F59E0B"},
+  digital:{l:"Digital",i:"💻",c:"#3B82F6"},
+};
+export const TAR_VIS:Record<string,{l:string;c:string;bg:string}>={
+  alta:{l:"Alta",c:"#10B981",bg:"#D1FAE5"},
+  media:{l:"Media",c:"#F59E0B",bg:"#FEF3C7"},
+  baja:{l:"Baja",c:"#6B7280",bg:"#F3F4F6"},
+};
+
 /* ── Fixtures ── */
 export const FIX_LOCAL = ["LOS TORDOS", "LOS TORDOS RC", "LTRC", "LOCAL"];
 export const FIX_CANCHA_MAP: Record<string, string> = {
