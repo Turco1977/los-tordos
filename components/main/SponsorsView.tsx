@@ -8,6 +8,7 @@ import { useDataStore } from "@/lib/store";
 import { Thread } from "@/components/main/Thread";
 import { SponDelivery } from "@/components/main/SponDelivery";
 import { loadXLSX } from "@/lib/xlsx-cdn";
+import { MentionInput, renderMentions } from "@/components/MentionInput";
 
 const TODAY=new Date().toISOString().slice(0,10);
 const daysLeft=(d:string)=>{if(!d)return Infinity;return Math.round((new Date(d).getTime()-new Date(TODAY).getTime())/864e5);};
@@ -341,7 +342,7 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
         {/* Instrucciones para el canje */}
         {(sp.canje_instrucciones||service>0)&&<div style={{padding:"8px 10px",background:isDark?"rgba(59,130,246,.05)":"#F8FAFF",borderRadius:8,marginBottom:10,border:"1px solid "+(isDark?"rgba(59,130,246,.15)":"#DBEAFE")}}>
           <div style={{fontSize:10,fontWeight:700,color:"#3B82F6",marginBottom:3}}>Instrucciones para el canje</div>
-          <div style={{fontSize:12,color:colors.nv,lineHeight:1.5,whiteSpace:"pre-wrap" as const}}>{sp.canje_instrucciones||<span style={{color:colors.g4,fontStyle:"italic"}}>Sin instrucciones cargadas</span>}</div>
+          <div style={{fontSize:12,color:colors.nv,lineHeight:1.5,whiteSpace:"pre-wrap" as const}}>{sp.canje_instrucciones?renderMentions(sp.canje_instrucciones):<span style={{color:colors.g4,fontStyle:"italic"}}>Sin instrucciones cargadas</span>}</div>
         </div>}
 
         {/* Info rows */}
@@ -357,7 +358,7 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
           </div>}
           {sp.exposure&&<div><span style={{color:colors.g5}}>Exposición: </span><span style={{fontWeight:600,color:colors.pr}}>{sp.exposure}</span></div>}
         </div>
-        {sp.notes&&<div style={{marginTop:8,fontSize:11,color:colors.g5,lineHeight:1.5,whiteSpace:"pre-wrap" as const}}><span style={{fontWeight:600,color:colors.nv}}>Notas: </span>{sp.notes}</div>}
+        {sp.notes&&<div style={{marginTop:8,fontSize:11,color:colors.g5,lineHeight:1.5,whiteSpace:"pre-wrap" as const}}><span style={{fontWeight:600,color:colors.nv}}>Notas: </span>{renderMentions(sp.notes)}</div>}
       </Card>
 
       {/* ── Tabs: Chat / Entregas / Editar ── */}
@@ -504,12 +505,12 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
           {/* Instrucciones canje */}
           <div style={{marginBottom:8}}>
             <label style={lbl}>Instrucciones para el Canje</label>
-            <textarea value={sp.canje_instrucciones||""} onChange={e=>inlineUpd(sp,"canje_instrucciones",e.target.value)} rows={3} style={{...inp,resize:"vertical" as const}} placeholder="Ej: Contactar a Juan (tel 351-xxx), pedir factura a nombre de..."/>
+            <MentionInput users={users} value={sp.canje_instrucciones||""} onChange={v=>inlineUpd(sp,"canje_instrucciones",v)} rows={3} style={{...inp,resize:"vertical" as const}} placeholder="Ej: Contactar a Juan (tel 351-xxx), pedir factura a nombre de..."/>
           </div>
           {/* Notes */}
           <div style={{marginBottom:8}}>
             <label style={lbl}>Varios / Observaciones</label>
-            <textarea value={sp.notes||""} onChange={e=>inlineUpd(sp,"notes",e.target.value)} rows={2} style={{...inp,resize:"vertical" as const}}/>
+            <MentionInput users={users} value={sp.notes||""} onChange={v=>inlineUpd(sp,"notes",v)} rows={2} style={{...inp,resize:"vertical" as const}}/>
           </div>
           {/* Actions */}
           <div style={{display:"flex",gap:6,justifyContent:"space-between"}}>
@@ -693,13 +694,13 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
         {/* Instrucciones canje */}
         <div style={{marginBottom:8}}>
           <label style={lbl}>Instrucciones para el Canje</label>
-          <textarea value={form.canje_instrucciones} onChange={e=>sForm(p=>({...p,canje_instrucciones:e.target.value}))} rows={3} style={{...inp,resize:"vertical" as const}} placeholder="Ej: Contactar a Juan (tel 351-xxx), pedir factura a nombre de..."/>
+          <MentionInput users={users} value={form.canje_instrucciones} onChange={v=>sForm(p=>({...p,canje_instrucciones:v}))} rows={3} style={{...inp,resize:"vertical" as const}} placeholder="Ej: Contactar a Juan (tel 351-xxx), pedir factura a nombre de..."/>
         </div>
 
         {/* Notes */}
         <div style={{marginBottom:12}}>
           <label style={lbl}>Varios / Observaciones</label>
-          <textarea value={form.notes} onChange={e=>sForm(p=>({...p,notes:e.target.value}))} rows={3} style={{...inp,resize:"vertical" as const}} placeholder="Detalles adicionales..."/>
+          <MentionInput users={users} value={form.notes} onChange={v=>sForm(p=>({...p,notes:v}))} rows={3} style={{...inp,resize:"vertical" as const}} placeholder="Detalles adicionales..."/>
         </div>
 
         {/* Total preview */}
@@ -795,7 +796,7 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
             </div>}
 
             {/* Notes preview */}
-            {sp.notes&&<div style={{marginTop:4,fontSize:10,color:colors.g5,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{sp.notes}</div>}
+            {sp.notes&&<div style={{marginTop:4,fontSize:10,color:colors.g5,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{renderMentions(sp.notes)}</div>}
           </div>
         </Card>);})}
     </div>

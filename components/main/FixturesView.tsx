@@ -5,6 +5,7 @@ import { Btn, Card, Ring } from "@/components/ui";
 import { useC } from "@/lib/theme-context";
 import { useDataStore } from "@/lib/store";
 import { shareFixturesWhatsApp } from "@/lib/export";
+import { MentionInput } from "@/components/MentionInput";
 
 const TODAY = new Date().toISOString().slice(0, 10);
 const FKEYS = Object.keys(BOOK_FAC).filter(k => k.startsWith("cancha"));
@@ -45,6 +46,7 @@ const emptyForm = () => ({ division: "", rival: "", date: TODAY, time: "", condi
 export function FixturesView({ user, mob, onAdd, onUpd, onDel, onDelWeek, onAddBookings }: any) {
   const fixtures = useDataStore(s => s.fixtures);
   const bookings = useDataStore(s => s.bookings);
+  const users = useDataStore(s => s.users);
   const { colors, isDark, cardBg } = useC();
   const [tab, sTab] = useState<"semana" | "historial" | "stats">("semana");
   const [weekStart, sWeekStart] = useState(() => getMonday(new Date()));
@@ -482,7 +484,7 @@ export function FixturesView({ user, mob, onAdd, onUpd, onDel, onDelWeek, onAddB
           </div>
           <div style={{ marginTop: 10 }}>
             <label style={lblSt}>Notas</label>
-            <textarea value={form.notes} onChange={e => sForm(p => ({ ...p, notes: e.target.value }))} style={{ ...iSt, minHeight: 60, resize: "vertical" }} placeholder="Notas opcionales..." />
+            <MentionInput users={users} value={form.notes} onChange={v => sForm(p => ({ ...p, notes: v }))} style={{ ...iSt, minHeight: 60, resize: "vertical" }} placeholder="Notas opcionales..." />
           </div>
           {form.is_local && <div style={{ marginTop: 8, fontSize: 10, color: "#065F46", background: "#D1FAE5", borderRadius: 6, padding: "4px 10px" }}>🏠 Detectado como LOCAL</div>}
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>

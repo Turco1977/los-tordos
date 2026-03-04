@@ -4,6 +4,7 @@ import { useC } from "@/lib/theme-context";
 import { useDataStore } from "@/lib/store";
 import { TN_ST, TN_HITOS_TEMPLATE, TN_CHECKLIST, TN_BUDGET_RUBROS, PST, PSC, ST, SC, MONEDAS, fn } from "@/lib/constants";
 import { Btn, Card, PBadge, FileField } from "@/components/ui";
+import { MentionInput } from "@/components/MentionInput";
 
 const TODAY = new Date().toISOString().slice(0, 10);
 
@@ -171,7 +172,7 @@ export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHi
             <div><label style={lbl}>Fecha inicio</label><input type="date" style={iS} value={form.start_date || ""} onChange={e => sForm({ ...form, start_date: e.target.value })} /></div>
             <div><label style={lbl}>Fecha fin</label><input type="date" style={iS} value={form.end_date || ""} onChange={e => sForm({ ...form, end_date: e.target.value })} /></div>
           </div>
-          <div><label style={lbl}>Notas</label><textarea style={{ ...iS, minHeight: 60 }} value={form.notes || ""} onChange={e => sForm({ ...form, notes: e.target.value })} /></div>
+          <div><label style={lbl}>Notas</label><MentionInput users={users} style={{ ...iS, minHeight: 60 }} value={form.notes || ""} onChange={v => sForm({ ...form, notes: v })} /></div>
           <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
             <Btn v="p" onClick={async () => {
               if (!form.name?.trim()) return;
@@ -318,7 +319,7 @@ export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHi
           <div><label style={lbl}>Zona</label><input style={iS} value={clubForm.zona || ""} onChange={e => sClubForm({ ...clubForm, zona: e.target.value })} /></div>
           <div><label style={lbl}>Coordinador LTRC</label><input style={iS} value={clubForm.coordinator || ""} onChange={e => sClubForm({ ...clubForm, coordinator: e.target.value })} /></div>
         </div>
-        <div style={{ marginTop: 8 }}><label style={lbl}>Notas</label><textarea style={{ ...iS, minHeight: 40 }} value={clubForm.notes || ""} onChange={e => sClubForm({ ...clubForm, notes: e.target.value })} /></div>
+        <div style={{ marginTop: 8 }}><label style={lbl}>Notas</label><MentionInput users={users} style={{ ...iS, minHeight: 40 }} value={clubForm.notes || ""} onChange={v => sClubForm({ ...clubForm, notes: v })} /></div>
         <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
           <Btn v="p" s="s" onClick={async () => {
             if (!clubForm.club_name?.trim()) return;
@@ -466,7 +467,7 @@ export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHi
           </div>}
         </div>
         <div style={{ marginBottom: 8 }}><label style={{ fontSize: 10, fontWeight: 600, color: colors.g5 }}>Contacto proveedor</label><input value={presuForm.prov_contacto || ""} onChange={e => sPresuForm({ ...presuForm, prov_contacto: e.target.value })} style={{ width: "100%", padding: 7, borderRadius: 7, border: "1px solid " + colors.g3, fontSize: 12, boxSizing: "border-box" as const, marginTop: 2 }} /></div>
-        <div style={{ marginBottom: 8 }}><label style={{ fontSize: 10, fontWeight: 600, color: colors.g5 }}>Descripción</label><textarea value={presuForm.descripcion || ""} onChange={e => sPresuForm({ ...presuForm, descripcion: e.target.value })} rows={2} style={{ width: "100%", padding: 7, borderRadius: 7, border: "1px solid " + colors.g3, fontSize: 12, resize: "vertical" as const, boxSizing: "border-box" as const, marginTop: 2 }} /></div>
+        <div style={{ marginBottom: 8 }}><label style={{ fontSize: 10, fontWeight: 600, color: colors.g5 }}>Descripción</label><MentionInput users={users} value={presuForm.descripcion || ""} onChange={v => sPresuForm({ ...presuForm, descripcion: v })} rows={2} style={{ width: "100%", padding: 7, borderRadius: 7, border: "1px solid " + colors.g3, fontSize: 12, resize: "vertical" as const, boxSizing: "border-box" as const, marginTop: 2 }} /></div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 80px", gap: 8, marginBottom: 8 }}>
           <div><label style={{ fontSize: 10, fontWeight: 600, color: colors.g5 }}>Monto ($) *</label><input type="number" value={presuForm.monto || ""} onChange={e => sPresuForm({ ...presuForm, monto: e.target.value })} style={{ width: "100%", padding: 7, borderRadius: 7, border: "1px solid " + colors.g3, fontSize: 12, boxSizing: "border-box" as const, marginTop: 2 }} /></div>
           <div><label style={{ fontSize: 10, fontWeight: 600, color: colors.g5 }}>Moneda</label><select value={presuForm.moneda || "ARS"} onChange={e => sPresuForm({ ...presuForm, moneda: e.target.value })} style={{ width: "100%", padding: 7, borderRadius: 7, border: "1px solid " + colors.g3, fontSize: 12, marginTop: 2 }}>{MONEDAS.map(m => <option key={m} value={m}>{m}</option>)}</select></div>
@@ -588,7 +589,7 @@ export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHi
           <div><label style={lbl}>Piezas *</label><input style={iS} value={commForm.piezas || ""} onChange={e => sCommForm({ ...commForm, piezas: e.target.value })} placeholder="Ej: Flyer + Post Instagram" /></div>
           <div><label style={lbl}>Fecha publicación</label><input type="date" style={iS} value={commForm.fecha_pub || ""} onChange={e => sCommForm({ ...commForm, fecha_pub: e.target.value })} /></div>
         </div>
-        <div style={{ marginTop: 8 }}><label style={lbl}>Descripción *</label><textarea style={{ ...iS, minHeight: 60 }} value={commForm.descripcion || ""} onChange={e => sCommForm({ ...commForm, descripcion: e.target.value })} placeholder="Detalle lo que necesitás: contenido, estilo, referencias..." /></div>
+        <div style={{ marginTop: 8 }}><label style={lbl}>Descripción *</label><MentionInput users={users} style={{ ...iS, minHeight: 60 }} value={commForm.descripcion || ""} onChange={v => sCommForm({ ...commForm, descripcion: v })} placeholder="Detalle lo que necesitás: contenido, estilo, referencias..." /></div>
         <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
           <Btn v="p" s="s" onClick={async () => {
             if (!commForm.piezas?.trim() || !commForm.descripcion?.trim()) return;

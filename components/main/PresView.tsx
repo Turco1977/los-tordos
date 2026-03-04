@@ -6,6 +6,7 @@ import { Btn, Card, PBadge, FileField } from "@/components/ui";
 import { exportCSV, exportPDF } from "@/lib/export";
 import { useC } from "@/lib/theme-context";
 import { useDataStore } from "@/lib/store";
+import { MentionInput } from "@/components/MentionInput";
 
 const TODAY = new Date().toISOString().slice(0,10);
 
@@ -54,13 +55,13 @@ export default function PresView({user,onAddPresu,onUpdPresu,onDelPresu,onAddPro
           </div>}
         </div>
         <div style={{marginBottom:8}}><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Contacto proveedor</label><input value={npf.prov_contacto} onChange={e=>sNpf(p=>({...p,prov_contacto:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
-        <div style={{marginBottom:8}}><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Descripción</label><textarea value={npf.descripcion} onChange={e=>sNpf(p=>({...p,descripcion:e.target.value}))} rows={2} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,resize:"vertical" as const,boxSizing:"border-box" as const,marginTop:2}}/></div>
+        <div style={{marginBottom:8}}><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Descripción</label><MentionInput users={users} value={npf.descripcion} onChange={v=>sNpf(p=>({...p,descripcion:v}))} rows={2} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,resize:"vertical" as const,boxSizing:"border-box" as const,marginTop:2}}/></div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 80px",gap:8,marginBottom:8}}>
           <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Monto ($) *</label><input type="number" value={npf.monto} onChange={e=>sNpf(p=>({...p,monto:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
           <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Moneda</label><select value={npf.moneda} onChange={e=>sNpf(p=>({...p,moneda:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,marginTop:2}}>{MONEDAS.map(m=><option key={m} value={m}>{m}</option>)}</select></div>
         </div>
         <div style={{marginBottom:8}}><FileField value={npf.archivo_url} onChange={url=>sNpf(p=>({...p,archivo_url:url}))} folder="presupuestos"/></div>
-        <div style={{marginBottom:8}}><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Notas</label><input value={npf.notas} onChange={e=>sNpf(p=>({...p,notas:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+        <div style={{marginBottom:8}}><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Notas</label><MentionInput users={users} value={npf.notas} onChange={v=>sNpf(p=>({...p,notas:v}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
         <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}><Btn v="g" s="s" onClick={resetNpf}>Cancelar</Btn><Btn v="pu" s="s" disabled={!npf.task_id||!npf.prov_nombre||!npf.monto} onClick={()=>{onAddPresu({task_id:Number(npf.task_id),proveedor_id:npf.prov_id?Number(npf.prov_id):null,proveedor_nombre:npf.prov_nombre,proveedor_contacto:npf.prov_contacto,descripcion:npf.descripcion,monto:Number(npf.monto),moneda:npf.moneda,archivo_url:npf.archivo_url,notas:npf.notas,status:PST.SOL,solicitado_por:fn(user),solicitado_at:TODAY});resetNpf();}}>💰 Cargar presupuesto</Btn></div>
       </Card>}
       {/* Filters */}
@@ -112,7 +113,7 @@ export default function PresView({user,onAddPresu,onUpdPresu,onDelPresu,onAddPro
           <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Teléfono</label><input value={pvF.telefono} onChange={e=>sPvF(p=>({...p,telefono:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
           <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Rubro</label><select value={pvF.rubro} onChange={e=>sPvF(p=>({...p,rubro:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,marginTop:2}}><option value="">Seleccionar...</option>{RUBROS.map(r=><option key={r} value={r}>{r}</option>)}</select></div>
         </div>
-        <div style={{marginBottom:8}}><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Notas</label><input value={pvF.notas} onChange={e=>sPvF(p=>({...p,notas:e.target.value}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
+        <div style={{marginBottom:8}}><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Notas</label><MentionInput users={users} value={pvF.notas} onChange={v=>sPvF(p=>({...p,notas:v}))} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
         <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}><Btn v="g" s="s" onClick={()=>sPvMode("list")}>Cancelar</Btn><Btn v="pu" s="s" disabled={!pvF.nombre} onClick={()=>{onAddProv({...pvF,created_at:TODAY});sPvF({nombre:"",contacto:"",email:"",telefono:"",rubro:"",notas:""});sPvMode("list");}}>✅ Guardar</Btn></div>
       </Card>}
       {provs.length===0&&<Card style={{textAlign:"center" as const,padding:24,color:colors.g4}}>Sin proveedores registrados</Card>}

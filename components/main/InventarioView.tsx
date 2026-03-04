@@ -5,6 +5,7 @@ import { Btn, Card } from "@/components/ui";
 import { useC } from "@/lib/theme-context";
 import { useDataStore } from "@/lib/store";
 import { InvImport } from "./InvImport";
+import { MentionInput } from "@/components/MentionInput";
 
 const CATS=Object.keys(INV_CAT) as string[];
 const CONDS=Object.keys(INV_COND) as string[];
@@ -171,7 +172,7 @@ export function InventarioView({user,mob,onAdd,onUpd,onDel,onAddMaint,onUpdMaint
           <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Fecha *</label><input type="date" value={maintForm.date} onChange={e=>sMaintForm((f:any)=>({...f,date:e.target.value}))} style={{...iS,marginTop:2}}/></div>
           <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Tipo</label><select value={maintForm.type} onChange={e=>sMaintForm((f:any)=>({...f,type:e.target.value}))} style={{...iS,marginTop:2}}>{MTYPES.map(k=><option key={k} value={k}>{INV_MAINT_TYPE[k].i} {INV_MAINT_TYPE[k].l}</option>)}</select></div>
           <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Costo</label><input type="number" min={0} value={maintForm.cost} onChange={e=>sMaintForm((f:any)=>({...f,cost:e.target.value}))} style={{...iS,marginTop:2}}/></div>
-          <div style={{gridColumn:mob?"1":"1/3"}}><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Descripción</label><input value={maintForm.description} onChange={e=>sMaintForm((f:any)=>({...f,description:e.target.value}))} placeholder="Qué se hizo..." style={{...iS,marginTop:2}}/></div>
+          <div style={{gridColumn:mob?"1":"1/3"}}><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Descripción</label><MentionInput users={users} value={maintForm.description} onChange={v=>sMaintForm((f:any)=>({...f,description:v}))} placeholder="Qué se hizo..." style={{...iS,marginTop:2}}/></div>
           <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Realizado por</label><input value={maintForm.done_by} onChange={e=>sMaintForm((f:any)=>({...f,done_by:e.target.value}))} placeholder="Nombre o empresa" style={{...iS,marginTop:2}}/></div>
           <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Próximo programado</label><input type="date" value={maintForm.next_due} onChange={e=>sMaintForm((f:any)=>({...f,next_due:e.target.value}))} style={{...iS,marginTop:2}}/></div>
         </div>
@@ -242,7 +243,7 @@ export function InventarioView({user,mob,onAdd,onUpd,onDel,onAddMaint,onUpdMaint
           <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Fecha compra</label><input type="date" value={form.purchase_date} onChange={e=>sForm((f:any)=>({...f,purchase_date:e.target.value}))} style={{...iS,marginTop:2}}/></div>
           <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Marca</label><input value={form.brand} onChange={e=>sForm((f:any)=>({...f,brand:e.target.value}))} style={{...iS,marginTop:2}}/></div>
           <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Costo unitario ($)</label><input type="number" min={0} value={form.unit_cost} onChange={e=>sForm((f:any)=>({...f,unit_cost:e.target.value}))} style={{...iS,marginTop:2}}/></div>
-          <div style={{gridColumn:mob?"1":"1/4"}}><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Notas</label><textarea value={form.notes} onChange={e=>sForm((f:any)=>({...f,notes:e.target.value}))} rows={2} style={{...iS,marginTop:2,resize:"vertical" as const}}/></div>
+          <div style={{gridColumn:mob?"1":"1/4"}}><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Notas</label><MentionInput users={users} value={form.notes} onChange={v=>sForm((f:any)=>({...f,notes:v}))} rows={2} style={{...iS,marginTop:2,resize:"vertical" as const}}/></div>
         </div>
         <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}><Btn v="g" s="s" onClick={closeForm}>Cancelar</Btn><Btn v="pu" s="s" disabled={!form.name.trim()} onClick={save}>💾 Guardar</Btn></div>
       </Card>}
@@ -261,7 +262,7 @@ export function InventarioView({user,mob,onAdd,onUpd,onDel,onAddMaint,onUpdMaint
           <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Enlace</label><select value={distForm.enlace_id} onChange={e=>{const u=(users||[]).find((u:any)=>u.id===e.target.value);sDistForm((f:any)=>({...f,enlace_id:e.target.value,enlace_name:u?fn(u):""}));}} style={{...iS,marginTop:2}}><option value="">Sin asignar</option>{enlaceUsers(distForm.division).map((u:any)=><option key={u.id} value={u.id}>{fn(u)}</option>)}</select></div>
           <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Cantidad * (máx {loteStock})</label><input type="number" min={1} max={loteStock} value={distForm.qty_given} onChange={e=>sDistForm((f:any)=>({...f,qty_given:e.target.value}))} style={{...iS,marginTop:2}}/></div>
           <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Fecha entrega</label><input type="date" value={distForm.given_date} onChange={e=>sDistForm((f:any)=>({...f,given_date:e.target.value}))} style={{...iS,marginTop:2}}/></div>
-          <div style={{gridColumn:mob?"1":"2/4"}}><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Notas</label><input value={distForm.notes} onChange={e=>sDistForm((f:any)=>({...f,notes:e.target.value}))} placeholder="Observaciones..." style={{...iS,marginTop:2}}/></div>
+          <div style={{gridColumn:mob?"1":"2/4"}}><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Notas</label><MentionInput users={users} value={distForm.notes} onChange={v=>sDistForm((f:any)=>({...f,notes:v}))} placeholder="Observaciones..." style={{...iS,marginTop:2}}/></div>
         </div>
         <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}><Btn v="g" s="s" onClick={()=>sDistForm(null)}>Cancelar</Btn><Btn v="pu" s="s" disabled={!distForm.division||!distForm.qty_given||Number(distForm.qty_given)>loteStock} onClick={()=>saveDist(loteItem.id)}>✅ Distribuir</Btn></div>
       </Card>}
@@ -320,7 +321,7 @@ export function InventarioView({user,mob,onAdd,onUpd,onDel,onAddMaint,onUpdMaint
           <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Enlace</label><select value={editDistForm.enlace_id} onChange={e=>{const u=(users||[]).find((u:any)=>u.id===e.target.value);sEditDistForm((f:any)=>({...f,enlace_id:e.target.value,enlace_name:u?fn(u):""}));}} style={{...iS,marginTop:2}}><option value="">Sin asignar</option>{enlaceUsers(editDistForm.division).map((u:any)=><option key={u.id} value={u.id}>{fn(u)}</option>)}</select></div>
           <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Cantidad</label><input type="number" min={1} value={editDistForm.qty_given} onChange={e=>sEditDistForm((f:any)=>({...f,qty_given:e.target.value}))} style={{...iS,marginTop:2}}/></div>
           <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Fecha entrega</label><input type="date" value={editDistForm.given_date} onChange={e=>sEditDistForm((f:any)=>({...f,given_date:e.target.value}))} style={{...iS,marginTop:2}}/></div>
-          <div style={{gridColumn:mob?"1":"2/4"}}><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Notas</label><input value={editDistForm.notes} onChange={e=>sEditDistForm((f:any)=>({...f,notes:e.target.value}))} placeholder="Observaciones..." style={{...iS,marginTop:2}}/></div>
+          <div style={{gridColumn:mob?"1":"2/4"}}><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Notas</label><MentionInput users={users} value={editDistForm.notes} onChange={v=>sEditDistForm((f:any)=>({...f,notes:v}))} placeholder="Observaciones..." style={{...iS,marginTop:2}}/></div>
         </div>
         <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}><Btn v="g" s="s" onClick={()=>sEditDistForm(null)}>Cancelar</Btn><Btn v="p" s="s" onClick={()=>{const upd:any={division:editDistForm.division,enlace_id:editDistForm.enlace_id||null,enlace_name:editDistForm.enlace_name||"",qty_given:Number(editDistForm.qty_given)||0,given_date:editDistForm.given_date||null,notes:editDistForm.notes||""};onUpdDist(editDistForm.id,upd);sEditDistForm(null);}}>💾 Guardar</Btn></div>
       </Card>}
@@ -386,7 +387,7 @@ export function InventarioView({user,mob,onAdd,onUpd,onDel,onAddMaint,onUpdMaint
           <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Garantía hasta</label><input type="date" value={form.warranty_until} onChange={e=>sForm((f:any)=>({...f,warranty_until:e.target.value}))} style={{...iS,marginTop:2}}/></div>
           <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Frec. mantenimiento</label><select value={form.maint_frequency} onChange={e=>sForm((f:any)=>({...f,maint_frequency:e.target.value}))} style={{...iS,marginTop:2}}><option value="">Ninguna</option>{MFREQS.map(k=><option key={k} value={k}>{INV_MAINT_FREQ[k].l}</option>)}</select></div>
           <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Cantidad</label><input type="number" min={1} value={form.quantity} onChange={e=>sForm((f:any)=>({...f,quantity:e.target.value}))} style={{...iS,marginTop:2}}/></div>
-          <div style={{gridColumn:mob?"1":"1/4"}}><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Notas</label><textarea value={form.notes} onChange={e=>sForm((f:any)=>({...f,notes:e.target.value}))} rows={2} placeholder="Observaciones..." style={{...iS,marginTop:2,resize:"vertical" as const}}/></div>
+          <div style={{gridColumn:mob?"1":"1/4"}}><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Notas</label><MentionInput users={users} value={form.notes} onChange={v=>sForm((f:any)=>({...f,notes:v}))} rows={2} placeholder="Observaciones..." style={{...iS,marginTop:2,resize:"vertical" as const}}/></div>
         </div>
         <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}><Btn v="g" s="s" onClick={closeForm}>Cancelar</Btn><Btn v="pu" s="s" disabled={!form.name.trim()} onClick={save}>{editId?"💾 Guardar":"✅ Agregar"}</Btn></div>
       </Card>}
@@ -460,7 +461,7 @@ export function InventarioView({user,mob,onAdd,onUpd,onDel,onAddMaint,onUpdMaint
           <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Costo unitario ($)</label><input type="number" min={0} value={form.unit_cost} onChange={e=>sForm((f:any)=>({...f,unit_cost:e.target.value}))} style={{...iS,marginTop:2}}/></div>
           <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Categoría</label><select value={form.category} onChange={e=>sForm((f:any)=>({...f,category:e.target.value}))} style={{...iS,marginTop:2}}>{CATS.map(k=><option key={k} value={k}>{INV_CAT[k].i} {INV_CAT[k].l}</option>)}</select></div>
           <div><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Ubicación</label><input value={form.location} onChange={e=>sForm((f:any)=>({...f,location:e.target.value}))} placeholder="Depósito" style={{...iS,marginTop:2}}/></div>
-          <div style={{gridColumn:mob?"1":"1/4"}}><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Notas</label><textarea value={form.notes} onChange={e=>sForm((f:any)=>({...f,notes:e.target.value}))} rows={2} placeholder="Observaciones..." style={{...iS,marginTop:2,resize:"vertical" as const}}/></div>
+          <div style={{gridColumn:mob?"1":"1/4"}}><label style={{fontSize:10,fontWeight:600,color:colors.g5}}>Notas</label><MentionInput users={users} value={form.notes} onChange={v=>sForm((f:any)=>({...f,notes:v}))} rows={2} placeholder="Observaciones..." style={{...iS,marginTop:2,resize:"vertical" as const}}/></div>
         </div>
         <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}><Btn v="g" s="s" onClick={closeForm}>Cancelar</Btn><Btn v="pu" s="s" disabled={!form.name.trim()||!form.quantity} onClick={save}>{editId?"💾 Guardar":"✅ Crear Lote"}</Btn></div>
       </Card>}

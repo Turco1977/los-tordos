@@ -5,6 +5,7 @@ import { PJ_ST, PJ_PR } from "@/lib/constants";
 import { UserPicker, FileField } from "@/components/ui";
 import { exportProjectPDF } from "@/lib/export";
 import { useDataStore } from "@/lib/store";
+import { MentionInput, renderMentions } from "@/components/MentionInput";
 
 const PJ_EJES=["Deportivo","Social","Institucional","Infraestructura"];
 const PJ_STATUS:{[k:string]:{l:string;c:string;bg:string}}={borrador:{l:"Borrador",c:"#6B7280",bg:"#F3F4F6"},enviado:{l:"Enviado",c:"#3B82F6",bg:"#DBEAFE"},aprobado:{l:"Aprobado",c:"#10B981",bg:"#D1FAE5"},rechazado:{l:"Rechazado",c:"#DC2626",bg:"#FEE2E2"}};
@@ -95,7 +96,7 @@ export function ProyectosView({user,mob,onAddProject,onUpdProject,onDelProject,o
         <div style={{display:"flex",gap:4,flexWrap:"wrap" as const,marginBottom:6}}>
           {fd.eje&&<span style={{fontSize:9,padding:"2px 7px",borderRadius:8,background:colors.g2,color:colors.nv,fontWeight:600}}>{fd.eje}</span>}
         </div>
-        {fd.descripcion&&<div style={{fontSize:11,color:colors.g5,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical" as const,marginBottom:6}}>{fd.descripcion}</div>}
+        {fd.descripcion&&<div style={{fontSize:11,color:colors.g5,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical" as const,marginBottom:6}}>{renderMentions(fd.descripcion)}</div>}
         {/* Progress bar */}
         {prog.total>0&&<div style={{marginBottom:4}}>
           <div style={{display:"flex",justifyContent:"space-between",fontSize:9,color:colors.g4,marginBottom:2}}>
@@ -143,7 +144,7 @@ export function ProyectosView({user,mob,onAddProject,onUpdProject,onDelProject,o
       {secHdr("4️⃣","Descripción Breve")}
       <div style={{marginBottom:8}}>
         <label style={{fontSize:11,fontWeight:700,color:colors.g5,display:"block",marginBottom:3}}>Explicado simple, como pitch de 2 minutos (máx. 200 palabras)</label>
-        <textarea value={form.descripcion} onChange={e=>upd("descripcion",e.target.value)} rows={5} style={tS}/>
+        <MentionInput users={users} value={form.descripcion} onChange={v=>upd("descripcion",v)} rows={5} style={tS}/>
         <div style={{fontSize:10,color:wordCount(form.descripcion)>200?"#DC2626":colors.g4,textAlign:"right" as const,marginTop:2}}>{wordCount(form.descripcion)}/200 palabras</div>
       </div>
 
@@ -253,7 +254,7 @@ export function ProyectosView({user,mob,onAddProject,onUpdProject,onDelProject,o
             <input value={taskForm.title} onChange={e=>sTaskForm({...taskForm,title:e.target.value})} placeholder="Título de la tarea *" style={iS}/>
           </div>
           <div style={{gridColumn:mob?"1":"1/3"}}>
-            <textarea value={taskForm.description} onChange={e=>sTaskForm({...taskForm,description:e.target.value})} placeholder="Descripción (opcional)" rows={2} style={tS}/>
+            <MentionInput users={users} value={taskForm.description} onChange={v=>sTaskForm({...taskForm,description:v})} placeholder="Descripción (opcional)" rows={2} style={tS}/>
           </div>
           <select value={taskForm.status} onChange={e=>sTaskForm({...taskForm,status:e.target.value})} style={iS}>
             {COLS.map(k=><option key={k} value={k}>{PJ_ST[k].i} {PJ_ST[k].l}</option>)}
@@ -296,7 +297,7 @@ export function ProyectosView({user,mob,onAddProject,onUpdProject,onDelProject,o
 
                 if(isEditing) return(<div key={t.id} style={{background:cardBg,borderRadius:10,padding:10,border:"2px solid "+colors.nv}}>
                   <input value={editTask.title} onChange={e=>sEditTask({...editTask,title:e.target.value})} style={{...iS,marginBottom:6,fontWeight:700}}/>
-                  <textarea value={editTask.description||""} onChange={e=>sEditTask({...editTask,description:e.target.value})} rows={2} placeholder="Descripción" style={{...tS,marginBottom:6}}/>
+                  <MentionInput users={users} value={editTask.description||""} onChange={v=>sEditTask({...editTask,description:v})} rows={2} placeholder="Descripción" style={{...tS,marginBottom:6}}/>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:6}}>
                     <select value={editTask.status} onChange={e=>sEditTask({...editTask,status:e.target.value})} style={iS}>
                       {COLS.map(k=><option key={k} value={k}>{PJ_ST[k].l}</option>)}
@@ -318,7 +319,7 @@ export function ProyectosView({user,mob,onAddProject,onUpdProject,onDelProject,o
 
                 return(<div key={t.id} onClick={()=>sEditTask({...t})} style={{background:cardBg,borderRadius:10,padding:"8px 10px",border:"1px solid "+colors.g2,cursor:"pointer",borderLeft:"3px solid "+pri.c}}>
                   <div style={{fontSize:11,fontWeight:600,color:colors.nv,marginBottom:4,lineHeight:1.3}}>{String(t.title||"")}</div>
-                  {t.description&&typeof t.description==="string"&&<div style={{fontSize:10,color:colors.g5,marginBottom:4,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical" as const}}>{t.description}</div>}
+                  {t.description&&typeof t.description==="string"&&<div style={{fontSize:10,color:colors.g5,marginBottom:4,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical" as const}}>{renderMentions(t.description)}</div>}
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap" as const,gap:3}}>
                     <div style={{display:"flex",gap:3,alignItems:"center"}}>
                       <span style={{fontSize:8,padding:"1px 5px",borderRadius:4,background:pri.c+"15",color:pri.c,fontWeight:600}}>{pri.i} {pri.l}</span>
@@ -464,7 +465,7 @@ export function ProyectosView({user,mob,onAddProject,onUpdProject,onDelProject,o
       {viewField("Alineación con ADN Tordos",fd.adn)}
 
       {secHdr("4️⃣","Descripción Breve")}
-      {viewField("",fd.descripcion)}
+      {fd.descripcion&&typeof fd.descripcion==="string"?<div style={{marginBottom:8}}><div style={{fontSize:12,color:colors.nv,lineHeight:1.5,whiteSpace:"pre-wrap" as const}}>{renderMentions(fd.descripcion)}</div></div>:null}
 
       {secHdr("5️⃣","Cronograma Tentativo")}
       {viewField("Duración",fd.duracion)}

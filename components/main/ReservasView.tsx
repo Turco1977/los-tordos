@@ -3,6 +3,7 @@ import { useState, useMemo, useRef } from "react";
 import { BOOK_FAC, BOOK_ST, RENTABLE_FAC, RENTAL_ST, RENTAL_APPROVERS, RENTAL_PAYMENT, fn } from "@/lib/constants";
 import { fmtD } from "@/lib/mappers";
 import { Btn, Card } from "@/components/ui";
+import { MentionInput } from "@/components/MentionInput";
 import { useC } from "@/lib/theme-context";
 import { ClubMap } from "./ClubMap";
 import { useDataStore } from "@/lib/store";
@@ -429,7 +430,7 @@ export function ReservasView({user,mob,onAdd,onUpd,onDel,onDelMulti,onUpdMulti,o
         {form.recurrence==="mensual"&&<div style={{fontSize:10,color:colors.g4,marginTop:4,fontStyle:"italic" as const}}>Se crearán 6 reservas (una por mes)</div>}
         {form.recurrence==="anual"&&<div style={{fontSize:10,color:colors.g4,marginTop:4,fontStyle:"italic" as const}}>Se crearán 3 reservas (una por año)</div>}
       </div>
-      <div style={{marginBottom:8}}><label style={lblSt}>Descripción</label><textarea value={form.description} onChange={e=>sForm((p:any)=>({...p,description:e.target.value}))} rows={2} style={{...iSt,resize:"vertical" as const}} placeholder="Detalles de la reserva..."/></div>
+      <div style={{marginBottom:8}}><label style={lblSt}>Descripción</label><MentionInput users={users} value={form.description} onChange={v=>sForm((p:any)=>({...p,description:v}))} rows={2} style={{...iSt,resize:"vertical" as const}} placeholder="Detalles de la reserva..."/></div>
       <div style={{marginBottom:8}}><label style={lblSt}>Notas</label><input value={form.notes} onChange={e=>sForm((p:any)=>({...p,notes:e.target.value}))} style={iSt} placeholder="Notas internas..."/></div>
       {formOverlap.length>0&&<div style={{padding:"8px 12px",borderRadius:8,background:isDark?"#1E3A5F":"#EFF6FF",border:"1px solid #93C5FD",fontSize:11,fontWeight:600,color:isDark?"#93C5FD":"#1D4ED8",marginBottom:8}}>ℹ️ Ya hay {formOverlap.length} reserva(s) en {BOOK_FAC[form.facility]?.l} el {fmtD(form.date)} en ese horario: {formOverlap.map((b:any)=>b.division||b.title).join(", ")}</div>}
       <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}>
@@ -488,7 +489,7 @@ export function ReservasView({user,mob,onAdd,onUpd,onDel,onDelMulti,onUpdMulti,o
             </select>
           </div>
         </div>
-        <div style={{marginBottom:8}}><label style={lblSt}>Descripción</label><textarea value={editForm.description} onChange={e=>sEditForm((p:any)=>({...p,description:e.target.value}))} rows={2} style={{...iSt,resize:"vertical" as const}}/></div>
+        <div style={{marginBottom:8}}><label style={lblSt}>Descripción</label><MentionInput users={users} value={editForm.description} onChange={v=>sEditForm((p:any)=>({...p,description:v}))} rows={2} style={{...iSt,resize:"vertical" as const}}/></div>
         <div style={{marginBottom:8}}><label style={lblSt}>Notas</label><input value={editForm.notes} onChange={e=>sEditForm((p:any)=>({...p,notes:e.target.value}))} style={iSt}/></div>
         {editOverlap.length>0&&<div style={{padding:"8px 12px",borderRadius:8,background:isDark?"#1E3A5F":"#EFF6FF",border:"1px solid #93C5FD",fontSize:11,fontWeight:600,color:isDark?"#93C5FD":"#1D4ED8",marginBottom:8}}>ℹ️ Comparte horario con: {editOverlap.map((b:any)=>b.division||b.title).join(", ")}</div>}
         <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}>

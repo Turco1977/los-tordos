@@ -6,6 +6,7 @@ import { useC } from "@/lib/theme-context";
 import { Btn, Card } from "@/components/ui";
 import { exportMinutaPDF, exportMinutaWord, exportODPDF, exportODWord, shareODWhatsApp, shareMinutaWhatsApp } from "@/lib/export";
 import { useDataStore } from "@/lib/store";
+import { MentionInput, renderMentions } from "@/components/MentionInput";
 
 const TODAY = new Date().toISOString().slice(0,10);
 
@@ -107,7 +108,7 @@ export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,on
           <button onClick={()=>{const n=[...agSecs];n[i]={...n[i],sub:[...n[i].sub,""]};sAgSecs(n);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:10,color:colors.bl,fontWeight:600,padding:"2px 0"}}>+ Agregar subtema</button>
         </div>
         {/* Notas */}
-        <textarea value={sec.notes} onChange={e=>{const n=[...agSecs];n[i]={...n[i],notes:e.target.value};sAgSecs(n);}} rows={2} placeholder="Notas adicionales..." style={{width:"100%",padding:6,borderRadius:6,border:"1px solid "+colors.g3,fontSize:11,resize:"vertical" as const,boxSizing:"border-box" as const,marginTop:4}}/>
+        <MentionInput users={users} value={sec.notes} onChange={v=>{const n=[...agSecs];n[i]={...n[i],notes:v};sAgSecs(n);}} rows={2} placeholder="Notas adicionales..." style={{width:"100%",padding:6,borderRadius:6,border:"1px solid "+colors.g3,fontSize:11,resize:"vertical" as const,boxSizing:"border-box" as const,marginTop:4}}/>
         {/* Adjuntos */}
         <div style={{marginTop:4}}>
           <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3}}>
@@ -250,7 +251,7 @@ export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,on
           {(ag.sections||[]).map((s:any,i:number)=><div key={i} style={{marginBottom:8,padding:"8px 10px",background:i%2===0?colors.g1:cardBg,borderRadius:6}}>
             <div style={{fontSize:12,fontWeight:700,color:colors.nv}}>{i+1}. {s.t}</div>
             {s.sub&&s.sub.length>0&&s.sub.map((sb:string,j:number)=><div key={j} style={{fontSize:10,color:colors.g5,paddingLeft:12}}>{"\u2022"} {sb}</div>)}
-            {s.notes&&<div style={{fontSize:11,color:colors.bl,marginTop:3,fontStyle:"italic",paddingLeft:12}}>{"\u{1F4AC}"} {s.notes}</div>}
+            {s.notes&&<div style={{fontSize:11,color:colors.bl,marginTop:3,fontStyle:"italic",paddingLeft:12}}>{"\u{1F4AC}"} {renderMentions(s.notes)}</div>}
             {s.atts&&s.atts.length>0&&<div style={{display:"flex",flexWrap:"wrap" as const,gap:3,marginTop:3,paddingLeft:12}}>{s.atts.map((a:any,j:number)=><a key={j} href={a.val} target="_blank" rel="noopener noreferrer" style={{display:"flex",alignItems:"center",gap:3,padding:"2px 8px",background:"#E8F4FD",borderRadius:12,fontSize:9,border:"1px solid #B3D9F2",textDecoration:"none",color:colors.bl}}>{a.label} {a.val.length>30?a.val.slice(0,30)+"...":a.val}</a>)}</div>}
           </div>)}
         </div>
@@ -282,12 +283,12 @@ export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,on
           <div style={{fontSize:10,color:colors.g4,marginTop:4}}>Ausentes: {members.filter((m:any)=>miPres.indexOf(m.n+" "+m.a)<0).map((m:any)=>m.n+" "+m.a).join(", ")||"\u2013"}</div>
         </div>}
         <div style={{fontSize:12,fontWeight:700,color:colors.nv,marginBottom:8,marginTop:8}}>Contenido</div>
-        {MINSECS[tab].map((title:string,i:number)=><div key={i} style={{marginBottom:8}}><label style={{fontSize:11,fontWeight:600,color:colors.g5}}>{i+1}. {title}</label><textarea value={secVals[i]||""} onChange={e=>{const n=[...secVals];n[i]=e.target.value;sMiSecs(n);}} rows={3} placeholder={"Completar "+title.toLowerCase()+"..."} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:11,resize:"vertical" as const,boxSizing:"border-box" as const,marginTop:2}}/></div>)}
+        {MINSECS[tab].map((title:string,i:number)=><div key={i} style={{marginBottom:8}}><label style={{fontSize:11,fontWeight:600,color:colors.g5}}>{i+1}. {title}</label><MentionInput users={users} value={secVals[i]||""} onChange={v=>{const n=[...secVals];n[i]=v;sMiSecs(n);}} rows={3} placeholder={"Completar "+title.toLowerCase()+"..."} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:11,resize:"vertical" as const,boxSizing:"border-box" as const,marginTop:2}}/></div>)}
         <div style={{marginTop:12,padding:12,background:"#FEF3C7",borderRadius:10,border:"1px solid #FDE68A"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}><div style={{fontSize:12,fontWeight:700,color:"#92400E"}}>{"\u{1F4CB}"} Tareas asignadas</div><Btn v="w" s="s" onClick={()=>sMiTareas(p=>[...p,{desc:"",respId:"",fecha:""}])}>+ Agregar tarea</Btn></div>
           {miTareas.length===0&&<div style={{fontSize:11,color:colors.g4,textAlign:"center" as const,padding:8}}>Sin tareas. Se crear{"\u00E1"}n autom{"\u00E1"}ticamente al finalizar la minuta.</div>}
           {miTareas.map((t:any,i:number)=><div key={i} style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr auto auto auto",gap:6,marginBottom:6,alignItems:"end"}}>
-            <div><label style={{fontSize:9,color:colors.g5}}>Tarea</label><input value={t.desc} onChange={e=>{const n=[...miTareas];n[i]={...n[i],desc:e.target.value};sMiTareas(n);}} placeholder="Descripci\u00F3n..." style={{width:"100%",padding:6,borderRadius:6,border:"1px solid "+colors.g3,fontSize:11,boxSizing:"border-box" as const}}/></div>
+            <div><label style={{fontSize:9,color:colors.g5}}>Tarea</label><MentionInput as="input" users={users} value={t.desc} onChange={v=>{const n=[...miTareas];n[i]={...n[i],desc:v};sMiTareas(n);}} placeholder="Descripci\u00F3n..." style={{width:"100%",padding:6,borderRadius:6,border:"1px solid "+colors.g3,fontSize:11,boxSizing:"border-box" as const}}/></div>
             <div><label style={{fontSize:9,color:colors.g5}}>Responsable</label><select value={t.respId} onChange={e=>{const n=[...miTareas];n[i]={...n[i],respId:e.target.value};sMiTareas(n);}} style={{padding:6,borderRadius:6,border:"1px solid "+colors.g3,fontSize:11}}><option value="">Seleccionar...</option>{stf.map((u:any)=><option key={u.id} value={u.id}>{fn(u)}</option>)}</select></div>
             <div><label style={{fontSize:9,color:colors.g5}}>Fecha</label><input type="date" value={t.fecha} onChange={e=>{const n=[...miTareas];n[i]={...n[i],fecha:e.target.value};sMiTareas(n);}} style={{padding:6,borderRadius:6,border:"1px solid "+colors.g3,fontSize:11}}/></div>
             <button onClick={()=>sMiTareas(p=>p.filter((_:any,j:number)=>j!==i))} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:colors.rd,padding:"4px"}}>{"\u2715"}</button>
@@ -335,13 +336,13 @@ export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,on
         </div>}
         {/* Secciones editables */}
         <div style={{fontSize:12,fontWeight:700,color:colors.nv,marginBottom:8,marginTop:8}}>Contenido</div>
-        {(mi.sections||[]).map((s:any,i:number)=><div key={i} style={{marginBottom:8}}><label style={{fontSize:11,fontWeight:600,color:colors.g5}}>{i+1}. {s.title}</label><textarea value={miSecs[i]||""} onChange={e=>{const n=[...miSecs];n[i]=e.target.value;sMiSecs(n);}} rows={3} placeholder={"Completar "+s.title.toLowerCase()+"..."} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:11,resize:"vertical" as const,boxSizing:"border-box" as const,marginTop:2}}/></div>)}
+        {(mi.sections||[]).map((s:any,i:number)=><div key={i} style={{marginBottom:8}}><label style={{fontSize:11,fontWeight:600,color:colors.g5}}>{i+1}. {s.title}</label><MentionInput users={users} value={miSecs[i]||""} onChange={v=>{const n=[...miSecs];n[i]=v;sMiSecs(n);}} rows={3} placeholder={"Completar "+s.title.toLowerCase()+"..."} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:11,resize:"vertical" as const,boxSizing:"border-box" as const,marginTop:2}}/></div>)}
         {/* Tareas */}
         <div style={{marginTop:12,padding:12,background:"#FEF3C7",borderRadius:10,border:"1px solid #FDE68A"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}><div style={{fontSize:12,fontWeight:700,color:"#92400E"}}>{"\u{1F4CB}"} Tareas asignadas</div><Btn v="w" s="s" onClick={()=>sMiTareas(p=>[...p,{desc:"",respId:"",fecha:""}])}>+ Agregar tarea</Btn></div>
           {miTareas.length===0&&<div style={{fontSize:11,color:colors.g4,textAlign:"center" as const,padding:8}}>Sin tareas. Agreg{"\u00E1"} tareas y finaliz{"\u00E1"} para crearlas en el sistema.</div>}
           {miTareas.map((t:any,i:number)=><div key={i} style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr auto auto auto",gap:6,marginBottom:6,alignItems:"end"}}>
-            <div><label style={{fontSize:9,color:colors.g5}}>Tarea</label><input value={t.desc} onChange={e=>{const n=[...miTareas];n[i]={...n[i],desc:e.target.value};sMiTareas(n);}} placeholder="Descripci\u00F3n..." style={{width:"100%",padding:6,borderRadius:6,border:"1px solid "+colors.g3,fontSize:11,boxSizing:"border-box" as const}}/></div>
+            <div><label style={{fontSize:9,color:colors.g5}}>Tarea</label><MentionInput as="input" users={users} value={t.desc} onChange={v=>{const n=[...miTareas];n[i]={...n[i],desc:v};sMiTareas(n);}} placeholder="Descripci\u00F3n..." style={{width:"100%",padding:6,borderRadius:6,border:"1px solid "+colors.g3,fontSize:11,boxSizing:"border-box" as const}}/></div>
             <div><label style={{fontSize:9,color:colors.g5}}>Responsable</label><select value={t.respId} onChange={e=>{const n=[...miTareas];n[i]={...n[i],respId:e.target.value};sMiTareas(n);}} style={{padding:6,borderRadius:6,border:"1px solid "+colors.g3,fontSize:11}}><option value="">Seleccionar...</option>{stf.map((u:any)=><option key={u.id} value={u.id}>{fn(u)}</option>)}</select></div>
             <div><label style={{fontSize:9,color:colors.g5}}>Fecha</label><input type="date" value={t.fecha} onChange={e=>{const n=[...miTareas];n[i]={...n[i],fecha:e.target.value};sMiTareas(n);}} style={{padding:6,borderRadius:6,border:"1px solid "+colors.g3,fontSize:11}}/></div>
             <button onClick={()=>sMiTareas(p=>p.filter((_:any,j:number)=>j!==i))} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:colors.rd,padding:"4px"}}>{"\u2715"}</button>
@@ -401,11 +402,11 @@ export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,on
           <div><div style={{fontSize:10,fontWeight:700,color:colors.gn,marginBottom:2}}>{"\u2705"} PRESENTES</div>{(mi.presentes||[]).map((p:string,i:number)=><div key={i} style={{fontSize:11,color:colors.nv}}>{"\u2022"} {p}</div>)}</div>
           <div><div style={{fontSize:10,fontWeight:700,color:colors.rd,marginBottom:2}}>{"\u274C"} AUSENTES</div>{(mi.ausentes||[]).length>0?(mi.ausentes||[]).map((a:string,i:number)=><div key={i} style={{fontSize:11,color:colors.g4}}>{"\u2022"} {a}</div>):<div style={{fontSize:11,color:colors.g4}}>{"\u2013"}</div>}</div>
         </div>}
-        {(mi.sections||[]).map((s:any,i:number)=><div key={i} style={{marginBottom:10}}><div style={{fontSize:12,fontWeight:700,color:colors.nv,borderBottom:"1px solid "+colors.g2,paddingBottom:3,marginBottom:4}}>{i+1}. {s.title}</div><div style={{fontSize:11,color:colors.g5,paddingLeft:8,whiteSpace:"pre-wrap" as const}}>{s.content||"\u2013"}</div></div>)}
+        {(mi.sections||[]).map((s:any,i:number)=><div key={i} style={{marginBottom:10}}><div style={{fontSize:12,fontWeight:700,color:colors.nv,borderBottom:"1px solid "+colors.g2,paddingBottom:3,marginBottom:4}}>{i+1}. {s.title}</div><div style={{fontSize:11,color:colors.g5,paddingLeft:8,whiteSpace:"pre-wrap" as const}}>{s.content?renderMentions(s.content):"\u2013"}</div></div>)}
         {mi.tareas&&mi.tareas.length>0&&<div style={{marginTop:10,padding:10,background:"#FEF3C7",borderRadius:8,border:"1px solid #FDE68A"}}>
           <div style={{fontSize:12,fontWeight:700,color:"#92400E",marginBottom:6}}>{"\u{1F4CB}"} Tareas asignadas ({mi.tareas.length})</div>
           <table style={{width:"100%",borderCollapse:"collapse" as const,fontSize:11}}><thead><tr style={{background:"#FDE68A"}}>{["Tarea","Responsable","Fecha","Estado"].map((h,i)=><th key={i} style={{padding:"4px 6px",textAlign:"left" as const,fontSize:10}}>{h}</th>)}</tr></thead><tbody>
-            {mi.tareas.map((t:any,i:number)=>{const resp=stf.find((u:any)=>u.id===t.respId);return <tr key={i} style={{borderBottom:"1px solid #FDE68A"}}><td style={{padding:"4px 6px"}}>{t.desc}</td><td style={{padding:"4px 6px"}}>{resp?fn(resp):"\u2013"}</td><td style={{padding:"4px 6px"}}>{t.fecha||"\u2013"}</td><td style={{padding:"4px 6px"}}>{mi.status==="final"?<span style={{color:colors.gn,fontWeight:600}}>{"\u2705"} Creada</span>:<span style={{color:colors.g4}}>Pendiente</span>}</td></tr>;})}
+            {mi.tareas.map((t:any,i:number)=>{const resp=stf.find((u:any)=>u.id===t.respId);return <tr key={i} style={{borderBottom:"1px solid #FDE68A"}}><td style={{padding:"4px 6px"}}>{renderMentions(t.desc)}</td><td style={{padding:"4px 6px"}}>{resp?fn(resp):"\u2013"}</td><td style={{padding:"4px 6px"}}>{t.fecha||"\u2013"}</td><td style={{padding:"4px 6px"}}>{mi.status==="final"?<span style={{color:colors.gn,fontWeight:600}}>{"\u2705"} Creada</span>:<span style={{color:colors.g4}}>Pendiente</span>}</td></tr>;})}
           </tbody></table>
         </div>}
         {mi.status==="borrador"&&<div style={{display:"flex",gap:4,justifyContent:"flex-end",marginTop:14}}>

@@ -3,6 +3,7 @@ import { useState, useMemo } from "react";
 import { useC } from "@/lib/theme-context";
 import { FREQ, TIPOS, fn, AREAS, DEPTOS } from "@/lib/constants";
 import { UserPicker } from "@/components/ui";
+import { MentionInput } from "@/components/MentionInput";
 import { useDataStore } from "@/lib/store";
 
 const DOW=["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
@@ -97,7 +98,7 @@ export function RecurrentTasks({user,mob,onAdd,onUpd,onDel,onBack}:any){
 
         <div style={{marginBottom:8}}>
           <label style={{fontSize:11,fontWeight:700,color:colors.g5,display:"block",marginBottom:3}}>Descripción</label>
-          <textarea value={form.description} onChange={e=>sForm({...form,description:e.target.value})} rows={3} placeholder="Detalle de lo que debe hacerse..." style={{...iS,resize:"vertical" as const}}/>
+          <MentionInput users={users} value={form.description} onChange={v=>sForm({...form,description:v})} rows={3} placeholder="Detalle de lo que debe hacerse..." style={{...iS,resize:"vertical" as const}}/>
         </div>
 
         <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8,marginBottom:8}}>

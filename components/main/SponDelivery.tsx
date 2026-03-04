@@ -3,11 +3,14 @@ import { useState } from "react";
 import { DIV } from "@/lib/constants";
 import { Btn, Card } from "@/components/ui";
 import { useC } from "@/lib/theme-context";
+import { useDataStore } from "@/lib/store";
+import { MentionInput } from "@/components/MentionInput";
 
 const TODAY=new Date().toISOString().slice(0,10);
 
 export function SponDelivery({sponsor,user,mob,onSave,onClose}:any){
   const{colors,isDark,cardBg}=useC();
+  const users=useDataStore(s=>s.users);
   const [desc,sDesc]=useState("");
   const [qty,sQty]=useState("1");
   const [unitVal,sUnitVal]=useState("");
@@ -118,7 +121,7 @@ export function SponDelivery({sponsor,user,mob,onSave,onClose}:any){
         {/* Notas */}
         <div style={{marginBottom:12}}>
           <label style={lbl}>Notas</label>
-          <textarea value={notes} onChange={e=>sNotes(e.target.value)} rows={2} style={{...inp,resize:"vertical" as const}} placeholder="Observaciones adicionales..."/>
+          <MentionInput users={users} value={notes} onChange={v=>sNotes(v)} rows={2} style={{...inp,resize:"vertical" as const}} placeholder="Observaciones adicionales..."/>
         </div>
 
         {/* Actions */}

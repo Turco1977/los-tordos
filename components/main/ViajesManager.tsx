@@ -2,6 +2,8 @@
 import { useState, useMemo } from "react";
 import { useC } from "@/lib/theme-context";
 import { Card, Btn, Pager } from "@/components/ui";
+import { MentionInput } from "@/components/MentionInput";
+import { useDataStore } from "@/lib/store";
 import { VIAJE_ST, VIAJE_SC, VIAJE_MOTIVOS } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/client";
 import { paginate } from "@/lib/pagination";
@@ -16,6 +18,7 @@ const fmtMoney = (n: number) => n.toLocaleString("es-AR", { style: "currency", c
 
 export default function ViajesManager({ viajes, userId, userLevel, onRefresh, mob }: { viajes: Viaje[]; userId: string; userLevel: number; onRefresh: () => void; mob: boolean }) {
   const { colors } = useC();
+  const users = useDataStore(s => s.users);
   const sb = createClient();
 
   const [view, setView] = useState<View>("list");
@@ -85,7 +88,7 @@ export default function ViajesManager({ viajes, userId, userLevel, onRefresh, mo
             <div><label style={{ fontSize: 11, fontWeight: 600, color: colors.g5 }}>Alojamiento ($)</label><input type="number" value={form.costo_alojamiento || ""} onChange={e => setForm({ ...form, costo_alojamiento: Number(e.target.value) || 0 })} style={inputSt} /></div>
             <div><label style={{ fontSize: 11, fontWeight: 600, color: colors.g5 }}>Alimentación ($)</label><input type="number" value={form.costo_alimentacion || ""} onChange={e => setForm({ ...form, costo_alimentacion: Number(e.target.value) || 0 })} style={inputSt} /></div>
             <div><label style={{ fontSize: 11, fontWeight: 600, color: colors.g5 }}>Otros ($)</label><input type="number" value={form.costo_otros || ""} onChange={e => setForm({ ...form, costo_otros: Number(e.target.value) || 0 })} style={inputSt} /></div>
-            <div style={{ gridColumn: mob ? "1" : "1/-1" }}><label style={{ fontSize: 11, fontWeight: 600, color: colors.g5 }}>Notas</label><textarea value={form.notas} onChange={e => setForm({ ...form, notas: e.target.value })} style={{ ...inputSt, minHeight: 60, resize: "vertical" }} /></div>
+            <div style={{ gridColumn: mob ? "1" : "1/-1" }}><label style={{ fontSize: 11, fontWeight: 600, color: colors.g5 }}>Notas</label><MentionInput users={users} value={form.notas} onChange={v => setForm({ ...form, notas: v })} style={{ ...inputSt, minHeight: 60, resize: "vertical" }} /></div>
           </div>
           <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
             <Btn v="g" onClick={() => setView("list")}>Cancelar</Btn>
