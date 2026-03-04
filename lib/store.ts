@@ -40,9 +40,15 @@ interface DataStore {
   tarifario: any[];
   sponContracts: any[];
   sponPipeline: any[];
+  sponContactos: any[];
+  sponPropuestas: any[];
+  sponPropVotos: any[];
+  sponPropMsgs: any[];
+  hospInvitaciones: any[];
+  sponMateriales: any[];
 
   // Batch setter (for fetchAll)
-  setAll: (data: Partial<Pick<DataStore, "users"|"om"|"peds"|"hitos"|"agendas"|"minutas"|"presu"|"provs"|"reminders"|"projects"|"projTasks"|"taskTemplates"|"projBudgets"|"inventory"|"invMaint"|"invDist"|"bookings"|"sponsors"|"sponMsgs"|"sponDeliveries"|"dbNotifs"|"archivos"|"viajes"|"rentalConfig"|"dmMsgs"|"torneos"|"torneoHitos"|"torneoClubes"|"fixtures"|"becas"|"asCasos"|"tarifario"|"sponContracts"|"sponPipeline">>) => void;
+  setAll: (data: Partial<Pick<DataStore, "users"|"om"|"peds"|"hitos"|"agendas"|"minutas"|"presu"|"provs"|"reminders"|"projects"|"projTasks"|"taskTemplates"|"projBudgets"|"inventory"|"invMaint"|"invDist"|"bookings"|"sponsors"|"sponMsgs"|"sponDeliveries"|"dbNotifs"|"archivos"|"viajes"|"rentalConfig"|"dmMsgs"|"torneos"|"torneoHitos"|"torneoClubes"|"fixtures"|"becas"|"asCasos"|"tarifario"|"sponContracts"|"sponPipeline"|"sponContactos"|"sponPropuestas"|"sponPropVotos"|"sponPropMsgs"|"hospInvitaciones"|"sponMateriales">>) => void;
 
   // Functional setters (same API as useState setters)
   sUs: Setter<any>;
@@ -81,6 +87,12 @@ interface DataStore {
   sTarifario: Setter<any>;
   sSponContracts: Setter<any>;
   sSponPipeline: Setter<any>;
+  sSponContactos: Setter<any>;
+  sSponPropuestas: Setter<any>;
+  sSponPropVotos: Setter<any>;
+  sSponPropMsgs: Setter<any>;
+  sHospInvitaciones: Setter<any>;
+  sSponMateriales: Setter<any>;
 
   // Reset all data (logout)
   clear: () => void;
@@ -125,6 +137,12 @@ export const useDataStore = create<DataStore>((set) => ({
   tarifario: empty,
   sponContracts: empty,
   sponPipeline: empty,
+  sponContactos: empty,
+  sponPropuestas: empty,
+  sponPropVotos: empty,
+  sponPropMsgs: empty,
+  hospInvitaciones: empty,
+  sponMateriales: empty,
 
   setAll: (data) => set(data),
 
@@ -164,6 +182,12 @@ export const useDataStore = create<DataStore>((set) => ({
   sTarifario: (fn) => set((s) => ({ tarifario: fn(s.tarifario) })),
   sSponContracts: (fn) => set((s) => ({ sponContracts: fn(s.sponContracts) })),
   sSponPipeline: (fn) => set((s) => ({ sponPipeline: fn(s.sponPipeline) })),
+  sSponContactos: (fn) => set((s) => ({ sponContactos: fn(s.sponContactos) })),
+  sSponPropuestas: (fn) => set((s) => ({ sponPropuestas: fn(s.sponPropuestas) })),
+  sSponPropVotos: (fn) => set((s) => ({ sponPropVotos: fn(s.sponPropVotos) })),
+  sSponPropMsgs: (fn) => set((s) => ({ sponPropMsgs: fn(s.sponPropMsgs) })),
+  sHospInvitaciones: (fn) => set((s) => ({ hospInvitaciones: fn(s.hospInvitaciones) })),
+  sSponMateriales: (fn) => set((s) => ({ sponMateriales: fn(s.sponMateriales) })),
 
   clear: () => set({
     users: empty,
@@ -202,5 +226,11 @@ export const useDataStore = create<DataStore>((set) => ({
     tarifario: empty,
     sponContracts: empty,
     sponPipeline: empty,
+    sponContactos: empty,
+    sponPropuestas: empty,
+    sponPropVotos: empty,
+    sponPropMsgs: empty,
+    hospInvitaciones: empty,
+    sponMateriales: empty,
   }),
 }));

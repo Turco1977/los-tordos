@@ -208,10 +208,10 @@ export const BOOK_ST:Record<string,{l:string;c:string;bg:string;i:string}>={
 
 // Sponsors CRM constants
 export const SPON_TIER:Record<string,{l:string;c:string;bg:string;i:string}>={
-  oro:{l:"Oro",c:"#D97706",bg:"#FEF3C7",i:"🥇"},
-  plata:{l:"Plata",c:"#6B7280",bg:"#F3F4F6",i:"🥈"},
-  bronce:{l:"Bronce",c:"#92400E",bg:"#FDE68A",i:"🥉"},
-  colaborador:{l:"Colaborador",c:"#3B82F6",bg:"#DBEAFE",i:"🤝"}
+  black:{l:"Black",c:"#0A1628",bg:"#E2E8F0",i:"⬛"},
+  blue:{l:"Blue",c:"#3B82F6",bg:"#DBEAFE",i:"🔵"},
+  red:{l:"Red",c:"#C8102E",bg:"#FEE2E2",i:"🔴"},
+  white:{l:"White",c:"#6B7280",bg:"#F3F4F6",i:"⚪"},
 };
 export const SPON_ST:Record<string,{l:string;c:string;bg:string}>={
   active:{l:"Activo",c:"#10B981",bg:"#D1FAE5"},
@@ -244,6 +244,41 @@ export const PIPE_SC:Record<string,{l:string;c:string;bg:string;i:string}>={
   [PIPE_ST.NEG]:{l:"Negociación",c:"#F59E0B",bg:"#FEF3C7",i:"🤝"},
   [PIPE_ST.CIERRE]:{l:"Cierre",c:"#10B981",bg:"#D1FAE5",i:"✅"},
   [PIPE_ST.PERD]:{l:"Perdido",c:"#DC2626",bg:"#FEE2E2",i:"❌"},
+};
+
+/* Proposal states */
+export const PROP_ST={BOR:"borrador",NEG:"negociando",PROP_SE:"propuesta_se",DEL:"deliberacion",APR:"aprobada",RECH:"rechazada",FORM:"formalizada"};
+export const PROP_SC:Record<string,{l:string;c:string;bg:string;i:string}>={
+  [PROP_ST.BOR]:{l:"Borrador",c:"#6B7280",bg:"#F3F4F6",i:"📝"},
+  [PROP_ST.NEG]:{l:"En Negociación",c:"#F59E0B",bg:"#FEF3C7",i:"🤝"},
+  [PROP_ST.PROP_SE]:{l:"Propuesta a SE",c:"#3B82F6",bg:"#DBEAFE",i:"📤"},
+  [PROP_ST.DEL]:{l:"En Deliberación",c:"#F97316",bg:"#FFF7ED",i:"🟠"},
+  [PROP_ST.APR]:{l:"Aprobada",c:"#10B981",bg:"#D1FAE5",i:"✅"},
+  [PROP_ST.RECH]:{l:"Rechazada",c:"#DC2626",bg:"#FEE2E2",i:"❌"},
+  [PROP_ST.FORM]:{l:"Formalizada",c:"#047857",bg:"#D1FAE5",i:"📜"},
+};
+
+/* Contact roles */
+export const CONTACT_ROLES:Record<string,{l:string;i:string;c:string;bg:string}>={
+  champion:{l:"Champion",i:"⭐",c:"#F59E0B",bg:"#FEF3C7"},comercial:{l:"Resp. Comercial",i:"💼",c:"#3B82F6",bg:"#DBEAFE"},canje:{l:"Resp. Canje",i:"🔄",c:"#8B5CF6",bg:"#EDE9FE"},operativo:{l:"Operativo",i:"🔧",c:"#6B7280",bg:"#F3F4F6"},
+};
+
+/* Ejes estratégicos */
+export const SPON_EJES:Record<string,{l:string;i:string}>={
+  rugby_hockey:{l:"Rugby & Hockey",i:"🏉"},salud:{l:"Salud",i:"🏥"},infraestructura:{l:"Infraestructura",i:"🏗️"},logistica:{l:"Logística",i:"🚛"},social:{l:"Social",i:"🤝"},
+};
+
+/* Hospitality states */
+export const HOSP_ST:Record<string,{l:string;c:string;bg:string;i:string}>={
+  pendiente:{l:"Pendiente",c:"#F59E0B",bg:"#FEF3C7",i:"⏳"},
+  enviada:{l:"Enviada",c:"#3B82F6",bg:"#DBEAFE",i:"📨"},
+  confirmada:{l:"Confirmada",c:"#10B981",bg:"#D1FAE5",i:"✅"},
+  rechazada:{l:"Rechazada",c:"#DC2626",bg:"#FEE2E2",i:"❌"},
+};
+
+/* Material categories */
+export const MAT_CATS:Record<string,{l:string;i:string}>={
+  brochure:{l:"Brochure Institucional",i:"📄"},propuesta_tipo:{l:"Propuesta Tipo",i:"📝"},kit:{l:"Kit Bienvenida",i:"🎁"},tarifario:{l:"Tarifario",i:"💰"},fotos:{l:"Fotos Institucionales",i:"📸"},contrato:{l:"Plantilla Contrato",i:"📜"},informe:{l:"Informe Impacto",i:"📊"},general:{l:"General",i:"📁"},
 };
 
 /* Contract status */

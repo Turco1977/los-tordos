@@ -1,6 +1,6 @@
 "use client";
 import { useState, useMemo, useRef, useEffect } from "react";
-import { SPON_ST, DOLAR_REF, DIV, TAR_CATS, TAR_VIS, PIPE_ST, PIPE_SC, CONTR_ST, CONTR_SC } from "@/lib/constants";
+import { SPON_ST, SPON_TIER, DOLAR_REF, DIV, TAR_CATS, TAR_VIS, PIPE_ST, PIPE_SC, CONTR_ST, CONTR_SC, PROP_ST, PROP_SC, CONTACT_ROLES, SPON_EJES, HOSP_ST, MAT_CATS } from "@/lib/constants";
 import { exportTarifarioPDF, exportPipelinePDF, exportContractsPDF } from "@/lib/export";
 import { fmtD } from "@/lib/mappers";
 import { Btn, Card } from "@/components/ui";
@@ -624,21 +624,352 @@ function DashboardPanel({sponsors,tarifario,contracts,pipeline,dolarRef,colors,i
   </div>);
 }
 
-export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onSponMsg,onAddDelivery,sponDeliveries,onUpdDelivery,navTarget,onNavDone,onAddTarifa,onUpdTarifa,onDelTarifa,onAddContract,onUpdContract,onDelContract,onAddPipeline,onUpdPipeline,onDelPipeline}:any){
+/* ══════════════════════════════════════════════════════════════
+   PropuestasPanel — Propuestas comerciales con aprobación SE
+   ══════════════════════════════════════════════════════════════ */
+const emptyPropForm=()=>({nombre_prospecto:"",contacto:"",rubro:"",nivel_propuesto:"white",aporte_dinero:"",aporte_canje:"",detalle_canje:"",ubicaciones_propuestas:[] as number[],descuento_pct:"",valor_final:"",justificacion:"",estado:PROP_ST.BOR});
+
+function PropuestasPanel({propuestas,votos,mensajes,sponsors,tarifario,colors,isDark,cardBg,mob,canCreate,canVote,user,onAdd,onUpd,onDel,onVote,onMsg,onAddSponsor}:any){
+  const items:any[]=propuestas||[];
+  const [showForm,sShowForm]=useState(false);
+  const [editId,sEditId]=useState<number|null>(null);
+  const [form,sForm]=useState(emptyPropForm());
+  const [detailId,sDetailId]=useState<number|null>(null);
+  const [msgText,sMsgText]=useState("");
+  const [fSt,sFSt]=useState("all");
+
+  const fN=(n:number)=>n?"$"+Math.round(n).toLocaleString("es-AR"):"–";
+  const lbl:any={fontSize:10,fontWeight:600,color:colors.g5,display:"block",marginBottom:2};
+  const inp:any={width:"100%",padding:"7px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,background:cardBg,color:colors.nv,boxSizing:"border-box"};
+
+  const tarItems=(tarifario||[]).filter((t:any)=>t.activo!==false);
+  const calcTarifario=(ids:number[])=>ids.reduce((s:number,id:number)=>{const t=tarItems.find((x:any)=>x.id===id);return s+(t?Number(t.precio_max_usd||0):0);},0);
+
+  const openAdd=()=>{sForm(emptyPropForm());sEditId(null);sShowForm(true);};
+  const openEdit=(p:any)=>{sForm({nombre_prospecto:p.nombre_prospecto||"",contacto:p.contacto||"",rubro:p.rubro||"",nivel_propuesto:p.nivel_propuesto||"white",aporte_dinero:String(p.aporte_dinero||""),aporte_canje:String(p.aporte_canje||""),detalle_canje:p.detalle_canje||"",ubicaciones_propuestas:p.ubicaciones_propuestas||[],descuento_pct:String(p.descuento_pct||""),valor_final:String(p.valor_final||""),justificacion:p.justificacion||"",estado:p.estado||PROP_ST.BOR});sEditId(p.id);sShowForm(true);};
+
+  const handleSave=async()=>{
+    if(!form.nombre_prospecto.trim())return;
+    const valTar=calcTarifario(form.ubicaciones_propuestas);
+    const d={...form,nombre_prospecto:form.nombre_prospecto.trim(),aporte_dinero:Number(form.aporte_dinero)||0,aporte_canje:Number(form.aporte_canje)||0,ubicaciones_propuestas:form.ubicaciones_propuestas,valor_tarifario:valTar,descuento_pct:Number(form.descuento_pct)||0,valor_final:Number(form.valor_final)||0};
+    if(editId){await onUpd(editId,d);}else{await onAdd(d);}
+    sShowForm(false);sEditId(null);
+  };
+
+  const formalizar=async(p:any)=>{
+    const sponData={name:p.nombre_prospecto,amount_cash:p.aporte_dinero||0,amount_service:p.aporte_canje||0,status:"active",notes:"Formalizado desde propuesta #"+p.id,nivel:p.nivel_propuesto,responsable:"Jesús Herrera"};
+    await onAddSponsor(sponData);
+    await onUpd(p.id,{estado:PROP_ST.FORM});
+  };
+
+  const vis=fSt==="all"?items:items.filter(p=>p.estado===fSt);
+  const detail=detailId?items.find((p:any)=>p.id===detailId):null;
+  const detailVotos=(votos||[]).filter((v:any)=>v.propuesta_id===detailId);
+  const detailMsgs=(mensajes||[]).filter((m:any)=>m.propuesta_id===detailId);
+  const alreadyVoted=detailVotos.some((v:any)=>v.user_id===user?.id);
+
+  if(detail)return(<div>
+    <button onClick={()=>sDetailId(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:colors.bl,marginBottom:8}}>← Volver a propuestas</button>
+    <Card style={{padding:16,marginBottom:12}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"start",marginBottom:10}}>
+        <div><div style={{fontSize:16,fontWeight:800,color:colors.nv}}>{detail.nombre_prospecto}</div>
+        <div style={{fontSize:11,color:colors.g4}}>{detail.contacto} · {detail.rubro}</div></div>
+        <span style={{padding:"3px 10px",borderRadius:12,fontSize:10,fontWeight:600,background:PROP_SC[detail.estado]?.bg,color:PROP_SC[detail.estado]?.c}}>{PROP_SC[detail.estado]?.i} {PROP_SC[detail.estado]?.l}</span>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:10}}>
+        <div><div style={{fontSize:10,color:colors.g4}}>Aporte Cash</div><div style={{fontSize:14,fontWeight:700,color:"#10B981"}}>{fN(detail.aporte_dinero)}</div></div>
+        <div><div style={{fontSize:10,color:colors.g4}}>Aporte Canje</div><div style={{fontSize:14,fontWeight:700,color:"#3B82F6"}}>{fN(detail.aporte_canje)}</div></div>
+        <div><div style={{fontSize:10,color:colors.g4}}>Nivel</div><div style={{fontSize:14,fontWeight:700,color:SPON_TIER[detail.nivel_propuesto]?.c||colors.g5}}>{SPON_TIER[detail.nivel_propuesto]?.i} {SPON_TIER[detail.nivel_propuesto]?.l}</div></div>
+      </div>
+      {detail.justificacion&&<div style={{fontSize:11,color:colors.g5,marginBottom:8,padding:8,background:isDark?"rgba(255,255,255,.03)":"#F7F8FA",borderRadius:8}}><strong>Justificación:</strong> {detail.justificacion}</div>}
+      {canCreate&&detail.estado===PROP_ST.BOR&&<Btn v="s" s="s" onClick={()=>onUpd(detail.id,{estado:PROP_ST.PROP_SE})}>Enviar a SE</Btn>}
+      {canCreate&&detail.estado===PROP_ST.NEG&&<Btn v="s" s="s" onClick={()=>onUpd(detail.id,{estado:PROP_ST.PROP_SE})}>Enviar a SE</Btn>}
+      {detail.estado===PROP_ST.APR&&canCreate&&<Btn v="s" s="s" onClick={()=>formalizar(detail)}>Formalizar (crear sponsor)</Btn>}
+    </Card>
+    {/* Voting */}
+    {(detail.estado===PROP_ST.PROP_SE||detail.estado===PROP_ST.DEL)&&<Card style={{padding:14,marginBottom:12}}>
+      <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:8}}>Votación SE</div>
+      {detailVotos.map((v:any)=><div key={v.id} style={{fontSize:11,padding:"4px 0",borderBottom:"1px solid "+colors.g2}}>
+        <strong>{v.user_name}</strong>: <span style={{color:v.voto==="aprobado"?"#10B981":"#DC2626",fontWeight:600}}>{v.voto==="aprobado"?"Aprobó":"Rechazó"}</span> {v.comentario&&<span style={{color:colors.g4}}>— {v.comentario}</span>}
+      </div>)}
+      {canVote&&!alreadyVoted&&<div style={{display:"flex",gap:6,marginTop:8}}>
+        <Btn v="s" s="s" onClick={()=>{onVote({propuesta_id:detail.id,voto:"aprobado"});if(detailVotos.length>=2)onUpd(detail.id,{estado:PROP_ST.APR});}}>Aprobar</Btn>
+        <Btn v="r" s="s" onClick={()=>{onVote({propuesta_id:detail.id,voto:"rechazado"});onUpd(detail.id,{estado:PROP_ST.RECH});}}>Rechazar</Btn>
+      </div>}
+      {alreadyVoted&&<div style={{fontSize:10,color:colors.g4,marginTop:6}}>Ya votaste esta propuesta</div>}
+    </Card>}
+    {/* Thread */}
+    <Card style={{padding:14}}>
+      <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:8}}>Deliberación</div>
+      {detailMsgs.map((m:any)=><div key={m.id} style={{fontSize:11,padding:"4px 0",borderBottom:"1px solid "+colors.g2}}>
+        <strong style={{color:colors.bl}}>{m.user_name}</strong> <span style={{color:colors.g4,fontSize:9}}>{m.created_at?.slice(0,10)}</span>
+        <div style={{color:colors.nv,marginTop:2}}>{m.content}</div>
+      </div>)}
+      <div style={{display:"flex",gap:6,marginTop:8}}>
+        <input value={msgText} onChange={e=>sMsgText(e.target.value)} placeholder="Escribir comentario..." style={{flex:1,...inp}} onKeyDown={e=>{if(e.key==="Enter"&&msgText.trim()){onMsg(detail.id,msgText);sMsgText("");}}}/>
+        <Btn v="s" s="s" onClick={()=>{if(msgText.trim()){onMsg(detail.id,msgText);sMsgText("");}}}>Enviar</Btn>
+      </div>
+    </Card>
+  </div>);
+
+  return(<div>
+    {/* Filter + actions */}
+    <div style={{display:"flex",justifyContent:"space-between",marginBottom:12,flexWrap:"wrap",gap:8}}>
+      <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+        <button onClick={()=>sFSt("all")} style={{padding:"4px 10px",borderRadius:14,border:"1px solid "+(fSt==="all"?colors.rd:colors.g3),background:fSt==="all"?colors.rd:"transparent",color:fSt==="all"?"#fff":colors.g5,fontSize:10,fontWeight:600,cursor:"pointer"}}>Todas ({items.length})</button>
+        {Object.entries(PROP_SC).map(([k,v])=>{const c=items.filter(p=>p.estado===k).length;return c>0?<button key={k} onClick={()=>sFSt(k)} style={{padding:"4px 10px",borderRadius:14,border:"1px solid "+(fSt===k?v.c:colors.g3),background:fSt===k?v.bg:"transparent",color:fSt===k?v.c:colors.g5,fontSize:10,fontWeight:600,cursor:"pointer"}}>{v.i} {v.l} ({c})</button>:null;})}
+      </div>
+      {canCreate&&<Btn v="pu" s="s" onClick={openAdd}>+ Propuesta</Btn>}
+    </div>
+    {/* List */}
+    {vis.map(p=><Card key={p.id} style={{padding:"10px 14px",marginBottom:8,cursor:"pointer"}} onClick={()=>sDetailId(p.id)}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div><div style={{fontSize:13,fontWeight:700,color:colors.nv}}>{p.nombre_prospecto}</div><div style={{fontSize:10,color:colors.g4}}>{p.contacto} · {SPON_TIER[p.nivel_propuesto]?.l||"White"} · {fN(p.aporte_dinero+p.aporte_canje)}</div></div>
+        <div style={{display:"flex",alignItems:"center",gap:6}}>
+          <span style={{padding:"3px 8px",borderRadius:10,fontSize:9,fontWeight:600,background:PROP_SC[p.estado]?.bg,color:PROP_SC[p.estado]?.c}}>{PROP_SC[p.estado]?.i} {PROP_SC[p.estado]?.l}</span>
+          {canCreate&&<button onClick={e=>{e.stopPropagation();openEdit(p);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:12}}>✏️</button>}
+        </div>
+      </div>
+    </Card>)}
+    {vis.length===0&&<div style={{textAlign:"center",padding:40,color:colors.g4,fontSize:13}}>No hay propuestas</div>}
+
+    {/* Form modal */}
+    {showForm&&<div style={{position:"fixed" as const,inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>sShowForm(false)}>
+      <div style={{background:cardBg,borderRadius:16,padding:mob?16:24,width:"100%",maxWidth:560,maxHeight:"90vh",overflowY:"auto" as const,boxShadow:"0 8px 32px rgba(0,0,0,.2)"}} onClick={e=>e.stopPropagation()}>
+        <div style={{fontSize:14,fontWeight:800,color:colors.nv,marginBottom:14}}>{editId?"Editar Propuesta":"Nueva Propuesta"}</div>
+        <div style={{marginBottom:8}}><label style={lbl}>Prospecto *</label><input value={form.nombre_prospecto} onChange={e=>sForm(p=>({...p,nombre_prospecto:e.target.value}))} style={inp}/></div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+          <div><label style={lbl}>Contacto</label><input value={form.contacto} onChange={e=>sForm(p=>({...p,contacto:e.target.value}))} style={inp}/></div>
+          <div><label style={lbl}>Rubro</label><input value={form.rubro} onChange={e=>sForm(p=>({...p,rubro:e.target.value}))} style={inp}/></div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+          <div><label style={lbl}>Nivel propuesto</label><select value={form.nivel_propuesto} onChange={e=>sForm(p=>({...p,nivel_propuesto:e.target.value}))} style={inp}>{Object.entries(SPON_TIER).map(([k,v])=><option key={k} value={k}>{v.i} {v.l}</option>)}</select></div>
+          <div><label style={lbl}>Estado</label><select value={form.estado} onChange={e=>sForm(p=>({...p,estado:e.target.value}))} style={inp}>{Object.entries(PROP_SC).map(([k,v])=><option key={k} value={k}>{v.i} {v.l}</option>)}</select></div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+          <div><label style={lbl}>Aporte Cash $</label><input type="number" value={form.aporte_dinero} onChange={e=>sForm(p=>({...p,aporte_dinero:e.target.value}))} style={inp}/></div>
+          <div><label style={lbl}>Aporte Canje $</label><input type="number" value={form.aporte_canje} onChange={e=>sForm(p=>({...p,aporte_canje:e.target.value}))} style={inp}/></div>
+        </div>
+        <div style={{marginBottom:8}}><label style={lbl}>Detalle canje</label><input value={form.detalle_canje} onChange={e=>sForm(p=>({...p,detalle_canje:e.target.value}))} style={inp}/></div>
+        {tarItems.length>0&&<div style={{marginBottom:8}}><label style={lbl}>Ubicaciones tarifario (valor auto: USD {calcTarifario(form.ubicaciones_propuestas)})</label>
+          <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>{tarItems.map((t:any)=>{const sel=form.ubicaciones_propuestas.includes(t.id);return(
+            <button key={t.id} onClick={()=>sForm(p=>({...p,ubicaciones_propuestas:sel?p.ubicaciones_propuestas.filter((x:number)=>x!==t.id):[...p.ubicaciones_propuestas,t.id]}))} style={{padding:"3px 8px",borderRadius:12,border:"1px solid "+(sel?"#10B981":colors.g3),background:sel?"#D1FAE5":"transparent",color:sel?"#10B981":colors.g5,fontSize:10,fontWeight:600,cursor:"pointer"}}>{t.ubicacion}</button>
+          );})}</div>
+        </div>}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+          <div><label style={lbl}>Descuento %</label><input type="number" value={form.descuento_pct} onChange={e=>sForm(p=>({...p,descuento_pct:e.target.value}))} style={inp}/></div>
+          <div><label style={lbl}>Valor final $</label><input type="number" value={form.valor_final} onChange={e=>sForm(p=>({...p,valor_final:e.target.value}))} style={inp}/></div>
+        </div>
+        <div style={{marginBottom:12}}><label style={lbl}>Justificación</label><textarea value={form.justificacion} onChange={e=>sForm(p=>({...p,justificacion:e.target.value}))} rows={3} style={{...inp,resize:"vertical" as const}}/></div>
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+          {editId&&<Btn v="r" s="s" onClick={()=>{onDel(editId);sShowForm(false);}}>Eliminar</Btn>}
+          <Btn v="g" s="s" onClick={()=>sShowForm(false)}>Cancelar</Btn>
+          <Btn v="s" s="s" onClick={handleSave}>Guardar</Btn>
+        </div>
+      </div>
+    </div>}
+  </div>);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   MaterialesPanel — Repositorio descargable
+   ══════════════════════════════════════════════════════════════ */
+function MaterialesPanel({materiales,colors,isDark,cardBg,mob,canUpload,onAdd,onDel}:any){
+  const items:any[]=materiales||[];
+  const [showForm,sShowForm]=useState(false);
+  const [form,sForm]=useState({titulo:"",descripcion:"",categoria:"general",archivo_url:""});
+  const lbl:any={fontSize:10,fontWeight:600,color:colors.g5,display:"block",marginBottom:2};
+  const inp:any={width:"100%",padding:"7px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,background:cardBg,color:colors.nv,boxSizing:"border-box"};
+
+  const handleSave=async()=>{
+    if(!form.titulo.trim())return;
+    await onAdd({titulo:form.titulo.trim(),descripcion:form.descripcion.trim(),categoria:form.categoria,archivo_url:form.archivo_url.trim(),archivo_nombre:form.titulo.trim()});
+    sShowForm(false);sForm({titulo:"",descripcion:"",categoria:"general",archivo_url:""});
+  };
+
+  const grouped:Record<string,any[]>={};
+  for(const m of items){const k=m.categoria||"general";if(!grouped[k])grouped[k]=[];grouped[k].push(m);}
+
+  return(<div>
+    <div style={{display:"flex",justifyContent:"space-between",marginBottom:14}}>
+      <div><div style={{fontSize:16,fontWeight:800,color:colors.nv}}>Materiales</div><div style={{fontSize:11,color:colors.g4}}>Repositorio de brochures, propuestas y documentos</div></div>
+      {canUpload&&<Btn v="pu" s="s" onClick={()=>sShowForm(true)}>+ Material</Btn>}
+    </div>
+    {Object.entries(grouped).map(([cat,rows])=>{const ci=MAT_CATS[cat]||MAT_CATS.general;return(
+      <div key={cat} style={{marginBottom:16}}>
+        <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:8}}>{ci.i} {ci.l}</div>
+        <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr 1fr",gap:10}}>
+          {rows.map(m=><Card key={m.id} style={{padding:14}}>
+            <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:4}}>{m.titulo}</div>
+            {m.descripcion&&<div style={{fontSize:10,color:colors.g4,marginBottom:6}}>{m.descripcion}</div>}
+            <div style={{fontSize:9,color:colors.g4,marginBottom:6}}>Subido por {m.subido_por_name} · {m.created_at?.slice(0,10)}</div>
+            <div style={{display:"flex",gap:4}}>
+              {m.archivo_url&&<a href={m.archivo_url} target="_blank" rel="noopener noreferrer" style={{padding:"4px 10px",borderRadius:6,background:colors.bl,color:"#fff",fontSize:10,fontWeight:600,textDecoration:"none"}}>Descargar</a>}
+              {canUpload&&<button onClick={()=>onDel(m.id)} style={{background:"none",border:"none",cursor:"pointer",fontSize:12}} title="Eliminar">🗑️</button>}
+            </div>
+          </Card>)}
+        </div>
+      </div>
+    );})}
+    {items.length===0&&<div style={{textAlign:"center",padding:40,color:colors.g4}}>No hay materiales cargados</div>}
+    {showForm&&<div style={{position:"fixed" as const,inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>sShowForm(false)}>
+      <div style={{background:cardBg,borderRadius:16,padding:20,width:"100%",maxWidth:440,boxShadow:"0 8px 32px rgba(0,0,0,.2)"}} onClick={e=>e.stopPropagation()}>
+        <div style={{fontSize:14,fontWeight:800,color:colors.nv,marginBottom:14}}>Subir Material</div>
+        <div style={{marginBottom:8}}><label style={lbl}>Título *</label><input value={form.titulo} onChange={e=>sForm(p=>({...p,titulo:e.target.value}))} style={inp}/></div>
+        <div style={{marginBottom:8}}><label style={lbl}>Categoría</label><select value={form.categoria} onChange={e=>sForm(p=>({...p,categoria:e.target.value}))} style={inp}>{Object.entries(MAT_CATS).map(([k,v])=><option key={k} value={k}>{v.i} {v.l}</option>)}</select></div>
+        <div style={{marginBottom:8}}><label style={lbl}>URL del archivo</label><input value={form.archivo_url} onChange={e=>sForm(p=>({...p,archivo_url:e.target.value}))} style={inp} placeholder="https://..."/></div>
+        <div style={{marginBottom:12}}><label style={lbl}>Descripción</label><textarea value={form.descripcion} onChange={e=>sForm(p=>({...p,descripcion:e.target.value}))} rows={2} style={{...inp,resize:"vertical" as const}}/></div>
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+          <Btn v="g" s="s" onClick={()=>sShowForm(false)}>Cancelar</Btn>
+          <Btn v="s" s="s" onClick={handleSave}>Subir</Btn>
+        </div>
+      </div>
+    </div>}
+  </div>);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   HospitalidadPanel — Invitaciones y asistencia (Brandi)
+   ══════════════════════════════════════════════════════════════ */
+function HospitalidadPanel({invitaciones,sponsors,contactos,fixtures,colors,isDark,cardBg,mob,canManage,onAdd,onUpd,onDel}:any){
+  const items:any[]=invitaciones||[];
+  const [showForm,sShowForm]=useState(false);
+  const [editId,sEditId]=useState<number|null>(null);
+  const [form,sForm]=useState({partido_fecha:"",partido_rival:"",sponsor_id:"",contacto_id:"",entradas:"2",estacionamiento:false,zona_vip:false});
+  const lbl:any={fontSize:10,fontWeight:600,color:colors.g5,display:"block",marginBottom:2};
+  const inp:any={width:"100%",padding:"7px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,background:cardBg,color:colors.nv,boxSizing:"border-box"};
+
+  const getSponName=(id:number|null)=>{if(!id)return"–";const sp=(sponsors||[]).find((s:any)=>s.id===id);return sp?.name||"#"+id;};
+
+  /* KPIs */
+  const thisMonth=TODAY.slice(0,7);
+  const mesInvs=items.filter(i=>i.created_at?.slice(0,7)===thisMonth);
+  const enviadas=mesInvs.length;
+  const asistieron=mesInvs.filter(i=>i.asistio===true).length;
+  const tasaAsis=enviadas>0?Math.round((asistieron/enviadas)*100):0;
+  const entradasMes=mesInvs.reduce((s:number,i:any)=>s+Number(i.entradas||0),0);
+
+  /* Sin contacto >30 días */
+  const activeSpon=(sponsors||[]).filter((s:any)=>s.status==="active");
+  const sinContacto=activeSpon.filter((sp:any)=>{const last=items.filter(i=>i.sponsor_id===sp.id).sort((a:any,b:any)=>(b.created_at||"").localeCompare(a.created_at||""))[0];if(!last)return true;return daysLeft(last.created_at?.slice(0,10)||"")< -30;});
+
+  /* Próximos partidos de local */
+  const proxPartidos=((fixtures||[]) as any[]).filter((f:any)=>f.date>=TODAY&&f.is_local).slice(0,5);
+
+  const openAdd=(fixture?:any)=>{sForm({partido_fecha:fixture?.date||"",partido_rival:fixture?.rival||"",sponsor_id:"",contacto_id:"",entradas:"2",estacionamiento:false,zona_vip:false});sEditId(null);sShowForm(true);};
+  const handleSave=async()=>{
+    if(!form.sponsor_id)return;
+    const d={partido_fecha:form.partido_fecha||null,partido_rival:form.partido_rival,sponsor_id:Number(form.sponsor_id),contacto_id:form.contacto_id?Number(form.contacto_id):null,entradas:Number(form.entradas)||0,estacionamiento:form.estacionamiento,zona_vip:form.zona_vip,estado_invitacion:"enviada"};
+    if(editId){await onUpd(editId,d);}else{await onAdd(d);}
+    sShowForm(false);sEditId(null);
+  };
+
+  return(<div>
+    {/* KPIs */}
+    <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:14}}>
+      {[{l:"Invitaciones (mes)",v:enviadas,c:colors.bl,i:"📨"},{l:"Tasa asistencia",v:tasaAsis+"%",c:"#10B981",i:"📊"},{l:"Entradas (mes)",v:entradasMes,c:"#8B5CF6",i:"🎫"},{l:"Sin contacto >30d",v:sinContacto.length,c:sinContacto.length>0?"#DC2626":"#10B981",i:"⚠️"}].map((k,i)=>(
+        <Card key={i} style={{flex:"1 1 130px",padding:"10px 14px",textAlign:"center" as const}}>
+          <div style={{fontSize:18,fontWeight:800,color:k.c}}>{k.v}</div>
+          <div style={{fontSize:10,color:colors.g4,marginTop:2}}>{k.i} {k.l}</div>
+        </Card>
+      ))}
+    </div>
+
+    {/* Sin contacto alert */}
+    {sinContacto.length>0&&<Card style={{marginBottom:12,padding:"10px 14px",background:isDark?"rgba(220,38,38,.1)":"#FEF2F2",border:"1px solid #FECACA"}}>
+      <div style={{fontSize:12,fontWeight:700,color:"#DC2626",marginBottom:4}}>⚠️ Sponsors sin contacto hace +30 días</div>
+      {sinContacto.map((sp:any)=><span key={sp.id} style={{fontSize:10,color:"#DC2626",marginRight:8}}>{sp.name}</span>)}
+    </Card>}
+
+    {/* Próximos partidos */}
+    {proxPartidos.length>0&&<Card style={{padding:14,marginBottom:14}}>
+      <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:8}}>📅 Próximos partidos de local</div>
+      {proxPartidos.map((f:any)=><div key={f.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 0",borderBottom:"1px solid "+colors.g2}}>
+        <span style={{fontSize:11,color:colors.nv}}>{f.date} vs {f.rival||"TBC"}</span>
+        {canManage&&<Btn v="s" s="s" onClick={()=>openAdd(f)}>Invitar sponsors</Btn>}
+      </div>)}
+    </Card>}
+
+    {/* Actions */}
+    <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
+      {canManage&&<Btn v="pu" s="s" onClick={()=>openAdd()}>+ Invitación</Btn>}
+    </div>
+
+    {/* Table */}
+    <div style={{overflowX:"auto"}}>
+    <table style={{width:"100%",borderCollapse:"collapse" as const,fontSize:11}}>
+      <thead><tr style={{background:isDark?"rgba(255,255,255,.05)":"#F7F8FA"}}>
+        {["Fecha","Rival","Sponsor","Entradas","Estac.","VIP","Estado","Asistió",""].map((h,i)=><th key={i} style={{padding:"6px 8px",textAlign:"left" as const,fontWeight:700,color:colors.g5,fontSize:10,borderBottom:"2px solid "+colors.g2}}>{h}</th>)}
+      </tr></thead>
+      <tbody>{items.map(inv=>{const hst=HOSP_ST[inv.estado_invitacion]||HOSP_ST.pendiente;return(
+        <tr key={inv.id} style={{borderBottom:"1px solid "+colors.g2}}>
+          <td style={{padding:"6px 8px",color:colors.g5,fontSize:10}}>{inv.partido_fecha||"–"}</td>
+          <td style={{padding:"6px 8px",color:colors.nv}}>{inv.partido_rival||"–"}</td>
+          <td style={{padding:"6px 8px",fontWeight:600,color:colors.nv}}>{getSponName(inv.sponsor_id)}</td>
+          <td style={{padding:"6px 8px",color:colors.nv}}>{inv.entradas}</td>
+          <td style={{padding:"6px 8px"}}>{inv.estacionamiento?"🅿️":"–"}</td>
+          <td style={{padding:"6px 8px"}}>{inv.zona_vip?"⭐":"–"}</td>
+          <td style={{padding:"6px 8px"}}><span style={{padding:"2px 8px",borderRadius:10,fontSize:9,fontWeight:600,background:hst.bg,color:hst.c}}>{hst.i} {hst.l}</span></td>
+          <td style={{padding:"6px 8px"}}>{inv.asistio===true?"✅":inv.asistio===false?"❌":"–"}</td>
+          <td style={{padding:"6px 8px"}}>
+            {canManage&&<div style={{display:"flex",gap:3}}>
+              {inv.asistio===null&&<><Btn v="s" s="s" onClick={()=>onUpd(inv.id,{asistio:true,estado_invitacion:"confirmada"})}>Sí</Btn><Btn v="g" s="s" onClick={()=>onUpd(inv.id,{asistio:false})}>No</Btn></>}
+              <button onClick={()=>onDel(inv.id)} style={{background:"none",border:"none",cursor:"pointer",fontSize:11}}>🗑️</button>
+            </div>}
+          </td>
+        </tr>);})}</tbody>
+    </table>
+    {items.length===0&&<div style={{textAlign:"center",padding:40,color:colors.g4}}>No hay invitaciones registradas</div>}
+    </div>
+
+    {/* Form */}
+    {showForm&&<div style={{position:"fixed" as const,inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>sShowForm(false)}>
+      <div style={{background:cardBg,borderRadius:16,padding:20,width:"100%",maxWidth:440,boxShadow:"0 8px 32px rgba(0,0,0,.2)"}} onClick={e=>e.stopPropagation()}>
+        <div style={{fontSize:14,fontWeight:800,color:colors.nv,marginBottom:14}}>Nueva Invitación</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+          <div><label style={lbl}>Fecha partido</label><input type="date" value={form.partido_fecha} onChange={e=>sForm(p=>({...p,partido_fecha:e.target.value}))} style={inp}/></div>
+          <div><label style={lbl}>Rival</label><input value={form.partido_rival} onChange={e=>sForm(p=>({...p,partido_rival:e.target.value}))} style={inp}/></div>
+        </div>
+        <div style={{marginBottom:8}}><label style={lbl}>Sponsor *</label><select value={form.sponsor_id} onChange={e=>sForm(p=>({...p,sponsor_id:e.target.value}))} style={inp}><option value="">— Seleccionar —</option>{(sponsors||[]).filter((s:any)=>s.status==="active").map((s:any)=><option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:8}}>
+          <div><label style={lbl}>Entradas</label><input type="number" value={form.entradas} onChange={e=>sForm(p=>({...p,entradas:e.target.value}))} style={inp}/></div>
+          <div style={{display:"flex",alignItems:"center",gap:4,paddingTop:14}}><input type="checkbox" checked={form.estacionamiento} onChange={e=>sForm(p=>({...p,estacionamiento:e.target.checked}))}/><span style={{fontSize:10,color:colors.g5}}>Estac.</span></div>
+          <div style={{display:"flex",alignItems:"center",gap:4,paddingTop:14}}><input type="checkbox" checked={form.zona_vip} onChange={e=>sForm(p=>({...p,zona_vip:e.target.checked}))}/><span style={{fontSize:10,color:colors.g5}}>VIP</span></div>
+        </div>
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+          <Btn v="g" s="s" onClick={()=>sShowForm(false)}>Cancelar</Btn>
+          <Btn v="s" s="s" onClick={handleSave}>Crear</Btn>
+        </div>
+      </div>
+    </div>}
+  </div>);
+}
+
+export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onSponMsg,onAddDelivery,sponDeliveries,onUpdDelivery,navTarget,onNavDone,onAddTarifa,onUpdTarifa,onDelTarifa,onAddContract,onUpdContract,onDelContract,onAddPipeline,onUpdPipeline,onDelPipeline,onAddContacto,onUpdContacto,onDelContacto,onAddPropuesta,onUpdPropuesta,onDelPropuesta,onAddPropVoto,onAddPropMsg,onAddHosp,onUpdHosp,onDelHosp,onAddMaterial,onUpdMaterial,onDelMaterial}:any){
   const sponsors = useDataStore(s => s.sponsors);
   const users = useDataStore(s => s.users);
   const tarifario = useDataStore(s => s.tarifario);
   const sponContracts = useDataStore(s => s.sponContracts);
   const sponPipeline = useDataStore(s => s.sponPipeline);
+  const sponContactos = useDataStore(s => s.sponContactos);
+  const sponPropuestas = useDataStore(s => s.sponPropuestas);
+  const sponPropVotos = useDataStore(s => s.sponPropVotos);
+  const sponPropMsgs = useDataStore(s => s.sponPropMsgs);
+  const hospInvitaciones = useDataStore(s => s.hospInvitaciones);
+  const sponMateriales = useDataStore(s => s.sponMateriales);
+  const fixtures = useDataStore(s => s.fixtures);
   const{colors,isDark,cardBg}=useC();
-  const [topTab,sTopTab]=useState<"sponsors"|"tarifario"|"pipeline"|"contratos"|"dashboard">("sponsors");
-  const [spTab,sSpTab]=useState<"chat"|"entregas"|"edit">("chat");
+  const [topTab,sTopTab]=useState<"dashboard"|"clientes"|"propuestas"|"tarifario"|"materiales"|"hospitalidad">("dashboard");
+  const [spTab,sSpTab]=useState<"general"|"contactos"|"canjes"|"hospitalidad"|"docs"|"timeline">("general");
   const [showDelivery,sShowDelivery]=useState(false);
   const [detailId,sDetailId]=useState<number|null>(null);
   const isSA=user?.role==="superadmin";
-  useEffect(()=>{if(navTarget&&navTarget.startsWith("sponsors:")){const id=Number(navTarget.split(":")[1]);if(id){sDetailId(id);sSpTab("chat");}if(onNavDone)onNavDone();}},[navTarget]);
+  useEffect(()=>{if(navTarget&&navTarget.startsWith("sponsors:")){const id=Number(navTarget.split(":")[1]);if(id){sDetailId(id);sSpTab("general");}if(onNavDone)onNavDone();}},[navTarget]);
   const isJH=user&&(user.n||user.first_name||"").toLowerCase().includes("jes")&&(user.a||user.last_name||"").toLowerCase().includes("herrera");
   const canFullEdit=isSA||isJH;
+  const isGC=user&&(user.n||user.first_name||"").toLowerCase().includes("gómez")&&(user.a||user.last_name||"").toLowerCase().includes("centurión");
+  const isBrandi=user&&(user.n||user.first_name||"").toLowerCase().includes("victoria")&&(user.a||user.last_name||"").toLowerCase().includes("brandi");
+  const isSE=isSA||user?.role==="admin";
   const [dolarRef,sDolarRef]=useState(()=>{if(typeof window!=="undefined"){const v=localStorage.getItem("lt_dolar_ref");if(v)return Number(v);}return DOLAR_REF;});
   const [editDolar,sEditDolar]=useState(false);
   const [dolarInput,sDolarInput]=useState(String(dolarRef));
@@ -652,6 +983,9 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
   const [importing,sImporting]=useState(false);
   const [importPreview,sImportPreview]=useState<any[]|null>(null);
   const fileRef=useRef<HTMLInputElement>(null);
+  const [showCF,setSCF]=useState(false);
+  const [cfData,setCFData]=useState({nombre:"",cargo:"",telefono:"",email:"",rol:"comercial",es_principal:false});
+  const [editCId,setEditCId]=useState<number|null>(null);
 
   /* ── Import (Excel + Manual) ── */
   const [importErr,sImportErr]=useState<string|null>(null);
@@ -884,8 +1218,8 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
 
     return(<div style={{maxWidth:700}}>
       {/* Back button */}
-      <button onClick={()=>{sDetailId(null);sSpTab("chat");sConfirmDel(null);}} style={{background:"none",border:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:6,padding:"8px 0",marginBottom:8,color:colors.pr,fontSize:13,fontWeight:700}}>
-        <span style={{fontSize:18}}>&#8592;</span> Volver a Sponsors
+      <button onClick={()=>{sDetailId(null);sSpTab("general");sConfirmDel(null);}} style={{background:"none",border:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:6,padding:"8px 0",marginBottom:8,color:colors.pr,fontSize:13,fontWeight:700}}>
+        <span style={{fontSize:18}}>&#8592;</span> Volver a Clientes
       </button>
 
       {/* Header card */}
@@ -958,24 +1292,129 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
         {sp.notes&&<div style={{marginTop:8,fontSize:11,color:colors.g5,lineHeight:1.5,whiteSpace:"pre-wrap" as const}}><span style={{fontWeight:600,color:colors.nv}}>Notas: </span>{renderMentions(sp.notes)}</div>}
       </Card>
 
-      {/* ── Tabs: Chat / Entregas / Editar ── */}
+      {/* ── Tabs: General / Contactos / Canjes / Hospitalidad / Docs / Timeline ── */}
       <Card style={{padding:0,overflow:"hidden"}}>
-        <div style={{display:"flex",borderBottom:"1px solid "+colors.g2}}>
-          {([["chat","Chat"],["entregas","Entregas"],["edit","Editar"]] as const).map(([k,l])=><button key={k} onClick={()=>sSpTab(k)} style={{flex:1,padding:"10px 0",border:"none",borderBottom:spTab===k?"3px solid "+colors.pr:"3px solid transparent",background:"transparent",color:spTab===k?colors.pr:colors.g4,fontSize:13,fontWeight:700,cursor:"pointer"}}>{k==="chat"?"\uD83D\uDCAC ":k==="entregas"?"\uD83D\uDCE6 ":"\u270F\uFE0F "}{l}</button>)}
+        <div style={{display:"flex",borderBottom:"1px solid "+colors.g2,overflowX:"auto"}}>
+          {([["general","General"],["contactos","Contactos"],["canjes","Canjes"],["hospitalidad","Hospitalidad"],["docs","Mensajes"],["timeline","Timeline"]] as const).map(([k,l])=><button key={k} onClick={()=>sSpTab(k)} style={{flex:"0 0 auto",padding:"10px 12px",border:"none",borderBottom:spTab===k?"3px solid "+colors.pr:"3px solid transparent",background:"transparent",color:spTab===k?colors.pr:colors.g4,fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>{k==="general"?"🏢 ":k==="contactos"?"👥 ":k==="canjes"?"📦 ":k==="hospitalidad"?"🤝 ":k==="docs"?"💬 ":"📋 "}{l}</button>)}
         </div>
 
-        {/* Chat tab */}
-        {spTab==="chat"&&<div style={{padding:mob?"10px 12px":"12px 16px",minHeight:320}}>
-          <Thread
-            log={(sponMsgs||[]).filter((m:any)=>m.sponsor_id===sp.id).map((m:any)=>({dt:m.created_at||"",uid:m.user_id,by:m.user_name,act:m.content,t:m.type||"msg"}))}
-            userId={user?.id}
-            onSend={(txt:string)=>onSponMsg&&onSponMsg(sp.id,txt)}
-            users={users}
-          />
+        {/* General tab — CRM ficha + inline edit */}
+        {spTab==="general"&&<div style={{padding:mob?"12px":"16px"}}>
+          {/* CRM fields */}
+          <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8,marginBottom:12}}>
+            <div><label style={lbl}>Razón Social</label><input value={sp.razon_social||""} onChange={e=>inlineUpd(sp,"razon_social",e.target.value)} style={inp} placeholder="Razón social"/></div>
+            <div><label style={lbl}>CUIT</label><input value={sp.cuit||""} onChange={e=>inlineUpd(sp,"cuit",e.target.value)} style={inp} placeholder="30-12345678-9"/></div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8,marginBottom:12}}>
+            <div><label style={lbl}>Rubro</label><input value={sp.rubro||""} onChange={e=>inlineUpd(sp,"rubro",e.target.value)} style={inp} placeholder="Ej: Salud, Construcción"/></div>
+            <div><label style={lbl}>Dirección</label><input value={sp.direccion||""} onChange={e=>inlineUpd(sp,"direccion",e.target.value)} style={inp} placeholder="Dirección"/></div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8,marginBottom:12}}>
+            <div><label style={lbl}>Web</label><input value={sp.web||""} onChange={e=>inlineUpd(sp,"web",e.target.value)} style={inp} placeholder="https://..."/></div>
+            <div><label style={lbl}>Logo URL</label><input value={sp.logo_url||""} onChange={e=>inlineUpd(sp,"logo_url",e.target.value)} style={inp} placeholder="https://..."/></div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8,marginBottom:12}}>
+            <div><label style={lbl}>Nivel</label>
+              <select value={sp.nivel||"white"} onChange={e=>inlineUpd(sp,"nivel",e.target.value)} style={inp}>
+                {Object.entries(SPON_TIER).map(([k,v])=><option key={k} value={k}>{v.i} {v.l}</option>)}
+              </select>
+            </div>
+            <div><label style={lbl}>Eje Estratégico</label>
+              <select value={sp.eje_estrategico||""} onChange={e=>inlineUpd(sp,"eje_estrategico",e.target.value)} style={inp}>
+                <option value="">— Sin asignar —</option>
+                {Object.entries(SPON_EJES).map(([k,v]:any)=><option key={k} value={k}>{v.i} {v.l}</option>)}
+              </select>
+            </div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8,marginBottom:12}}>
+            <div><label style={lbl}>Responsable</label><input value={sp.responsable==null?"Jesús Herrera":sp.responsable} onChange={e=>inlineUpd(sp,"responsable",e.target.value)} style={inp} placeholder="Jesús Herrera"/></div>
+            <div><label style={lbl}>Estado</label>
+              <select value={sp.status||"active"} onChange={e=>inlineUpd(sp,"status",e.target.value)} style={inp}>
+                {Object.keys(SPON_ST).map(k=><option key={k} value={k}>{SPON_ST[k].l}</option>)}
+              </select>
+            </div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8,marginBottom:12}}>
+            <div><label style={lbl}>Aporte $ (Efectivo)</label><input type="number" value={sp.amount_cash||""} onChange={e=>inlineUpd(sp,"amount_cash",Number(e.target.value)||0)} style={inp}/></div>
+            <div><label style={lbl}>Aporte Pro/Ser (Canjes)</label><input type="number" value={sp.amount_service||""} onChange={e=>inlineUpd(sp,"amount_service",Number(e.target.value)||0)} style={inp}/></div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8,marginBottom:12}}>
+            <div><label style={lbl}>Período / Vencimiento</label><input type="date" value={sp.end_date||""} onChange={e=>inlineUpd(sp,"end_date",e.target.value)} style={inp}/></div>
+            <div><label style={lbl}>Tipo de Pago</label><input value={sp.payment_type||""} onChange={e=>inlineUpd(sp,"payment_type",e.target.value)} style={inp} placeholder="Ej: pago mensual, canje, cheques"/></div>
+          </div>
+          <div style={{marginBottom:8}}><label style={lbl}>Exposición</label><input value={sp.exposure||""} onChange={e=>inlineUpd(sp,"exposure",e.target.value)} style={inp} placeholder="Ej: Ropa: frente camiseta. Cartelería"/></div>
+          <div style={{marginBottom:8}}><label style={lbl}>Detalle Canje</label><input value={sp.detalle_canje||""} onChange={e=>inlineUpd(sp,"detalle_canje",e.target.value)} style={inp} placeholder="Qué incluye el canje"/></div>
+          <div style={{marginBottom:8}}><label style={lbl}>Instrucciones para el Canje</label><MentionInput users={users} value={sp.canje_instrucciones||""} onChange={v=>inlineUpd(sp,"canje_instrucciones",v)} rows={3} style={{...inp,resize:"vertical" as const}} placeholder="Ej: Contactar a Juan (tel 351-xxx)..."/></div>
+          <div style={{marginBottom:12}}><label style={lbl}>Varios / Observaciones</label><MentionInput users={users} value={sp.notes||""} onChange={v=>inlineUpd(sp,"notes",v)} rows={2} style={{...inp,resize:"vertical" as const}}/></div>
+          <div style={{display:"flex",gap:6,justifyContent:"space-between"}}>
+            {confirmDel===sp.id
+              ?<div style={{display:"flex",gap:4,alignItems:"center"}}><span style={{fontSize:11,color:"#DC2626",fontWeight:600}}>Confirmar?</span><Btn v="r" s="s" onClick={()=>{onDel(sp.id);sConfirmDel(null);sDetailId(null);}}>Sí, eliminar</Btn><Btn v="g" s="s" onClick={()=>sConfirmDel(null)}>No</Btn></div>
+              :<Btn v="r" s="s" onClick={()=>sConfirmDel(sp.id)}>Eliminar</Btn>}
+          </div>
         </div>}
 
-        {/* Entregas tab */}
-        {spTab==="entregas"&&<div style={{padding:mob?"10px 12px":"12px 16px",minHeight:320}}>
+        {/* Contactos tab — CRUD for sponsor_contactos */}
+        {spTab==="contactos"&&<div style={{padding:mob?"10px 12px":"12px 16px",minHeight:200}}>
+          {(()=>{
+            const spContacts=(sponContactos||[]).filter((c:any)=>c.sponsor_id===sp.id);
+            const saveCont=async()=>{
+              if(!cfData.nombre.trim())return;
+              const d={sponsor_id:sp.id,nombre:cfData.nombre.trim(),cargo:cfData.cargo.trim(),telefono:cfData.telefono.trim(),email:cfData.email.trim(),rol:cfData.rol,es_principal:cfData.es_principal};
+              if(editCId){await onUpdContacto(editCId,d);}else{await onAddContacto(d);}
+              setSCF(false);setEditCId(null);setCFData({nombre:"",cargo:"",telefono:"",email:"",rol:"comercial",es_principal:false});
+            };
+            const editCont=(c:any)=>{setCFData({nombre:c.nombre||"",cargo:c.cargo||"",telefono:c.telefono||"",email:c.email||"",rol:c.rol||"comercial",es_principal:!!c.es_principal});setEditCId(c.id);setSCF(true);};
+            const rolInfo=(r:string)=>(CONTACT_ROLES as any)[r]||{l:r,c:"#6B7280",bg:"#F3F4F6"};
+            return(<>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                <div style={{fontSize:13,fontWeight:700,color:colors.nv}}>Contactos ({spContacts.length})</div>
+                {canFullEdit&&<Btn v="pu" s="s" onClick={()=>{setCFData({nombre:"",cargo:"",telefono:"",email:"",rol:"comercial",es_principal:false});setEditCId(null);setSCF(true);}}>+ Contacto</Btn>}
+              </div>
+              {spContacts.map((c:any)=>{const ri=rolInfo(c.rol);return(
+                <Card key={c.id} style={{padding:"10px 14px",marginBottom:8,borderLeft:c.es_principal?"4px solid #F59E0B":"4px solid "+colors.g2}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"start"}}>
+                    <div>
+                      <div style={{fontSize:13,fontWeight:700,color:colors.nv}}>{c.nombre} {c.es_principal&&<span style={{fontSize:9,color:"#F59E0B",fontWeight:700}}>★ Principal</span>}</div>
+                      <div style={{fontSize:11,color:colors.g5}}>{c.cargo}</div>
+                      <div style={{fontSize:10,color:colors.g4,marginTop:2}}>
+                        {c.telefono&&<span style={{marginRight:8}}>📞 {c.telefono}</span>}
+                        {c.email&&<span>✉️ {c.email}</span>}
+                      </div>
+                    </div>
+                    <div style={{display:"flex",gap:4,alignItems:"center"}}>
+                      <span style={{padding:"2px 8px",borderRadius:10,fontSize:9,fontWeight:600,background:ri.bg,color:ri.c}}>{ri.l}</span>
+                      {canFullEdit&&<button onClick={()=>editCont(c)} style={{background:"none",border:"none",cursor:"pointer",fontSize:12}}>✏️</button>}
+                      {canFullEdit&&<button onClick={()=>onDelContacto(c.id)} style={{background:"none",border:"none",cursor:"pointer",fontSize:12}}>🗑️</button>}
+                    </div>
+                  </div>
+                </Card>
+              );})}
+              {spContacts.length===0&&<div style={{textAlign:"center",padding:30,color:colors.g4,fontSize:12}}>Sin contactos registrados</div>}
+              {showCF&&<div style={{position:"fixed" as const,inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setSCF(false)}>
+                <div style={{background:cardBg,borderRadius:16,padding:20,width:"100%",maxWidth:440,boxShadow:"0 8px 32px rgba(0,0,0,.2)"}} onClick={e=>e.stopPropagation()}>
+                  <div style={{fontSize:14,fontWeight:800,color:colors.nv,marginBottom:14}}>{editCId?"Editar Contacto":"Nuevo Contacto"}</div>
+                  <div style={{marginBottom:8}}><label style={lbl}>Nombre *</label><input value={cfData.nombre} onChange={e=>setCFData(p=>({...p,nombre:e.target.value}))} style={inp}/></div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+                    <div><label style={lbl}>Cargo</label><input value={cfData.cargo} onChange={e=>setCFData(p=>({...p,cargo:e.target.value}))} style={inp}/></div>
+                    <div><label style={lbl}>Rol</label><select value={cfData.rol} onChange={e=>setCFData(p=>({...p,rol:e.target.value}))} style={inp}>{Object.entries(CONTACT_ROLES).map(([k,v]:any)=><option key={k} value={k}>{v.l}</option>)}</select></div>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+                    <div><label style={lbl}>Teléfono</label><input value={cfData.telefono} onChange={e=>setCFData(p=>({...p,telefono:e.target.value}))} style={inp}/></div>
+                    <div><label style={lbl}>Email</label><input type="email" value={cfData.email} onChange={e=>setCFData(p=>({...p,email:e.target.value}))} style={inp}/></div>
+                  </div>
+                  <div style={{marginBottom:12,display:"flex",alignItems:"center",gap:6}}><input type="checkbox" checked={cfData.es_principal} onChange={e=>setCFData(p=>({...p,es_principal:e.target.checked}))}/><span style={{fontSize:11,color:colors.g5}}>Contacto principal</span></div>
+                  <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+                    <Btn v="g" s="s" onClick={()=>setSCF(false)}>Cancelar</Btn>
+                    <Btn v="s" s="s" onClick={saveCont}>Guardar</Btn>
+                  </div>
+                </div>
+              </div>}
+            </>);
+          })()}
+        </div>}
+
+        {/* Canjes tab — entregas/deliveries */}
+        {spTab==="canjes"&&<div style={{padding:mob?"10px 12px":"12px 16px",minHeight:320}}>
           {(()=>{
             const dels=(sponDeliveries||[]).filter((d:any)=>d.sponsor_id===sp.id);
             const totalEntregado=dels.reduce((s:number,d:any)=>s+Number(d.total_value||0),0);
@@ -985,7 +1424,6 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
               return{bg:isDark?"rgba(16,185,129,.15)":"#D1FAE5",c:"#10B981",l:"Venta"};
             };
             return(<>
-              {/* KPI */}
               <div style={{display:"flex",gap:10,marginBottom:12,flexWrap:"wrap" as const}}>
                 <div style={{flex:1,minWidth:120,padding:"10px 12px",background:isDark?"rgba(16,185,129,.08)":"#ECFDF5",borderRadius:8,textAlign:"center" as const}}>
                   <div style={{fontSize:9,color:"#10B981",fontWeight:600}}>Total Entregado</div>
@@ -996,126 +1434,94 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
                   <div style={{fontSize:18,fontWeight:800,color:"#3B82F6"}}>{dels.length}</div>
                 </div>
               </div>
-
               <Btn v="s" s="s" onClick={()=>sShowDelivery(true)} style={{marginBottom:12,width:"100%"}}>+ Nueva Entrega</Btn>
-
               {dels.length===0&&<div style={{textAlign:"center" as const,padding:24,color:colors.g4,fontSize:12}}>Sin entregas registradas</div>}
-
               {dels.map((d:any)=>{
                 const b=destBadge(d.destination);
                 return(<Card key={d.id} style={{marginBottom:10,padding:"12px 14px",borderLeft:"4px solid "+b.c}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"start",marginBottom:6}}>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontSize:13,fontWeight:700,color:colors.nv}}>{d.description}</div>
-                      <div style={{fontSize:11,color:colors.g5,marginTop:2}}>
-                        {d.quantity} × {fmtARS(Number(d.unit_value||0))} = <span style={{fontWeight:700,color:colors.nv}}>{fmtARS(Number(d.total_value||0))}</span>
-                      </div>
+                      <div style={{fontSize:11,color:colors.g5,marginTop:2}}>{d.quantity} × {fmtARS(Number(d.unit_value||0))} = <span style={{fontWeight:700,color:colors.nv}}>{fmtARS(Number(d.total_value||0))}</span></div>
                     </div>
-                    <span style={{background:b.bg,color:b.c,padding:"2px 8px",borderRadius:12,fontSize:10,fontWeight:600,whiteSpace:"nowrap" as const}}>
-                      {b.l}{d.destination==="division"&&d.division?": "+d.division:""}
-                    </span>
+                    <span style={{background:b.bg,color:b.c,padding:"2px 8px",borderRadius:12,fontSize:10,fontWeight:600,whiteSpace:"nowrap" as const}}>{b.l}{d.destination==="division"&&d.division?": "+d.division:""}</span>
                   </div>
                   {d.destination==="consumo"&&d.person_name&&<div style={{fontSize:11,color:"#8B5CF6",marginBottom:4}}>Uso: {d.person_name}</div>}
-
-                  {/* Inline sales tracking for venta */}
                   {d.destination==="venta"&&<div style={{padding:"8px 10px",background:isDark?"rgba(16,185,129,.06)":"#F0FDF4",borderRadius:8,marginBottom:6}}>
                     <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap" as const}}>
-                      <div style={{flex:1,minWidth:80}}>
-                        <label style={{fontSize:9,fontWeight:600,color:"#10B981",display:"block"}}>Vendidos</label>
-                        <input type="number" value={d.qty_sold||0} min={0} max={d.quantity||999}
-                          onChange={e=>{const v=Math.min(Number(e.target.value)||0,d.quantity||999);onUpdDelivery&&onUpdDelivery(d.id,{qty_sold:v});}}
-                          style={{width:70,padding:"4px 6px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:12,background:cardBg,color:colors.nv}}/>
-                        <span style={{fontSize:10,color:colors.g5,marginLeft:4}}>/ {d.quantity}</span>
-                      </div>
-                      <div style={{flex:1,minWidth:80}}>
-                        <label style={{fontSize:9,fontWeight:600,color:"#10B981",display:"block"}}>Recaudado $</label>
-                        <input type="number" value={d.revenue||0}
-                          onChange={e=>{const v=Number(e.target.value)||0;onUpdDelivery&&onUpdDelivery(d.id,{revenue:v});}}
-                          style={{width:100,padding:"4px 6px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:12,background:cardBg,color:colors.nv}}/>
-                      </div>
+                      <div style={{flex:1,minWidth:80}}><label style={{fontSize:9,fontWeight:600,color:"#10B981",display:"block"}}>Vendidos</label><input type="number" value={d.qty_sold||0} min={0} max={d.quantity||999} onChange={e=>{const v=Math.min(Number(e.target.value)||0,d.quantity||999);onUpdDelivery&&onUpdDelivery(d.id,{qty_sold:v});}} style={{width:70,padding:"4px 6px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:12,background:cardBg,color:colors.nv}}/><span style={{fontSize:10,color:colors.g5,marginLeft:4}}>/ {d.quantity}</span></div>
+                      <div style={{flex:1,minWidth:80}}><label style={{fontSize:9,fontWeight:600,color:"#10B981",display:"block"}}>Recaudado $</label><input type="number" value={d.revenue||0} onChange={e=>{const v=Number(e.target.value)||0;onUpdDelivery&&onUpdDelivery(d.id,{revenue:v});}} style={{width:100,padding:"4px 6px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:12,background:cardBg,color:colors.nv}}/></div>
                     </div>
-                    {(d.qty_sold||0)>0&&<div style={{marginTop:4,fontSize:10,color:"#10B981",fontWeight:600}}>
-                      {Math.round(((d.qty_sold||0)/(d.quantity||1))*100)}% vendido — {fmtARS(Number(d.revenue||0))} recaudado
-                    </div>}
+                    {(d.qty_sold||0)>0&&<div style={{marginTop:4,fontSize:10,color:"#10B981",fontWeight:600}}>{Math.round(((d.qty_sold||0)/(d.quantity||1))*100)}% vendido — {fmtARS(Number(d.revenue||0))} recaudado</div>}
                   </div>}
-
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:10,color:colors.g5,marginTop:4}}>
-                    <span>{fmtD(d.received_date||d.created_at)}</span>
-                    <span>Recibió: {d.received_by_name||"—"}</span>
-                  </div>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:10,color:colors.g5,marginTop:4}}><span>{fmtD(d.received_date||d.created_at)}</span><span>Recibió: {d.received_by_name||"—"}</span></div>
                   {d.notes&&<div style={{fontSize:10,color:colors.g4,marginTop:4,fontStyle:"italic"}}>{d.notes}</div>}
                 </Card>);
               })}
-
-              {/* Modal */}
               {showDelivery&&<SponDelivery sponsor={sp} user={user} mob={mob} onSave={onAddDelivery} onClose={()=>sShowDelivery(false)}/>}
             </>);
           })()}
         </div>}
 
-        {/* Edit tab */}
-        {spTab==="edit"&&<div style={{padding:mob?"12px":"16px"}}>
-          {/* Name */}
-          <div style={{marginBottom:8}}>
-            <label style={lbl}>Sponsor</label>
-            <input value={sp.name||""} onChange={e=>inlineUpd(sp,"name",e.target.value)} style={inp}/>
-          </div>
-          {/* Responsable */}
-          <div style={{marginBottom:8}}>
-            <label style={lbl}>Responsable</label>
-            <input value={sp.responsable==null?"Jesús Herrera":sp.responsable} onChange={e=>inlineUpd(sp,"responsable",e.target.value)} style={inp} placeholder="Jesús Herrera"/>
-          </div>
-          {/* Cash + Service amounts */}
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
-            <div>
-              <label style={lbl}>Aporte $ (Efectivo)</label>
-              <input type="number" value={sp.amount_cash||""} onChange={e=>inlineUpd(sp,"amount_cash",Number(e.target.value)||0)} style={inp}/>
-            </div>
-            <div>
-              <label style={lbl}>Aporte Pro/Ser (Canjes)</label>
-              <input type="number" value={sp.amount_service||""} onChange={e=>inlineUpd(sp,"amount_service",Number(e.target.value)||0)} style={inp}/>
-            </div>
-          </div>
-          {/* End date + Status */}
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
-            <div>
-              <label style={lbl}>Período / Vencimiento</label>
-              <input type="date" value={sp.end_date||""} onChange={e=>inlineUpd(sp,"end_date",e.target.value)} style={inp}/>
-            </div>
-            <div>
-              <label style={lbl}>Estado</label>
-              <select value={sp.status||"active"} onChange={e=>inlineUpd(sp,"status",e.target.value)} style={inp}>
-                {Object.keys(SPON_ST).map(k=><option key={k} value={k}>{SPON_ST[k].l}</option>)}
-              </select>
-            </div>
-          </div>
-          {/* Payment type */}
-          <div style={{marginBottom:8}}>
-            <label style={lbl}>Tipo de Pago</label>
-            <input value={sp.payment_type||""} onChange={e=>inlineUpd(sp,"payment_type",e.target.value)} style={inp} placeholder="Ej: pago mensual, canje, cheques"/>
-          </div>
-          {/* Exposure */}
-          <div style={{marginBottom:8}}>
-            <label style={lbl}>Exposición</label>
-            <input value={sp.exposure||""} onChange={e=>inlineUpd(sp,"exposure",e.target.value)} style={inp} placeholder="Ej: Ropa: frente camiseta. Cartelería"/>
-          </div>
-          {/* Instrucciones canje */}
-          <div style={{marginBottom:8}}>
-            <label style={lbl}>Instrucciones para el Canje</label>
-            <MentionInput users={users} value={sp.canje_instrucciones||""} onChange={v=>inlineUpd(sp,"canje_instrucciones",v)} rows={3} style={{...inp,resize:"vertical" as const}} placeholder="Ej: Contactar a Juan (tel 351-xxx), pedir factura a nombre de..."/>
-          </div>
-          {/* Notes */}
-          <div style={{marginBottom:8}}>
-            <label style={lbl}>Varios / Observaciones</label>
-            <MentionInput users={users} value={sp.notes||""} onChange={v=>inlineUpd(sp,"notes",v)} rows={2} style={{...inp,resize:"vertical" as const}}/>
-          </div>
-          {/* Actions */}
-          <div style={{display:"flex",gap:6,justifyContent:"space-between"}}>
-            {confirmDel===sp.id
-              ?<div style={{display:"flex",gap:4,alignItems:"center"}}><span style={{fontSize:11,color:"#DC2626",fontWeight:600}}>Confirmar?</span><Btn v="r" s="s" onClick={()=>{onDel(sp.id);sConfirmDel(null);sDetailId(null);}}>Sí, eliminar</Btn><Btn v="g" s="s" onClick={()=>sConfirmDel(null)}>No</Btn></div>
-              :<Btn v="r" s="s" onClick={()=>sConfirmDel(sp.id)}>Eliminar</Btn>}
-            <Btn v="pu" s="s" onClick={()=>openEdit(sp)}>Editar completo</Btn>
-          </div>
+        {/* Hospitalidad tab — invitaciones de este sponsor */}
+        {spTab==="hospitalidad"&&<div style={{padding:mob?"10px 12px":"12px 16px",minHeight:200}}>
+          {(()=>{
+            const spInvs=(hospInvitaciones||[]).filter((i:any)=>i.sponsor_id===sp.id);
+            const asist=spInvs.filter((i:any)=>i.asistio===true).length;
+            const tasa=spInvs.length>0?Math.round((asist/spInvs.length)*100):0;
+            return(<>
+              <div style={{display:"flex",gap:10,marginBottom:12,flexWrap:"wrap"}}>
+                <div style={{flex:1,minWidth:100,padding:"8px 10px",background:isDark?"rgba(59,130,246,.08)":"#EFF6FF",borderRadius:8,textAlign:"center" as const}}>
+                  <div style={{fontSize:16,fontWeight:800,color:"#3B82F6"}}>{spInvs.length}</div>
+                  <div style={{fontSize:9,color:colors.g4}}>Invitaciones</div>
+                </div>
+                <div style={{flex:1,minWidth:100,padding:"8px 10px",background:isDark?"rgba(16,185,129,.08)":"#ECFDF5",borderRadius:8,textAlign:"center" as const}}>
+                  <div style={{fontSize:16,fontWeight:800,color:"#10B981"}}>{tasa}%</div>
+                  <div style={{fontSize:9,color:colors.g4}}>Asistencia</div>
+                </div>
+              </div>
+              {spInvs.map((inv:any)=>{const hst=HOSP_ST[inv.estado_invitacion]||HOSP_ST.pendiente;return(
+                <div key={inv.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid "+colors.g2,fontSize:11}}>
+                  <div><span style={{color:colors.nv,fontWeight:600}}>{inv.partido_fecha||"–"}</span> vs {inv.partido_rival||"TBC"} — {inv.entradas} entradas</div>
+                  <div style={{display:"flex",gap:4,alignItems:"center"}}>
+                    <span style={{padding:"2px 6px",borderRadius:8,fontSize:9,fontWeight:600,background:hst.bg,color:hst.c}}>{hst.i} {hst.l}</span>
+                    {inv.asistio===true?"✅":inv.asistio===false?"❌":""}
+                  </div>
+                </div>
+              );})}
+              {spInvs.length===0&&<div style={{textAlign:"center",padding:30,color:colors.g4,fontSize:12}}>Sin invitaciones para este sponsor</div>}
+            </>);
+          })()}
+        </div>}
+
+        {/* Docs/Chat tab */}
+        {spTab==="docs"&&<div style={{padding:mob?"10px 12px":"12px 16px",minHeight:320}}>
+          <Thread
+            log={(sponMsgs||[]).filter((m:any)=>m.sponsor_id===sp.id).map((m:any)=>({dt:m.created_at||"",uid:m.user_id,by:m.user_name,act:m.content,t:m.type||"msg"}))}
+            userId={user?.id}
+            onSend={(txt:string)=>onSponMsg&&onSponMsg(sp.id,txt)}
+            users={users}
+          />
+        </div>}
+
+        {/* Timeline tab — combined activity */}
+        {spTab==="timeline"&&<div style={{padding:mob?"10px 12px":"12px 16px",minHeight:200}}>
+          {(()=>{
+            const events:any[]=[];
+            (sponMsgs||[]).filter((m:any)=>m.sponsor_id===sp.id).forEach((m:any)=>events.push({dt:m.created_at,type:"msg",text:`💬 ${m.user_name}: ${m.content}`}));
+            (sponDeliveries||[]).filter((d:any)=>d.sponsor_id===sp.id).forEach((d:any)=>events.push({dt:d.created_at,type:"delivery",text:`📦 Entrega: ${d.description} — ${fmtARS(Number(d.total_value||0))}`}));
+            (hospInvitaciones||[]).filter((i:any)=>i.sponsor_id===sp.id).forEach((i:any)=>events.push({dt:i.created_at,type:"hosp",text:`🤝 Invitación: ${i.partido_fecha||""} vs ${i.partido_rival||"TBC"} (${i.entradas} entradas)`}));
+            events.sort((a,b)=>(b.dt||"").localeCompare(a.dt||""));
+            return(<>
+              {events.length===0&&<div style={{textAlign:"center",padding:30,color:colors.g4,fontSize:12}}>Sin actividad registrada</div>}
+              {events.map((ev,i)=>(
+                <div key={i} style={{padding:"6px 0",borderBottom:"1px solid "+colors.g2,fontSize:11}}>
+                  <span style={{color:colors.g4,fontSize:9,marginRight:6}}>{ev.dt?.slice(0,10)}</span>
+                  <span style={{color:colors.nv}}>{ev.text}</span>
+                </div>
+              ))}
+            </>);
+          })()}
         </div>}
       </Card>
     </div>);
@@ -1127,17 +1533,18 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
   return(<div style={{maxWidth:900}}>
     {/* ── Top-level tab bar ── */}
     <div style={{display:"flex",gap:0,marginBottom:12,borderBottom:"2px solid "+colors.g2,overflowX:"auto"}}>
-      {([["sponsors","Sponsors"],["tarifario","Tarifario"],["pipeline","Pipeline"],["contratos","Contratos"],["dashboard","Dashboard"]] as const).map(([t,l])=>(
-        <button key={t} onClick={()=>sTopTab(t as any)} style={{padding:"8px 16px",fontSize:mob?11:13,fontWeight:topTab===t?700:500,color:topTab===t?colors.rd:colors.g4,background:"none",border:"none",borderBottom:topTab===t?"2px solid "+colors.rd:"2px solid transparent",marginBottom:-2,cursor:"pointer",transition:"all .2s",whiteSpace:"nowrap"}}>{l}</button>
+      {([["dashboard","📊 Dashboard"],["clientes","🏢 Clientes"],["propuestas","📝 Propuestas"],["tarifario","💰 Tarifario"],["materiales","📁 Materiales"],["hospitalidad","🤝 Hospitalidad"]] as const).map(([t,l])=>(
+        <button key={t} onClick={()=>sTopTab(t as any)} style={{padding:"8px 14px",fontSize:mob?10:12,fontWeight:topTab===t?700:500,color:topTab===t?colors.rd:colors.g4,background:"none",border:"none",borderBottom:topTab===t?"2px solid "+colors.rd:"2px solid transparent",marginBottom:-2,cursor:"pointer",transition:"all .2s",whiteSpace:"nowrap"}}>{l}</button>
       ))}
     </div>
 
-    {topTab==="tarifario"?<TarifarioPanel tarifario={tarifario} sponsors={sponsors} dolarRef={dolarRef} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob} canFullEdit={canFullEdit} onAdd={onAddTarifa} onUpd={onUpdTarifa} onDel={onDelTarifa}/>:null}
-    {topTab==="pipeline"?<PipelinePanel items={sponPipeline} sponsors={sponsors} dolarRef={dolarRef} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob} canFullEdit={canFullEdit} onAdd={onAddPipeline} onUpd={onUpdPipeline} onDel={onDelPipeline} onAddSponsor={onAdd}/>:null}
-    {topTab==="contratos"?<ContratosPanel contracts={sponContracts} sponsors={sponsors} tarifario={tarifario} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob} canFullEdit={canFullEdit} onAdd={onAddContract} onUpd={onUpdContract} onDel={onDelContract}/>:null}
     {topTab==="dashboard"?<DashboardPanel sponsors={sponsors} tarifario={tarifario} contracts={sponContracts} pipeline={sponPipeline} dolarRef={dolarRef} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob}/>:null}
+    {topTab==="tarifario"?<TarifarioPanel tarifario={tarifario} sponsors={sponsors} dolarRef={dolarRef} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob} canFullEdit={canFullEdit} onAdd={onAddTarifa} onUpd={onUpdTarifa} onDel={onDelTarifa}/>:null}
+    {topTab==="propuestas"?<PropuestasPanel propuestas={sponPropuestas} votos={sponPropVotos} mensajes={sponPropMsgs} sponsors={sponsors} tarifario={tarifario} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob} canCreate={canFullEdit||isGC} canVote={isSE} user={user} onAdd={onAddPropuesta} onUpd={onUpdPropuesta} onDel={onDelPropuesta} onVote={onAddPropVoto} onMsg={onAddPropMsg} onAddSponsor={onAdd}/>:null}
+    {topTab==="materiales"?<MaterialesPanel materiales={sponMateriales} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob} canUpload={canFullEdit} onAdd={onAddMaterial} onDel={onDelMaterial}/>:null}
+    {topTab==="hospitalidad"?<HospitalidadPanel invitaciones={hospInvitaciones} sponsors={sponsors} contactos={sponContactos} fixtures={fixtures} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob} canManage={canFullEdit||isBrandi} onAdd={onAddHosp} onUpd={onUpdHosp} onDel={onDelHosp}/>:null}
 
-    {topTab==="sponsors"?<>
+    {topTab==="clientes"?<>
     {/* ── Header ── */}
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"start",marginBottom:4}}>
       <div>
@@ -1340,7 +1747,7 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
         const total=cash+service;
         const monthly=isMensual(sp.payment_type);
 
-        return(<Card key={sp.id} style={{padding:0,overflow:"hidden",borderLeft:"4px solid "+st.c,cursor:"pointer",transition:"box-shadow .2s"}} onClick={()=>{sDetailId(sp.id);sSpTab("chat");}}>
+        return(<Card key={sp.id} style={{padding:0,overflow:"hidden",borderLeft:"4px solid "+st.c,cursor:"pointer",transition:"box-shadow .2s"}} onClick={()=>{sDetailId(sp.id);sSpTab("general");}}>
           <div style={{padding:"12px 14px"}}>
             {/* Top row: status badge + payment indicator */}
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>

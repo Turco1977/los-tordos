@@ -84,6 +84,8 @@
 - [x] Fix setup route table detection, async booking save, RLS policies
 - [x] Auto-append new widgets a saved dashboard layouts
 
+- [x] Tarifario editable en Sponsors: tabla de 22 ubicaciones con precios USD/ARS, KPIs, filtros por categoría, CRUD inline, export PDF landscape
+
 ## Pendientes / Ideas futuras
 
 <!-- Agregar aquí tareas pendientes cuando surjan -->
