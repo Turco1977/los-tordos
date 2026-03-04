@@ -212,8 +212,8 @@ export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHi
   const checkedItems = clSections.reduce((s, sec) => s + sec.items.filter(i => i.done).length, 0);
   const checkPct = totalCheckItems ? Math.round(checkedItems / totalCheckItems * 100) : 0;
 
-  const saveChecklist = async (sections: typeof clSections) => {
-    await onUpd(sel.id, { checklist: { sections } });
+  const saveChecklist = (sections: typeof clSections) => {
+    onUpd(sel.id, { checklist: { sections } });
   };
 
   // Budget (JSON planning estimates)
