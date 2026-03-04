@@ -715,9 +715,9 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
       ))}
     </div>
 
-    {topTab==="tarifario"&&<TarifarioPanel tarifario={tarifario} sponsors={sponsors} dolarRef={dolarRef} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob} canFullEdit={canFullEdit} onAdd={onAddTarifa} onUpd={onUpdTarifa} onDel={onDelTarifa}/>}
+    {topTab==="tarifario"?<TarifarioPanel tarifario={tarifario} sponsors={sponsors} dolarRef={dolarRef} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob} canFullEdit={canFullEdit} onAdd={onAddTarifa} onUpd={onUpdTarifa} onDel={onDelTarifa}/>:null}
 
-    {topTab==="sponsors"&&<>
+    {topTab==="sponsors"?<>
     {/* ── Header ── */}
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"start",marginBottom:4}}>
       <div>
@@ -1028,6 +1028,6 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
         </div>
       </div>
     </Card>}
-  </>}
+  </>:null}
   </div>);
 }
