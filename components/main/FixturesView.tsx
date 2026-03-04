@@ -139,11 +139,18 @@ export function FixturesView({ user, mob, onAdd, onUpd, onDel, onDelWeek, onAddB
   // ── Excel import ──
   const [excelLoading, sExcelLoading] = useState(false);
   const processExcelFile = async () => {
-    if (!excelFile) return;
+    if (!excelFile) { alert("No hay archivo seleccionado"); return; }
     sExcelError("");
     sExcelLoading(true);
     let X: any;
-    try { X = await loadXLSX(); } catch { sExcelError("No se pudo cargar el parser de Excel. Intentá de nuevo."); sExcelLoading(false); return; }
+    try {
+      X = await loadXLSX();
+    } catch (err: any) {
+      const msg = "No se pudo cargar el parser de Excel: " + (err?.message || "error desconocido");
+      sExcelError(msg);
+      sExcelLoading(false);
+      return;
+    }
     let json: any[];
     try {
       const data = await excelFile.arrayBuffer();
@@ -495,9 +502,14 @@ export function FixturesView({ user, mob, onAdd, onUpd, onDel, onDelWeek, onAddB
             <input type="file" accept=".xlsx,.xls,.csv" onChange={e => { const f = e.target.files?.[0]; if (f) sExcelFile(f); }} style={{ display: "block", margin: "0 auto" }} />
             <div style={{ fontSize: 11, color: colors.g4, marginTop: 8 }}>Columnas esperadas: DIVISION, RIVAL, DIA, HORA, CONDICION, CANCHA</div>
             {excelFile && <div style={{ marginTop: 14 }}>
-              <Btn v="p" s="s" onClick={processExcelFile} disabled={excelLoading}>
+              <button
+                onClick={() => { processExcelFile(); }}
+                disabled={excelLoading}
+                style={{ padding: "10px 24px", fontSize: 14, fontWeight: 700, borderRadius: 8, border: "none", cursor: excelLoading ? "wait" : "pointer", background: "#7C3AED", color: "#fff" }}
+              >
                 {excelLoading ? "⏳ Procesando..." : "📥 Cargar archivo"}
-              </Btn>
+              </button>
+              <div style={{ fontSize: 10, color: colors.g4, marginTop: 6 }}>Archivo: {excelFile.name}</div>
             </div>}
             {excelError && <div style={{ marginTop: 10, padding: "10px 14px", borderRadius: 8, background: "#FEE2E2", border: "1px solid #DC2626", color: "#DC2626", fontSize: 12, fontWeight: 600 }}>❌ {excelError}</div>}
           </div>}

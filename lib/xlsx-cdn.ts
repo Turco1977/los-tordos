@@ -1,31 +1,38 @@
 /* Load SheetJS (xlsx) from CDN — Turbopack can't bundle the npm package */
-let loadPromise: Promise<any> | null = null;
+let cached: any = null;
 
 export async function loadXLSX(): Promise<any> {
+  if (cached) return cached;
   const w = window as any;
-  if (w.XLSX) return w.XLSX;
-  if (loadPromise) return loadPromise;
-  loadPromise = (async () => {
-    // Try script tag first
+  if (w.XLSX) { cached = w.XLSX; return cached; }
+
+  // Strategy 1: script tag
+  const err1 = await new Promise<string | null>((resolve) => {
     try {
-      await new Promise<void>((res, rej) => {
-        const s = document.createElement("script");
-        s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
-        s.onload = () => res();
-        s.onerror = () => rej(new Error("CDN blocked"));
-        document.head.appendChild(s);
-      });
-      if (w.XLSX) return w.XLSX;
-    } catch { /* fallback */ }
-    // Fallback: fetch + eval
+      const s = document.createElement("script");
+      s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+      s.onload = () => {
+        if (w.XLSX) { cached = w.XLSX; resolve(null); }
+        else resolve("Script loaded but XLSX not defined");
+      };
+      s.onerror = () => resolve("Script tag failed to load");
+      document.head.appendChild(s);
+    } catch (e: any) { resolve("Script tag error: " + e.message); }
+  });
+  if (cached) return cached;
+
+  // Strategy 2: fetch + Function (safer than eval, avoids some CSP issues)
+  const err2 = await (async () => {
     try {
       const resp = await fetch("https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js");
+      if (!resp.ok) return "Fetch failed: " + resp.status;
       const code = await resp.text();
-      (0, eval)(code);
-      if (w.XLSX) return w.XLSX;
-    } catch { /* */ }
-    loadPromise = null;
-    throw new Error("No se pudo cargar el parser de Excel");
+      new Function(code)();
+      if (w.XLSX) { cached = w.XLSX; return null; }
+      return "Function executed but XLSX not defined";
+    } catch (e: any) { return "Fetch/eval error: " + e.message; }
   })();
-  return loadPromise;
+  if (cached) return cached;
+
+  throw new Error(`xlsx load failed. 1: ${err1}. 2: ${err2}`);
 }
