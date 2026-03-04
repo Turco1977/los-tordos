@@ -8,7 +8,7 @@ import { useDataStore } from "@/lib/store";
 
 const TODAY = new Date().toISOString().slice(0,10);
 
-export function NP({user,onSub,onX,preAssign,mob,canjeUsado}:any){
+export function NP({user,onSub,onX,preAssign,preArea,preDept,mob,canjeUsado}:any){
   const users = useDataStore(s => s.users);
   const provs = useDataStore(s => s.provs);
   const sponsors = useDataStore(s => s.sponsors);
@@ -17,9 +17,10 @@ export function NP({user,onSub,onX,preAssign,mob,canjeUsado}:any){
   const deptos = DEPTOS;
   const isE=["enlace","manager","usuario","embudo"].indexOf(user.role)>=0;
   const isHigh=["superadmin","admin","coordinador"].indexOf(user.role)>=0;
-  const [f,sF]=useState({aId:"",dId:isE?String(user.dId):"",div:isE?user.div:"",asTo:"",tipo:"",tit:"",desc:"",fReq:"",urg:"Normal",rG:false});
+  const [f,sF]=useState({aId:preArea?String(preArea):"",dId:isE?String(user.dId):preDept?String(preDept):"",div:isE?user.div:"",asTo:"",tipo:"",tit:"",desc:"",fReq:"",urg:"Normal",rG:false});
   const up=(k:string,v:any)=>sF((p:any)=>({...p,[k]:v}));
-  const [assignedUser,sAssignedUser]=useState<any>(null);const [nameSearch,sNameSearch]=useState("");
+  const deptAutoUser=preDept?(()=>{const du=users.filter((u:any)=>u.dId===preDept);return du.length===1?du[0]:null;})():null;
+  const [assignedUser,sAssignedUser]=useState<any>(preAssign||deptAutoUser||null);const [nameSearch,sNameSearch]=useState(preAssign?fn(preAssign):deptAutoUser?fn(deptAutoUser):"");
   const selArea=f.aId?areas.find((a:any)=>a.id===Number(f.aId)):null;
   /* Canje state */
   const [isCanje,sIsCanje]=useState(false);

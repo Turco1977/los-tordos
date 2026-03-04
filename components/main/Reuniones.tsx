@@ -9,7 +9,7 @@ import { useDataStore } from "@/lib/store";
 
 const TODAY = new Date().toISOString().slice(0,10);
 
-export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,onCreateTasks,user,mob}:any){
+export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,onCreateTasks,onApproveMin,user,mob}:any){
   const agendas = useDataStore(s => s.agendas);
   const minutas = useDataStore(s => s.minutas);
   const om = useDataStore(s => s.om);
@@ -25,6 +25,12 @@ export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,on
   const selAreaObj=areaName?areas.find((a:any)=>a.name===areaName):null;
   const areaDepts=selAreaObj?DEPTOS.filter((d:any)=>d.aId===selAreaObj.id):[];
   const members=tab==="cd"?om.filter((m:any)=>m.t==="cd"&&m.n):tab==="se"?om.filter((m:any)=>m.t==="se"&&m.n):areaName?(()=>{const ar=areas.find((a:any)=>a.name===areaName);if(!ar)return[];const dIds=DEPTOS.filter((d:any)=>d.aId===ar.id).map((d:any)=>d.id);return users.filter((u:any)=>dIds.includes(u.dId)).map((u:any)=>({id:u.id,n:u.n,a:u.a,cargo:ROLES[u.role]?.l||u.role}));})():[];
+  const APPROVAL_QUORUM:{[k:string]:number}={cd:5,se:3};
+  const userDeptIds=(users.find((u:any)=>u.id===user.id))?.dId;
+  const userAreaIds=userDeptIds?DEPTOS.filter((d:any)=>d.id===userDeptIds).map((d:any)=>d.aId):[];
+  const canApproveCd=userAreaIds.includes(100);const canApproveSe=userAreaIds.includes(101);
+  const canApproveType=(type:string)=>type==="cd"?canApproveCd:type==="se"?canApproveSe:false;
+  const pendingApprovals=minutas.filter((m:any)=>(m.type==="cd"||m.type==="se")&&m.status==="final"&&canApproveType(m.type)&&!(m.approvals||[]).some((a:any)=>a.userId===user.id));
   const fAg=agendas.filter((a:any)=>a.type===tab&&(tab!=="area"||!areaName||a.areaName===areaName));const fMi=minutas.filter((m:any)=>m.type===tab&&(tab!=="area"||!areaName||m.areaName===areaName));
   const resetAg=()=>{sAgDate(TODAY);sAgSecs(tmpl.secs.map((s:any)=>({t:s.t,sub:[...s.sub],notes:"",atts:[]})));sAgPres([]);sAreaName("");sDeptName("");};
   const resetMin=()=>{sMiDate(TODAY);sMiHI("18:00");sMiHC("20:00");sMiLugar("Club Los Tordos");sMiPres([]);sMiSecs(MINSECS[tab].map(()=>""));sMiTareas([]);sMiAgId(null);sAreaName("");sDeptName("");};
@@ -49,6 +55,17 @@ export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,on
         <span style={{fontSize:28}}>{"\u{1F4DD}"}</span><div style={{fontSize:13,fontWeight:700,color:colors.nv,marginTop:6}}>Nueva Minuta</div><div style={{fontSize:10,color:colors.g4}}>Registrar acta de reuni{"\u00F3"}n</div>
       </Card>
     </div>
+    {pendingApprovals.length>0&&<Card style={{marginBottom:14,borderLeft:"4px solid #F59E0B",padding:"12px 16px",background:"#FFFBEB"}}>
+      <div style={{fontSize:13,fontWeight:700,color:"#92400E",marginBottom:8}}>{"\u{1F4CB}"} Minutas pendientes de tu aprobaci{"\u00F3"}n</div>
+      {pendingApprovals.map((m:any)=>{const q=APPROVAL_QUORUM[m.type]||5;const apps=m.approvals||[];return <div key={m.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 0",borderBottom:"1px solid #FDE68A"}}>
+        <div style={{flex:1,cursor:"pointer"}} onClick={()=>{sSelId(m.id);sMode("viewMin");}}>
+          <div style={{fontSize:12,fontWeight:600,color:colors.nv}}>{"\u{1F4DD}"} Minuta {m.type.toUpperCase()} {"\u2013"} {fmtD(m.date)}</div>
+          <div style={{fontSize:10,color:colors.g4}}>Progreso: {apps.length}/{q} aprobaciones</div>
+          <div style={{height:4,background:"#FDE68A",borderRadius:2,marginTop:3,width:120}}><div style={{height:"100%",background:"#F59E0B",borderRadius:2,width:Math.min(100,apps.length/q*100)+"%"}}/></div>
+        </div>
+        <Btn v="w" s="s" onClick={()=>onApproveMin(m.id)} style={{background:"#F59E0B",color:"#fff",border:"none"}}>{"\u2705"} Aprobar</Btn>
+      </div>;})}
+    </Card>}
     <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:8}}>{"\u{1F4DA}"} Historial</div>
     {fAg.length===0&&fMi.length===0&&<Card style={{textAlign:"center" as const,padding:24,color:colors.g4}}><span style={{fontSize:24}}>{"\u{1F4ED}"}</span><div style={{marginTop:6,fontSize:12}}>Sin registros a{"\u00FA"}n</div></Card>}
     {fAg.length>0&&<div style={{marginBottom:12}}><div style={{fontSize:11,fontWeight:700,color:colors.g4,marginBottom:4}}>{"\u{1F4CB}"} {"\u00D3"}RDENES DEL D{"\u00CD"}A</div>
@@ -57,10 +74,11 @@ export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,on
         <div style={{display:"flex",gap:4,alignItems:"center"}}><button onClick={(e)=>{e.stopPropagation();if(confirm("\u00BFEliminar esta Orden del D\u00EDa?"))onDelAg(a.id);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:colors.rd,padding:4}} title="Eliminar">{"\u{1F5D1}\uFE0F"}</button><span style={{color:colors.g4}}>{"\u203A"}</span></div>
       </Card>)}</div>}
     {fMi.length>0&&<div><div style={{fontSize:11,fontWeight:700,color:colors.g4,marginBottom:4}}>{"\u{1F4DD}"} MINUTAS</div>
-      {fMi.map((m:any)=><Card key={m.id} style={{padding:"10px 14px",marginBottom:4,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        <div style={{flex:1,cursor:"pointer"}} onClick={()=>{sSelId(m.id);sMode("viewMin");}}><div style={{fontSize:12,fontWeight:600,color:colors.nv}}>{"\u{1F4DD}"} Minuta {"\u2013"} {fmtD(m.date)}{m.areaName?" · "+m.areaName:""}</div><div style={{fontSize:10,color:colors.g4}}>{m.status==="final"?"\u2705 Finalizada":"\u{1F4DD} Borrador"}{m.tareas?.length?" · 📋 "+m.tareas.length+" tareas":""}</div></div>
+      {fMi.map((m:any)=>{const q=APPROVAL_QUORUM[m.type];const apps=m.approvals||[];const stLabel=m.status==="aprobada"?"\u2705 Aprobada ("+apps.length+" firmas)":m.status==="final"&&q?"Pendiente aprobaci\u00F3n ("+apps.length+"/"+q+")":m.status==="final"?"\u2705 Finalizada":"\u{1F4DD} Borrador";const stBg=m.status==="aprobada"?"#D1FAE5":m.status==="final"&&q?"#FEF3C7":"transparent";return <Card key={m.id} style={{padding:"10px 14px",marginBottom:4,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div style={{flex:1,cursor:"pointer"}} onClick={()=>{sSelId(m.id);sMode("viewMin");}}><div style={{fontSize:12,fontWeight:600,color:colors.nv}}>{"\u{1F4DD}"} Minuta {"\u2013"} {fmtD(m.date)}{m.areaName?" · "+m.areaName:""}</div><div style={{fontSize:10,color:m.status==="aprobada"?"#065F46":colors.g4,background:stBg,display:"inline-block",padding:stBg!=="transparent"?"1px 8px":"0",borderRadius:10}}>{stLabel}</div>{m.tareas?.length?<span style={{fontSize:10,color:colors.g4}}> · {"\u{1F4CB}"} {m.tareas.length} tareas</span>:null}</div>
         <div style={{display:"flex",gap:4,alignItems:"center"}}><button onClick={(e)=>{e.stopPropagation();if(confirm("\u00BFEliminar esta Minuta?"))onDelMin(m.id);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:colors.rd,padding:4}} title="Eliminar">{"\u{1F5D1}\uFE0F"}</button><span style={{color:colors.g4}}>{"\u203A"}</span></div>
-      </Card>)}</div>}
+      </Card>;})}
+    </div>}
   </div>);
 
   /* ── Shared section editor for newOD / editOD ── */
@@ -365,8 +383,19 @@ export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,on
           <div style={{fontSize:11,fontWeight:700,color:colors.g4,textTransform:"uppercase" as const}}>Los Tordos Rugby Club</div>
           <div style={{fontSize:16,fontWeight:800,color:colors.nv}}>Minuta {"\u2013"} {AGT[mi.type]?.title}{mi.areaName?" · "+mi.areaName:""}</div>
           <div style={{display:"flex",justifyContent:"center",gap:12,marginTop:4,fontSize:11,color:colors.g5}}><span>{"\u{1F4C5}"} {fmtD(mi.date)}</span>{mi.horaInicio&&<span>{"\u{1F550}"} {mi.horaInicio} {"\u2013"} {mi.horaCierre}</span>}{mi.lugar&&<span>{"\u{1F4CD}"} {mi.lugar}</span>}</div>
-          <div style={{marginTop:6}}><span style={{fontSize:10,padding:"2px 10px",borderRadius:12,background:mi.status==="final"?"#D1FAE5":"#FEF3C7",color:mi.status==="final"?"#065F46":"#92400E",fontWeight:600}}>{mi.status==="final"?"\u2705 Finalizada":"\u{1F4DD} Borrador"}</span></div>
+          <div style={{marginTop:6}}><span style={{fontSize:10,padding:"2px 10px",borderRadius:12,background:mi.status==="aprobada"?"#D1FAE5":mi.status==="final"?"#D1FAE5":"#FEF3C7",color:mi.status==="aprobada"?"#065F46":mi.status==="final"?"#065F46":"#92400E",fontWeight:600}}>{mi.status==="aprobada"?"\u2705 Aprobada":mi.status==="final"?"\u2705 Finalizada":"\u{1F4DD} Borrador"}</span></div>
         </div>
+        {/* Approval panel */}
+        {(()=>{const q=APPROVAL_QUORUM[mi.type];const apps=mi.approvals||[];if(!q||mi.status==="borrador")return null;const alreadyApproved=apps.some((a:any)=>a.userId===user.id);const canApprove=canApproveType(mi.type)&&mi.status==="final"&&!alreadyApproved;return <div style={{marginBottom:12,padding:12,borderRadius:10,border:"1px solid "+(mi.status==="aprobada"?"#6EE7B7":"#FDE68A"),background:mi.status==="aprobada"?"#ECFDF5":"#FFFBEB"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+            <div style={{fontSize:12,fontWeight:700,color:mi.status==="aprobada"?"#065F46":"#92400E"}}>{mi.status==="aprobada"?"\u2705 Minuta Aprobada":"Aprobaci\u00F3n de Minuta"}</div>
+            <span style={{fontSize:11,fontWeight:700,color:mi.status==="aprobada"?"#065F46":"#92400E"}}>{apps.length}/{q}</span>
+          </div>
+          <div style={{height:6,background:mi.status==="aprobada"?"#A7F3D0":"#FDE68A",borderRadius:3,marginBottom:8}}><div style={{height:"100%",background:mi.status==="aprobada"?"#10B981":"#F59E0B",borderRadius:3,width:Math.min(100,apps.length/q*100)+"%",transition:"width 0.3s"}}/></div>
+          {apps.length>0&&<div style={{marginBottom:8}}>{apps.map((a:any,i:number)=><div key={i} style={{display:"flex",alignItems:"center",gap:6,padding:"3px 0",fontSize:11}}><span style={{color:"#10B981"}}>{"\u2705"}</span><span style={{fontWeight:600,color:colors.nv}}>{a.userName}</span><span style={{color:colors.g4,fontSize:10}}>{fmtD(a.date)}</span></div>)}</div>}
+          {canApprove&&<Btn v="p" s="s" onClick={()=>onApproveMin(mi.id)} style={{background:"#F59E0B",border:"none",color:"#fff"}}>{"\u2705"} Aprobar minuta</Btn>}
+          {alreadyApproved&&mi.status!=="aprobada"&&<div style={{fontSize:11,color:"#065F46",fontWeight:600}}>{"\u2705"} Ya aprobaste esta minuta</div>}
+        </div>;})()}
         {(mi.presentes?.length>0||mi.ausentes?.length>0)&&<div style={{marginBottom:12,display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8}}>
           <div><div style={{fontSize:10,fontWeight:700,color:colors.gn,marginBottom:2}}>{"\u2705"} PRESENTES</div>{(mi.presentes||[]).map((p:string,i:number)=><div key={i} style={{fontSize:11,color:colors.nv}}>{"\u2022"} {p}</div>)}</div>
           <div><div style={{fontSize:10,fontWeight:700,color:colors.rd,marginBottom:2}}>{"\u274C"} AUSENTES</div>{(mi.ausentes||[]).length>0?(mi.ausentes||[]).map((a:string,i:number)=><div key={i} style={{fontSize:11,color:colors.g4}}>{"\u2022"} {a}</div>):<div style={{fontSize:11,color:colors.g4}}>{"\u2013"}</div>}</div>
