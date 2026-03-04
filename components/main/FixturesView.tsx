@@ -247,8 +247,8 @@ export function FixturesView({ user, mob, onAdd, onUpd, onDel, onDelWeek, onAddB
           title: `${f.division} vs ${f.rival}`,
           division: f.division,
           status: "confirmada",
-          created_by: user?.id,
-          created_by_name: (user?.n || "") + " " + (user?.a || ""),
+          booked_by: user?.id,
+          booked_by_name: (user?.n || "") + " " + (user?.a || ""),
         },
       })));
     } finally { sSyncing(false); }

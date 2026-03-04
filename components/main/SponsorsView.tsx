@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { SPON_ST, DOLAR_REF, DIV } from "@/lib/constants";
 import { fmtD } from "@/lib/mappers";
 import { Btn, Card } from "@/components/ui";
@@ -32,7 +32,7 @@ const emptyForm=()=>({
   canje_instrucciones:"",
 });
 
-export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onSponMsg,onAddDelivery,sponDeliveries,onUpdDelivery}:any){
+export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onSponMsg,onAddDelivery,sponDeliveries,onUpdDelivery,navTarget,onNavDone}:any){
   const sponsors = useDataStore(s => s.sponsors);
   const users = useDataStore(s => s.users);
   const{colors,isDark,cardBg}=useC();
@@ -40,6 +40,7 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
   const [showDelivery,sShowDelivery]=useState(false);
   const [detailId,sDetailId]=useState<number|null>(null);
   const isSA=user?.role==="superadmin";
+  useEffect(()=>{if(navTarget&&navTarget.startsWith("sponsors:")){const id=Number(navTarget.split(":")[1]);if(id){sDetailId(id);sSpTab("chat");}if(onNavDone)onNavDone();}},[navTarget]);
   const isJH=user&&(user.n||user.first_name||"").toLowerCase().includes("jes")&&(user.a||user.last_name||"").toLowerCase().includes("herrera");
   const canFullEdit=isSA||isJH;
   const [dolarRef,sDolarRef]=useState(()=>{if(typeof window!=="undefined"){const v=localStorage.getItem("lt_dolar_ref");if(v)return Number(v);}return DOLAR_REF;});

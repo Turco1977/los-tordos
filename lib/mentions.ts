@@ -22,10 +22,12 @@ export function notifyMentioned(
   senderId: string,
   title: string,
   body: string,
-  sendNotif: (to: string, title: string, body: string) => void
+  sendNotif: (to: string, title: string, body: string, type?: "task" | "budget" | "deadline" | "injury" | "info", link?: string) => void,
+  type: "task" | "budget" | "deadline" | "injury" | "info" = "info",
+  link: string = ""
 ): void {
   const mentioned = parseMentions(text, users);
   for (const u of mentioned) {
-    if (u.id !== senderId) sendNotif(u.id, title, body);
+    if (u.id !== senderId) sendNotif(u.id, title, body, type, link);
   }
 }

@@ -31,6 +31,8 @@ interface NotificationPanelProps {
   sSl: (v: any) => void;
   sAA: (v: number | null) => void;
   sAD: (v: number | null) => void;
+  peds: any[];
+  sNavTarget: (v: string | null) => void;
 }
 
 export function NotificationPanel(props: NotificationPanelProps) {
@@ -40,7 +42,7 @@ export function NotificationPanel(props: NotificationPanelProps) {
     computedNts, dbNotifs, ntGrouped, ntColor, unreadDb,
     notifFilter, sNotifFilter, notifPage, sNotifPage, notifTotal, NOTIF_LIMIT,
     refreshNotifs, pushEnabled, requestPush, getToken, sDbNotifs,
-    sVw, sSl, sAA, sAD,
+    sVw, sSl, sAA, sAD, peds, sNavTarget,
   } = props;
 
   if (!shNot) return null;
@@ -76,7 +78,7 @@ export function NotificationPanel(props: NotificationPanelProps) {
             <div key={dateKey} style={{ marginBottom: 12 }}>
               <div style={{ fontSize: 9, fontWeight: 700, color: colors.g4, textTransform: "uppercase" as const, letterSpacing: 1, marginBottom: 4, padding: "0 2px" }}>{dateKey}</div>
               {items.map((n: any) => { const c = ntColor(n.type); const unread = !n.read; return (
-                <div key={n.id} onClick={() => { if (unread) { getToken().then(tok => markRead(tok, [n.id])); sDbNotifs(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x)); } sShNot(false); if (n.link) { window.location.hash = n.link; } else { sVw("dash"); sAA(null); sAD(null); } }} style={{ padding: "8px 10px", borderRadius: 8, background: unread ? c + "10" : "transparent", marginBottom: 3, cursor: "pointer", borderLeft: unread ? "3px solid " + c : "3px solid transparent", transition: "background .15s" }}>
+                <div key={n.id} onClick={() => { if (unread) { getToken().then(tok => markRead(tok, [n.id])); sDbNotifs(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x)); } sShNot(false); if (n.link) { const [view, id] = n.link.split(":"); if (view === "task" && id) { const t = peds.find((x: any) => x.id === Number(id)); if (t) sSl(t); sVw("tasks"); } else if (view === "sponsors" && id) { sVw("sponsors"); sNavTarget("sponsors:" + id); } else { sVw(view); } } else { sVw("dash"); sAA(null); sAD(null); } }} style={{ padding: "8px 10px", borderRadius: 8, background: unread ? c + "10" : "transparent", marginBottom: 3, cursor: "pointer", borderLeft: unread ? "3px solid " + c : "3px solid transparent", transition: "background .15s" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 6 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 11, fontWeight: unread ? 700 : 500, color: unread ? colors.nv : colors.g5 }}>{n.title}</div>
