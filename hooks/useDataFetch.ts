@@ -30,25 +30,30 @@ export function useDataFetch(
     try {
     // Ensure auth token is fresh before parallel queries (prevents abort from token refresh)
     await supabase.auth.getSession();
-    // Batch 1: Core data (14 queries)
-    const [pRes, recentRes, userRes, omRes, msRes, agRes, miRes, prRes, pvRes, remRes, projRes, ptRes, ttRes, bkRes] = await Promise.all([
+    // Batch 1: Essential data (8 queries)
+    const [pRes, recentRes, userRes, omRes, msRes, prRes, pvRes, remRes] = await Promise.all([
       supabase.from("profiles").select("*"),
       supabase.from("tasks").select("*").order("id", { ascending: false }).limit(50),
       user ? supabase.from("tasks").select("*").eq("assigned_to", user.id).order("id", { ascending: false }) : Promise.resolve({ data: [] }),
       supabase.from("org_members").select("*"),
       supabase.from("milestones").select("*").order("id"),
-      supabase.from("agendas").select("*").order("id", { ascending: false }).limit(100),
-      supabase.from("minutas").select("*").order("id", { ascending: false }).limit(100),
       supabase.from("presupuestos").select("*").order("id", { ascending: false }).limit(200),
       supabase.from("proveedores").select("*").order("id", { ascending: false }).limit(200),
       supabase.from("reminders").select("*").order("date", { ascending: true }),
+    ]);
+    // Batch 2: Meetings + projects (8 queries)
+    const [agRes, miRes, projRes, ptRes, ttRes, bkRes, rcRes, dmRes] = await Promise.all([
+      supabase.from("agendas").select("*").order("id", { ascending: false }).limit(100),
+      supabase.from("minutas").select("*").order("id", { ascending: false }).limit(100),
       supabase.from("projects").select("*").order("id", { ascending: false }),
       supabase.from("project_tasks").select("*").order("id", { ascending: false }),
       supabase.from("task_templates").select("*").order("id", { ascending: false }),
       supabase.from("bookings").select("*").order("id", { ascending: false }),
+      supabase.from("rental_config").select("*"),
+      user ? supabase.from("dm_messages").select("*").or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`).order("created_at", { ascending: true }).limit(500) : Promise.resolve({ data: [] }),
     ]);
-    // Batch 2: Secondary data (13 queries)
-    const [invRes, spRes, pbRes, imRes, idRes, sdRes, archRes, rcRes, dmRes, tnRes, thRes, tcRes, fxRes] = await Promise.all([
+    // Batch 3: Secondary data (11 queries)
+    const [invRes, spRes, pbRes, imRes, idRes, sdRes, archRes, tnRes, thRes, tcRes, fxRes] = await Promise.all([
       supabase.from("inventory").select("*").order("id", { ascending: false }),
       supabase.from("sponsors").select("*").order("id", { ascending: false }),
       supabase.from("project_budgets").select("*").order("id", { ascending: false }),
@@ -56,8 +61,6 @@ export function useDataFetch(
       supabase.from("inventory_distributions").select("*").order("id", { ascending: false }),
       supabase.from("sponsor_deliveries").select("*").order("id", { ascending: false }),
       supabase.from("archivos").select("*").order("created_at", { ascending: false }).limit(500),
-      supabase.from("rental_config").select("*"),
-      user ? supabase.from("dm_messages").select("*").or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`).order("created_at", { ascending: true }).limit(500) : Promise.resolve({ data: [] }),
       supabase.from("torneos").select("*").order("id", { ascending: false }),
       supabase.from("torneo_hitos").select("*").order("id"),
       supabase.from("torneo_clubes").select("*").order("id", { ascending: false }),

@@ -8,7 +8,9 @@ export function useViews(isPersonal: boolean) {
   const sVw = useCallback((v: string) => { sPrevVw(vw); sVw_(v); }, [vw]);
   const [sel, sSl] = useState<any>(null);
   const [aA, sAA] = useState<number | null>(null);
-  const [aD, sAD] = useState<number | null>(null);
+  const [aD, sAD_] = useState<number | null>(null);
+  const [dTasks, sDTasks] = useState(false);
+  const sAD = useCallback((id: number | null) => { sAD_(id); sDTasks(false); }, []);
   const [sbCol, sSbCol] = useState(false);
   const [sbOpen, sSbOpen] = useState(false);
   const [kpiFilt, sKpiFilt] = useState<string | null>(null);
@@ -26,7 +28,8 @@ export function useViews(isPersonal: boolean) {
   }, []);
 
   const hDC = useCallback((id: number) => {
-    sAD(prev => prev === id ? null : id);
+    sAD_((prev: number | null) => prev === id ? null : id);
+    sDTasks(false);
     mainRef.current?.scrollTo({ top: 0 });
   }, []);
 
@@ -67,7 +70,7 @@ export function useViews(isPersonal: boolean) {
   return {
     vw, sVw, prevVw,
     sel, sSl,
-    aA, sAA, aD, sAD,
+    aA, sAA, aD, sAD, dTasks, sDTasks,
     sbCol, sSbCol,
     sbOpen, sSbOpen,
     kpiFilt, sKpiFilt,
