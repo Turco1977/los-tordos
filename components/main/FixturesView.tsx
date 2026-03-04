@@ -504,18 +504,54 @@ export function FixturesView({ user, mob, onAdd, onUpd, onDel, onDelWeek, onAddB
             <input value={excelWeekLabel} onChange={e => sExcelWeekLabel(e.target.value)} style={iSt} placeholder="Ej: Viernes 6 y Sábado 7 de Marzo 2026" />
           </div>
           {!excelRows.length && <div style={{ border: "2px dashed " + colors.g3, borderRadius: 12, padding: 30, textAlign: "center" }}>
-            <input type="file" accept=".xlsx,.xls,.csv" onChange={e => { const f = e.target.files?.[0]; if (f) sExcelFile(f); }} style={{ display: "block", margin: "0 auto" }} />
-            <div style={{ fontSize: 11, color: colors.g4, marginTop: 8 }}>Columnas esperadas: DIVISION, RIVAL, DIA, HORA, CONDICION, CANCHA</div>
-            {excelFile && <div style={{ marginTop: 14 }}>
-              <button
-                onClick={() => { processExcelFile(); }}
-                disabled={excelLoading}
-                style={{ padding: "10px 24px", fontSize: 14, fontWeight: 700, borderRadius: 8, border: "none", cursor: excelLoading ? "wait" : "pointer", background: "#7C3AED", color: "#fff" }}
-              >
-                {excelLoading ? "⏳ Procesando..." : "📥 Cargar archivo"}
-              </button>
-              <div style={{ fontSize: 10, color: colors.g4, marginTop: 6 }}>Archivo: {excelFile.name}</div>
-            </div>}
+            {excelLoading
+              ? <div style={{ padding: 20, fontSize: 14, fontWeight: 700, color: colors.nv }}>⏳ Procesando archivo...</div>
+              : <><input type="file" accept=".xlsx,.xls,.csv" onChange={e => {
+                  const f = e.target.files?.[0];
+                  if (!f) return;
+                  sExcelFile(f);
+                  // Process immediately — no second click needed
+                  sExcelError("");
+                  sExcelLoading(true);
+                  const fd = new FormData();
+                  fd.append("file", f);
+                  fetch("/api/parse-excel", { method: "POST", body: fd })
+                    .then(r => r.json())
+                    .then(body => {
+                      if (body.error) { sExcelError(body.error); return; }
+                      const json: any[] = body.rows;
+                      if (!json?.length) { sExcelError("El archivo no tiene datos"); return; }
+                      const mapped = json.map((r: any) => {
+                        const keys = Object.keys(r);
+                        const find = (pats: string[]) => keys.find(k => pats.some(p => k.toUpperCase().includes(p))) || "";
+                        const division = r[find(["DIVIS", "DIV", "CATEG"])] || "";
+                        const rival = r[find(["RIVAL", "EQUIPO", "CLUB"])] || "";
+                        const dia = r[find(["DIA", "FECHA", "DATE"])] || "";
+                        const hora = r[find(["HORA", "TIME", "HORARIO"])] || "";
+                        const condicion = r[find(["CONDIC", "COND", "LOC"])] || "";
+                        const cancha = r[find(["CANCHA", "CAMPO", "FIELD"])] || "";
+                        let date = TODAY;
+                        if (dia) {
+                          if (typeof dia === "number") { const d = new Date((dia - 25569) * 86400 * 1000); date = dateISO(d); }
+                          else { const s = String(dia); if (s.includes("-")) date = s.slice(0, 10); else if (s.includes("/")) { const pts = s.split("/"); if (pts.length === 3) { const [dd, mm, yy] = pts; date = `${yy.length === 2 ? "20" + yy : yy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`; } } }
+                        }
+                        return { division: String(division).trim(), rival: String(rival).trim(), date, time: String(hora).trim(), condicion: String(condicion).trim(), is_local: checkLocal(String(condicion)), cancha: String(cancha).trim(), facility_key: FIX_CANCHA_MAP[String(cancha).trim().toUpperCase()] || "", status: "pendiente", notes: "", _missingCancha: !String(cancha).trim() };
+                      }).filter((r: any) => r.division || r.rival);
+                      if (!mapped.length) { sExcelError("No se encontraron filas. Columnas: " + Object.keys(json[0]).join(", ")); return; }
+                      sExcelRows(mapped);
+                      const uniqueDates = [...new Set(mapped.map((r: any) => r.date))].sort();
+                      if (uniqueDates.length) {
+                        const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+                        const parts = uniqueDates.map(d => { const dt = new Date(d + "T12:00:00"); return `${DIAS_FULL[dt.getDay()]} ${dt.getDate()}`; });
+                        const lastDt = new Date(uniqueDates[uniqueDates.length - 1] + "T12:00:00");
+                        sExcelWeekLabel(prev => prev || `${parts.join(", ")} de ${MESES[lastDt.getMonth()]} ${lastDt.getFullYear()}`);
+                      }
+                    })
+                    .catch(err => sExcelError("Error: " + (err?.message || "fallo de conexión")))
+                    .finally(() => sExcelLoading(false));
+                }} style={{ display: "block", margin: "0 auto" }} />
+                <div style={{ fontSize: 11, color: colors.g4, marginTop: 8 }}>Seleccioná el archivo y se procesa automáticamente</div>
+              </>}
             {excelError && <div style={{ marginTop: 10, padding: "10px 14px", borderRadius: 8, background: "#FEE2E2", border: "1px solid #DC2626", color: "#DC2626", fontSize: 12, fontWeight: 600 }}>❌ {excelError}</div>}
           </div>}
           {excelRows.length > 0 && <>
