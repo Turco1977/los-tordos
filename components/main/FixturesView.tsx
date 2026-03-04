@@ -46,7 +46,6 @@ export function FixturesView({ user, mob, onAdd, onUpd, onDel, onDelWeek, onAddB
   const fixtures = useDataStore(s => s.fixtures);
   const bookings = useDataStore(s => s.bookings);
   const { colors, isDark, cardBg } = useC();
-
   const [tab, sTab] = useState<"semana" | "historial" | "stats">("semana");
   const [weekStart, sWeekStart] = useState(() => getMonday(new Date()));
   const [showForm, sShowForm] = useState(false);
@@ -100,8 +99,10 @@ export function FixturesView({ user, mob, onAdd, onUpd, onDel, onDelWeek, onAddB
       m[f.division].total++;
       if (f.is_local) m[f.division].local++;
     }
+    const ORDER = ["Primera", "Intermedia", "Pre Primera A", "Pre Primera B", "M19 A", "M19 B", "Menores de 19 A", "Menores de 19 B", "Menores de 19 C", "M17", "Menores de 17 A", "Menores de 17 B", "M16", "Menores de 16 A", "Menores de 16 B", "M15", "Menores de 15 A", "Menores de 15 B", "M14", "M13", "M12", "M11", "M10", "M9", "M8", "Escuelita", "Femenino", "INTERMEDIA", "PRIMERA", "PRE A", "PRE B", "Plantel Superior"];
     return Object.entries(m).sort(([a], [b]) => {
-      const ai = DIV.indexOf(a), bi = DIV.indexOf(b);
+      const ai = ORDER.findIndex(o => a.toUpperCase().includes(o.toUpperCase()));
+      const bi = ORDER.findIndex(o => b.toUpperCase().includes(o.toUpperCase()));
       return (ai < 0 ? 999 : ai) - (bi < 0 ? 999 : bi);
     });
   }, [fixtures]);

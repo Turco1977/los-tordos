@@ -57,7 +57,7 @@ export function SB({aA,aD,onAC,onDC,col,onCol,isPersonal,mob,sbOpen,onClose,vw,o
         {k:"archivos",l:"Archivos",icon:"📂",show:!isPersonal},
         {k:"reservas",l:"Espacios",icon:"🏟️",show:true},
         {k:"sponsors",l:"Sponsors",icon:"🥇",show:!isPersonal&&user&&(user.role==="admin"||user.role==="superadmin"||user.role==="coordinador"||user.role==="embudo")},
-        {k:"fixtures",l:"Fixtures",icon:"📅",show:!isPersonal&&user&&(user.role==="admin"||user.role==="superadmin"||user.role==="coordinador")},
+        {k:"fixtures",l:"Fixtures",icon:"📅",show:!isPersonal&&user&&(user.role==="admin"||user.role==="superadmin"||user.role==="coordinador"||user.role==="enlace")},
         {k:"torneos",l:"Torneos",icon:"🏆",show:!isPersonal&&user&&(user.role==="admin"||user.role==="superadmin"||user.role==="coordinador")},
         {k:"viajes",l:"Viajes",icon:"🚌",show:false},
         {k:"dm",l:"Mensajes",icon:"💬",show:true},
