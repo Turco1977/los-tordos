@@ -5,7 +5,6 @@ import { Btn, Card, Ring } from "@/components/ui";
 import { useC } from "@/lib/theme-context";
 import { useDataStore } from "@/lib/store";
 import { shareFixturesWhatsApp } from "@/lib/export";
-import { loadXLSX } from "@/lib/xlsx-cdn";
 
 const TODAY = new Date().toISOString().slice(0, 10);
 const FKEYS = Object.keys(BOOK_FAC).filter(k => k.startsWith("cancha"));
@@ -136,29 +135,22 @@ export function FixturesView({ user, mob, onAdd, onUpd, onDel, onDelWeek, onAddB
     sShowForm(false); sEditId(null);
   };
 
-  // ── Excel import ──
+  // ── Excel import (server-side parsing via API route) ──
   const [excelLoading, sExcelLoading] = useState(false);
   const processExcelFile = async () => {
-    if (!excelFile) { alert("No hay archivo seleccionado"); return; }
+    if (!excelFile) return;
     sExcelError("");
     sExcelLoading(true);
-    let X: any;
-    try {
-      X = await loadXLSX();
-    } catch (err: any) {
-      const msg = "No se pudo cargar el parser de Excel: " + (err?.message || "error desconocido");
-      sExcelError(msg);
-      sExcelLoading(false);
-      return;
-    }
     let json: any[];
     try {
-      const data = await excelFile.arrayBuffer();
-      const wb = X.read(data, { type: "array" });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      json = X.utils.sheet_to_json(ws, { defval: "" });
-      if (!json.length) { sExcelError("El archivo no tiene datos"); sExcelLoading(false); return; }
-    } catch (e: any) { sExcelError("Error parseando: " + (e.message || "")); sExcelLoading(false); return; }
+      const fd = new FormData();
+      fd.append("file", excelFile);
+      const res = await fetch("/api/parse-excel", { method: "POST", body: fd });
+      const body = await res.json();
+      if (!res.ok || body.error) { sExcelError(body.error || "Error del servidor"); sExcelLoading(false); return; }
+      json = body.rows;
+      if (!json?.length) { sExcelError("El archivo no tiene datos"); sExcelLoading(false); return; }
+    } catch (e: any) { sExcelError("Error: " + (e.message || "no se pudo conectar")); sExcelLoading(false); return; }
     // Map columns — flexible matching
     const mapped = json.map((r: any) => {
       const keys = Object.keys(r);
