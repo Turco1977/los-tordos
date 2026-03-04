@@ -34,6 +34,16 @@ const dateISO = (dt: Date) => dt.toISOString().slice(0, 10);
 const fmtD = (d: string) => { if (!d) return "–"; const [y, m, dd] = d.split("-"); return `${dd}/${m}/${y}`; };
 const fmtDShort = (d: string) => { if (!d) return "–"; const [, m, dd] = d.split("-"); return `${dd}/${m}`; };
 const DIAS = ["Do", "Lu", "Ma", "Mi", "Ju", "Vi", "Sa"];
+const DIAS_FULL = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+
+// Group fixtures/rows by date → sorted date keys + map
+const groupByDate = (rows: any[]) => {
+  const m: Record<string, any[]> = {};
+  for (const r of rows) { const k = r.date || ""; if (!m[k]) m[k] = []; m[k].push(r); }
+  const dates = Object.keys(m).sort();
+  return { dates, byDate: m };
+};
+const dayHeader = (d: string) => { const dow = new Date(d + "T12:00:00").getDay(); return `${DIAS_FULL[dow]} ${fmtDShort(d)}`; };
 
 const emptyForm = () => ({ division: "", rival: "", date: TODAY, time: "", condicion: "", is_local: false, cancha: "", facility_key: "", status: "pendiente", notes: "" });
 
@@ -179,14 +189,22 @@ export function FixturesView({ user, mob, onAdd, onUpd, onDel, onDelWeek, onAddB
       };
     }).filter((r: any) => r.division || r.rival);
     sExcelRows(mapped);
+    // Auto-generate week label from dates
+    const uniqueDates = [...new Set(mapped.map((r: any) => r.date))].sort();
+    if (uniqueDates.length && !excelWeekLabel) {
+      const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+      const parts = uniqueDates.map(d => { const dt = new Date(d + "T12:00:00"); return `${DIAS_FULL[dt.getDay()]} ${dt.getDate()}`; });
+      const lastDt = new Date(uniqueDates[uniqueDates.length - 1] + "T12:00:00");
+      sExcelWeekLabel(`${parts.join(", ")} de ${MESES[lastDt.getMonth()]} ${lastDt.getFullYear()}`);
+    }
   };
 
   const confirmExcel = async () => {
-    if (!excelWeekLabel) return;
     const wsDate = dateISO(getMonday(new Date(excelRows[0]?.date + "T12:00:00" || TODAY)));
+    const label = excelWeekLabel || weekLabel;
     const rows = excelRows.map((r: any) => {
       const { _missingCancha, ...rest } = r;
-      return { ...rest, week_label: excelWeekLabel, week_start_date: wsDate, created_by: user?.id, created_by_name: (user?.n || "") + " " + (user?.a || "") };
+      return { ...rest, week_label: label, week_start_date: wsDate, created_by: user?.id, created_by_name: (user?.n || "") + " " + (user?.a || "") };
     });
     await onAdd(rows);
     sShowExcel(false); sExcelRows([]); sExcelFile(null); sExcelWeekLabel("");
@@ -268,43 +286,48 @@ export function FixturesView({ user, mob, onAdd, onUpd, onDel, onDelWeek, onAddB
           <span style={{ fontSize: 10, padding: "3px 10px", borderRadius: 12, background: isDark ? colors.g2 : "#F3F4F6", color: colors.g5, fontWeight: 600 }}>Total: {weekFixtures.length}</span>
         </div>
 
-        {/* Week table */}
-        <Card style={{ overflow: "auto", padding: 0 }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: mob ? 600 : 800 }}>
-            <thead><tr>
-              <th style={thSt}>División</th>
-              <th style={thSt}>Rival</th>
-              <th style={thSt}>Día</th>
-              <th style={thSt}>Hora</th>
-              <th style={thSt}>Condición</th>
-              <th style={thSt}>Cancha</th>
-              <th style={thSt}>Estado</th>
-              <th style={{ ...thSt, textAlign: "center" }}>Acciones</th>
-            </tr></thead>
-            <tbody>
-              {weekFixtures.length === 0 && <tr><td colSpan={8} style={{ ...tdSt, textAlign: "center", color: colors.g4, padding: 30 }}>Sin fixtures para esta semana</td></tr>}
-              {weekFixtures.map((f: any) => {
-                const dc = DIV_COL[f.division] || colors.g5;
-                const st = FIX_ST[f.status] || FIX_ST.pendiente;
-                return (
-                  <tr key={f.id} style={{ background: f.is_local ? (isDark ? "rgba(16,185,129,.06)" : "rgba(16,185,129,.04)") : "transparent" }}>
-                    <td style={tdSt}><span style={{ color: dc, fontWeight: 700 }}>{f.division}</span></td>
-                    <td style={tdSt}>{f.rival}</td>
-                    <td style={tdSt}>{(() => { const dow = new Date(f.date + "T12:00:00").getDay(); return DIAS[dow] + " " + fmtDShort(f.date); })()}</td>
-                    <td style={tdSt}>{f.time || "–"}</td>
-                    <td style={tdSt}><span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, background: f.is_local ? "#D1FAE5" : "#DBEAFE", color: f.is_local ? "#065F46" : "#1E40AF", fontWeight: 600 }}>{f.is_local ? "🏠 Local" : "🚗 Visitante"}</span></td>
-                    <td style={tdSt}>{f.cancha || "–"}</td>
-                    <td style={tdSt}><span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, background: st.bg, color: st.c, fontWeight: 600 }}>{st.i} {st.l}</span></td>
-                    <td style={{ ...tdSt, textAlign: "center", whiteSpace: "nowrap" }}>
-                      <button onClick={() => openEdit(f)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, padding: 4 }} title="Editar">✏️</button>
-                      <button onClick={() => onDel(f.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, padding: 4 }} title="Eliminar">🗑️</button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </Card>
+        {/* Week fixtures grouped by day */}
+        {weekFixtures.length === 0 && <Card style={{ textAlign: "center", color: colors.g4, padding: 40, fontSize: 13 }}>Sin fixtures para esta semana. Cargá uno con <b>+ Manual</b> o <b>📤 Excel</b>.</Card>}
+        {(() => { const { dates, byDate } = groupByDate(weekFixtures); return dates.map(d => (
+          <Card key={d} style={{ overflow: "auto", padding: 0, marginBottom: 10 }}>
+            <div style={{ padding: "10px 14px", background: isDark ? "rgba(59,130,246,.08)" : "#EFF6FF", borderBottom: "2px solid " + colors.bl + "30", display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 14 }}>📅</span>
+              <span style={{ fontSize: 13, fontWeight: 800, color: colors.bl }}>{dayHeader(d)}</span>
+              <span style={{ fontSize: 10, color: colors.g4 }}>({byDate[d].length} partidos)</span>
+            </div>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: mob ? 500 : 700 }}>
+              <thead><tr>
+                <th style={thSt}>División</th>
+                <th style={thSt}>Rival</th>
+                <th style={thSt}>Hora</th>
+                <th style={thSt}>Condición</th>
+                <th style={thSt}>Cancha</th>
+                <th style={thSt}>Estado</th>
+                <th style={{ ...thSt, textAlign: "center" }}>Acciones</th>
+              </tr></thead>
+              <tbody>
+                {byDate[d].sort((a: any, b: any) => (a.time || "").localeCompare(b.time || "")).map((f: any) => {
+                  const dc = DIV_COL[f.division] || colors.g5;
+                  const st = FIX_ST[f.status] || FIX_ST.pendiente;
+                  return (
+                    <tr key={f.id} style={{ background: f.is_local ? (isDark ? "rgba(16,185,129,.06)" : "rgba(16,185,129,.04)") : "transparent" }}>
+                      <td style={tdSt}><span style={{ color: dc, fontWeight: 700 }}>{f.division}</span></td>
+                      <td style={tdSt}>{f.rival}</td>
+                      <td style={tdSt}>{f.time || "–"}</td>
+                      <td style={tdSt}><span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, background: f.is_local ? "#D1FAE5" : "#DBEAFE", color: f.is_local ? "#065F46" : "#1E40AF", fontWeight: 600 }}>{f.is_local ? "🏠 Local" : "🚗 Visitante"}</span></td>
+                      <td style={tdSt}>{f.cancha || "–"}</td>
+                      <td style={tdSt}><span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, background: st.bg, color: st.c, fontWeight: 600 }}>{st.i} {st.l}</span></td>
+                      <td style={{ ...tdSt, textAlign: "center", whiteSpace: "nowrap" }}>
+                        <button onClick={() => openEdit(f)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, padding: 4 }} title="Editar">✏️</button>
+                        <button onClick={() => onDel(f.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, padding: 4 }} title="Eliminar">🗑️</button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </Card>
+        )); })()}
       </>}
 
       {/* ═══ TAB HISTORIAL ═══ */}
@@ -463,49 +486,56 @@ export function FixturesView({ user, mob, onAdd, onUpd, onDel, onDelWeek, onAddB
             <div style={{ fontSize: 11, color: colors.g4, marginTop: 8 }}>Columnas esperadas: DIVISION, RIVAL, DIA, HORA, CONDICION, CANCHA</div>
           </div>}
           {excelRows.length > 0 && <>
-            <div style={{ fontSize: 12, fontWeight: 700, color: colors.nv, marginBottom: 8 }}>Preview ({excelRows.length} filas)</div>
-            <div style={{ overflow: "auto", maxHeight: 400 }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 600 }}>
-                <thead><tr>
-                  <th style={thSt}>División</th><th style={thSt}>Rival</th><th style={thSt}>Día</th><th style={thSt}>Hora</th><th style={thSt}>Condición</th><th style={thSt}>Cancha</th><th style={thSt}>Estado</th>
-                </tr></thead>
-                <tbody>
-                  {excelRows.map((r: any, i: number) => {
-                    const st = FIX_ST[r.status] || FIX_ST.pendiente;
-                    return (
-                      <tr key={i} style={{ background: r._missingCancha && r.is_local ? "#FEE2E2" : "transparent" }}>
-                        <td style={tdSt}><span style={{ color: DIV_COL[r.division] || colors.g5, fontWeight: 700 }}>{r.division}</span></td>
-                        <td style={tdSt}>{r.rival}</td>
-                        <td style={tdSt}>{fmtDShort(r.date)}</td>
-                        <td style={tdSt}>{r.time || "–"}</td>
-                        <td style={tdSt}><span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, background: r.is_local ? "#D1FAE5" : "#DBEAFE", color: r.is_local ? "#065F46" : "#1E40AF", fontWeight: 600 }}>{r.is_local ? "🏠 Local" : "🚗 Visitante"}</span></td>
-                        <td style={tdSt}>
-                          <select value={r.cancha} onChange={e => {
-                            const val = e.target.value;
-                            sExcelRows(prev => prev.map((row, idx) => idx === i ? { ...row, cancha: val, facility_key: FKEYS.find(k => BOOK_FAC[k].l === val) || "", _missingCancha: !val } : row));
-                          }} style={{ ...iSt, padding: "4px 6px", fontSize: 10, background: r._missingCancha && r.is_local ? "#FEE2E2" : cardBg }}>
-                            <option value="">–</option>
-                            {CANCHA_LABELS.map(c => <option key={c.key} value={c.label}>{c.label}</option>)}
-                          </select>
-                        </td>
-                        <td style={tdSt}>
-                          <select value={r.status} onChange={e => {
-                            const val = e.target.value;
-                            sExcelRows(prev => prev.map((row, idx) => idx === i ? { ...row, status: val } : row));
-                          }} style={{ ...iSt, padding: "4px 6px", fontSize: 10 }}>
-                            {FIX_SKEYS.map(k => <option key={k} value={k}>{FIX_ST[k].i} {FIX_ST[k].l}</option>)}
-                          </select>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            <div style={{ fontSize: 12, fontWeight: 700, color: colors.nv, marginBottom: 8 }}>Preview ({excelRows.length} partidos)</div>
+            <div style={{ overflow: "auto", maxHeight: 450 }}>
+              {(() => { const { dates, byDate } = groupByDate(excelRows); return dates.map(d => (
+                <div key={d} style={{ marginBottom: 10 }}>
+                  <div style={{ padding: "8px 12px", background: isDark ? "rgba(59,130,246,.08)" : "#EFF6FF", borderRadius: "8px 8px 0 0", borderBottom: "2px solid " + colors.bl + "30" }}>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: colors.bl }}>📅 {dayHeader(d)}</span>
+                    <span style={{ marginLeft: 8, fontSize: 10, color: colors.g4 }}>({byDate[d].length})</span>
+                  </div>
+                  <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 550 }}>
+                    <thead><tr>
+                      <th style={thSt}>División</th><th style={thSt}>Rival</th><th style={thSt}>Hora</th><th style={thSt}>Condición</th><th style={thSt}>Cancha</th><th style={thSt}>Estado</th>
+                    </tr></thead>
+                    <tbody>
+                      {byDate[d].map((r: any) => {
+                        const i = excelRows.indexOf(r);
+                        return (
+                          <tr key={i} style={{ background: r._missingCancha && r.is_local ? "#FEE2E2" : "transparent" }}>
+                            <td style={tdSt}><span style={{ color: DIV_COL[r.division] || colors.g5, fontWeight: 700 }}>{r.division}</span></td>
+                            <td style={tdSt}>{r.rival}</td>
+                            <td style={tdSt}>{r.time || "–"}</td>
+                            <td style={tdSt}><span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, background: r.is_local ? "#D1FAE5" : "#DBEAFE", color: r.is_local ? "#065F46" : "#1E40AF", fontWeight: 600 }}>{r.is_local ? "🏠 Local" : "🚗 Visitante"}</span></td>
+                            <td style={tdSt}>
+                              <select value={r.cancha} onChange={e => {
+                                const val = e.target.value;
+                                sExcelRows(prev => prev.map((row, idx) => idx === i ? { ...row, cancha: val, facility_key: FKEYS.find(k => BOOK_FAC[k].l === val) || "", _missingCancha: !val } : row));
+                              }} style={{ ...iSt, padding: "4px 6px", fontSize: 10, background: r._missingCancha && r.is_local ? "#FEE2E2" : cardBg }}>
+                                <option value="">–</option>
+                                {CANCHA_LABELS.map(c => <option key={c.key} value={c.label}>{c.label}</option>)}
+                              </select>
+                            </td>
+                            <td style={tdSt}>
+                              <select value={r.status} onChange={e => {
+                                const val = e.target.value;
+                                sExcelRows(prev => prev.map((row, idx) => idx === i ? { ...row, status: val } : row));
+                              }} style={{ ...iSt, padding: "4px 6px", fontSize: 10 }}>
+                                {FIX_SKEYS.map(k => <option key={k} value={k}>{FIX_ST[k].i} {FIX_ST[k].l}</option>)}
+                              </select>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )); })()}
             </div>
             {excelRows.some((r: any) => r._missingCancha && r.is_local) && <div style={{ marginTop: 8, fontSize: 11, color: "#DC2626", fontWeight: 600 }}>⚠️ Filas en rojo: fixtures locales sin cancha. Seleccioná una cancha antes de confirmar.</div>}
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
               <Btn v="g" s="s" onClick={() => { sExcelRows([]); sExcelFile(null); }}>Cancelar</Btn>
-              <Btn v="p" s="s" onClick={confirmExcel} disabled={!excelWeekLabel}>Confirmar e importar</Btn>
+              <Btn v="p" s="s" onClick={confirmExcel}>Confirmar e importar</Btn>
             </div>
           </>}
         </div>
