@@ -5,6 +5,7 @@ import { Btn, Card, Ring } from "@/components/ui";
 import { useC } from "@/lib/theme-context";
 import { useDataStore } from "@/lib/store";
 import { shareFixturesWhatsApp } from "@/lib/export";
+import * as XLSX from "xlsx";
 
 const TODAY = new Date().toISOString().slice(0, 10);
 const FKEYS = Object.keys(BOOK_FAC).filter(k => k.startsWith("cancha"));
@@ -120,7 +121,6 @@ export function FixturesView({ user, mob, onAdd, onUpd, onDel, onDelWeek, onAddB
   // ── Excel import ──
   const handleExcelFile = async (file: File) => {
     sExcelFile(file);
-    const XLSX = (await import("xlsx"));
     const data = await file.arrayBuffer();
     const wb = XLSX.read(data);
     const ws = wb.Sheets[wb.SheetNames[0]];
