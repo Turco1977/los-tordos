@@ -190,7 +190,7 @@ export function FixturesView({ user, mob, onAdd, onUpd, onDel, onDelWeek, onAddB
           is_local: checkLocal(String(condicion)),
           cancha: String(cancha).trim(),
           facility_key: FIX_CANCHA_MAP[String(cancha).trim().toUpperCase()] || "",
-          status: "pendiente",
+          status: "confirmada",
           notes: "",
           _missingCancha: !String(cancha).trim(),
         };
@@ -535,7 +535,7 @@ export function FixturesView({ user, mob, onAdd, onUpd, onDel, onDelWeek, onAddB
                           if (typeof dia === "number") { const d = new Date((dia - 25569) * 86400 * 1000); date = dateISO(d); }
                           else { const s = String(dia); if (s.includes("-")) date = s.slice(0, 10); else if (s.includes("/")) { const pts = s.split("/"); if (pts.length === 3) { const [dd, mm, yy] = pts; date = `${yy.length === 2 ? "20" + yy : yy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`; } } }
                         }
-                        return { division: String(division).trim(), rival: String(rival).trim(), date, time: String(hora).trim(), condicion: String(condicion).trim(), is_local: checkLocal(String(condicion)), cancha: String(cancha).trim(), facility_key: FIX_CANCHA_MAP[String(cancha).trim().toUpperCase()] || "", status: "pendiente", notes: "", _missingCancha: !String(cancha).trim() };
+                        return { division: String(division).trim(), rival: String(rival).trim(), date, time: String(hora).trim(), condicion: String(condicion).trim(), is_local: checkLocal(String(condicion)), cancha: String(cancha).trim(), facility_key: FIX_CANCHA_MAP[String(cancha).trim().toUpperCase()] || "", status: "confirmada", notes: "", _missingCancha: !String(cancha).trim() };
                       }).filter((r: any) => r.rival);
                       if (!mapped.length) { sExcelError("No se encontraron filas. Columnas: " + Object.keys(json[0]).join(", ")); return; }
                       sExcelRows(mapped);
