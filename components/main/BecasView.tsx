@@ -71,6 +71,7 @@ export function BecasView({ user, mob, showT, becas, onAdd, onUpd, onDel, onVote
     const payload = {
       ...form,
       nombre_completo: form.nombre_completo.trim(),
+      fecha_nac: form.fecha_nac || null,
       edad: form.edad ? Number(form.edad) : null,
       integrantes_hogar: form.integrantes_hogar ? Number(form.integrantes_hogar) : null,
       anios_practicando: form.anios_practicando ? Number(form.anios_practicando) : null,
