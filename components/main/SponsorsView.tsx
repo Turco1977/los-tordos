@@ -835,7 +835,7 @@ function HospitalidadPanel({invitaciones,sponsors,contactos,fixtures,colors,isDa
   const items:any[]=invitaciones||[];
   const [showForm,sShowForm]=useState(false);
   const [editId,sEditId]=useState<number|null>(null);
-  const [form,sForm]=useState({partido_fecha:"",partido_rival:"",sponsor_id:"",contacto_id:"",entradas:"2",estacionamiento:false,zona_vip:false});
+  const [form,sForm]=useState({partido_fecha:"",partido_rival:"",sponsor_id:"",contacto_id:"",entradas:"2",estacionamiento:false,zona_vip:false,fixture_id:"" as string});
   const lbl:any={fontSize:10,fontWeight:600,color:colors.g5,display:"block",marginBottom:2};
   const inp:any={width:"100%",padding:"7px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,background:cardBg,color:colors.nv,boxSizing:"border-box"};
 
@@ -853,10 +853,10 @@ function HospitalidadPanel({invitaciones,sponsors,contactos,fixtures,colors,isDa
   const activeSpon=(sponsors||[]).filter((s:any)=>s.status==="active");
   const sinContacto=activeSpon.filter((sp:any)=>{const last=items.filter(i=>i.sponsor_id===sp.id).sort((a:any,b:any)=>(b.created_at||"").localeCompare(a.created_at||""))[0];if(!last)return true;return daysLeft(last.created_at?.slice(0,10)||"")< -30;});
 
-  /* Próximos partidos de local */
-  const proxPartidos=((fixtures||[]) as any[]).filter((f:any)=>f.date>=TODAY&&f.is_local).slice(0,5);
+  /* Próximos partidos de local (todos, no solo primera) */
+  const proxPartidos=((fixtures||[]) as any[]).filter((f:any)=>f.date>=TODAY&&f.is_local).sort((a:any,b:any)=>a.date.localeCompare(b.date)).slice(0,20);
 
-  const openAdd=(fixture?:any)=>{sForm({partido_fecha:fixture?.date||"",partido_rival:fixture?.rival||"",sponsor_id:"",contacto_id:"",entradas:"2",estacionamiento:false,zona_vip:false});sEditId(null);sShowForm(true);};
+  const openAdd=(fixture?:any)=>{sForm({partido_fecha:fixture?.date||"",partido_rival:fixture?.rival||"",sponsor_id:"",contacto_id:"",entradas:"2",estacionamiento:false,zona_vip:false,fixture_id:fixture?.id||""});sEditId(null);sShowForm(true);};
   const handleSave=async()=>{
     if(!form.sponsor_id)return;
     const d={partido_fecha:form.partido_fecha||null,partido_rival:form.partido_rival,sponsor_id:Number(form.sponsor_id),contacto_id:form.contacto_id?Number(form.contacto_id):null,entradas:Number(form.entradas)||0,estacionamiento:form.estacionamiento,zona_vip:form.zona_vip,estado_invitacion:"enviada"};
@@ -884,8 +884,8 @@ function HospitalidadPanel({invitaciones,sponsors,contactos,fixtures,colors,isDa
     {/* Próximos partidos */}
     {proxPartidos.length>0&&<Card style={{padding:14,marginBottom:14}}>
       <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:8}}>📅 Próximos partidos de local</div>
-      {proxPartidos.map((f:any)=><div key={f.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 0",borderBottom:"1px solid "+colors.g2}}>
-        <span style={{fontSize:11,color:colors.nv}}>{f.date} vs {f.rival||"TBC"}</span>
+      {proxPartidos.slice(0,8).map((f:any)=><div key={f.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 0",borderBottom:"1px solid "+colors.g2}}>
+        <span style={{fontSize:11,color:colors.nv}}>{f.date} vs {f.rival||"TBC"}{f.division?<span style={{fontSize:9,color:colors.g4,marginLeft:6}}>({f.division})</span>:null}</span>
         {canManage&&<Btn v="s" s="s" onClick={()=>openAdd(f)}>Invitar sponsors</Btn>}
       </div>)}
     </Card>}
@@ -926,9 +926,13 @@ function HospitalidadPanel({invitaciones,sponsors,contactos,fixtures,colors,isDa
     {showForm&&<div style={{position:"fixed" as const,inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>sShowForm(false)}>
       <div style={{background:cardBg,borderRadius:16,padding:20,width:"100%",maxWidth:440,boxShadow:"0 8px 32px rgba(0,0,0,.2)"}} onClick={e=>e.stopPropagation()}>
         <div style={{fontSize:14,fontWeight:800,color:colors.nv,marginBottom:14}}>Nueva Invitación</div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
-          <div><label style={lbl}>Fecha partido</label><input type="date" value={form.partido_fecha} onChange={e=>sForm(p=>({...p,partido_fecha:e.target.value}))} style={inp}/></div>
-          <div><label style={lbl}>Rival</label><input value={form.partido_rival} onChange={e=>sForm(p=>({...p,partido_rival:e.target.value}))} style={inp}/></div>
+        <div style={{marginBottom:8}}>
+          <label style={lbl}>Partido *</label>
+          <select value={form.fixture_id} onChange={e=>{const fid=e.target.value;const fix=proxPartidos.find((f:any)=>String(f.id)===fid);sForm(p=>({...p,fixture_id:fid,partido_fecha:fix?.date||"",partido_rival:fix?.rival||""}));}} style={inp}>
+            <option value="">— Seleccionar partido —</option>
+            {proxPartidos.map((f:any)=><option key={f.id} value={f.id}>{f.date} vs {f.rival||"TBC"}{f.division?" ("+f.division+")":""}</option>)}
+          </select>
+          {form.partido_fecha&&<div style={{fontSize:10,color:colors.g4,marginTop:4}}>📅 {form.partido_fecha} vs {form.partido_rival||"TBC"}</div>}
         </div>
         <div style={{marginBottom:8}}><label style={lbl}>Sponsor *</label><select value={form.sponsor_id} onChange={e=>sForm(p=>({...p,sponsor_id:e.target.value}))} style={inp}><option value="">— Seleccionar —</option>{(sponsors||[]).filter((s:any)=>s.status==="active").map((s:any)=><option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:8}}>
