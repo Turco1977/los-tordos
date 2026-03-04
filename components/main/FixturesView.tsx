@@ -7,15 +7,25 @@ import { useDataStore } from "@/lib/store";
 import { shareFixturesWhatsApp } from "@/lib/export";
 
 // Load SheetJS from CDN at runtime (avoids bundler issues with xlsx)
-const loadXLSX = (): Promise<any> => {
-  if ((window as any).XLSX) return Promise.resolve((window as any).XLSX);
-  return new Promise((resolve, reject) => {
-    const s = document.createElement("script");
-    s.src = "https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js";
-    s.onload = () => resolve((window as any).XLSX);
-    s.onerror = () => reject(new Error("No se pudo cargar la librería Excel"));
-    document.head.appendChild(s);
-  });
+const XLSX_CDNS = [
+  "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js",
+  "https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js",
+];
+const loadXLSX = async (): Promise<any> => {
+  if ((window as any).XLSX) return (window as any).XLSX;
+  for (const url of XLSX_CDNS) {
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = url;
+        s.onload = () => resolve();
+        s.onerror = () => reject();
+        document.head.appendChild(s);
+      });
+      if ((window as any).XLSX) return (window as any).XLSX;
+    } catch { /* try next CDN */ }
+  }
+  throw new Error("No se pudo cargar la librería Excel");
 };
 
 const TODAY = new Date().toISOString().slice(0, 10);
@@ -71,6 +81,7 @@ export function FixturesView({ user, mob, onAdd, onUpd, onDel, onDelWeek, onAddB
   const [histSearch, sHistSearch] = useState("");
   const [expandedWeek, sExpandedWeek] = useState<string | null>(null);
   const [syncing, sSyncing] = useState(false);
+  const [excelError, sExcelError] = useState("");
 
   // Week days
   const weekDays = useMemo(() => {
@@ -149,11 +160,18 @@ export function FixturesView({ user, mob, onAdd, onUpd, onDel, onDelWeek, onAddB
   // ── Excel import ──
   const handleExcelFile = async (file: File) => {
     sExcelFile(file);
-    const XLSX = await loadXLSX();
-    const data = await file.arrayBuffer();
-    const wb = XLSX.read(data);
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const json: any[] = XLSX.utils.sheet_to_json(ws, { defval: "" });
+    sExcelError("");
+    let XLSX: any;
+    try { XLSX = await loadXLSX(); } catch (e: any) { sExcelError(e.message || "Error cargando librería Excel"); return; }
+    let data: ArrayBuffer;
+    try { data = await file.arrayBuffer(); } catch { sExcelError("Error leyendo archivo"); return; }
+    let json: any[];
+    try {
+      const wb = XLSX.read(data);
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      json = XLSX.utils.sheet_to_json(ws, { defval: "" });
+      if (!json.length) { sExcelError("El archivo no tiene datos"); return; }
+    } catch (e: any) { sExcelError("Error parseando Excel: " + (e.message || "")); return; }
     // Map columns — flexible matching
     const mapped = json.map((r: any) => {
       const keys = Object.keys(r);
@@ -495,6 +513,7 @@ export function FixturesView({ user, mob, onAdd, onUpd, onDel, onDelWeek, onAddB
           {!excelRows.length && <div style={{ border: "2px dashed " + colors.g3, borderRadius: 12, padding: 30, textAlign: "center" }}>
             <input type="file" accept=".xlsx,.xls,.csv" onChange={e => { const f = e.target.files?.[0]; if (f) handleExcelFile(f); }} style={{ display: "block", margin: "0 auto" }} />
             <div style={{ fontSize: 11, color: colors.g4, marginTop: 8 }}>Columnas esperadas: DIVISION, RIVAL, DIA, HORA, CONDICION, CANCHA</div>
+            {excelError && <div style={{ marginTop: 10, padding: "10px 14px", borderRadius: 8, background: "#FEE2E2", border: "1px solid #DC2626", color: "#DC2626", fontSize: 12, fontWeight: 600 }}>❌ {excelError}</div>}
           </div>}
           {excelRows.length > 0 && <>
             <div style={{ fontSize: 12, fontWeight: 700, color: colors.nv, marginBottom: 8 }}>Preview ({excelRows.length} partidos)</div>
