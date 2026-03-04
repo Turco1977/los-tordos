@@ -72,6 +72,7 @@
 - [x] Borrar mensajes individuales y conversaciones completas en DMs
 - [x] Aprobación de minutas CD/SE con quórum (5 CD / 3 SE), barra de progreso, firmas y status automático
 - [x] Pre-cargar área/depto/responsable en "+ Tarea" desde departamento (salta pantalla selector)
+- [x] @Menciones universales: MentionInput en ~24 campos de texto + notificaciones automáticas
 
 ## Tareas propuestas por Claude (realizadas)
 
