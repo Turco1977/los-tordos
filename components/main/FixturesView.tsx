@@ -5,7 +5,6 @@ import { Btn, Card, Ring } from "@/components/ui";
 import { useC } from "@/lib/theme-context";
 import { useDataStore } from "@/lib/store";
 import { shareFixturesWhatsApp } from "@/lib/export";
-import { read, utils } from "xlsx";
 
 const TODAY = new Date().toISOString().slice(0, 10);
 const FKEYS = Object.keys(BOOK_FAC).filter(k => k.startsWith("cancha"));
@@ -142,53 +141,57 @@ export function FixturesView({ user, mob, onAdd, onUpd, onDel, onDelWeek, onAddB
     if (!excelFile) return;
     sExcelError("");
     sExcelLoading(true);
-    let json: any[];
+    let rows: any[][];
     try {
-      const data = await excelFile.arrayBuffer();
-      const wb = read(data);
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      json = utils.sheet_to_json(ws, { defval: "" });
-      if (!json.length) { sExcelError("El archivo no tiene datos"); sExcelLoading(false); return; }
+      const { default: readXlsx } = await import("read-excel-file/browser");
+      rows = await readXlsx(excelFile);
+      if (rows.length < 2) { sExcelError("El archivo no tiene datos"); sExcelLoading(false); return; }
     } catch (e: any) { sExcelError("Error parseando Excel: " + (e.message || "")); sExcelLoading(false); return; }
-    // Map columns — flexible matching
-    const mapped = json.map((r: any) => {
-      const keys = Object.keys(r);
-      const find = (patterns: string[]) => keys.find(k => patterns.some(p => k.toUpperCase().includes(p))) || "";
-      const division = r[find(["DIVIS", "DIV", "CATEG"])] || "";
-      const rival = r[find(["RIVAL", "EQUIPO", "CLUB"])] || "";
-      const dia = r[find(["DIA", "FECHA", "DATE"])] || "";
-      const hora = r[find(["HORA", "TIME", "HORARIO"])] || "";
-      const condicion = r[find(["CONDIC", "COND", "LOC"])] || "";
-      const cancha = r[find(["CANCHA", "CAMPO", "FIELD"])] || "";
-      // Parse date — handle various formats
+    // First row = headers
+    const headers = rows[0].map((h: any) => String(h || "").toUpperCase().trim());
+    const colIdx = (patterns: string[]) => headers.findIndex(h => patterns.some(p => h.includes(p)));
+    const iDiv = colIdx(["DIVIS", "DIV", "CATEG"]);
+    const iRiv = colIdx(["RIVAL", "EQUIPO", "CLUB"]);
+    const iDia = colIdx(["DIA", "FECHA", "DATE"]);
+    const iHora = colIdx(["HORA", "TIME", "HORARIO"]);
+    const iCond = colIdx(["CONDIC", "COND", "LOC"]);
+    const iCancha = colIdx(["CANCHA", "CAMPO", "FIELD"]);
+    // Map data rows
+    const mapped = rows.slice(1).map((r: any[]) => {
+      const val = (i: number) => i >= 0 && i < r.length ? r[i] : "";
+      const division = String(val(iDiv) || "").trim();
+      const rival = String(val(iRiv) || "").trim();
+      const dia = val(iDia);
+      const hora = String(val(iHora) || "").trim();
+      const condicion = String(val(iCond) || "").trim();
+      const cancha = String(val(iCancha) || "").trim();
       let date = TODAY;
       if (dia) {
-        if (typeof dia === "number") {
-          // Excel serial date
+        if (dia instanceof Date) {
+          date = dateISO(dia);
+        } else if (typeof dia === "number") {
           const d = new Date((dia - 25569) * 86400 * 1000);
           date = dateISO(d);
-        } else if (typeof dia === "string" && dia.includes("-")) {
-          date = dia.slice(0, 10);
-        } else if (typeof dia === "string" && dia.includes("/")) {
-          const parts = dia.split("/");
-          if (parts.length === 3) {
-            const [dd, mm, yy] = parts;
-            date = `${yy.length === 2 ? "20" + yy : yy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
+        } else {
+          const s = String(dia);
+          if (s.includes("-")) date = s.slice(0, 10);
+          else if (s.includes("/")) {
+            const parts = s.split("/");
+            if (parts.length === 3) {
+              const [dd, mm, yy] = parts;
+              date = `${yy.length === 2 ? "20" + yy : yy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
+            }
           }
         }
       }
       return {
-        division: String(division).trim(),
-        rival: String(rival).trim(),
-        date,
-        time: String(hora).trim(),
-        condicion: String(condicion).trim(),
-        is_local: checkLocal(String(condicion)),
-        cancha: String(cancha).trim(),
-        facility_key: FIX_CANCHA_MAP[(String(cancha).trim()).toUpperCase()] || "",
+        division, rival, date, time: hora, condicion,
+        is_local: checkLocal(condicion),
+        cancha,
+        facility_key: FIX_CANCHA_MAP[cancha.toUpperCase()] || "",
         status: "pendiente",
         notes: "",
-        _missingCancha: !String(cancha).trim(),
+        _missingCancha: !cancha,
       };
     }).filter((r: any) => r.division || r.rival);
     sExcelRows(mapped);
