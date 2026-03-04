@@ -5,28 +5,7 @@ import { Btn, Card, Ring } from "@/components/ui";
 import { useC } from "@/lib/theme-context";
 import { useDataStore } from "@/lib/store";
 import { shareFixturesWhatsApp } from "@/lib/export";
-
-// Load SheetJS from CDN at runtime (avoids bundler issues with xlsx)
-const XLSX_CDNS = [
-  "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js",
-  "https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js",
-];
-const loadXLSX = async (): Promise<any> => {
-  if ((window as any).XLSX) return (window as any).XLSX;
-  for (const url of XLSX_CDNS) {
-    try {
-      await new Promise<void>((resolve, reject) => {
-        const s = document.createElement("script");
-        s.src = url;
-        s.onload = () => resolve();
-        s.onerror = () => reject();
-        document.head.appendChild(s);
-      });
-      if ((window as any).XLSX) return (window as any).XLSX;
-    } catch { /* try next CDN */ }
-  }
-  throw new Error("No se pudo cargar la librería Excel");
-};
+import { read, utils } from "xlsx";
 
 const TODAY = new Date().toISOString().slice(0, 10);
 const FKEYS = Object.keys(BOOK_FAC).filter(k => k.startsWith("cancha"));
@@ -158,20 +137,19 @@ export function FixturesView({ user, mob, onAdd, onUpd, onDel, onDelWeek, onAddB
   };
 
   // ── Excel import ──
-  const handleExcelFile = async (file: File) => {
-    sExcelFile(file);
+  const [excelLoading, sExcelLoading] = useState(false);
+  const processExcelFile = async () => {
+    if (!excelFile) return;
     sExcelError("");
-    let XLSX: any;
-    try { XLSX = await loadXLSX(); } catch (e: any) { sExcelError(e.message || "Error cargando librería Excel"); return; }
-    let data: ArrayBuffer;
-    try { data = await file.arrayBuffer(); } catch { sExcelError("Error leyendo archivo"); return; }
+    sExcelLoading(true);
     let json: any[];
     try {
-      const wb = XLSX.read(data);
+      const data = await excelFile.arrayBuffer();
+      const wb = read(data);
       const ws = wb.Sheets[wb.SheetNames[0]];
-      json = XLSX.utils.sheet_to_json(ws, { defval: "" });
-      if (!json.length) { sExcelError("El archivo no tiene datos"); return; }
-    } catch (e: any) { sExcelError("Error parseando Excel: " + (e.message || "")); return; }
+      json = utils.sheet_to_json(ws, { defval: "" });
+      if (!json.length) { sExcelError("El archivo no tiene datos"); sExcelLoading(false); return; }
+    } catch (e: any) { sExcelError("Error parseando Excel: " + (e.message || "")); sExcelLoading(false); return; }
     // Map columns — flexible matching
     const mapped = json.map((r: any) => {
       const keys = Object.keys(r);
@@ -214,6 +192,7 @@ export function FixturesView({ user, mob, onAdd, onUpd, onDel, onDelWeek, onAddB
       };
     }).filter((r: any) => r.division || r.rival);
     sExcelRows(mapped);
+    sExcelLoading(false);
     // Auto-generate week label from dates
     const uniqueDates = [...new Set(mapped.map((r: any) => r.date))].sort();
     if (uniqueDates.length && !excelWeekLabel) {
@@ -511,8 +490,13 @@ export function FixturesView({ user, mob, onAdd, onUpd, onDel, onDelWeek, onAddB
             <input value={excelWeekLabel} onChange={e => sExcelWeekLabel(e.target.value)} style={iSt} placeholder="Ej: Viernes 6 y Sábado 7 de Marzo 2026" />
           </div>
           {!excelRows.length && <div style={{ border: "2px dashed " + colors.g3, borderRadius: 12, padding: 30, textAlign: "center" }}>
-            <input type="file" accept=".xlsx,.xls,.csv" onChange={e => { const f = e.target.files?.[0]; if (f) handleExcelFile(f); }} style={{ display: "block", margin: "0 auto" }} />
+            <input type="file" accept=".xlsx,.xls,.csv" onChange={e => { const f = e.target.files?.[0]; if (f) sExcelFile(f); }} style={{ display: "block", margin: "0 auto" }} />
             <div style={{ fontSize: 11, color: colors.g4, marginTop: 8 }}>Columnas esperadas: DIVISION, RIVAL, DIA, HORA, CONDICION, CANCHA</div>
+            {excelFile && <div style={{ marginTop: 14 }}>
+              <Btn v="p" s="s" onClick={processExcelFile} disabled={excelLoading}>
+                {excelLoading ? "⏳ Procesando..." : "📥 Cargar archivo"}
+              </Btn>
+            </div>}
             {excelError && <div style={{ marginTop: 10, padding: "10px 14px", borderRadius: 8, background: "#FEE2E2", border: "1px solid #DC2626", color: "#DC2626", fontSize: 12, fontWeight: 600 }}>❌ {excelError}</div>}
           </div>}
           {excelRows.length > 0 && <>
