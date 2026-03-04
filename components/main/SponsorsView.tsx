@@ -7,6 +7,7 @@ import { useC } from "@/lib/theme-context";
 import { useDataStore } from "@/lib/store";
 import { Thread } from "@/components/main/Thread";
 import { SponDelivery } from "@/components/main/SponDelivery";
+import { loadXLSX } from "@/lib/xlsx-cdn";
 
 const TODAY=new Date().toISOString().slice(0,10);
 const daysLeft=(d:string)=>{if(!d)return Infinity;return Math.round((new Date(d).getTime()-new Date(TODAY).getTime())/864e5);};
@@ -111,7 +112,7 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
     if(!file)return;
     sImportErr(null);
     try{
-      const XLSX=await import("xlsx");
+      const XLSX=await loadXLSX();
       const data=new Uint8Array(await file.arrayBuffer());
       const wb=XLSX.read(data);
       const ws=wb.Sheets[wb.SheetNames[0]];

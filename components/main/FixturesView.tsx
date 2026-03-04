@@ -5,6 +5,7 @@ import { Btn, Card, Ring } from "@/components/ui";
 import { useC } from "@/lib/theme-context";
 import { useDataStore } from "@/lib/store";
 import { shareFixturesWhatsApp } from "@/lib/export";
+import { loadXLSX } from "@/lib/xlsx-cdn";
 
 const TODAY = new Date().toISOString().slice(0, 10);
 const FKEYS = Object.keys(BOOK_FAC).filter(k => k.startsWith("cancha"));
@@ -141,35 +142,29 @@ export function FixturesView({ user, mob, onAdd, onUpd, onDel, onDelWeek, onAddB
     if (!excelFile) return;
     sExcelError("");
     sExcelLoading(true);
-    let rows: any[][];
+    let X: any;
+    try { X = await loadXLSX(); } catch { sExcelError("No se pudo cargar el parser de Excel. Intentá de nuevo."); sExcelLoading(false); return; }
+    let json: any[];
     try {
-      const { default: readXlsx } = await import("read-excel-file/browser");
-      rows = await readXlsx(excelFile);
-      if (rows.length < 2) { sExcelError("El archivo no tiene datos"); sExcelLoading(false); return; }
-    } catch (e: any) { sExcelError("Error parseando Excel: " + (e.message || "")); sExcelLoading(false); return; }
-    // First row = headers
-    const headers = rows[0].map((h: any) => String(h || "").toUpperCase().trim());
-    const colIdx = (patterns: string[]) => headers.findIndex(h => patterns.some(p => h.includes(p)));
-    const iDiv = colIdx(["DIVIS", "DIV", "CATEG"]);
-    const iRiv = colIdx(["RIVAL", "EQUIPO", "CLUB"]);
-    const iDia = colIdx(["DIA", "FECHA", "DATE"]);
-    const iHora = colIdx(["HORA", "TIME", "HORARIO"]);
-    const iCond = colIdx(["CONDIC", "COND", "LOC"]);
-    const iCancha = colIdx(["CANCHA", "CAMPO", "FIELD"]);
-    // Map data rows
-    const mapped = rows.slice(1).map((r: any[]) => {
-      const val = (i: number) => i >= 0 && i < r.length ? r[i] : "";
-      const division = String(val(iDiv) || "").trim();
-      const rival = String(val(iRiv) || "").trim();
-      const dia = val(iDia);
-      const hora = String(val(iHora) || "").trim();
-      const condicion = String(val(iCond) || "").trim();
-      const cancha = String(val(iCancha) || "").trim();
+      const data = await excelFile.arrayBuffer();
+      const wb = X.read(data, { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      json = X.utils.sheet_to_json(ws, { defval: "" });
+      if (!json.length) { sExcelError("El archivo no tiene datos"); sExcelLoading(false); return; }
+    } catch (e: any) { sExcelError("Error parseando: " + (e.message || "")); sExcelLoading(false); return; }
+    // Map columns — flexible matching
+    const mapped = json.map((r: any) => {
+      const keys = Object.keys(r);
+      const find = (patterns: string[]) => keys.find(k => patterns.some(p => k.toUpperCase().includes(p))) || "";
+      const division = r[find(["DIVIS", "DIV", "CATEG"])] || "";
+      const rival = r[find(["RIVAL", "EQUIPO", "CLUB"])] || "";
+      const dia = r[find(["DIA", "FECHA", "DATE"])] || "";
+      const hora = r[find(["HORA", "TIME", "HORARIO"])] || "";
+      const condicion = r[find(["CONDIC", "COND", "LOC"])] || "";
+      const cancha = r[find(["CANCHA", "CAMPO", "FIELD"])] || "";
       let date = TODAY;
       if (dia) {
-        if (dia instanceof Date) {
-          date = dateISO(dia);
-        } else if (typeof dia === "number") {
+        if (typeof dia === "number") {
           const d = new Date((dia - 25569) * 86400 * 1000);
           date = dateISO(d);
         } else {
@@ -185,13 +180,17 @@ export function FixturesView({ user, mob, onAdd, onUpd, onDel, onDelWeek, onAddB
         }
       }
       return {
-        division, rival, date, time: hora, condicion,
-        is_local: checkLocal(condicion),
-        cancha,
-        facility_key: FIX_CANCHA_MAP[cancha.toUpperCase()] || "",
+        division: String(division).trim(),
+        rival: String(rival).trim(),
+        date,
+        time: String(hora).trim(),
+        condicion: String(condicion).trim(),
+        is_local: checkLocal(String(condicion)),
+        cancha: String(cancha).trim(),
+        facility_key: FIX_CANCHA_MAP[String(cancha).trim().toUpperCase()] || "",
         status: "pendiente",
         notes: "",
-        _missingCancha: !cancha,
+        _missingCancha: !String(cancha).trim(),
       };
     }).filter((r: any) => r.division || r.rival);
     sExcelRows(mapped);

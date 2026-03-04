@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useC } from "@/lib/theme-context";
 import { Btn } from "@/components/ui";
-import * as XLSX from "xlsx";
+import { loadXLSX } from "@/lib/xlsx-cdn";
 
 const ACTIVO_COLS:{key:string,aliases:string[]}[]=[
   {key:"name",aliases:["nombre","name","descripcion","item"]},
@@ -41,58 +41,48 @@ export function InvImport({itemType,onImport,onX,mob}:{itemType:"activo"|"lote",
   const cols=itemType==="lote"?LOTE_COLS:ACTIVO_COLS;
   const colGuide=cols.map(c=>c.aliases[0]).join(", ");
 
-  const parseFile=(file:File)=>{
-    const reader=new FileReader();
-    reader.onload=(ev:any)=>{
-      try{
-        const data=new Uint8Array(ev.target.result);
-        const wb=XLSX.read(data,{type:"array"});
-        const ws=wb.Sheets[wb.SheetNames[0]];
-        const json:any[]=XLSX.utils.sheet_to_json(ws,{defval:""});
-        if(!json.length){sErr("Archivo vacío o sin datos");sRows([]);return;}
-
-        // Map headers
-        const fileHeaders=Object.keys(json[0]);
-        const headerMap:Record<string,string>={};
-        const mappedKeys:string[]=[];
-        for(const col of cols){
-          const match=fileHeaders.find(fh=>col.aliases.includes(norm(fh)));
-          if(match){headerMap[match]=col.key;mappedKeys.push(col.key);}
-        }
-        sMapped(mappedKeys);
-
-        if(!headerMap[fileHeaders.find(fh=>cols[0].aliases.includes(norm(fh)))||""]){
-          sErr("No se encontró columna 'nombre'. Columnas esperadas: "+colGuide);sRows([]);return;
-        }
-
-        // Build rows
-        const parsed=json.map(row=>{
-          const obj:any={item_type:itemType};
-          for(const[fileKey,dbKey]of Object.entries(headerMap)){
-            let val=row[fileKey];
-            if(dbKey==="quantity"||dbKey==="unit_cost")val=Number(val)||( dbKey==="quantity"?1:0);
-            else if(dbKey==="purchase_date"||dbKey==="warranty_until"){
-              if(typeof val==="number"){const d=XLSX.SSF.parse_date_code(val);if(d)val=`${d.y}-${String(d.m).padStart(2,"0")}-${String(d.d).padStart(2,"0")}`;}
-              else val=val?String(val).trim():"";
-            }
-            else val=String(val??"").trim();
-            obj[dbKey]=val;
+  const parseFile=async(file:File)=>{
+    try{
+      const XLSX=await loadXLSX();
+      const data=new Uint8Array(await file.arrayBuffer());
+      const wb=XLSX.read(data,{type:"array"});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const json:any[]=XLSX.utils.sheet_to_json(ws,{defval:""});
+      if(!json.length){sErr("Archivo vacío o sin datos");sRows([]);return;}
+      const fileHeaders=Object.keys(json[0]);
+      const headerMap:Record<string,string>={};
+      const mappedKeys:string[]=[];
+      for(const col of cols){
+        const match=fileHeaders.find(fh=>col.aliases.includes(norm(fh)));
+        if(match){headerMap[match]=col.key;mappedKeys.push(col.key);}
+      }
+      sMapped(mappedKeys);
+      if(!headerMap[fileHeaders.find(fh=>cols[0].aliases.includes(norm(fh)))||""]){
+        sErr("No se encontró columna 'nombre'. Columnas esperadas: "+colGuide);sRows([]);return;
+      }
+      const parsed=json.map(row=>{
+        const obj:any={item_type:itemType};
+        for(const[fileKey,dbKey]of Object.entries(headerMap)){
+          let val=row[fileKey];
+          if(dbKey==="quantity"||dbKey==="unit_cost")val=Number(val)||(dbKey==="quantity"?1:0);
+          else if(dbKey==="purchase_date"||dbKey==="warranty_until"){
+            if(typeof val==="number"){const d=XLSX.SSF?.parse_date_code?.(val);if(d)val=`${d.y}-${String(d.m).padStart(2,"0")}-${String(d.d).padStart(2,"0")}`;else val="";}
+            else val=val?String(val).trim():"";
           }
-          // defaults
-          if(!obj.condition)obj.condition=itemType==="lote"?"nuevo":"bueno";
-          if(!obj.category)obj.category=itemType==="lote"?"deportivo":"infraestructura";
-          if(!obj.quantity)obj.quantity=1;
-          if(itemType==="lote"&&!obj.season)obj.season=new Date().getFullYear().toString();
-          if(!obj.purchase_date)obj.purchase_date=null;
-          if(!obj.warranty_until)obj.warranty_until=null;
-          return obj;
-        }).filter(r=>r.name);
-
-        if(!parsed.length){sErr("No se encontraron filas con nombre");sRows([]);return;}
-        sRows(parsed);sErr("");
-      }catch(e:any){sErr("Error al leer archivo: "+(e.message||"formato inválido"));sRows([]);}
-    };
-    reader.readAsArrayBuffer(file);
+          else val=String(val??"").trim();
+          obj[dbKey]=val;
+        }
+        if(!obj.condition)obj.condition=itemType==="lote"?"nuevo":"bueno";
+        if(!obj.category)obj.category=itemType==="lote"?"deportivo":"infraestructura";
+        if(!obj.quantity)obj.quantity=1;
+        if(itemType==="lote"&&!obj.season)obj.season=new Date().getFullYear().toString();
+        if(!obj.purchase_date)obj.purchase_date=null;
+        if(!obj.warranty_until)obj.warranty_until=null;
+        return obj;
+      }).filter(r=>r.name);
+      if(!parsed.length){sErr("No se encontraron filas con nombre");sRows([]);return;}
+      sRows(parsed);sErr("");
+    }catch(e:any){sErr("Error al leer archivo: "+(e.message||"formato inválido"));sRows([]);}
   };
 
   const handleFile=(e:any)=>{const f=e.target.files?.[0];if(!f)return;parseFile(f);};

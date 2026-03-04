@@ -9,6 +9,7 @@ import { useTheme, darkCSS } from "@/lib/theme";
 import { ThemeCtx, useC } from "@/lib/theme-context";
 import { Toast, useMobile, Btn, Card, Ring } from "@/components/ui";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { loadXLSX } from "@/lib/xlsx-cdn";
 
 const supabase = createClient();
 const TODAY = new Date().toISOString().slice(0,10);
@@ -999,7 +1000,7 @@ function BulkAthleteForm({onSave,onCancel,mob}:{onSave:(rows:Partial<DepAthlete>
     sFileName(file.name);
     const ext=file.name.split(".").pop()?.toLowerCase()||"";
     if(ext==="xlsx"||ext==="xls"){
-      const XLSX=await import("xlsx");
+      const XLSX=await loadXLSX();
       const buf=await file.arrayBuffer();
       const wb=XLSX.read(buf,{type:"array"});
       const ws=wb.Sheets[wb.SheetNames[0]];
