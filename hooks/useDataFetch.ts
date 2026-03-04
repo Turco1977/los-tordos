@@ -52,8 +52,8 @@ export function useDataFetch(
       supabase.from("rental_config").select("*"),
       user ? supabase.from("dm_messages").select("*").or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`).order("created_at", { ascending: true }).limit(500) : Promise.resolve({ data: [] }),
     ]);
-    // Batch 3: Secondary data (11 queries)
-    const [invRes, spRes, pbRes, imRes, idRes, sdRes, archRes, tnRes, thRes, tcRes, fxRes] = await Promise.all([
+    // Batch 3: Secondary data (13 queries)
+    const [invRes, spRes, pbRes, imRes, idRes, sdRes, archRes, tnRes, thRes, tcRes, fxRes, becRes, ascRes] = await Promise.all([
       supabase.from("inventory").select("*").order("id", { ascending: false }),
       supabase.from("sponsors").select("*").order("id", { ascending: false }),
       supabase.from("project_budgets").select("*").order("id", { ascending: false }),
@@ -65,6 +65,8 @@ export function useDataFetch(
       supabase.from("torneo_hitos").select("*").order("id"),
       supabase.from("torneo_clubes").select("*").order("id", { ascending: false }),
       supabase.from("fixtures").select("*").order("date", { ascending: false }).limit(500),
+      supabase.from("becas").select("*").order("id", { ascending: false }),
+      supabase.from("atencion_socio_casos").select("*").order("id", { ascending: false }),
     ]);
     const errMsg = (e: any) => e?.message || e?.code || e?.details || "error de conexión";
     const errors: string[] = [];
@@ -121,6 +123,8 @@ export function useDataFetch(
       ...(thRes.data ? { torneoHitos: thRes.data } : {}),
       ...(tcRes.data ? { torneoClubes: tcRes.data } : {}),
       ...(fxRes.data ? { fixtures: fxRes.data } : {}),
+      ...(becRes.data ? { becas: becRes.data } : {}),
+      ...(ascRes.data ? { asCasos: ascRes.data } : {}),
       ...(mappedPeds ? { peds: mappedPeds } : {}),
     });
 

@@ -35,9 +35,11 @@ interface DataStore {
   torneoHitos: any[];
   torneoClubes: any[];
   fixtures: any[];
+  becas: any[];
+  asCasos: any[];
 
   // Batch setter (for fetchAll)
-  setAll: (data: Partial<Pick<DataStore, "users"|"om"|"peds"|"hitos"|"agendas"|"minutas"|"presu"|"provs"|"reminders"|"projects"|"projTasks"|"taskTemplates"|"projBudgets"|"inventory"|"invMaint"|"invDist"|"bookings"|"sponsors"|"sponMsgs"|"sponDeliveries"|"dbNotifs"|"archivos"|"viajes"|"rentalConfig"|"dmMsgs"|"torneos"|"torneoHitos"|"torneoClubes"|"fixtures">>) => void;
+  setAll: (data: Partial<Pick<DataStore, "users"|"om"|"peds"|"hitos"|"agendas"|"minutas"|"presu"|"provs"|"reminders"|"projects"|"projTasks"|"taskTemplates"|"projBudgets"|"inventory"|"invMaint"|"invDist"|"bookings"|"sponsors"|"sponMsgs"|"sponDeliveries"|"dbNotifs"|"archivos"|"viajes"|"rentalConfig"|"dmMsgs"|"torneos"|"torneoHitos"|"torneoClubes"|"fixtures"|"becas"|"asCasos">>) => void;
 
   // Functional setters (same API as useState setters)
   sUs: Setter<any>;
@@ -71,6 +73,8 @@ interface DataStore {
   sTorneoHitos: Setter<any>;
   sTorneoClubes: Setter<any>;
   sFixtures: Setter<any>;
+  sBecas: Setter<any>;
+  sAsCasos: Setter<any>;
 
   // Reset all data (logout)
   clear: () => void;
@@ -110,6 +114,8 @@ export const useDataStore = create<DataStore>((set) => ({
   torneoHitos: empty,
   torneoClubes: empty,
   fixtures: empty,
+  becas: empty,
+  asCasos: empty,
 
   setAll: (data) => set(data),
 
@@ -144,6 +150,8 @@ export const useDataStore = create<DataStore>((set) => ({
   sTorneoHitos: (fn) => set((s) => ({ torneoHitos: fn(s.torneoHitos) })),
   sTorneoClubes: (fn) => set((s) => ({ torneoClubes: fn(s.torneoClubes) })),
   sFixtures: (fn) => set((s) => ({ fixtures: fn(s.fixtures) })),
+  sBecas: (fn) => set((s) => ({ becas: fn(s.becas) })),
+  sAsCasos: (fn) => set((s) => ({ asCasos: fn(s.asCasos) })),
 
   clear: () => set({
     users: empty,
@@ -177,5 +185,7 @@ export const useDataStore = create<DataStore>((set) => ({
     torneoHitos: empty,
     torneoClubes: empty,
     fixtures: empty,
+    becas: empty,
+    asCasos: empty,
   }),
 }));
