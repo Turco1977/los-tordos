@@ -30,8 +30,8 @@ export function useDataFetch(
     try {
     // Ensure auth token is fresh before parallel queries (prevents abort from token refresh)
     await supabase.auth.getSession();
-    // Phase 1: Load 50 most recent tasks + user's assigned tasks immediately, plus core data
-    const [pRes, recentRes, userRes, omRes, msRes, agRes, miRes, prRes, pvRes, remRes, projRes, ptRes, ttRes, invRes, bkRes, spRes, pbRes, imRes, idRes, sdRes, archRes, rcRes, dmRes, tnRes, thRes, tcRes, fxRes] = await Promise.all([
+    // Batch 1: Core data (14 queries)
+    const [pRes, recentRes, userRes, omRes, msRes, agRes, miRes, prRes, pvRes, remRes, projRes, ptRes, ttRes, bkRes] = await Promise.all([
       supabase.from("profiles").select("*"),
       supabase.from("tasks").select("*").order("id", { ascending: false }).limit(50),
       user ? supabase.from("tasks").select("*").eq("assigned_to", user.id).order("id", { ascending: false }) : Promise.resolve({ data: [] }),
@@ -45,8 +45,11 @@ export function useDataFetch(
       supabase.from("projects").select("*").order("id", { ascending: false }),
       supabase.from("project_tasks").select("*").order("id", { ascending: false }),
       supabase.from("task_templates").select("*").order("id", { ascending: false }),
-      supabase.from("inventory").select("*").order("id", { ascending: false }),
       supabase.from("bookings").select("*").order("id", { ascending: false }),
+    ]);
+    // Batch 2: Secondary data (13 queries)
+    const [invRes, spRes, pbRes, imRes, idRes, sdRes, archRes, rcRes, dmRes, tnRes, thRes, tcRes, fxRes] = await Promise.all([
+      supabase.from("inventory").select("*").order("id", { ascending: false }),
       supabase.from("sponsors").select("*").order("id", { ascending: false }),
       supabase.from("project_budgets").select("*").order("id", { ascending: false }),
       supabase.from("inventory_maintenance").select("*").order("id", { ascending: false }),
