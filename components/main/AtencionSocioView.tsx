@@ -1,7 +1,7 @@
 "use client";
 import { useState, useMemo } from "react";
 import { useC } from "@/lib/theme-context";
-import { AST, ASC } from "@/lib/constants";
+import { AST, ASC, DEPTOS } from "@/lib/constants";
 import { fmtD } from "@/lib/mappers";
 import { Card, Btn } from "@/components/ui";
 
@@ -25,7 +25,7 @@ const emptyForm = () => ({
   estado: AST.NUE,
 });
 
-export function AtencionSocioView({ user, mob, showT, casos, becasAprobadas, onAddCaso, onUpdCaso, onDelCaso }: any) {
+export function AtencionSocioView({ user, mob, showT, casos, becasAprobadas, onAddCaso, onUpdCaso, onDelCaso, onVote, users }: any) {
   const { colors, isDark, cardBg } = useC();
   const [tab, sTab] = useState<"deudas" | "becas">("deudas");
   const [fEst, sFEst] = useState("all");
@@ -283,6 +283,37 @@ export function AtencionSocioView({ user, mob, showT, casos, becasAprobadas, onA
                   {selCaso.situacion}
                 </div>
               )}
+              {/* Voting panel — visible when estado = deliberacion_se */}
+              {(() => {
+                const QUORUM = 3;
+                const votos = selCaso.votos || [];
+                if (selCaso.estado !== AST.DEL && selCaso.estado !== AST.APR) return null;
+                const isSA = user.role === "superadmin" || user.role === "admin";
+                const userAreaIds = user.dId ? DEPTOS.filter((d: any) => d.id === user.dId).map((d: any) => d.aId) : [];
+                const canVote = (isSA || userAreaIds.includes(101)) && !votos.some((v: any) => v.userId === user.id) && selCaso.estado === AST.DEL;
+                const alreadyVoted = votos.some((v: any) => v.userId === user.id);
+                return <div style={{ marginTop: 14, padding: 12, borderRadius: 10, border: "1px solid " + (selCaso.estado === AST.APR ? "#6EE7B7" : "#FDE68A"), background: selCaso.estado === AST.APR ? "#ECFDF5" : "#FFFBEB" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: selCaso.estado === AST.APR ? "#065F46" : "#92400E" }}>
+                      {selCaso.estado === AST.APR ? "\u2705 Caso Aprobado por SE" : "\uD83D\uDDF3\uFE0F Votacion SE"}
+                    </div>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: selCaso.estado === AST.APR ? "#065F46" : "#92400E" }}>{votos.length}/{QUORUM}</span>
+                  </div>
+                  <div style={{ height: 6, background: selCaso.estado === AST.APR ? "#A7F3D0" : "#FDE68A", borderRadius: 3, marginBottom: 8 }}>
+                    <div style={{ height: "100%", background: selCaso.estado === AST.APR ? "#10B981" : "#F59E0B", borderRadius: 3, width: Math.min(100, votos.length / QUORUM * 100) + "%", transition: "width 0.3s" }} />
+                  </div>
+                  {votos.length > 0 && <div style={{ marginBottom: 8 }}>
+                    {votos.map((v: any, i: number) => <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 0", fontSize: 11 }}>
+                      <span style={{ color: "#10B981" }}>{"\u2705"}</span>
+                      <span style={{ fontWeight: 600, color: colors.nv }}>{v.userName}</span>
+                      <span style={{ color: colors.g4, fontSize: 10 }}>{fmtD(v.date)}</span>
+                    </div>)}
+                  </div>}
+                  {canVote && <Btn v="p" s="s" onClick={() => onVote(selCaso.id)} style={{ background: "#F59E0B", border: "none", color: "#fff" }}>{"\u2705"} Aprobar caso</Btn>}
+                  {alreadyVoted && selCaso.estado !== AST.APR && <div style={{ fontSize: 11, color: "#065F46", fontWeight: 600 }}>{"\u2705"} Ya registraste tu voto</div>}
+                </div>;
+              })()}
+
               {selCaso.created_at && <div style={{ marginTop: 10, fontSize: 10, color: colors.g4 }}>Creado: {fmtD(typeof selCaso.created_at === "string" ? selCaso.created_at.slice(0, 10) : "")}</div>}
             </Card>
           )}

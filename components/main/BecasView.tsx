@@ -1,7 +1,8 @@
 "use client";
 import { useState, useMemo } from "react";
 import { useC } from "@/lib/theme-context";
-import { BST, BSC } from "@/lib/constants";
+import { BST, BSC, DEPTOS } from "@/lib/constants";
+import { fmtD } from "@/lib/mappers";
 import { Card, Btn } from "@/components/ui";
 
 const TODAY = new Date().toISOString().slice(0, 10);
@@ -18,7 +19,7 @@ const emptyForm = () => ({
   motivacion: "", sin_beca: "", estado: BST.NUE,
 });
 
-export function BecasView({ user, mob, showT, becas, onAdd, onUpd, onDel }: any) {
+export function BecasView({ user, mob, showT, becas, onAdd, onUpd, onDel, onVote, users }: any) {
   const { colors, isDark, cardBg } = useC();
   const [showForm, sShowForm] = useState(false);
   const [form, sForm] = useState<any>(emptyForm());
@@ -127,6 +128,37 @@ export function BecasView({ user, mob, showT, becas, onAdd, onUpd, onDel }: any)
               })}
             </div>
           </div>
+
+          {/* Voting panel — visible when estado = deliberacion */}
+          {(() => {
+            const QUORUM = 5;
+            const votos = sel.votos || [];
+            if (sel.estado !== BST.DEL && sel.estado !== BST.APR) return null;
+            const isSA = user.role === "superadmin" || user.role === "admin";
+            const userAreaIds = user.dId ? DEPTOS.filter((d: any) => d.id === user.dId).map((d: any) => d.aId) : [];
+            const canVote = (isSA || userAreaIds.includes(100)) && !votos.some((v: any) => v.userId === user.id) && sel.estado === BST.DEL;
+            const alreadyVoted = votos.some((v: any) => v.userId === user.id);
+            return <div style={{ marginTop: 14, padding: 12, borderRadius: 10, border: "1px solid " + (sel.estado === BST.APR ? "#6EE7B7" : "#FDE68A"), background: sel.estado === BST.APR ? "#ECFDF5" : "#FFFBEB" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: sel.estado === BST.APR ? "#065F46" : "#92400E" }}>
+                  {sel.estado === BST.APR ? "\u2705 Beca Aprobada por CD" : "\uD83D\uDDF3\uFE0F Votacion CD"}
+                </div>
+                <span style={{ fontSize: 11, fontWeight: 700, color: sel.estado === BST.APR ? "#065F46" : "#92400E" }}>{votos.length}/{QUORUM}</span>
+              </div>
+              <div style={{ height: 6, background: sel.estado === BST.APR ? "#A7F3D0" : "#FDE68A", borderRadius: 3, marginBottom: 8 }}>
+                <div style={{ height: "100%", background: sel.estado === BST.APR ? "#10B981" : "#F59E0B", borderRadius: 3, width: Math.min(100, votos.length / QUORUM * 100) + "%", transition: "width 0.3s" }} />
+              </div>
+              {votos.length > 0 && <div style={{ marginBottom: 8 }}>
+                {votos.map((v: any, i: number) => <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 0", fontSize: 11 }}>
+                  <span style={{ color: "#10B981" }}>{"\u2705"}</span>
+                  <span style={{ fontWeight: 600, color: colors.nv }}>{v.userName}</span>
+                  <span style={{ color: colors.g4, fontSize: 10 }}>{fmtD(v.date)}</span>
+                </div>)}
+              </div>}
+              {canVote && <Btn v="p" s="s" onClick={() => onVote(sel.id)} style={{ background: "#F59E0B", border: "none", color: "#fff" }}>{"\u2705"} Aprobar beca</Btn>}
+              {alreadyVoted && sel.estado !== BST.APR && <div style={{ fontSize: 11, color: "#065F46", fontWeight: 600 }}>{"\u2705"} Ya registraste tu voto</div>}
+            </div>;
+          })()}
 
           {/* Data grid */}
           <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 10, marginTop: 16, fontSize: 12 }}>
