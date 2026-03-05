@@ -304,6 +304,93 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  /* ── Level 6: Weekly hospitalidad report (Mondays only) ── */
+  let hospReportSent = 0;
+  const dayOfWeek = new Date().getDay(); // 0=Sun, 1=Mon
+  if (dayOfWeek === 1 && process.env.RESEND_API_KEY) {
+    const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+
+    const { data: fixtures } = await db.from("fixtures").select("*").gte("date", weekAgo).lt("date", today).eq("is_local", true);
+    const { data: invitaciones } = await db.from("hospitalidad_invitaciones").select("*");
+
+    const pastFixtures = (fixtures || []) as any[];
+    const allInvs = (invitaciones || []) as any[];
+
+    if (pastFixtures.length > 0) {
+      // Build invitations per fixture
+      const fixtureInvs = pastFixtures.map((f: any) => {
+        const invs = allInvs.filter((i: any) => i.fixture_id === f.id || (i.partido_fecha === f.date && i.partido_rival === f.rival));
+        return { fixture: f, invs };
+      }).filter(g => g.invs.length > 0);
+
+      if (fixtureInvs.length > 0) {
+        const esc = (s: string) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const totalInv = fixtureInvs.reduce((s, g) => s + g.invs.length, 0);
+        const totalAsist = fixtureInvs.reduce((s, g) => s + g.invs.filter((i: any) => i.asistio === true).length, 0);
+        const totalNoAsist = fixtureInvs.reduce((s, g) => s + g.invs.filter((i: any) => i.asistio === false).length, 0);
+        const totalPend = totalInv - totalAsist - totalNoAsist;
+        const totalEntradas = fixtureInvs.reduce((s, g) => s + g.invs.reduce((a: number, i: any) => a + Number(i.entradas || 0), 0), 0);
+
+        let matchSections = "";
+        for (const g of fixtureInvs) {
+          const f = g.fixture;
+          const fDate = f.date || "–";
+          const fRival = esc(f.rival || "TBC");
+          const rows = g.invs.map((i: any) => {
+            const sn = esc(sponsorMap.get(i.sponsor_id) || "Sponsor");
+            return `<tr><td style="padding:5px 8px;border-bottom:1px solid #E8ECF1;font-size:11px">${sn}</td><td style="padding:5px 8px;border-bottom:1px solid #E8ECF1;font-size:11px;text-align:center">${i.entradas || 0}</td><td style="padding:5px 8px;border-bottom:1px solid #E8ECF1;font-size:11px;text-align:center">${i.estacionamiento ? "Sí" : "No"}</td><td style="padding:5px 8px;border-bottom:1px solid #E8ECF1;font-size:11px;text-align:center">${i.zona_vip ? "Sí" : "No"}</td><td style="padding:5px 8px;border-bottom:1px solid #E8ECF1;font-size:11px;text-align:center;font-weight:600;color:${i.asistio === true ? "#10B981" : i.asistio === false ? "#DC2626" : "#F59E0B"}">${i.asistio === true ? "Sí" : i.asistio === false ? "No" : "Pend."}</td><td style="padding:5px 8px;border-bottom:1px solid #E8ECF1;font-size:11px;text-align:center">${i.personas_asistentes || "–"}</td></tr>`;
+          }).join("");
+          matchSections += `<div style="margin-bottom:20px"><h3 style="font-size:13px;color:#0A1628;margin:0 0 6px">🏉 ${fDate} — Los Tordos vs ${fRival} (${esc(f.division || "")})</h3><table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left;padding:5px 8px;background:#0A1628;color:#fff;font-size:10px">Sponsor</th><th style="text-align:center;padding:5px 8px;background:#0A1628;color:#fff;font-size:10px">Entradas</th><th style="text-align:center;padding:5px 8px;background:#0A1628;color:#fff;font-size:10px">Estac.</th><th style="text-align:center;padding:5px 8px;background:#0A1628;color:#fff;font-size:10px">VIP</th><th style="text-align:center;padding:5px 8px;background:#0A1628;color:#fff;font-size:10px">Asistió</th><th style="text-align:center;padding:5px 8px;background:#0A1628;color:#fff;font-size:10px">Personas</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+        }
+
+        const tasa = totalInv > 0 ? Math.round((totalAsist / totalInv) * 100) : 0;
+        const hospHtml = `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:20px">
+          <div style="background:#0A1628;padding:16px 24px;border-radius:12px 12px 0 0;text-align:center">
+            <h2 style="color:#fff;margin:0;font-size:18px">Los Tordos Rugby Club</h2>
+            <p style="color:#8B95A5;margin:4px 0 0;font-size:12px">Informe semanal de hospitalidad</p>
+          </div>
+          <div style="background:#fff;padding:24px;border:1px solid #E8ECF1;border-top:none;border-radius:0 0 12px 12px">
+            <p style="color:#0A1628;font-size:13px;margin:0 0 14px">Semana ${weekAgo} al ${yesterday}:</p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px">
+              <div style="padding:8px 14px;border-radius:8px;background:#F7F8FA;text-align:center"><div style="font-size:18px;font-weight:800;color:#0A1628">${totalInv}</div><div style="font-size:9px;color:#8B95A5">Invitados</div></div>
+              <div style="padding:8px 14px;border-radius:8px;background:#ECFDF5;text-align:center"><div style="font-size:18px;font-weight:800;color:#10B981">${totalAsist}</div><div style="font-size:9px;color:#8B95A5">Asistieron</div></div>
+              <div style="padding:8px 14px;border-radius:8px;background:#FEE2E2;text-align:center"><div style="font-size:18px;font-weight:800;color:#DC2626">${totalNoAsist}</div><div style="font-size:9px;color:#8B95A5">No asistieron</div></div>
+              <div style="padding:8px 14px;border-radius:8px;background:#FEF3C7;text-align:center"><div style="font-size:18px;font-weight:800;color:#F59E0B">${totalPend}</div><div style="font-size:9px;color:#8B95A5">Pendientes</div></div>
+              <div style="padding:8px 14px;border-radius:8px;background:#F7F8FA;text-align:center"><div style="font-size:18px;font-weight:800;color:#0A1628">${totalEntradas}</div><div style="font-size:9px;color:#8B95A5">Entradas</div></div>
+              <div style="padding:8px 14px;border-radius:8px;background:#EFF6FF;text-align:center"><div style="font-size:18px;font-weight:800;color:#3B82F6">${tasa}%</div><div style="font-size:9px;color:#8B95A5">Asistencia</div></div>
+            </div>
+            ${matchSections}
+            <div style="text-align:center;margin-top:20px">
+              <a href="${process.env.NEXT_PUBLIC_APP_URL || "https://lostordos.vercel.app"}" style="display:inline-block;background:#C8102E;color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px">Abrir sistema</a>
+            </div>
+          </div>
+          <p style="text-align:center;color:#8B95A5;font-size:10px;margin-top:12px">Informe automático semanal · Lunes 8:00 AM</p>
+        </div>`;
+
+        // Send to sponsor managers
+        for (const u of sponsorManagers) {
+          const prefs = prefsMap.get(u.id);
+          if (prefs?.daily_summary === false) continue;
+          const prof = profMap.get(u.id);
+          if (!prof?.email) continue;
+          try {
+            await fetch("https://api.resend.com/emails", {
+              method: "POST",
+              headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+              body: JSON.stringify({
+                from: process.env.RESEND_FROM || "Los Tordos <noreply@lostordos.com>",
+                to: prof.email,
+                subject: `[Los Tordos] Hospitalidad semanal — ${totalInv} invitados, ${tasa}% asistencia`,
+                html: hospHtml,
+              }),
+            });
+            hospReportSent++;
+          } catch { /* Email is best-effort */ }
+        }
+      }
+    }
+  }
+
   return NextResponse.json({
     message: "Daily summary completed",
     deadlines: deadlineCount,
@@ -311,5 +398,6 @@ export async function GET(req: NextRequest) {
     tasksProcessed: (tasks || []).length,
     sponsorAlerts,
     birthdayAlerts,
+    hospReportSent,
   });
 }
