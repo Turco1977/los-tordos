@@ -24,7 +24,8 @@ async function createNotifAndPush(
   userId: string,
   title: string,
   message: string,
-  type: string
+  type: string,
+  link = ""
 ) {
   // Insert in-app notification
   await db.from("notifications").insert({
@@ -32,7 +33,7 @@ async function createNotifAndPush(
     title,
     message,
     type,
-    link: "",
+    link,
     read: false,
   });
 
@@ -93,12 +94,8 @@ export async function GET(req: NextRequest) {
     .select("id,title,description,due_date,status,assigned_to,creator_id,created_at,last_deadline_notif")
     .neq("status", "ok");
 
-  if (!tasks?.length) {
-    return NextResponse.json({ message: "No open tasks", deadlines: 0, emails: 0 });
-  }
-
   /* Fetch profiles for emails/names */
-  const { data: profiles } = await db.from("profiles").select("id,email,first_name,last_name");
+  const { data: profiles } = await db.from("profiles").select("id,email,first_name,last_name,role");
   const profMap = new Map<string, { email: string; name: string }>();
   (profiles || []).forEach((p: any) => {
     profMap.set(p.id, { email: p.email || "", name: [p.first_name, p.last_name].filter(Boolean).join(" ") });
@@ -113,7 +110,7 @@ export async function GET(req: NextRequest) {
   let deadlineCount = 0;
   const deadlineUpdates: { id: number; last_deadline_notif: string }[] = [];
 
-  for (const t of tasks) {
+  for (const t of (tasks || [])) {
     if (!t.due_date || t.last_deadline_notif === today) continue;
 
     const isOverdue = t.due_date < today;
@@ -160,7 +157,7 @@ export async function GET(req: NextRequest) {
     return userTasks.get(uid)!;
   };
 
-  for (const t of tasks) {
+  for (const t of (tasks || [])) {
     const desc = (t.title || t.description || "").slice(0, 80);
     const item = { id: t.id, desc, due: t.due_date, status: t.status };
 
@@ -243,10 +240,76 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  /* ── Level 4: Sponsor contract expiration alerts ── */
+  const { data: contracts } = await db.from("sponsor_contracts").select("*");
+  const { data: sponsors } = await db.from("sponsors").select("id,name");
+  const sponsorMap = new Map<number, string>();
+  (sponsors || []).forEach((s: any) => sponsorMap.set(s.id, s.name));
+
+  // Users who manage sponsors (superadmin, admin, coordinador)
+  const sponsorManagers = (profiles || []).filter((p: any) =>
+    ["superadmin", "admin", "coordinador"].includes(p.role)
+  );
+
+  const THRESHOLDS = [30, 14, 7, 3, 1, 0];
+  let sponsorAlerts = 0;
+
+  for (const c of (contracts || []) as any[]) {
+    if (!c.fecha_fin || c.estado === "renovado") continue;
+    const diff = Math.round((new Date(c.fecha_fin).getTime() - new Date(today).getTime()) / 864e5);
+
+    const isThreshold = THRESHOLDS.includes(diff);
+    const expiredYesterday = c.fecha_fin === yesterday;
+    if (!isThreshold && !expiredYesterday) continue;
+
+    const sName = sponsorMap.get(c.sponsor_id) || "Sponsor";
+    const titulo = c.titulo || "Contrato";
+    const title = diff > 0
+      ? `⚠️ Contrato por vencer — ${sName}`
+      : diff === 0
+      ? `🔴 Contrato vence HOY — ${sName}`
+      : `🔴 Contrato vencido — ${sName}`;
+    const msg = diff > 0
+      ? `"${titulo}" vence en ${diff} días`
+      : diff === 0
+      ? `"${titulo}" vence hoy`
+      : `"${titulo}" venció ayer`;
+
+    for (const u of sponsorManagers) {
+      const prefs = prefsMap.get(u.id);
+      if (prefs?.push_enabled === false) continue;
+      await createNotifAndPush(db, u.id, title, msg, "deadline", "sponsors");
+      sponsorAlerts++;
+    }
+  }
+
+  /* ── Level 5: Sponsor contact birthday alerts ── */
+  const { data: contactos } = await db.from("sponsor_contactos").select("*");
+  const todayMMDD = today.slice(5); // "MM-DD"
+  let birthdayAlerts = 0;
+
+  for (const ct of (contactos || []) as any[]) {
+    if (!ct.fecha_nacimiento) continue;
+    if (ct.fecha_nacimiento.slice(5) !== todayMMDD) continue;
+
+    const sName = sponsorMap.get(ct.sponsor_id) || "Sponsor";
+    const title = `🎂 Cumpleaños hoy — ${ct.nombre}`;
+    const msg = `${ct.nombre} (${sName}) cumple años hoy`;
+
+    for (const u of sponsorManagers) {
+      const prefs = prefsMap.get(u.id);
+      if (prefs?.push_enabled === false) continue;
+      await createNotifAndPush(db, u.id, title, msg, "info", "sponsors");
+      birthdayAlerts++;
+    }
+  }
+
   return NextResponse.json({
     message: "Daily summary completed",
     deadlines: deadlineCount,
     emails: emailCount,
-    tasksProcessed: tasks.length,
+    tasksProcessed: (tasks || []).length,
+    sponsorAlerts,
+    birthdayAlerts,
   });
 }
