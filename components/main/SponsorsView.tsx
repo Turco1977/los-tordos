@@ -504,28 +504,32 @@ function ContratosPanel({contracts,sponsors,tarifario,colors,isDark,cardBg,mob,c
 /* ══════════════════════════════════════════════════════════════
    DashboardPanel — Métricas e ingresos
    ══════════════════════════════════════════════════════════════ */
-function DashboardPanel({sponsors,tarifario,contracts,pipeline,dolarRef,colors,isDark,cardBg,mob}:any){
+function DashboardPanel({sponsors,tarifario,contracts,pipeline,contactos,fixtures,invitaciones,dolarRef,colors,isDark,cardBg,mob}:any){
   const sp:any[]=sponsors||[];
   const tar:any[]=tarifario||[];
   const ctr:any[]=contracts||[];
   const pipe:any[]=pipeline||[];
+  const conts:any[]=contactos||[];
+  const fixs:any[]=fixtures||[];
+  const invs:any[]=invitaciones||[];
 
   const activeSpon=sp.filter(s=>s.status==="active");
   const totalCash=activeSpon.reduce((s:number,x:any)=>s+Number(x.amount_cash||0),0);
   const totalService=activeSpon.reduce((s:number,x:any)=>s+Number(x.amount_service||0),0);
-  const totalUSD=dolarRef>0?Math.round((totalCash+totalService)/dolarRef):0;
   const activeTar=tar.filter(t=>t.activo!==false);
   const ocupadas=activeTar.filter(t=>t.sponsor_asignado_id).length;
   const ocupPct=activeTar.length>0?Math.round((ocupadas/activeTar.length)*100):0;
   const pipeTotal=pipe.filter(p=>p.etapa!=="perdido").reduce((s:number,p:any)=>s+Number(p.monto_potencial_usd||0),0);
+  const totalPotencial=activeTar.reduce((s:number,t:any)=>s+Number(t.precio_max_usd||0),0)*dolarRef;
+  const totalRecaudado=totalCash+totalService;
+  const recPct=totalPotencial>0?Math.round((totalRecaudado/totalPotencial)*100):0;
 
-  const fN=(n:number)=>n?"$"+Math.round(n).toLocaleString("es-AR"):"–";
+  const fN=(n:number)=>n?"$"+Math.round(n).toLocaleString("es-AR"):"--";
 
-  /* Donut chart: Cash vs Canje */
+  /* Cash vs Canje donut */
   const donutR=60;const donutC=Math.PI*2*donutR;
   const cashPct=(totalCash+totalService)>0?totalCash/(totalCash+totalService):0;
-  const cashLen=cashPct*donutC;
-  const canjLen=(1-cashPct)*donutC;
+  const cashLen=cashPct*donutC;const canjLen=(1-cashPct)*donutC;
 
   /* Occupation by category */
   const cats=["indumentaria_rugby","hockey","espacio","digital"];
@@ -538,13 +542,56 @@ function DashboardPanel({sponsors,tarifario,contracts,pipeline,dolarRef,colors,i
   const funnelData=funnelStages.map(s=>{const d=pipe.filter(p=>p.etapa===s);return{s,l:PIPE_SC[s].l,c:PIPE_SC[s].c,count:d.length,monto:d.reduce((a:number,p:any)=>a+Number(p.monto_potencial_usd||0),0)};});
   const maxFunnel=Math.max(...funnelData.map(f=>f.count),1);
 
-  /* Top 10 sponsors */
+  /* Top 10 */
   const top10=[...sp].sort((a,b)=>(Number(b.amount_cash||0)+Number(b.amount_service||0))-(Number(a.amount_cash||0)+Number(a.amount_service||0))).slice(0,10);
+
+  /* Vencimientos próximos (60 days) */
+  const vencimientos:any[]=[];
+  sp.forEach(s=>{if(s.end_date){const dl=daysLeft(s.end_date);if(dl>=0&&dl<=60)vencimientos.push({tipo:"sponsor",nombre:s.name,fecha:s.end_date,dias:dl});}});
+  ctr.forEach(c=>{if(c.fecha_fin){const dl=daysLeft(c.fecha_fin);if(dl>=0&&dl<=60){const sn=sp.find(s=>s.id===c.sponsor_id);vencimientos.push({tipo:"contrato",nombre:(sn?.name||"")+" — "+c.titulo,fecha:c.fecha_fin,dias:dl});}}});
+  vencimientos.sort((a,b)=>a.dias-b.dias);
+
+  /* Cumpleaños del mes */
+  const thisMonth=TODAY.slice(5,7);
+  const cumples=conts.filter(c=>c.fecha_nacimiento&&c.fecha_nacimiento.slice(5,7)===thisMonth).map(c=>{const sn=sp.find(s=>s.id===c.sponsor_id);return{...c,sponsorName:sn?.name||""}}).sort((a,b)=>(a.fecha_nacimiento||"").slice(5).localeCompare((b.fecha_nacimiento||"").slice(5)));
+
+  /* Próximos eventos (calendario - 30 days) */
+  const eventos:any[]=[];
+  vencimientos.forEach(v=>eventos.push({date:v.fecha,type:"vencimiento",icon:"⚠️",text:`Vence: ${v.nombre}`,color:"#DC2626"}));
+  const next30=new Date(TODAY);next30.setDate(next30.getDate()+30);const next30Str=next30.toISOString().slice(0,10);
+  fixs.filter(f=>f.date>=TODAY&&f.date<=next30Str&&f.is_local&&f.division==="Plantel Superior").forEach(f=>{const invCount=invs.filter(i=>String(i.fixture_id)===String(f.id)).length;eventos.push({date:f.date,type:"partido",icon:"🏉",text:`${f.rival||"TBC"} (local)${invCount?` — ${invCount} invitaciones`:""}`,color:"#10B981"});});
+  cumples.forEach(c=>eventos.push({date:TODAY.slice(0,5)+"-"+(c.fecha_nacimiento||"").slice(5),type:"cumple",icon:"🎂",text:`${c.nombre} (${c.sponsorName})`,color:"#8B5CF6"}));
+  eventos.sort((a,b)=>(a.date||"").localeCompare(b.date||""));
+
+  /* Camiseta SVG — map tarifario items to jersey zones */
+  const jerseyZones=[
+    {key:"cuello",label:"Cuello Int.",match:/cuello/i,x:106,y:22,w:48,h:16},
+    {key:"hombro_izq",label:"Hombro Izq",match:/hombro/i,x:65,y:42,w:48,h:20,side:"izq"},
+    {key:"hombro_der",label:"Hombro Der",match:/hombro/i,x:147,y:42,w:48,h:20,side:"der"},
+    {key:"pecho",label:"Pecho",match:/pecho|frente/i,x:85,y:68,w:90,h:58},
+    {key:"manga_izq",label:"Manga Izq",match:/manga.*izq/i,x:32,y:70,w:40,h:38},
+    {key:"manga_der",label:"Manga Der",match:/manga.*der/i,x:188,y:70,w:40,h:38},
+    {key:"espalda",label:"Espalda",match:/espalda|cola/i,x:90,y:132,w:80,h:52},
+    {key:"pierna_izq",label:"Pierna Izq",match:/pierna.*izq|pantal.*izq/i,x:76,y:210,w:52,h:50},
+    {key:"pierna_der",label:"Pierna Der",match:/pierna.*der|pantal.*der/i,x:132,y:210,w:52,h:50},
+    {key:"medias",label:"Medias",match:/media/i,x:84,y:290,w:92,h:32},
+  ];
+  const indTar=activeTar.filter(t=>t.categoria==="indumentaria_rugby");
+  const zoneData=jerseyZones.map(z=>{
+    let match=indTar.find(t=>{
+      const ub=(t.ubicacion||"").toLowerCase();
+      if(z.side==="izq")return z.match.test(ub)&&/izq/i.test(ub);
+      if(z.side==="der")return z.match.test(ub)&&/der/i.test(ub);
+      return z.match.test(ub);
+    });
+    const sn=match?.sponsor_asignado_id?sp.find(s=>s.id===match.sponsor_asignado_id):null;
+    return{...z,sponsor:sn?.name||"",occupied:!!sn,tarItem:match};
+  });
 
   return(<div>
     {/* KPIs */}
     <div style={{display:"grid",gridTemplateColumns:mob?"repeat(2,1fr)":"repeat(4,1fr)",gap:10,marginBottom:16}}>
-      {[{l:"Ingreso activo ARS",v:fN(totalCash+totalService),c:"#10B981"},{l:"Sponsors activos",v:activeSpon.length,c:"#8B5CF6"},{l:"Ocupación tarifario",v:ocupPct+"%",c:"#F59E0B"},{l:"Pipeline USD",v:fN(pipeTotal),c:"#3B82F6"}].map((k,i)=>(
+      {[{l:"Ingreso activo ARS",v:fN(totalRecaudado),c:"#10B981"},{l:"Sponsors activos",v:activeSpon.length,c:"#8B5CF6"},{l:"Ocupación tarifario",v:ocupPct+"%",c:"#F59E0B"},{l:"Pipeline USD",v:"$"+Math.round(pipeTotal).toLocaleString("es-AR"),c:"#3B82F6"}].map((k,i)=>(
         <Card key={i} style={{padding:"12px 16px",textAlign:"center" as const,borderTop:"3px solid "+k.c}}>
           <div style={{fontSize:22,fontWeight:800,color:k.c}}>{k.v}</div>
           <div style={{fontSize:10,color:colors.g4,marginTop:2}}>{k.l}</div>
@@ -552,28 +599,87 @@ function DashboardPanel({sponsors,tarifario,contracts,pipeline,dolarRef,colors,i
       ))}
     </div>
 
+    {/* Alertas vencimientos */}
+    {vencimientos.length>0&&<Card style={{padding:14,marginBottom:16,background:isDark?"rgba(220,38,38,.08)":"#FEF2F2",border:"1px solid #FECACA"}}>
+      <div style={{fontSize:13,fontWeight:700,color:"#DC2626",marginBottom:8}}>Vencimientos proximos ({vencimientos.length})</div>
+      {vencimientos.slice(0,5).map((v,i)=>(
+        <div key={i} style={{fontSize:11,padding:"4px 0",display:"flex",justifyContent:"space-between",borderBottom:i<Math.min(vencimientos.length,5)-1?"1px solid rgba(220,38,38,.15)":"none"}}>
+          <span style={{color:colors.nv}}>{v.nombre}</span>
+          <span style={{fontWeight:700,color:v.dias<=7?"#DC2626":v.dias<=30?"#F59E0B":"#6B7280"}}>{v.dias===0?"HOY":v.dias+" dias"} ({v.fecha})</span>
+        </div>
+      ))}
+    </Card>}
+
+    {/* Camiseta SVG + Recaudación */}
     <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:14,marginBottom:16}}>
-      {/* Donut: Cash vs Canje */}
       <Card style={{padding:16}}>
-        <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:10}}>Ingresos por tipo</div>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:20}}>
-          <svg width={150} height={150} viewBox="0 0 150 150">
-            <circle cx={75} cy={75} r={donutR} fill="none" stroke={isDark?"#1E293B":"#E8ECF1"} strokeWidth={18}/>
-            {(totalCash+totalService)>0&&<><circle cx={75} cy={75} r={donutR} fill="none" stroke="#10B981" strokeWidth={18} strokeDasharray={`${cashLen} ${donutC}`} strokeDashoffset={donutC*0.25} strokeLinecap="round"/>
-            <circle cx={75} cy={75} r={donutR} fill="none" stroke="#3B82F6" strokeWidth={18} strokeDasharray={`${canjLen} ${donutC}`} strokeDashoffset={donutC*0.25-cashLen} strokeLinecap="round"/></>}
-            <text x={75} y={72} textAnchor="middle" fill={colors.nv} fontSize={14} fontWeight={800}>{fN(totalCash+totalService)}</text>
-            <text x={75} y={88} textAnchor="middle" fill={colors.g4} fontSize={9}>Total ARS</text>
+        <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:10}}>Mapa de Camiseta</div>
+        <div style={{display:"flex",justifyContent:"center"}}>
+          <svg viewBox="0 0 260 340" width={mob?220:240} height={mob?290:320}>
+            {/* Jersey silhouette */}
+            <path d="M105,35 C105,22 155,22 155,35 L190,48 L228,92 L208,108 L192,72 L192,198 L68,198 L68,72 L52,108 L32,92 L70,48 Z" fill={isDark?"#1E293B":"#F8FAFC"} stroke={colors.g3} strokeWidth={1.5}/>
+            {/* Shorts */}
+            <path d="M72,206 L72,268 L126,272 L130,206 Z" fill={isDark?"#0F172A":"#F1F5F9"} stroke={colors.g3} strokeWidth={1}/>
+            <path d="M188,206 L188,268 L134,272 L130,206 Z" fill={isDark?"#0F172A":"#F1F5F9"} stroke={colors.g3} strokeWidth={1}/>
+            {/* Socks */}
+            <rect x={82} y={282} width={42} height={40} rx={4} fill={isDark?"#1E293B":"#F8FAFC"} stroke={colors.g3} strokeWidth={1}/>
+            <rect x={136} y={282} width={42} height={40} rx={4} fill={isDark?"#1E293B":"#F8FAFC"} stroke={colors.g3} strokeWidth={1}/>
+            {/* Zone overlays */}
+            {zoneData.map(z=>(
+              <g key={z.key}>
+                <rect x={z.x} y={z.y} width={z.w} height={z.h} rx={3} fill={z.occupied?"rgba(16,185,129,.15)":"rgba(0,0,0,.02)"} stroke={z.occupied?"#10B981":colors.g3} strokeWidth={z.occupied?2:1} strokeDasharray={z.occupied?"":"4 2"}/>
+                <text x={z.x+z.w/2} y={z.y+z.h/2-(z.occupied?3:0)} textAnchor="middle" fontSize={7} fill={z.occupied?"#10B981":colors.g4} fontWeight={600}>{z.label}</text>
+                {z.occupied&&<text x={z.x+z.w/2} y={z.y+z.h/2+7} textAnchor="middle" fontSize={6} fill={colors.nv} fontWeight={500}>{z.sponsor.length>12?z.sponsor.slice(0,11)+"..":z.sponsor}</text>}
+                {!z.occupied&&<text x={z.x+z.w/2} y={z.y+z.h/2+7} textAnchor="middle" fontSize={6} fill={colors.g4}>Libre</text>}
+              </g>
+            ))}
           </svg>
-          <div style={{fontSize:11}}>
-            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}><span style={{width:10,height:10,borderRadius:"50%",background:"#10B981",display:"inline-block"}}/><span style={{color:colors.nv}}>Cash {fN(totalCash)}</span></div>
-            <div style={{display:"flex",alignItems:"center",gap:6}}><span style={{width:10,height:10,borderRadius:"50%",background:"#3B82F6",display:"inline-block"}}/><span style={{color:colors.nv}}>Canje {fN(totalService)}</span></div>
-          </div>
+        </div>
+        <div style={{display:"flex",justifyContent:"center",gap:14,marginTop:8,fontSize:10}}>
+          <span style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:8,height:8,borderRadius:2,background:"#10B981",display:"inline-block"}}/><span style={{color:colors.nv}}>Ocupado</span></span>
+          <span style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:8,height:8,borderRadius:2,border:"1px dashed "+colors.g3,display:"inline-block"}}/><span style={{color:colors.g4}}>Libre</span></span>
         </div>
       </Card>
 
-      {/* Bar: Occupation by category */}
+      {/* Recaudación vs Potencial + Cash vs Canje */}
+      <div style={{display:"flex",flexDirection:"column" as const,gap:14}}>
+        <Card style={{padding:16}}>
+          <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:10}}>Recaudacion vs Potencial</div>
+          <div style={{marginBottom:6}}>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:10,marginBottom:2}}>
+              <span style={{fontWeight:600,color:colors.nv}}>Recaudado</span>
+              <span style={{color:colors.g4}}>{fN(totalRecaudado)} / {fN(totalPotencial)} ({recPct}%)</span>
+            </div>
+            <div style={{height:20,borderRadius:10,background:isDark?"rgba(255,255,255,.06)":"#F3F4F6",overflow:"hidden",position:"relative" as const}}>
+              <div style={{height:"100%",width:Math.min(recPct,100)+"%",borderRadius:10,background:"linear-gradient(90deg,#10B981,#059669)",transition:"width .3s"}}/>
+            </div>
+            <div style={{fontSize:9,color:colors.g4,marginTop:4,textAlign:"right" as const}}>Falta {fN(Math.max(totalPotencial-totalRecaudado,0))} para 100%</div>
+          </div>
+        </Card>
+        <Card style={{padding:16}}>
+          <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:8}}>Cash vs Canje</div>
+          <div style={{display:"flex",alignItems:"center",gap:14}}>
+            <svg width={100} height={100} viewBox="0 0 100 100">
+              <circle cx={50} cy={50} r={38} fill="none" stroke={isDark?"#1E293B":"#E8ECF1"} strokeWidth={14}/>
+              {(totalCash+totalService)>0&&<><circle cx={50} cy={50} r={38} fill="none" stroke="#10B981" strokeWidth={14} strokeDasharray={`${cashPct*Math.PI*76} ${Math.PI*76}`} strokeDashoffset={Math.PI*76*0.25} strokeLinecap="round"/>
+              <circle cx={50} cy={50} r={38} fill="none" stroke="#3B82F6" strokeWidth={14} strokeDasharray={`${(1-cashPct)*Math.PI*76} ${Math.PI*76}`} strokeDashoffset={Math.PI*76*0.25-cashPct*Math.PI*76} strokeLinecap="round"/></>}
+              <text x={50} y={48} textAnchor="middle" fill={colors.nv} fontSize={11} fontWeight={800}>{Math.round(cashPct*100)}%</text>
+              <text x={50} y={59} textAnchor="middle" fill={colors.g4} fontSize={7}>cash</text>
+            </svg>
+            <div style={{fontSize:10}}>
+              <div style={{marginBottom:4}}><span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"#10B981",marginRight:4}}/><span style={{color:colors.nv}}>Cash {fN(totalCash)}</span></div>
+              <div><span style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"#3B82F6",marginRight:4}}/><span style={{color:colors.nv}}>Canje {fN(totalService)}</span></div>
+              {cashPct<0.5&&<div style={{fontSize:9,color:"#F59E0B",marginTop:6,fontWeight:600}}>Meta: 50% cash</div>}
+            </div>
+          </div>
+        </Card>
+      </div>
+    </div>
+
+    {/* Ocupación por categoría */}
+    <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:14,marginBottom:16}}>
       <Card style={{padding:16}}>
-        <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:10}}>Ocupación por categoría</div>
+        <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:10}}>Ocupacion por categoria</div>
         {catData.map(c=>(
           <div key={c.k} style={{marginBottom:8}}>
             <div style={{display:"flex",justifyContent:"space-between",fontSize:10,marginBottom:2}}>
@@ -586,22 +692,54 @@ function DashboardPanel({sponsors,tarifario,contracts,pipeline,dolarRef,colors,i
           </div>
         ))}
       </Card>
+
+      {/* Pipeline funnel */}
+      <Card style={{padding:16}}>
+        <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:10}}>Pipeline Funnel</div>
+        <div style={{display:"flex",gap:6,alignItems:"flex-end",height:100}}>
+          {funnelData.map(f=>(
+            <div key={f.s} style={{flex:1,display:"flex",flexDirection:"column" as const,alignItems:"center"}}>
+              <div style={{fontSize:14,fontWeight:800,color:f.c,marginBottom:2}}>{f.count}</div>
+              <div style={{width:"100%",maxWidth:50,borderRadius:"6px 6px 0 0",background:f.c,height:Math.max(8,Math.round((f.count/maxFunnel)*70)),transition:"height .3s"}}/>
+              <div style={{fontSize:7,color:colors.g4,marginTop:3,textAlign:"center"}}>{f.l}</div>
+              {f.monto>0&&<div style={{fontSize:7,color:colors.g5,fontWeight:600}}>${Math.round(f.monto).toLocaleString("es-AR")}</div>}
+            </div>
+          ))}
+        </div>
+      </Card>
     </div>
 
-    {/* Pipeline funnel */}
-    <Card style={{padding:16,marginBottom:16}}>
-      <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:10}}>Pipeline Funnel</div>
-      <div style={{display:"flex",gap:6,alignItems:"flex-end",height:120}}>
-        {funnelData.map(f=>(
-          <div key={f.s} style={{flex:1,display:"flex",flexDirection:"column" as const,alignItems:"center"}}>
-            <div style={{fontSize:14,fontWeight:800,color:f.c,marginBottom:2}}>{f.count}</div>
-            <div style={{width:"100%",maxWidth:60,borderRadius:"6px 6px 0 0",background:f.c,height:Math.max(8,Math.round((f.count/maxFunnel)*80)),transition:"height .3s"}}/>
-            <div style={{fontSize:8,color:colors.g4,marginTop:4,textAlign:"center"}}>{f.l}</div>
-            {f.monto>0&&<div style={{fontSize:8,color:colors.g5,fontWeight:600}}>${Math.round(f.monto).toLocaleString("es-AR")}</div>}
+    {/* Calendario de eventos + Cumpleaños */}
+    <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:14,marginBottom:16}}>
+      <Card style={{padding:16}}>
+        <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:10}}>Proximos Eventos (30 dias)</div>
+        {eventos.length===0&&<div style={{textAlign:"center",padding:20,color:colors.g4,fontSize:11}}>Sin eventos proximos</div>}
+        {eventos.slice(0,10).map((ev,i)=>(
+          <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:i<Math.min(eventos.length,10)-1?"1px solid "+colors.g2:"none"}}>
+            <span style={{fontSize:14}}>{ev.icon}</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:10,fontWeight:600,color:colors.nv}}>{ev.text}</div>
+              <div style={{fontSize:9,color:colors.g4}}>{ev.date}</div>
+            </div>
+            <span style={{fontSize:9,fontWeight:600,color:ev.color,padding:"2px 6px",borderRadius:8,background:ev.color+"15"}}>{ev.type}</span>
           </div>
         ))}
-      </div>
-    </Card>
+      </Card>
+
+      <Card style={{padding:16}}>
+        <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:10}}>Cumpleanos del Mes</div>
+        {cumples.length===0&&<div style={{textAlign:"center",padding:20,color:colors.g4,fontSize:11}}>Sin cumpleanos este mes</div>}
+        {cumples.map((c,i)=>(
+          <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:i<cumples.length-1?"1px solid "+colors.g2:"none"}}>
+            <span style={{fontSize:14}}>🎂</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:10,fontWeight:600,color:colors.nv}}>{c.nombre}{c.cargo?` (${c.cargo})`:""}</div>
+              <div style={{fontSize:9,color:colors.g4}}>{c.sponsorName} — {(c.fecha_nacimiento||"").slice(5)}</div>
+            </div>
+          </div>
+        ))}
+      </Card>
+    </div>
 
     {/* Top 10 sponsors */}
     <Card style={{padding:16}}>
@@ -629,7 +767,7 @@ function DashboardPanel({sponsors,tarifario,contracts,pipeline,dolarRef,colors,i
    ══════════════════════════════════════════════════════════════ */
 const emptyPropForm=()=>({nombre_prospecto:"",contacto:"",rubro:"",nivel_propuesto:"white",aporte_dinero:"",aporte_canje:"",detalle_canje:"",ubicaciones_propuestas:[] as number[],descuento_pct:"",valor_final:"",justificacion:"",estado:PROP_ST.BOR});
 
-function PropuestasPanel({propuestas,votos,mensajes,sponsors,tarifario,colors,isDark,cardBg,mob,canCreate,canVote,user,onAdd,onUpd,onDel,onVote,onMsg,onAddSponsor}:any){
+function PropuestasPanel({propuestas,votos,mensajes,sponsors,tarifario,colors,isDark,cardBg,mob,canCreate,canVote,user,onAdd,onUpd,onDel,onVote,onMsg,onAddSponsor,onUpdTarifa}:any){
   const items:any[]=propuestas||[];
   const [showForm,sShowForm]=useState(false);
   const [editId,sEditId]=useState<number|null>(null);
@@ -657,8 +795,13 @@ function PropuestasPanel({propuestas,votos,mensajes,sponsors,tarifario,colors,is
   };
 
   const formalizar=async(p:any)=>{
-    const sponData={name:p.nombre_prospecto,amount_cash:p.aporte_dinero||0,amount_service:p.aporte_canje||0,status:"active",notes:"Formalizado desde propuesta #"+p.id,nivel:p.nivel_propuesto,responsable:"Jesús Herrera"};
-    await onAddSponsor(sponData);
+    const sponData={name:p.nombre_prospecto,amount_cash:p.aporte_dinero||0,amount_service:p.aporte_canje||0,status:"active",notes:"Formalizado desde propuesta #"+p.id,nivel:p.nivel_propuesto,responsable:"Jesús Herrera",detalle_canje:p.detalle_canje||""};
+    const newSponsor=await onAddSponsor(sponData);
+    if(newSponsor?.id&&p.ubicaciones_propuestas?.length&&onUpdTarifa){
+      for(const tarId of p.ubicaciones_propuestas){
+        await onUpdTarifa(tarId,{sponsor_asignado_id:newSponsor.id});
+      }
+    }
     await onUpd(p.id,{estado:PROP_ST.FORM});
   };
 
@@ -1572,14 +1715,21 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
   return(<div style={{maxWidth:900}}>
     {/* ── Top-level tab bar ── */}
     <div style={{display:"flex",gap:0,marginBottom:12,borderBottom:"2px solid "+colors.g2,overflowX:"auto"}}>
-      {([["dashboard","📊 Dashboard"],["clientes","🏢 Clientes"],["propuestas","📝 Propuestas"],["tarifario","💰 Tarifario"],["materiales","📁 Materiales"],["hospitalidad","🤝 Hospitalidad"]] as const).map(([t,l])=>(
+      {([["dashboard","📊 Dashboard"],["clientes","🏢 Clientes"],["propuestas","📝 Propuestas"],["tarifario","💰 Tarifario"],["materiales","📁 Materiales"],["hospitalidad","🤝 Hospitalidad"]] as [string,string][])
+        .filter(([t])=>{
+          if(canFullEdit||isSE)return true;
+          if(isBrandi)return["dashboard","clientes","hospitalidad","materiales"].includes(t);
+          if(isGC)return["dashboard","clientes","propuestas","tarifario"].includes(t);
+          return true;
+        })
+        .map(([t,l])=>(
         <button key={t} onClick={()=>sTopTab(t as any)} style={{padding:"8px 14px",fontSize:mob?10:12,fontWeight:topTab===t?700:500,color:topTab===t?colors.rd:colors.g4,background:"none",border:"none",borderBottom:topTab===t?"2px solid "+colors.rd:"2px solid transparent",marginBottom:-2,cursor:"pointer",transition:"all .2s",whiteSpace:"nowrap"}}>{l}</button>
       ))}
     </div>
 
-    {topTab==="dashboard"?<DashboardPanel sponsors={sponsors} tarifario={tarifario} contracts={sponContracts} pipeline={sponPipeline} dolarRef={dolarRef} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob}/>:null}
+    {topTab==="dashboard"?<DashboardPanel sponsors={sponsors} tarifario={tarifario} contracts={sponContracts} pipeline={sponPipeline} contactos={sponContactos} fixtures={fixtures} invitaciones={hospInvitaciones} dolarRef={dolarRef} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob}/>:null}
     {topTab==="tarifario"?<TarifarioPanel tarifario={tarifario} sponsors={sponsors} dolarRef={dolarRef} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob} canFullEdit={canFullEdit} onAdd={onAddTarifa} onUpd={onUpdTarifa} onDel={onDelTarifa}/>:null}
-    {topTab==="propuestas"?<PropuestasPanel propuestas={sponPropuestas} votos={sponPropVotos} mensajes={sponPropMsgs} sponsors={sponsors} tarifario={tarifario} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob} canCreate={canFullEdit||isGC} canVote={isSE} user={user} onAdd={onAddPropuesta} onUpd={onUpdPropuesta} onDel={onDelPropuesta} onVote={onAddPropVoto} onMsg={onAddPropMsg} onAddSponsor={onAdd}/>:null}
+    {topTab==="propuestas"?<PropuestasPanel propuestas={sponPropuestas} votos={sponPropVotos} mensajes={sponPropMsgs} sponsors={sponsors} tarifario={tarifario} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob} canCreate={canFullEdit||isGC} canVote={isSE} user={user} onAdd={onAddPropuesta} onUpd={onUpdPropuesta} onDel={onDelPropuesta} onVote={onAddPropVoto} onMsg={onAddPropMsg} onAddSponsor={onAdd} onUpdTarifa={onUpdTarifa}/>:null}
     {topTab==="materiales"?<MaterialesPanel materiales={sponMateriales} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob} canUpload={canFullEdit} onAdd={onAddMaterial} onDel={onDelMaterial} user={user}/>:null}
     {topTab==="hospitalidad"?<HospitalidadPanel invitaciones={hospInvitaciones} sponsors={sponsors} contactos={sponContactos} fixtures={fixtures} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob} canManage={canFullEdit||isBrandi} onAdd={onAddHosp} onUpd={onUpdHosp} onDel={onDelHosp}/>:null}
 
@@ -1596,10 +1746,10 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
           <span style={{background:isDark?"rgba(16,185,129,.15)":"#D1FAE5",color:"#10B981",padding:"4px 10px",borderRadius:8,fontSize:11,fontWeight:700}}>dólar ${dolarRef.toLocaleString("es-AR")}</span>
           {canFullEdit&&<Btn v="g" s="s" onClick={()=>{sDolarInput(String(dolarRef));sEditDolar(true);}}>✏️</Btn>}
         </div>}
-        <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleFile} style={{display:"none"}}/>
+        {(canFullEdit||isGC)&&<><input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleFile} style={{display:"none"}}/>
         <Btn v="g" s="s" onClick={()=>fileRef.current?.click()}>📥 Excel</Btn>
         <Btn v="g" s="s" onClick={()=>{sShowManual(!showManual);sImportErr(null);}}>📋 Manual</Btn>
-        <Btn v="pu" s="s" onClick={openAdd}>+ Sponsor</Btn>
+        <Btn v="pu" s="s" onClick={openAdd}>+ Sponsor</Btn></>}
       </div>
     </div>
 
