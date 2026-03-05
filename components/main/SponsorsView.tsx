@@ -1202,6 +1202,15 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
   const [cfData,setCFData]=useState({nombre:"",cargo:"",telefono:"",email:"",rol:"comercial",es_principal:false,fecha_nacimiento:"",es_ex_jugador:false,notas:""});
   const [editCId,setEditCId]=useState<number|null>(null);
 
+  /* Pagos state */
+  const [showPagoForm,sShowPagoForm]=useState(false);
+  const [pagoForm,sPagoForm]=useState({monto:"",fecha_pago:new Date().toISOString().slice(0,10),tipo:"cash",concepto:"",comprobante_url:""});
+  const [editPagoId,sEditPagoId]=useState<number|null>(null);
+
+  /* Galería state */
+  const [galUploading,sGalUploading]=useState(false);
+  const [lightbox,sLightbox]=useState<string|null>(null);
+
   /* ── Import (Excel + Manual) ── */
   const [importErr,sImportErr]=useState<string|null>(null);
   const [showManual,sShowManual]=useState(false);
@@ -1760,9 +1769,6 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
             const totalPagado=pagos.reduce((s:number,p:any)=>s+Number(p.monto||0),0);
             const montoEsperado=Number(sp.amount_cash||0);
             const pctPagado=montoEsperado>0?Math.min(100,Math.round((totalPagado/montoEsperado)*100)):0;
-            const [showPagoForm,sShowPagoForm]=useState(false);
-            const [pagoForm,sPagoForm]=useState({monto:"",fecha_pago:new Date().toISOString().slice(0,10),tipo:"cash",concepto:"",comprobante_url:""});
-            const [editPagoId,sEditPagoId]=useState<number|null>(null);
             return(<>
               {/* KPIs */}
               <div style={{display:"flex",gap:10,marginBottom:12,flexWrap:"wrap"}}>
@@ -1846,16 +1852,14 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
           {(()=>{
             const fotos=(sponMateriales||[]).filter((m:any)=>m.sponsor_id===sp.id&&m.categoria==="activacion");
             const isImg=(url:string)=>/\.(jpg|jpeg|png|gif|webp|svg)/i.test(url||"");
-            const [uploading,sUploading]=useState(false);
-            const [lightbox,sLightbox]=useState<string|null>(null);
             return(<>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
                 <div style={{fontSize:13,fontWeight:700,color:colors.nv}}>Activaciones ({fotos.length})</div>
-                {canFullEdit&&<label style={{padding:"6px 12px",borderRadius:8,background:colors.bl,color:"#fff",fontSize:11,fontWeight:700,cursor:uploading?"wait":"pointer"}}>
-                  {uploading?"Subiendo...":"+ Subir Foto"}
+                {canFullEdit&&<label style={{padding:"6px 12px",borderRadius:8,background:colors.bl,color:"#fff",fontSize:11,fontWeight:700,cursor:galUploading?"wait":"pointer"}}>
+                  {galUploading?"Subiendo...":"+ Subir Foto"}
                   <input type="file" accept="image/*" multiple style={{display:"none"}} onChange={async(e:any)=>{
                     const files=Array.from(e.target.files||[]) as File[];if(!files.length)return;
-                    sUploading(true);
+                    sGalUploading(true);
                     try{
                       const{uploadFile}=await import("@/lib/storage");
                       for(const file of files){
@@ -1865,7 +1869,7 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
                         }
                       }
                     }catch{}
-                    sUploading(false);e.target.value="";
+                    sGalUploading(false);e.target.value="";
                   }}/>
                 </label>}
               </div>
