@@ -43,7 +43,7 @@ const FIX_DIV_GROUPS: { label: string; divs: string[] }[] = [
 
 const emptyForm = () => ({ division: "", rival: "", date: TODAY, time: "", condicion: "", is_local: false, cancha: "", facility_key: "", status: "pendiente", notes: "" });
 
-export function FixturesView({ user, mob, onAdd, onUpd, onDel, onDelWeek, onAddBookings }: any) {
+export function FixturesView({ user, mob, onAdd, onUpd, onDel, onDelWeek, onAddBookings, onNavHosp }: any) {
   const fixtures = useDataStore(s => s.fixtures);
   const bookings = useDataStore(s => s.bookings);
   const users = useDataStore(s => s.users);
@@ -339,6 +339,7 @@ export function FixturesView({ user, mob, onAdd, onUpd, onDel, onDelWeek, onAddB
                       <td style={tdSt}>{f.cancha || "–"}</td>
                       <td style={tdSt}><span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, background: st.bg, color: st.c, fontWeight: 600 }}>{st.i} {st.l}</span></td>
                       <td style={{ ...tdSt, textAlign: "center", whiteSpace: "nowrap" }}>
+                        {onNavHosp&&f.is_local&&<button onClick={() => onNavHosp(f)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, padding: 4 }} title="Hospitalidad">🤝</button>}
                         <button onClick={() => openEdit(f)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, padding: 4 }} title="Editar">✏️</button>
                         <button onClick={() => onDel(f.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, padding: 4 }} title="Eliminar">🗑️</button>
                       </td>

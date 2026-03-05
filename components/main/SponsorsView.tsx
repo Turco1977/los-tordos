@@ -1,6 +1,6 @@
 "use client";
 import { useState, useMemo, useRef, useEffect } from "react";
-import { SPON_ST, SPON_TIER, DOLAR_REF, DIV, TAR_CATS, TAR_VIS, PIPE_ST, PIPE_SC, CONTR_ST, CONTR_SC, PROP_ST, PROP_SC, CONTACT_ROLES, SPON_EJES, HOSP_ST, MAT_CATS } from "@/lib/constants";
+import { SPON_ST, SPON_TIER, DOLAR_REF, DIV, TAR_CATS, TAR_VIS, PIPE_ST, PIPE_SC, CONTR_ST, CONTR_SC, PROP_ST, PROP_SC, CONTACT_ROLES, SPON_EJES, HOSP_ST, MAT_CATS, DEPTOS } from "@/lib/constants";
 import { exportTarifarioPDF, exportPipelinePDF, exportContractsPDF, exportSponsorsExcel, exportHospitalidadPDF } from "@/lib/export";
 import { fmtD } from "@/lib/mappers";
 import { Btn, Card } from "@/components/ui";
@@ -20,6 +20,7 @@ const fmtARS=(n:number)=>{
   return "$"+Math.round(n).toLocaleString("es-AR");
 };
 
+const BENEFICIOS_OPTS=["Entradas VIP","Estacionamiento","Palco","Camiseta","Cartelería","Redes Sociales","Eventos","Merchandising"];
 const emptyForm=()=>({
   name:"",
   amount_cash:"",
@@ -31,6 +32,7 @@ const emptyForm=()=>({
   payment_type:"",
   responsable:"Jesús Herrera",
   canje_instrucciones:"",
+  beneficios:[] as string[],
 });
 
 const emptyTarForm=()=>({categoria:"indumentaria_rugby",ubicacion:"",descripcion:"",visibilidad:"media",precio_min_usd:"",precio_max_usd:"",sponsor_asignado_id:""});
@@ -767,7 +769,7 @@ function DashboardPanel({sponsors,tarifario,contracts,pipeline,contactos,fixture
    ══════════════════════════════════════════════════════════════ */
 const emptyPropForm=()=>({nombre_prospecto:"",contacto:"",rubro:"",nivel_propuesto:"white",aporte_dinero:"",aporte_canje:"",detalle_canje:"",ubicaciones_propuestas:[] as number[],descuento_pct:"",valor_final:"",justificacion:"",estado:PROP_ST.BOR,es_ex_jugador:false,como_llego:"",periodo_inicio:"",periodo_fin:"",forma_pago:""});
 
-function PropuestasPanel({propuestas,votos,mensajes,sponsors,tarifario,colors,isDark,cardBg,mob,canCreate,canVote,user,onAdd,onUpd,onDel,onVote,onMsg,onAddSponsor,onUpdTarifa}:any){
+function PropuestasPanel({propuestas,votos,mensajes,sponsors,tarifario,colors,isDark,cardBg,mob,canCreate,canVote,user,onAdd,onUpd,onDel,onVote,onMsg,onAddSponsor,onUpdTarifa,sendNotif}:any){
   const items:any[]=propuestas||[];
   const [showForm,sShowForm]=useState(false);
   const [editId,sEditId]=useState<number|null>(null);
@@ -805,6 +807,14 @@ function PropuestasPanel({propuestas,votos,mensajes,sponsors,tarifario,colors,is
       }
     }
     await onUpd(p.id,{estado:PROP_ST.FORM});
+    // Notify Comunicación dept
+    if(sendNotif&&newSponsor?.id){
+      const comDeptIds=[3,...DEPTOS.filter((d:any)=>d.pId===3).map((d:any)=>d.id)];
+      const allUsers=useDataStore.getState().users||[];
+      const comUsers=allUsers.filter((u:any)=>comDeptIds.includes(u.dId)&&u.id!==user?.id);
+      const tier=SPON_TIER[p.nivel_propuesto]?.l||p.nivel_propuesto;
+      comUsers.forEach((u:any)=>sendNotif(u.id,"Nuevo sponsor formalizado",`${p.nombre_prospecto} (${tier})`,  "info","sponsors"));
+    }
   };
 
   const vis=fSt==="all"?items:items.filter(p=>p.estado===fSt);
@@ -996,6 +1006,7 @@ function MaterialesPanel({materiales,colors,isDark,cardBg,mob,canUpload,onAdd,on
             <div style={{fontSize:9,color:colors.g4,marginBottom:6}}>Subido por {m.subido_por_name} · {m.created_at?.slice(0,10)}</div>
             <div style={{display:"flex",gap:4}}>
               {m.archivo_url&&<a href={m.archivo_url} target="_blank" rel="noopener noreferrer" style={{padding:"4px 10px",borderRadius:6,background:colors.bl,color:"#fff",fontSize:10,fontWeight:600,textDecoration:"none"}}>Descargar</a>}
+              {m.archivo_url&&<button onClick={()=>{const msg=`Hola! Te comparto material de Los Tordos RC:\n\n📄 *${m.titulo}*${m.descripcion?"\n"+m.descripcion:""}\n\n📥 ${m.archivo_url}`;window.open("https://wa.me/?text="+encodeURIComponent(msg),"_blank");}} style={{padding:"4px 8px",borderRadius:6,background:"#25D366",border:"none",color:"#fff",fontSize:10,fontWeight:700,cursor:"pointer"}} title="Compartir por WhatsApp">📲</button>}
               {canUpload&&<button onClick={()=>onDel(m.id)} style={{background:"none",border:"none",cursor:"pointer",fontSize:12}} title="Eliminar">🗑️</button>}
             </div>
           </Card>)}
@@ -1038,13 +1049,15 @@ function MaterialesPanel({materiales,colors,isDark,cardBg,mob,canUpload,onAdd,on
 /* ══════════════════════════════════════════════════════════════
    HospitalidadPanel — Invitaciones y asistencia (Brandi)
    ══════════════════════════════════════════════════════════════ */
-function HospitalidadPanel({invitaciones,sponsors,contactos,fixtures,colors,isDark,cardBg,mob,canManage,onAdd,onUpd,onDel}:any){
+function HospitalidadPanel({invitaciones,sponsors,contactos,fixtures,colors,isDark,cardBg,mob,canManage,onAdd,onUpd,onDel,preFixture,onPreFixtureDone}:any){
   const items:any[]=invitaciones||[];
   const [showForm,sShowForm]=useState(false);
   const [editId,sEditId]=useState<number|null>(null);
   const [form,sForm]=useState({partido_fecha:"",partido_rival:"",sponsor_id:"",contacto_id:"",entradas:"2",estacionamiento:false,zona_vip:false,fixture_id:"" as string,observaciones:""});
   const lbl:any={fontSize:10,fontWeight:600,color:colors.g5,display:"block",marginBottom:2};
   const inp:any={width:"100%",padding:"7px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,background:cardBg,color:colors.nv,boxSizing:"border-box"};
+  // Auto-open form when navigating from Fixtures
+  useEffect(()=>{if(preFixture){sForm(f=>({...f,partido_fecha:preFixture.date||"",partido_rival:preFixture.rival||"",fixture_id:preFixture.id||""}));sEditId(null);sShowForm(true);if(onPreFixtureDone)onPreFixtureDone();}},[preFixture]);
 
   const getSponName=(id:number|null)=>{if(!id)return"–";const sp=(sponsors||[]).find((s:any)=>s.id===id);return sp?.name||"#"+id;};
 
@@ -1160,7 +1173,7 @@ function HospitalidadPanel({invitaciones,sponsors,contactos,fixtures,colors,isDa
   </div>);
 }
 
-export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onSponMsg,onAddDelivery,sponDeliveries,onUpdDelivery,navTarget,onNavDone,onAddTarifa,onUpdTarifa,onDelTarifa,onAddContract,onUpdContract,onDelContract,onAddPipeline,onUpdPipeline,onDelPipeline,onAddContacto,onUpdContacto,onDelContacto,onAddPropuesta,onUpdPropuesta,onDelPropuesta,onAddPropVoto,onAddPropMsg,onAddHosp,onUpdHosp,onDelHosp,onAddMaterial,onUpdMaterial,onDelMaterial,sponPagos,onAddPago,onUpdPago,onDelPago}:any){
+export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onSponMsg,onAddDelivery,sponDeliveries,onUpdDelivery,navTarget,onNavDone,onAddTarifa,onUpdTarifa,onDelTarifa,onAddContract,onUpdContract,onDelContract,onAddPipeline,onUpdPipeline,onDelPipeline,onAddContacto,onUpdContacto,onDelContacto,onAddPropuesta,onUpdPropuesta,onDelPropuesta,onAddPropVoto,onAddPropMsg,onAddHosp,onUpdHosp,onDelHosp,onAddMaterial,onUpdMaterial,onDelMaterial,sponPagos,onAddPago,onUpdPago,onDelPago,sendNotif}:any){
   const sponsors = useDataStore(s => s.sponsors);
   const users = useDataStore(s => s.users);
   const tarifario = useDataStore(s => s.tarifario);
@@ -1179,7 +1192,8 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
   const [showDelivery,sShowDelivery]=useState(false);
   const [detailId,sDetailId]=useState<number|null>(null);
   const isSA=user?.role==="superadmin";
-  useEffect(()=>{if(navTarget&&navTarget.startsWith("sponsors:")){const id=Number(navTarget.split(":")[1]);if(id){sDetailId(id);sSpTab("general");}if(onNavDone)onNavDone();}},[navTarget]);
+  const [hospFixture,sHospFixture]=useState<{date:string;rival:string;id:string}|null>(null);
+  useEffect(()=>{if(!navTarget)return;if(navTarget.startsWith("sponsors:")){const id=Number(navTarget.split(":")[1]);if(id){sDetailId(id);sSpTab("general");}}else if(navTarget.startsWith("hosp:")){const [,date,rival,fid]=navTarget.split(":");sTopTab("hospitalidad");sHospFixture({date:date||"",rival:rival||"",id:fid||""});}if(onNavDone)onNavDone();},[navTarget]);
   const isJH=user&&(user.n||user.first_name||"").toLowerCase().includes("jes")&&(user.a||user.last_name||"").toLowerCase().includes("herrera");
   const canFullEdit=isSA||isJH;
   const isGC=user&&(user.n||user.first_name||"").toLowerCase().includes("gómez")&&(user.a||user.last_name||"").toLowerCase().includes("centurión");
@@ -1358,6 +1372,7 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
       payment_type:sp.payment_type||"",
       responsable:sp.responsable||"Jesús Herrera",
       canje_instrucciones:sp.canje_instrucciones||"",
+      beneficios:sp.beneficios||[],
     });
     sEditId(sp.id);sShowForm(true);
   };
@@ -1377,6 +1392,7 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
       payment_type:form.payment_type,
       responsable:form.responsable,
       canje_instrucciones:form.canje_instrucciones,
+      beneficios:form.beneficios||[],
     };
     try{
       if(editId){await onUpd(editId,payload);}else{await onAdd(payload);}
@@ -1946,9 +1962,9 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
 
     {topTab==="dashboard"?<DashboardPanel sponsors={sponsors} tarifario={tarifario} contracts={sponContracts} pipeline={sponPipeline} contactos={sponContactos} fixtures={fixtures} invitaciones={hospInvitaciones} dolarRef={dolarRef} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob}/>:null}
     {topTab==="tarifario"?<TarifarioPanel tarifario={tarifario} sponsors={sponsors} dolarRef={dolarRef} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob} canFullEdit={canFullEdit} onAdd={onAddTarifa} onUpd={onUpdTarifa} onDel={onDelTarifa}/>:null}
-    {topTab==="propuestas"?<PropuestasPanel propuestas={sponPropuestas} votos={sponPropVotos} mensajes={sponPropMsgs} sponsors={sponsors} tarifario={tarifario} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob} canCreate={canFullEdit||isGC} canVote={isSE} user={user} onAdd={onAddPropuesta} onUpd={onUpdPropuesta} onDel={onDelPropuesta} onVote={onAddPropVoto} onMsg={onAddPropMsg} onAddSponsor={onAdd} onUpdTarifa={onUpdTarifa}/>:null}
+    {topTab==="propuestas"?<PropuestasPanel propuestas={sponPropuestas} votos={sponPropVotos} mensajes={sponPropMsgs} sponsors={sponsors} tarifario={tarifario} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob} canCreate={canFullEdit||isGC} canVote={isSE} user={user} onAdd={onAddPropuesta} onUpd={onUpdPropuesta} onDel={onDelPropuesta} onVote={onAddPropVoto} onMsg={onAddPropMsg} onAddSponsor={onAdd} onUpdTarifa={onUpdTarifa} sendNotif={sendNotif}/>:null}
     {topTab==="materiales"?<MaterialesPanel materiales={sponMateriales} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob} canUpload={canFullEdit} onAdd={onAddMaterial} onDel={onDelMaterial} user={user}/>:null}
-    {topTab==="hospitalidad"?<HospitalidadPanel invitaciones={hospInvitaciones} sponsors={sponsors} contactos={sponContactos} fixtures={fixtures} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob} canManage={canFullEdit||isBrandi} onAdd={onAddHosp} onUpd={onUpdHosp} onDel={onDelHosp}/>:null}
+    {topTab==="hospitalidad"?<HospitalidadPanel invitaciones={hospInvitaciones} sponsors={sponsors} contactos={sponContactos} fixtures={fixtures} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob} canManage={canFullEdit||isBrandi} onAdd={onAddHosp} onUpd={onUpdHosp} onDel={onDelHosp} preFixture={hospFixture} onPreFixtureDone={()=>sHospFixture(null)}/>:null}
 
     {topTab==="clientes"?<>
     {/* ── Header ── */}
@@ -2113,6 +2129,14 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
         <div style={{marginBottom:8}}>
           <label style={lbl}>Exposición</label>
           <input value={form.exposure} onChange={e=>sForm(p=>({...p,exposure:e.target.value}))} style={inp} placeholder="Ej: Ropa: frente camiseta. Cartelería"/>
+        </div>
+
+        {/* Beneficios multi-select */}
+        <div style={{marginBottom:8}}>
+          <label style={lbl}>Beneficios incluidos</label>
+          <div style={{display:"flex",flexWrap:"wrap" as const,gap:6}}>
+            {BENEFICIOS_OPTS.map(b=>{const sel=(form.beneficios||[]).includes(b);return <button key={b} type="button" onClick={()=>sForm(p=>({...p,beneficios:sel?(p.beneficios||[]).filter((x:string)=>x!==b):[...(p.beneficios||[]),b]}))} style={{padding:"4px 10px",borderRadius:14,border:"1px solid "+(sel?"#10B981":colors.g3),background:sel?(isDark?"rgba(16,185,129,.15)":"#ECFDF5"):"transparent",color:sel?"#10B981":colors.g5,fontSize:10,fontWeight:sel?700:500,cursor:"pointer"}}>{sel?"✓ ":""}{b}</button>;})}
+          </div>
         </div>
 
         {/* Instrucciones canje */}
