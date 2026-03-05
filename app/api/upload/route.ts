@@ -18,7 +18,7 @@ const ALLOWED_EXT: Set<string> = new Set([
 ]);
 
 const ALLOWED_FOLDERS: Set<string> = new Set([
-  "general", "tasks", "presupuestos", "sponsors", "inventory", "profiles", "facturas", "comprobantes",
+  "general", "tasks", "presupuestos", "sponsors", "inventory", "profiles", "facturas", "comprobantes", "materiales",
 ]);
 
 const MAX_SIZE = 4 * 1024 * 1024; // 4MB

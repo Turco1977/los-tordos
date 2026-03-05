@@ -774,30 +774,34 @@ function PropuestasPanel({propuestas,votos,mensajes,sponsors,tarifario,colors,is
 /* ══════════════════════════════════════════════════════════════
    MaterialesPanel — Repositorio descargable
    ══════════════════════════════════════════════════════════════ */
-function MaterialesPanel({materiales,colors,isDark,cardBg,mob,canUpload,onAdd,onDel}:any){
+function MaterialesPanel({materiales,colors,isDark,cardBg,mob,canUpload,onAdd,onDel,user}:any){
   const items:any[]=materiales||[];
-  const archivos=useDataStore(s=>s.archivos);
   const [showForm,sShowForm]=useState(false);
   const [form,sForm]=useState({titulo:"",descripcion:"",categoria:"general",archivo_url:"",archivo_nombre:""});
-  const [archSearch,sArchSearch]=useState("");
+  const [uploading,sUploading]=useState(false);
+  const [uploadErr,sUploadErr]=useState("");
+  const fileRef=useRef<HTMLInputElement>(null);
   const lbl:any={fontSize:10,fontWeight:600,color:colors.g5,display:"block",marginBottom:2};
   const inp:any={width:"100%",padding:"7px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,background:cardBg,color:colors.nv,boxSizing:"border-box"};
 
-  const filteredArch=useMemo(()=>{
-    const all:any[]=archivos||[];
-    if(!archSearch.trim())return all.slice(0,30);
-    const q=archSearch.toLowerCase();
-    return all.filter((a:any)=>((a.titulo||"")+(a.name||"")).toLowerCase().includes(q)).slice(0,30);
-  },[archivos,archSearch]);
-
-  const selectArchivo=(a:any)=>{
-    sForm(p=>({...p,archivo_url:a.url,archivo_nombre:a.titulo||a.name||"",titulo:p.titulo||a.titulo||a.name||""}));
-    sArchSearch("");
+  const handleFileSelect=async(e:React.ChangeEvent<HTMLInputElement>)=>{
+    const file=e.target.files?.[0];
+    if(!file)return;
+    sUploading(true);sUploadErr("");
+    try{
+      const{uploadFile}=await import("@/lib/storage");
+      const res=await uploadFile(file,"materiales");
+      if("error" in res){sUploadErr(res.error);sUploading(false);return;}
+      sForm(p=>({...p,archivo_url:res.url,archivo_nombre:file.name,titulo:p.titulo||file.name.replace(/\.[^.]+$/,"")}));
+      // The upload API auto-creates an archivos record
+    }catch(err:any){sUploadErr(err.message||"Error al subir");}
+    sUploading(false);
+    if(fileRef.current)fileRef.current.value="";
   };
 
   const handleSave=async()=>{
     if(!form.titulo.trim()||!form.archivo_url)return;
-    await onAdd({titulo:form.titulo.trim(),descripcion:form.descripcion.trim(),categoria:form.categoria,archivo_url:form.archivo_url,archivo_nombre:form.archivo_nombre||form.titulo.trim()});
+    await onAdd({titulo:form.titulo.trim(),descripcion:form.descripcion.trim(),categoria:form.categoria,archivo_url:form.archivo_url,archivo_nombre:form.archivo_nombre||form.titulo.trim(),subido_por:user?.id,subido_por_name:user?(user.n||user.first_name||"")+" "+(user.a||user.last_name||""):""});
     sShowForm(false);sForm({titulo:"",descripcion:"",categoria:"general",archivo_url:"",archivo_nombre:""});
   };
 
@@ -830,31 +834,20 @@ function MaterialesPanel({materiales,colors,isDark,cardBg,mob,canUpload,onAdd,on
       <div style={{background:cardBg,borderRadius:16,padding:20,width:"100%",maxWidth:480,maxHeight:"90vh",overflowY:"auto" as const,boxShadow:"0 8px 32px rgba(0,0,0,.2)"}} onClick={e=>e.stopPropagation()}>
         <div style={{fontSize:14,fontWeight:800,color:colors.nv,marginBottom:14}}>Agregar Material</div>
 
-        {/* Archivo selector from Archivos */}
+        {/* File upload */}
         <div style={{marginBottom:10}}>
-          <label style={lbl}>Archivo (de la sección Archivos) *</label>
+          <label style={lbl}>Archivo *</label>
+          <input ref={fileRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.jpg,.jpeg,.png,.gif,.webp,.svg" onChange={handleFileSelect} style={{display:"none"}}/>
           {form.archivo_url
             ?<div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",borderRadius:8,background:isDark?"rgba(16,185,129,.1)":"#ECFDF5",border:"1px solid #10B981"}}>
               <span style={{fontSize:12,fontWeight:600,color:"#10B981",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>✅ {form.archivo_nombre}</span>
               <button onClick={()=>sForm(p=>({...p,archivo_url:"",archivo_nombre:""}))} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#DC2626"}} title="Quitar">✕</button>
             </div>
-            :<div>
-              <input value={archSearch} onChange={e=>sArchSearch(e.target.value)} placeholder="Buscar en Archivos..." style={{...inp,marginBottom:4}}/>
-              <div style={{maxHeight:180,overflowY:"auto" as const,border:"1px solid "+colors.g3,borderRadius:8}}>
-                {filteredArch.length===0&&<div style={{padding:12,textAlign:"center",color:colors.g4,fontSize:11}}>No se encontraron archivos{archSearch?" con ese nombre":""}</div>}
-                {filteredArch.map((a:any)=>(
-                  <div key={a.id} onClick={()=>selectArchivo(a)} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",borderBottom:"1px solid "+colors.g2,cursor:"pointer",fontSize:11,transition:"background .15s"}} onMouseOver={e=>(e.currentTarget.style.background=isDark?"rgba(255,255,255,.05)":"#F7F8FA")} onMouseOut={e=>(e.currentTarget.style.background="transparent")}>
-                    <span style={{fontSize:16}}>{/\.(pdf)$/i.test(a.name||"")?"📄":/\.(xlsx?|csv)$/i.test(a.name||"")?"📊":/\.(jpg|jpeg|png|gif|webp|svg)$/i.test(a.name||"")?"🖼️":"📁"}</span>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontWeight:600,color:colors.nv,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{a.titulo||a.name}</div>
-                      {a.titulo&&a.name&&a.titulo!==a.name&&<div style={{fontSize:9,color:colors.g4}}>{a.name}</div>}
-                    </div>
-                    <span style={{fontSize:9,color:colors.g4,whiteSpace:"nowrap" as const}}>{a.created_at?.slice(0,10)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            :<button onClick={()=>fileRef.current?.click()} disabled={uploading} style={{width:"100%",padding:"14px 16px",borderRadius:10,border:"2px dashed "+(uploading?"#F59E0B":colors.g3),background:isDark?"rgba(255,255,255,.02)":"#FAFBFC",color:uploading?"#F59E0B":colors.bl,fontSize:13,fontWeight:700,cursor:uploading?"wait":"pointer",transition:"all .2s"}}>
+              {uploading?"Subiendo...":"+ Seleccionar archivo"}
+            </button>
           }
+          {uploadErr&&<div style={{fontSize:10,color:"#DC2626",marginTop:4}}>{uploadErr}</div>}
         </div>
 
         <div style={{marginBottom:8}}><label style={lbl}>Título *</label><input value={form.titulo} onChange={e=>sForm(p=>({...p,titulo:e.target.value}))} style={inp}/></div>
@@ -894,8 +887,8 @@ function HospitalidadPanel({invitaciones,sponsors,contactos,fixtures,colors,isDa
   const activeSpon=(sponsors||[]).filter((s:any)=>s.status==="active");
   const sinContacto=activeSpon.filter((sp:any)=>{const last=items.filter(i=>i.sponsor_id===sp.id).sort((a:any,b:any)=>(b.created_at||"").localeCompare(a.created_at||""))[0];if(!last)return true;return daysLeft(last.created_at?.slice(0,10)||"")< -30;});
 
-  /* Próximos partidos de local (todos, no solo primera) */
-  const proxPartidos=((fixtures||[]) as any[]).filter((f:any)=>f.date>=TODAY&&f.is_local).sort((a:any,b:any)=>a.date.localeCompare(b.date)).slice(0,20);
+  /* Próximos partidos de local — solo Plantel Superior */
+  const proxPartidos=((fixtures||[]) as any[]).filter((f:any)=>f.date>=TODAY&&f.is_local&&f.division==="Plantel Superior").sort((a:any,b:any)=>a.date.localeCompare(b.date)).slice(0,20);
 
   const openAdd=(fixture?:any)=>{sForm({partido_fecha:fixture?.date||"",partido_rival:fixture?.rival||"",sponsor_id:"",contacto_id:"",entradas:"2",estacionamiento:false,zona_vip:false,fixture_id:fixture?.id||""});sEditId(null);sShowForm(true);};
   const handleSave=async()=>{
@@ -953,8 +946,9 @@ function HospitalidadPanel({invitaciones,sponsors,contactos,fixtures,colors,isDa
           <td style={{padding:"6px 8px"}}><span style={{padding:"2px 8px",borderRadius:10,fontSize:9,fontWeight:600,background:hst.bg,color:hst.c}}>{hst.i} {hst.l}</span></td>
           <td style={{padding:"6px 8px"}}>{inv.asistio===true?"✅":inv.asistio===false?"❌":"–"}</td>
           <td style={{padding:"6px 8px"}}>
-            {canManage&&<div style={{display:"flex",gap:3}}>
+            {canManage&&<div style={{display:"flex",gap:3,alignItems:"center"}}>
               {inv.asistio===null&&<><Btn v="s" s="s" onClick={()=>onUpd(inv.id,{asistio:true,estado_invitacion:"confirmada"})}>Sí</Btn><Btn v="g" s="s" onClick={()=>onUpd(inv.id,{asistio:false})}>No</Btn></>}
+              <button onClick={()=>{const sn=getSponName(inv.sponsor_id);const msg=`Hola! Te escribo de Los Tordos Rugby Club.\n\nQueremos invitarte al partido del *${inv.partido_fecha||""}* vs *${inv.partido_rival||"TBC"}* en nuestro club.\n\n🎫 Entradas: ${inv.entradas||2}${inv.estacionamiento?"\n🅿️ Estacionamiento incluido":""}${inv.zona_vip?"\n⭐ Acceso zona VIP":""}\n\nEsperamos contar con tu presencia!\n\nSaludos,\nLos Tordos RC`;window.open("https://wa.me/?text="+encodeURIComponent(msg),"_blank");}} style={{background:"#25D366",border:"none",borderRadius:6,padding:"2px 6px",cursor:"pointer",fontSize:11,color:"#fff",fontWeight:700}} title="Enviar por WhatsApp">WA</button>
               <button onClick={()=>onDel(inv.id)} style={{background:"none",border:"none",cursor:"pointer",fontSize:11}}>🗑️</button>
             </div>}
           </td>
@@ -1586,7 +1580,7 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
     {topTab==="dashboard"?<DashboardPanel sponsors={sponsors} tarifario={tarifario} contracts={sponContracts} pipeline={sponPipeline} dolarRef={dolarRef} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob}/>:null}
     {topTab==="tarifario"?<TarifarioPanel tarifario={tarifario} sponsors={sponsors} dolarRef={dolarRef} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob} canFullEdit={canFullEdit} onAdd={onAddTarifa} onUpd={onUpdTarifa} onDel={onDelTarifa}/>:null}
     {topTab==="propuestas"?<PropuestasPanel propuestas={sponPropuestas} votos={sponPropVotos} mensajes={sponPropMsgs} sponsors={sponsors} tarifario={tarifario} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob} canCreate={canFullEdit||isGC} canVote={isSE} user={user} onAdd={onAddPropuesta} onUpd={onUpdPropuesta} onDel={onDelPropuesta} onVote={onAddPropVoto} onMsg={onAddPropMsg} onAddSponsor={onAdd}/>:null}
-    {topTab==="materiales"?<MaterialesPanel materiales={sponMateriales} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob} canUpload={canFullEdit} onAdd={onAddMaterial} onDel={onDelMaterial}/>:null}
+    {topTab==="materiales"?<MaterialesPanel materiales={sponMateriales} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob} canUpload={canFullEdit} onAdd={onAddMaterial} onDel={onDelMaterial} user={user}/>:null}
     {topTab==="hospitalidad"?<HospitalidadPanel invitaciones={hospInvitaciones} sponsors={sponsors} contactos={sponContactos} fixtures={fixtures} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob} canManage={canFullEdit||isBrandi} onAdd={onAddHosp} onUpd={onUpdHosp} onDel={onDelHosp}/>:null}
 
     {topTab==="clientes"?<>
