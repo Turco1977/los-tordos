@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/client";
 import { T, AREAS, DEPTOS, ROLES, ST, SC, PST, FREQ, fn, isOD, BOOK_FAC, RENTAL_APPROVERS, TESORERO } from "@/lib/constants";
 import { exportCSV, exportPDF, exportICal, exportMinutaPDF, exportMinutaWord, exportReportPDF, exportProjectPDF, exportAuditPDF } from "@/lib/export";
+import { openManual } from "@/lib/manual";
 import { useTheme, darkCSS } from "@/lib/theme";
 import { ThemeCtx } from "@/lib/theme-context";
 import { Toast, useMobile, Btn, Card, Ring, Badge, Bread } from "@/components/ui";
@@ -142,6 +143,7 @@ export default function App() {
   const userLevel = ROLES[user.role]?.lv || 0;
 
   if (isPersonal && vw === "dash") { setTimeout(() => sVw("my"), 0); return null; }
+  if (vw === "manual") { setTimeout(() => { openManual(); sVw("dash"); }, 0); return null; }
 
   return (
     <ErrorBoundary>
