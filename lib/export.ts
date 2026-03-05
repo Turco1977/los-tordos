@@ -772,6 +772,73 @@ ${tables}
 }
 
 /* ── Contracts PDF ── */
+export function exportSponsorsExcel(sponsors: any[]) {
+  const headers = ["Sponsor", "Aporte Cash", "Aporte Canje", "Total", "Estado", "Vencimiento", "Exposición", "Tipo Pago", "Responsable", "Notas"];
+  const rows = sponsors.map((s: any) => [
+    s.name || "",
+    String(s.amount_cash || 0),
+    String(s.amount_service || 0),
+    String((Number(s.amount_cash || 0) + Number(s.amount_service || 0))),
+    s.status || "",
+    s.end_date || "",
+    s.exposure || "",
+    s.payment_type || "",
+    s.responsable || "",
+    s.notes || "",
+  ]);
+  exportCSV("sponsors_los_tordos", headers, rows);
+}
+
+export function exportHospitalidadPDF(invitaciones: any[], sponsors: any[], match?: string) {
+  const esc = (s: string) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const getSponName = (id: number | null) => { if (!id) return "–"; const sp = sponsors.find((s: any) => s.id === id); return sp?.name || "Sponsor #" + id; };
+  const total = invitaciones.length;
+  const asistieron = invitaciones.filter(i => i.asistio === true).length;
+  const noAsistieron = invitaciones.filter(i => i.asistio === false).length;
+  const pendientes = invitaciones.filter(i => i.asistio === null || i.asistio === undefined).length;
+  const entradas = invitaciones.reduce((s: number, i: any) => s + Number(i.entradas || 0), 0);
+  const personas = invitaciones.reduce((s: number, i: any) => s + Number(i.personas_asistentes || 0), 0);
+
+  let rows = "";
+  for (const inv of invitaciones) {
+    rows += `<tr><td>${esc(getSponName(inv.sponsor_id))}</td><td>${inv.entradas || 0}</td><td>${inv.estacionamiento ? "Sí" : "No"}</td><td>${inv.zona_vip ? "Sí" : "No"}</td><td>${inv.asistio === true ? "Sí" : inv.asistio === false ? "No" : "Pendiente"}</td><td>${inv.personas_asistentes || "–"}</td><td>${esc(inv.observaciones || "")}</td></tr>`;
+  }
+
+  const titulo = match || (invitaciones[0]?.partido_fecha ? `${invitaciones[0].partido_fecha} vs ${invitaciones[0].partido_rival || "TBC"}` : "Hospitalidad");
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Informe Hospitalidad</title>
+<style>
+  @page { size: portrait; margin: 12mm; }
+  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 11px; color: #1a1a1a; }
+  h1 { font-size: 16px; margin: 0 0 4px; }
+  .meta { color: #666; font-size: 10px; margin-bottom: 8px; }
+  .kpis { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+  .kpi { padding: 8px 14px; border-radius: 8px; background: #F7F8FA; text-align: center; }
+  .kpi b { display: block; font-size: 15px; color: #0A1628; }
+  .kpi span { font-size: 9px; color: #666; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: #0A1628; color: #fff; padding: 5px 7px; text-align: left; font-size: 9px; }
+  td { padding: 4px 7px; border-bottom: 1px solid #e5e5e5; font-size: 10px; }
+  tr:nth-child(even) { background: #f9f9f9; }
+</style></head><body>
+<h1>Informe Hospitalidad — ${esc(titulo)}</h1>
+<div class="meta">Los Tordos RC · ${new Date().toLocaleDateString("es-AR")}</div>
+<div class="kpis">
+  <div class="kpi"><b>${total}</b><span>Invitados</span></div>
+  <div class="kpi"><b style="color:#10B981">${asistieron}</b><span>Asistieron</span></div>
+  <div class="kpi"><b style="color:#DC2626">${noAsistieron}</b><span>No asistieron</span></div>
+  <div class="kpi"><b>${pendientes}</b><span>Pendientes</span></div>
+  <div class="kpi"><b>${entradas}</b><span>Entradas</span></div>
+  <div class="kpi"><b>${personas}</b><span>Personas</span></div>
+</div>
+<table><thead><tr><th>Sponsor</th><th>Entradas</th><th>Estac.</th><th>VIP</th><th>Asistió</th><th>Personas</th><th>Observaciones</th></tr></thead><tbody>
+${rows}
+</tbody></table>
+<script>window.onload=()=>{window.print();}</script>
+</body></html>`;
+  const w = window.open("", "_blank");
+  if (w) { w.document.write(html); w.document.close(); }
+}
+
 export function exportContractsPDF(contracts: any[], sponsors: any[]) {
   const esc = (s: string) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const fmtN = (n: number) => n ? "$" + Math.round(n).toLocaleString("es-AR") : "–";

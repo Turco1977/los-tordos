@@ -1,7 +1,7 @@
 "use client";
 import { useState, useMemo, useRef, useEffect } from "react";
 import { SPON_ST, SPON_TIER, DOLAR_REF, DIV, TAR_CATS, TAR_VIS, PIPE_ST, PIPE_SC, CONTR_ST, CONTR_SC, PROP_ST, PROP_SC, CONTACT_ROLES, SPON_EJES, HOSP_ST, MAT_CATS } from "@/lib/constants";
-import { exportTarifarioPDF, exportPipelinePDF, exportContractsPDF } from "@/lib/export";
+import { exportTarifarioPDF, exportPipelinePDF, exportContractsPDF, exportSponsorsExcel, exportHospitalidadPDF } from "@/lib/export";
 import { fmtD } from "@/lib/mappers";
 import { Btn, Card } from "@/components/ui";
 import { useC } from "@/lib/theme-context";
@@ -765,7 +765,7 @@ function DashboardPanel({sponsors,tarifario,contracts,pipeline,contactos,fixture
 /* ══════════════════════════════════════════════════════════════
    PropuestasPanel — Propuestas comerciales con aprobación SE
    ══════════════════════════════════════════════════════════════ */
-const emptyPropForm=()=>({nombre_prospecto:"",contacto:"",rubro:"",nivel_propuesto:"white",aporte_dinero:"",aporte_canje:"",detalle_canje:"",ubicaciones_propuestas:[] as number[],descuento_pct:"",valor_final:"",justificacion:"",estado:PROP_ST.BOR});
+const emptyPropForm=()=>({nombre_prospecto:"",contacto:"",rubro:"",nivel_propuesto:"white",aporte_dinero:"",aporte_canje:"",detalle_canje:"",ubicaciones_propuestas:[] as number[],descuento_pct:"",valor_final:"",justificacion:"",estado:PROP_ST.BOR,es_ex_jugador:false,como_llego:"",periodo_inicio:"",periodo_fin:"",forma_pago:""});
 
 function PropuestasPanel({propuestas,votos,mensajes,sponsors,tarifario,colors,isDark,cardBg,mob,canCreate,canVote,user,onAdd,onUpd,onDel,onVote,onMsg,onAddSponsor,onUpdTarifa}:any){
   const items:any[]=propuestas||[];
@@ -784,7 +784,7 @@ function PropuestasPanel({propuestas,votos,mensajes,sponsors,tarifario,colors,is
   const calcTarifario=(ids:number[])=>ids.reduce((s:number,id:number)=>{const t=tarItems.find((x:any)=>x.id===id);return s+(t?Number(t.precio_max_usd||0):0);},0);
 
   const openAdd=()=>{sForm(emptyPropForm());sEditId(null);sShowForm(true);};
-  const openEdit=(p:any)=>{sForm({nombre_prospecto:p.nombre_prospecto||"",contacto:p.contacto||"",rubro:p.rubro||"",nivel_propuesto:p.nivel_propuesto||"white",aporte_dinero:String(p.aporte_dinero||""),aporte_canje:String(p.aporte_canje||""),detalle_canje:p.detalle_canje||"",ubicaciones_propuestas:p.ubicaciones_propuestas||[],descuento_pct:String(p.descuento_pct||""),valor_final:String(p.valor_final||""),justificacion:p.justificacion||"",estado:p.estado||PROP_ST.BOR});sEditId(p.id);sShowForm(true);};
+  const openEdit=(p:any)=>{sForm({nombre_prospecto:p.nombre_prospecto||"",contacto:p.contacto||"",rubro:p.rubro||"",nivel_propuesto:p.nivel_propuesto||"white",aporte_dinero:String(p.aporte_dinero||""),aporte_canje:String(p.aporte_canje||""),detalle_canje:p.detalle_canje||"",ubicaciones_propuestas:p.ubicaciones_propuestas||[],descuento_pct:String(p.descuento_pct||""),valor_final:String(p.valor_final||""),justificacion:p.justificacion||"",estado:p.estado||PROP_ST.BOR,es_ex_jugador:!!p.es_ex_jugador,como_llego:p.como_llego||"",periodo_inicio:p.periodo_inicio||"",periodo_fin:p.periodo_fin||"",forma_pago:p.forma_pago||""});sEditId(p.id);sShowForm(true);};
 
   const handleSave=async()=>{
     if(!form.nombre_prospecto.trim())return;
@@ -886,6 +886,10 @@ function PropuestasPanel({propuestas,votos,mensajes,sponsors,tarifario,colors,is
           <div><label style={lbl}>Rubro</label><input value={form.rubro} onChange={e=>sForm(p=>({...p,rubro:e.target.value}))} style={inp}/></div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+          <div><label style={lbl}>Como llego</label><input value={form.como_llego} onChange={e=>sForm(p=>({...p,como_llego:e.target.value}))} style={inp} placeholder="Referido, evento, etc."/></div>
+          <div style={{display:"flex",alignItems:"center",gap:6,paddingTop:14}}><input type="checkbox" checked={form.es_ex_jugador} onChange={e=>sForm(p=>({...p,es_ex_jugador:e.target.checked}))}/><span style={{fontSize:11,color:colors.g5}}>Ex jugador del club</span></div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
           <div><label style={lbl}>Nivel propuesto</label><select value={form.nivel_propuesto} onChange={e=>sForm(p=>({...p,nivel_propuesto:e.target.value}))} style={inp}>{Object.entries(SPON_TIER).map(([k,v])=><option key={k} value={k}>{v.i} {v.l}</option>)}</select></div>
           <div><label style={lbl}>Estado</label><select value={form.estado} onChange={e=>sForm(p=>({...p,estado:e.target.value}))} style={inp}>{Object.entries(PROP_SC).map(([k,v])=><option key={k} value={k}>{v.i} {v.l}</option>)}</select></div>
         </div>
@@ -903,7 +907,12 @@ function PropuestasPanel({propuestas,votos,mensajes,sponsors,tarifario,colors,is
           <div><label style={lbl}>Descuento %</label><input type="number" value={form.descuento_pct} onChange={e=>sForm(p=>({...p,descuento_pct:e.target.value}))} style={inp}/></div>
           <div><label style={lbl}>Valor final $</label><input type="number" value={form.valor_final} onChange={e=>sForm(p=>({...p,valor_final:e.target.value}))} style={inp}/></div>
         </div>
-        <div style={{marginBottom:12}}><label style={lbl}>Justificación</label><textarea value={form.justificacion} onChange={e=>sForm(p=>({...p,justificacion:e.target.value}))} rows={3} style={{...inp,resize:"vertical" as const}}/></div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:8}}>
+          <div><label style={lbl}>Periodo inicio</label><input type="date" value={form.periodo_inicio} onChange={e=>sForm(p=>({...p,periodo_inicio:e.target.value}))} style={inp}/></div>
+          <div><label style={lbl}>Periodo fin</label><input type="date" value={form.periodo_fin} onChange={e=>sForm(p=>({...p,periodo_fin:e.target.value}))} style={inp}/></div>
+          <div><label style={lbl}>Forma de pago</label><select value={form.forma_pago} onChange={e=>sForm(p=>({...p,forma_pago:e.target.value}))} style={inp}><option value="">--</option><option value="mensual">Mensual</option><option value="trimestral">Trimestral</option><option value="semestral">Semestral</option><option value="anual">Anual</option><option value="deposito">Deposito</option><option value="cheques">Cheques</option></select></div>
+        </div>
+        <div style={{marginBottom:12}}><label style={lbl}>Justificacion</label><textarea value={form.justificacion} onChange={e=>sForm(p=>({...p,justificacion:e.target.value}))} rows={3} style={{...inp,resize:"vertical" as const}}/></div>
         <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
           {editId&&<Btn v="r" s="s" onClick={()=>{onDel(editId);sShowForm(false);}}>Eliminar</Btn>}
           <Btn v="g" s="s" onClick={()=>sShowForm(false)}>Cancelar</Btn>
@@ -1012,7 +1021,7 @@ function HospitalidadPanel({invitaciones,sponsors,contactos,fixtures,colors,isDa
   const items:any[]=invitaciones||[];
   const [showForm,sShowForm]=useState(false);
   const [editId,sEditId]=useState<number|null>(null);
-  const [form,sForm]=useState({partido_fecha:"",partido_rival:"",sponsor_id:"",contacto_id:"",entradas:"2",estacionamiento:false,zona_vip:false,fixture_id:"" as string});
+  const [form,sForm]=useState({partido_fecha:"",partido_rival:"",sponsor_id:"",contacto_id:"",entradas:"2",estacionamiento:false,zona_vip:false,fixture_id:"" as string,observaciones:""});
   const lbl:any={fontSize:10,fontWeight:600,color:colors.g5,display:"block",marginBottom:2};
   const inp:any={width:"100%",padding:"7px 10px",borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,background:cardBg,color:colors.nv,boxSizing:"border-box"};
 
@@ -1033,7 +1042,7 @@ function HospitalidadPanel({invitaciones,sponsors,contactos,fixtures,colors,isDa
   /* Próximos partidos de local — solo Plantel Superior */
   const proxPartidos=((fixtures||[]) as any[]).filter((f:any)=>f.date>=TODAY&&f.is_local&&f.division==="Plantel Superior").sort((a:any,b:any)=>a.date.localeCompare(b.date)).slice(0,20);
 
-  const openAdd=(fixture?:any)=>{sForm({partido_fecha:fixture?.date||"",partido_rival:fixture?.rival||"",sponsor_id:"",contacto_id:"",entradas:"2",estacionamiento:false,zona_vip:false,fixture_id:fixture?.id||""});sEditId(null);sShowForm(true);};
+  const openAdd=(fixture?:any)=>{sForm({partido_fecha:fixture?.date||"",partido_rival:fixture?.rival||"",sponsor_id:"",contacto_id:"",entradas:"2",estacionamiento:false,zona_vip:false,fixture_id:fixture?.id||"",observaciones:""});sEditId(null);sShowForm(true);};
   const handleSave=async()=>{
     if(!form.sponsor_id)return;
     const d={partido_fecha:form.partido_fecha||null,partido_rival:form.partido_rival,sponsor_id:Number(form.sponsor_id),contacto_id:form.contacto_id?Number(form.contacto_id):null,entradas:Number(form.entradas)||0,estacionamiento:form.estacionamiento,zona_vip:form.zona_vip,estado_invitacion:"enviada"};
@@ -1068,7 +1077,8 @@ function HospitalidadPanel({invitaciones,sponsors,contactos,fixtures,colors,isDa
     </Card>}
 
     {/* Actions */}
-    <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
+    <div style={{display:"flex",justifyContent:"flex-end",gap:6,marginBottom:12}}>
+      {items.length>0&&<Btn v="g" s="s" onClick={()=>exportHospitalidadPDF(items,sponsors||[])}>📄 Informe PDF</Btn>}
       {canManage&&<Btn v="pu" s="s" onClick={()=>openAdd()}>+ Invitación</Btn>}
     </div>
 
@@ -1076,7 +1086,7 @@ function HospitalidadPanel({invitaciones,sponsors,contactos,fixtures,colors,isDa
     <div style={{overflowX:"auto"}}>
     <table style={{width:"100%",borderCollapse:"collapse" as const,fontSize:11}}>
       <thead><tr style={{background:isDark?"rgba(255,255,255,.05)":"#F7F8FA"}}>
-        {["Fecha","Rival","Sponsor","Entradas","Estac.","VIP","Estado","Asistió",""].map((h,i)=><th key={i} style={{padding:"6px 8px",textAlign:"left" as const,fontWeight:700,color:colors.g5,fontSize:10,borderBottom:"2px solid "+colors.g2}}>{h}</th>)}
+        {["Fecha","Rival","Sponsor","Entr.","Estac.","VIP","Estado","Asist.","Pers.",""].map((h,i)=><th key={i} style={{padding:"6px 8px",textAlign:"left" as const,fontWeight:700,color:colors.g5,fontSize:10,borderBottom:"2px solid "+colors.g2}}>{h}</th>)}
       </tr></thead>
       <tbody>{items.map(inv=>{const hst=HOSP_ST[inv.estado_invitacion]||HOSP_ST.pendiente;return(
         <tr key={inv.id} style={{borderBottom:"1px solid "+colors.g2}}>
@@ -1087,10 +1097,11 @@ function HospitalidadPanel({invitaciones,sponsors,contactos,fixtures,colors,isDa
           <td style={{padding:"6px 8px"}}>{inv.estacionamiento?"🅿️":"–"}</td>
           <td style={{padding:"6px 8px"}}>{inv.zona_vip?"⭐":"–"}</td>
           <td style={{padding:"6px 8px"}}><span style={{padding:"2px 8px",borderRadius:10,fontSize:9,fontWeight:600,background:hst.bg,color:hst.c}}>{hst.i} {hst.l}</span></td>
-          <td style={{padding:"6px 8px"}}>{inv.asistio===true?"✅":inv.asistio===false?"❌":"–"}</td>
+          <td style={{padding:"6px 8px"}}>{inv.asistio===true?"✅":inv.asistio===false?"❌":"--"}</td>
+          <td style={{padding:"6px 8px",color:colors.g5,fontSize:10}}>{inv.personas_asistentes||"--"}</td>
           <td style={{padding:"6px 8px"}}>
             {canManage&&<div style={{display:"flex",gap:3,alignItems:"center"}}>
-              {inv.asistio===null&&<><Btn v="s" s="s" onClick={()=>onUpd(inv.id,{asistio:true,estado_invitacion:"confirmada"})}>Sí</Btn><Btn v="g" s="s" onClick={()=>onUpd(inv.id,{asistio:false})}>No</Btn></>}
+              {inv.asistio===null&&<><Btn v="s" s="s" onClick={()=>{const p=prompt("Personas asistentes:",String(inv.entradas||2));const n=p?Number(p):null;if(n!==null)onUpd(inv.id,{asistio:true,estado_invitacion:"confirmada",personas_asistentes:n});}}>Sí</Btn><Btn v="g" s="s" onClick={()=>onUpd(inv.id,{asistio:false,personas_asistentes:0})}>No</Btn></>}
               <button onClick={()=>{const spConts=((contactos||[]) as any[]).filter((c:any)=>c.sponsor_id===inv.sponsor_id);const principal=spConts.find((c:any)=>c.es_principal)||spConts.find((c:any)=>c.telefono)||spConts[0];const nombre=principal?.nombre||"";const tel=(principal?.telefono||"").replace(/[^0-9+]/g,"");const saludo=nombre?`Hola ${nombre}!`:"Hola!";const msg=`${saludo} Te escribo de Los Tordos Rugby Club.\n\nQueremos invitarte al partido del *${inv.partido_fecha||""}* vs *${inv.partido_rival||"TBC"}* en nuestro club.\n\n🎫 Entradas: ${inv.entradas||2}${inv.estacionamiento?"\n🅿️ Estacionamiento incluido":""}${inv.zona_vip?"\n⭐ Acceso zona VIP":""}\n\nEsperamos contar con tu presencia!\n\nSaludos,\nLos Tordos RC`;window.open("https://wa.me/"+(tel||"")+"?text="+encodeURIComponent(msg),"_blank");}} style={{background:"#25D366",border:"none",borderRadius:6,padding:"2px 6px",cursor:"pointer",fontSize:11,color:"#fff",fontWeight:700}} title="Enviar por WhatsApp">WA</button>
               <button onClick={()=>onDel(inv.id)} style={{background:"none",border:"none",cursor:"pointer",fontSize:11}}>🗑️</button>
             </div>}
@@ -1118,6 +1129,7 @@ function HospitalidadPanel({invitaciones,sponsors,contactos,fixtures,colors,isDa
           <div style={{display:"flex",alignItems:"center",gap:4,paddingTop:14}}><input type="checkbox" checked={form.estacionamiento} onChange={e=>sForm(p=>({...p,estacionamiento:e.target.checked}))}/><span style={{fontSize:10,color:colors.g5}}>Estac.</span></div>
           <div style={{display:"flex",alignItems:"center",gap:4,paddingTop:14}}><input type="checkbox" checked={form.zona_vip} onChange={e=>sForm(p=>({...p,zona_vip:e.target.checked}))}/><span style={{fontSize:10,color:colors.g5}}>VIP</span></div>
         </div>
+        <div style={{marginBottom:8}}><label style={lbl}>Observaciones</label><textarea value={form.observaciones} onChange={e=>sForm(p=>({...p,observaciones:e.target.value}))} rows={2} style={{...inp,resize:"vertical" as const}} placeholder="Notas sobre la invitacion..."/></div>
         <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
           <Btn v="g" s="s" onClick={()=>sShowForm(false)}>Cancelar</Btn>
           <Btn v="s" s="s" onClick={handleSave}>Crear</Btn>
@@ -1166,7 +1178,7 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
   const [importPreview,sImportPreview]=useState<any[]|null>(null);
   const fileRef=useRef<HTMLInputElement>(null);
   const [showCF,setSCF]=useState(false);
-  const [cfData,setCFData]=useState({nombre:"",cargo:"",telefono:"",email:"",rol:"comercial",es_principal:false});
+  const [cfData,setCFData]=useState({nombre:"",cargo:"",telefono:"",email:"",rol:"comercial",es_principal:false,fecha_nacimiento:"",es_ex_jugador:false,notas:""});
   const [editCId,setEditCId]=useState<number|null>(null);
 
   /* ── Import (Excel + Manual) ── */
@@ -1524,6 +1536,13 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
             <div><label style={lbl}>Período / Vencimiento</label><input type="date" value={sp.end_date||""} onChange={e=>inlineUpd(sp,"end_date",e.target.value)} style={inp}/></div>
             <div><label style={lbl}>Tipo de Pago</label><input value={sp.payment_type||""} onChange={e=>inlineUpd(sp,"payment_type",e.target.value)} style={inp} placeholder="Ej: pago mensual, canje, cheques"/></div>
           </div>
+          <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8,marginBottom:12}}>
+            <div><label style={lbl}>Contrato (PDF)</label>
+              {sp.contrato_url?<div style={{display:"flex",alignItems:"center",gap:6}}><a href={sp.contrato_url} target="_blank" rel="noreferrer" style={{fontSize:11,color:colors.bl,fontWeight:600}}>📄 Ver contrato</a>{canFullEdit&&<button onClick={()=>inlineUpd(sp,"contrato_url","")} style={{background:"none",border:"none",cursor:"pointer",fontSize:10,color:colors.g4}}>✕</button>}</div>
+              :<div>{canFullEdit&&<input type="file" accept=".pdf,.doc,.docx" onChange={async(e:any)=>{const file=e.target.files?.[0];if(!file)return;try{const{uploadFile}=await import("@/lib/storage");const res=await uploadFile(file,"sponsors");if("error" in res)return;inlineUpd(sp,"contrato_url",res.url);}catch{}}} style={{fontSize:10}}/>}<span style={{fontSize:10,color:colors.g4}}>Sin contrato</span></div>}
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:6,paddingTop:14}}><input type="checkbox" checked={!!sp.renovacion_auto} onChange={e=>inlineUpd(sp,"renovacion_auto",e.target.checked)}/><span style={{fontSize:11,color:colors.g5}}>Renovacion automatica</span></div>
+          </div>
           <div style={{marginBottom:8}}><label style={lbl}>Exposición</label><input value={sp.exposure||""} onChange={e=>inlineUpd(sp,"exposure",e.target.value)} style={inp} placeholder="Ej: Ropa: frente camiseta. Cartelería"/></div>
           <div style={{marginBottom:8}}><label style={lbl}>Detalle Canje</label><input value={sp.detalle_canje||""} onChange={e=>inlineUpd(sp,"detalle_canje",e.target.value)} style={inp} placeholder="Qué incluye el canje"/></div>
           <div style={{marginBottom:8}}><label style={lbl}>Instrucciones para el Canje</label><MentionInput users={users} value={sp.canje_instrucciones||""} onChange={v=>inlineUpd(sp,"canje_instrucciones",v)} rows={3} style={{...inp,resize:"vertical" as const}} placeholder="Ej: Contactar a Juan (tel 351-xxx)..."/></div>
@@ -1541,16 +1560,16 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
             const spContacts=(sponContactos||[]).filter((c:any)=>c.sponsor_id===sp.id);
             const saveCont=async()=>{
               if(!cfData.nombre.trim())return;
-              const d={sponsor_id:sp.id,nombre:cfData.nombre.trim(),cargo:cfData.cargo.trim(),telefono:cfData.telefono.trim(),email:cfData.email.trim(),rol:cfData.rol,es_principal:cfData.es_principal};
+              const d={sponsor_id:sp.id,nombre:cfData.nombre.trim(),cargo:cfData.cargo.trim(),telefono:cfData.telefono.trim(),email:cfData.email.trim(),rol:cfData.rol,es_principal:cfData.es_principal,fecha_nacimiento:cfData.fecha_nacimiento||null,es_ex_jugador:cfData.es_ex_jugador,notas:cfData.notas.trim()};
               if(editCId){await onUpdContacto(editCId,d);}else{await onAddContacto(d);}
-              setSCF(false);setEditCId(null);setCFData({nombre:"",cargo:"",telefono:"",email:"",rol:"comercial",es_principal:false});
+              setSCF(false);setEditCId(null);setCFData({nombre:"",cargo:"",telefono:"",email:"",rol:"comercial",es_principal:false,fecha_nacimiento:"",es_ex_jugador:false,notas:""});
             };
-            const editCont=(c:any)=>{setCFData({nombre:c.nombre||"",cargo:c.cargo||"",telefono:c.telefono||"",email:c.email||"",rol:c.rol||"comercial",es_principal:!!c.es_principal});setEditCId(c.id);setSCF(true);};
+            const editCont=(c:any)=>{setCFData({nombre:c.nombre||"",cargo:c.cargo||"",telefono:c.telefono||"",email:c.email||"",rol:c.rol||"comercial",es_principal:!!c.es_principal,fecha_nacimiento:c.fecha_nacimiento||"",es_ex_jugador:!!c.es_ex_jugador,notas:c.notas||""});setEditCId(c.id);setSCF(true);};
             const rolInfo=(r:string)=>(CONTACT_ROLES as any)[r]||{l:r,c:"#6B7280",bg:"#F3F4F6"};
             return(<>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                 <div style={{fontSize:13,fontWeight:700,color:colors.nv}}>Contactos ({spContacts.length})</div>
-                {canFullEdit&&<Btn v="pu" s="s" onClick={()=>{setCFData({nombre:"",cargo:"",telefono:"",email:"",rol:"comercial",es_principal:false});setEditCId(null);setSCF(true);}}>+ Contacto</Btn>}
+                {canFullEdit&&<Btn v="pu" s="s" onClick={()=>{setCFData({nombre:"",cargo:"",telefono:"",email:"",rol:"comercial",es_principal:false,fecha_nacimiento:"",es_ex_jugador:false,notas:""});setEditCId(null);setSCF(true);}}>+ Contacto</Btn>}
               </div>
               {spContacts.map((c:any)=>{const ri=rolInfo(c.rol);return(
                 <Card key={c.id} style={{padding:"10px 14px",marginBottom:8,borderLeft:c.es_principal?"4px solid #F59E0B":"4px solid "+colors.g2}}>
@@ -1562,6 +1581,11 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
                         {c.telefono&&<span style={{marginRight:8}}>📞 {c.telefono}</span>}
                         {c.email&&<span>✉️ {c.email}</span>}
                       </div>
+                      {(c.fecha_nacimiento||c.es_ex_jugador||c.notas)&&<div style={{fontSize:9,color:colors.g4,marginTop:2}}>
+                        {c.fecha_nacimiento&&<span style={{marginRight:8}}>🎂 {c.fecha_nacimiento}</span>}
+                        {c.es_ex_jugador&&<span style={{marginRight:8,color:"#C8102E",fontWeight:600}}>🏉 Ex jugador</span>}
+                        {c.notas&&<span style={{fontStyle:"italic"}}>{c.notas.slice(0,60)}{c.notas.length>60?"...":""}</span>}
+                      </div>}
                     </div>
                     <div style={{display:"flex",gap:4,alignItems:"center"}}>
                       <span style={{padding:"2px 8px",borderRadius:10,fontSize:9,fontWeight:600,background:ri.bg,color:ri.c}}>{ri.l}</span>
@@ -1584,7 +1608,14 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
                     <div><label style={lbl}>Teléfono</label><input value={cfData.telefono} onChange={e=>setCFData(p=>({...p,telefono:e.target.value}))} style={inp}/></div>
                     <div><label style={lbl}>Email</label><input type="email" value={cfData.email} onChange={e=>setCFData(p=>({...p,email:e.target.value}))} style={inp}/></div>
                   </div>
-                  <div style={{marginBottom:12,display:"flex",alignItems:"center",gap:6}}><input type="checkbox" checked={cfData.es_principal} onChange={e=>setCFData(p=>({...p,es_principal:e.target.checked}))}/><span style={{fontSize:11,color:colors.g5}}>Contacto principal</span></div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+                    <div><label style={lbl}>Fecha nacimiento</label><input type="date" value={cfData.fecha_nacimiento} onChange={e=>setCFData(p=>({...p,fecha_nacimiento:e.target.value}))} style={inp}/></div>
+                    <div style={{display:"flex",flexDirection:"column" as const,gap:6,paddingTop:16}}>
+                      <div style={{display:"flex",alignItems:"center",gap:6}}><input type="checkbox" checked={cfData.es_ex_jugador} onChange={e=>setCFData(p=>({...p,es_ex_jugador:e.target.checked}))}/><span style={{fontSize:11,color:colors.g5}}>Ex jugador del club</span></div>
+                      <div style={{display:"flex",alignItems:"center",gap:6}}><input type="checkbox" checked={cfData.es_principal} onChange={e=>setCFData(p=>({...p,es_principal:e.target.checked}))}/><span style={{fontSize:11,color:colors.g5}}>Contacto principal</span></div>
+                    </div>
+                  </div>
+                  <div style={{marginBottom:12}}><label style={lbl}>Notas</label><textarea value={cfData.notas} onChange={e=>setCFData(p=>({...p,notas:e.target.value}))} rows={2} style={{...inp,resize:"vertical" as const}}/></div>
                   <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
                     <Btn v="g" s="s" onClick={()=>setSCF(false)}>Cancelar</Btn>
                     <Btn v="s" s="s" onClick={saveCont}>Guardar</Btn>
@@ -1746,8 +1777,9 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
           <span style={{background:isDark?"rgba(16,185,129,.15)":"#D1FAE5",color:"#10B981",padding:"4px 10px",borderRadius:8,fontSize:11,fontWeight:700}}>dólar ${dolarRef.toLocaleString("es-AR")}</span>
           {canFullEdit&&<Btn v="g" s="s" onClick={()=>{sDolarInput(String(dolarRef));sEditDolar(true);}}>✏️</Btn>}
         </div>}
+        <Btn v="g" s="s" onClick={()=>exportSponsorsExcel(all)}>📤 Excel</Btn>
         {(canFullEdit||isGC)&&<><input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleFile} style={{display:"none"}}/>
-        <Btn v="g" s="s" onClick={()=>fileRef.current?.click()}>📥 Excel</Btn>
+        <Btn v="g" s="s" onClick={()=>fileRef.current?.click()}>📥 Importar</Btn>
         <Btn v="g" s="s" onClick={()=>{sShowManual(!showManual);sImportErr(null);}}>📋 Manual</Btn>
         <Btn v="pu" s="s" onClick={openAdd}>+ Sponsor</Btn></>}
       </div>
