@@ -278,7 +278,7 @@ export const HOSP_ST:Record<string,{l:string;c:string;bg:string;i:string}>={
 
 /* Material categories */
 export const MAT_CATS:Record<string,{l:string;i:string}>={
-  brochure:{l:"Brochure Institucional",i:"📄"},propuesta_tipo:{l:"Propuesta Tipo",i:"📝"},kit:{l:"Kit Bienvenida",i:"🎁"},tarifario:{l:"Tarifario",i:"💰"},fotos:{l:"Fotos Institucionales",i:"📸"},contrato:{l:"Plantilla Contrato",i:"📜"},informe:{l:"Informe Impacto",i:"📊"},general:{l:"General",i:"📁"},
+  brochure:{l:"Brochure Institucional",i:"📄"},propuesta_tipo:{l:"Propuesta Tipo",i:"📝"},kit:{l:"Kit Bienvenida",i:"🎁"},tarifario:{l:"Tarifario",i:"💰"},fotos:{l:"Fotos Institucionales",i:"📸"},contrato:{l:"Plantilla Contrato",i:"📜"},informe:{l:"Informe Impacto",i:"📊"},activacion:{l:"Activación / Galería",i:"🖼️"},general:{l:"General",i:"📁"},
 };
 
 /* Contract status */

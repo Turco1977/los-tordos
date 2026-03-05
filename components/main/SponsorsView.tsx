@@ -775,6 +775,8 @@ function PropuestasPanel({propuestas,votos,mensajes,sponsors,tarifario,colors,is
   const [detailId,sDetailId]=useState<number|null>(null);
   const [msgText,sMsgText]=useState("");
   const [fSt,sFSt]=useState("all");
+  const [compareIds,sCompareIds]=useState<number[]>([]);
+  const [showCompare,sShowCompare]=useState(false);
 
   const fN=(n:number)=>n?"$"+Math.round(n).toLocaleString("es-AR"):"–";
   const lbl:any={fontSize:10,fontWeight:600,color:colors.g5,display:"block",marginBottom:2};
@@ -862,12 +864,19 @@ function PropuestasPanel({propuestas,votos,mensajes,sponsors,tarifario,colors,is
         <button onClick={()=>sFSt("all")} style={{padding:"4px 10px",borderRadius:14,border:"1px solid "+(fSt==="all"?colors.rd:colors.g3),background:fSt==="all"?colors.rd:"transparent",color:fSt==="all"?"#fff":colors.g5,fontSize:10,fontWeight:600,cursor:"pointer"}}>Todas ({items.length})</button>
         {Object.entries(PROP_SC).map(([k,v])=>{const c=items.filter(p=>p.estado===k).length;return c>0?<button key={k} onClick={()=>sFSt(k)} style={{padding:"4px 10px",borderRadius:14,border:"1px solid "+(fSt===k?v.c:colors.g3),background:fSt===k?v.bg:"transparent",color:fSt===k?v.c:colors.g5,fontSize:10,fontWeight:600,cursor:"pointer"}}>{v.i} {v.l} ({c})</button>:null;})}
       </div>
-      {canCreate&&<Btn v="pu" s="s" onClick={openAdd}>+ Propuesta</Btn>}
+      <div style={{display:"flex",gap:6}}>
+        {compareIds.length===2&&<Btn v="g" s="s" onClick={()=>sShowCompare(true)}>Comparar ({compareIds.length})</Btn>}
+        {compareIds.length>0&&<Btn v="g" s="s" onClick={()=>sCompareIds([])}>Limpiar</Btn>}
+        {canCreate&&<Btn v="pu" s="s" onClick={openAdd}>+ Propuesta</Btn>}
+      </div>
     </div>
     {/* List */}
-    {vis.map(p=><Card key={p.id} style={{padding:"10px 14px",marginBottom:8,cursor:"pointer"}} onClick={()=>sDetailId(p.id)}>
+    {vis.map(p=><Card key={p.id} style={{padding:"10px 14px",marginBottom:8,cursor:"pointer",border:compareIds.includes(p.id)?"2px solid "+colors.bl:"none"}} onClick={()=>sDetailId(p.id)}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        <div><div style={{fontSize:13,fontWeight:700,color:colors.nv}}>{p.nombre_prospecto}</div><div style={{fontSize:10,color:colors.g4}}>{p.contacto} · {SPON_TIER[p.nivel_propuesto]?.l||"White"} · {fN(p.aporte_dinero+p.aporte_canje)}</div></div>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <input type="checkbox" checked={compareIds.includes(p.id)} onClick={e=>e.stopPropagation()} onChange={e=>{e.stopPropagation();sCompareIds(prev=>prev.includes(p.id)?prev.filter(x=>x!==p.id):prev.length<2?[...prev,p.id]:prev);}} style={{cursor:"pointer"}}/>
+          <div><div style={{fontSize:13,fontWeight:700,color:colors.nv}}>{p.nombre_prospecto}</div><div style={{fontSize:10,color:colors.g4}}>{p.contacto} · {SPON_TIER[p.nivel_propuesto]?.l||"White"} · {fN(p.aporte_dinero+p.aporte_canje)}</div></div>
+        </div>
         <div style={{display:"flex",alignItems:"center",gap:6}}>
           <span style={{padding:"3px 8px",borderRadius:10,fontSize:9,fontWeight:600,background:PROP_SC[p.estado]?.bg,color:PROP_SC[p.estado]?.c}}>{PROP_SC[p.estado]?.i} {PROP_SC[p.estado]?.l}</span>
           {canCreate&&<button onClick={e=>{e.stopPropagation();openEdit(p);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:12}}>✏️</button>}
@@ -875,6 +884,18 @@ function PropuestasPanel({propuestas,votos,mensajes,sponsors,tarifario,colors,is
       </div>
     </Card>)}
     {vis.length===0&&<div style={{textAlign:"center",padding:40,color:colors.g4,fontSize:13}}>No hay propuestas</div>}
+
+    {/* Compare modal */}
+    {showCompare&&compareIds.length===2&&(()=>{const [a,b]=[items.find(p=>p.id===compareIds[0]),items.find(p=>p.id===compareIds[1])];if(!a||!b)return null;const rows=[["Prospecto",a.nombre_prospecto,b.nombre_prospecto],["Contacto",a.contacto,b.contacto],["Rubro",a.rubro,b.rubro],["Nivel",SPON_TIER[a.nivel_propuesto]?.l||"–",SPON_TIER[b.nivel_propuesto]?.l||"–"],["Cash $",fN(a.aporte_dinero),fN(b.aporte_dinero)],["Canje $",fN(a.aporte_canje),fN(b.aporte_canje)],["Total $",fN((a.aporte_dinero||0)+(a.aporte_canje||0)),fN((b.aporte_dinero||0)+(b.aporte_canje||0))],["Valor tarifario USD",String(a.valor_tarifario||0),String(b.valor_tarifario||0)],["Descuento %",String(a.descuento_pct||0)+"%",String(b.descuento_pct||0)+"%"],["Valor final",fN(a.valor_final),fN(b.valor_final)],["Ubicaciones",String(a.ubicaciones_propuestas?.length||0),String(b.ubicaciones_propuestas?.length||0)],["Estado",PROP_SC[a.estado]?.l||a.estado,PROP_SC[b.estado]?.l||b.estado],["Periodo",`${a.periodo_inicio||"–"} a ${a.periodo_fin||"–"}`,`${b.periodo_inicio||"–"} a ${b.periodo_fin||"–"}`],["Forma pago",a.forma_pago||"–",b.forma_pago||"–"]];
+    return(<div style={{position:"fixed" as const,inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>sShowCompare(false)}>
+      <div style={{background:cardBg,borderRadius:16,padding:mob?16:24,width:"100%",maxWidth:640,maxHeight:"90vh",overflowY:"auto" as const,boxShadow:"0 8px 32px rgba(0,0,0,.2)"}} onClick={e=>e.stopPropagation()}>
+        <div style={{display:"flex",justifyContent:"space-between",marginBottom:14}}><div style={{fontSize:14,fontWeight:800,color:colors.nv}}>Comparar Propuestas</div><button onClick={()=>sShowCompare(false)} style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:colors.g4}}>✕</button></div>
+        <table style={{width:"100%",borderCollapse:"collapse" as const,fontSize:11}}>
+          <thead><tr style={{borderBottom:"2px solid "+colors.g2}}><th style={{padding:"4px 8px",textAlign:"left",color:colors.g5,fontSize:10}}>Campo</th><th style={{padding:"4px 8px",textAlign:"right",color:colors.bl,fontSize:10}}>{a.nombre_prospecto}</th><th style={{padding:"4px 8px",textAlign:"right",color:colors.pr,fontSize:10}}>{b.nombre_prospecto}</th></tr></thead>
+          <tbody>{rows.map(([label,va,vb],i)=>{const diff=va!==vb;return(<tr key={i} style={{borderBottom:"1px solid "+colors.g2,background:diff?(isDark?"rgba(59,130,246,.05)":"#F0F7FF"):"transparent"}}><td style={{padding:"4px 8px",fontWeight:600,color:colors.g5}}>{label}</td><td style={{padding:"4px 8px",textAlign:"right",fontWeight:diff?700:400,color:colors.nv}}>{va}</td><td style={{padding:"4px 8px",textAlign:"right",fontWeight:diff?700:400,color:colors.nv}}>{vb}</td></tr>);})}</tbody>
+        </table>
+      </div>
+    </div>);})()}
 
     {/* Form modal */}
     {showForm&&<div style={{position:"fixed" as const,inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>sShowForm(false)}>
@@ -1139,7 +1160,7 @@ function HospitalidadPanel({invitaciones,sponsors,contactos,fixtures,colors,isDa
   </div>);
 }
 
-export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onSponMsg,onAddDelivery,sponDeliveries,onUpdDelivery,navTarget,onNavDone,onAddTarifa,onUpdTarifa,onDelTarifa,onAddContract,onUpdContract,onDelContract,onAddPipeline,onUpdPipeline,onDelPipeline,onAddContacto,onUpdContacto,onDelContacto,onAddPropuesta,onUpdPropuesta,onDelPropuesta,onAddPropVoto,onAddPropMsg,onAddHosp,onUpdHosp,onDelHosp,onAddMaterial,onUpdMaterial,onDelMaterial}:any){
+export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onSponMsg,onAddDelivery,sponDeliveries,onUpdDelivery,navTarget,onNavDone,onAddTarifa,onUpdTarifa,onDelTarifa,onAddContract,onUpdContract,onDelContract,onAddPipeline,onUpdPipeline,onDelPipeline,onAddContacto,onUpdContacto,onDelContacto,onAddPropuesta,onUpdPropuesta,onDelPropuesta,onAddPropVoto,onAddPropMsg,onAddHosp,onUpdHosp,onDelHosp,onAddMaterial,onUpdMaterial,onDelMaterial,sponPagos,onAddPago,onUpdPago,onDelPago}:any){
   const sponsors = useDataStore(s => s.sponsors);
   const users = useDataStore(s => s.users);
   const tarifario = useDataStore(s => s.tarifario);
@@ -1154,7 +1175,7 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
   const fixtures = useDataStore(s => s.fixtures);
   const{colors,isDark,cardBg}=useC();
   const [topTab,sTopTab]=useState<"dashboard"|"clientes"|"propuestas"|"tarifario"|"materiales"|"hospitalidad">("dashboard");
-  const [spTab,sSpTab]=useState<"general"|"contactos"|"canjes"|"hospitalidad"|"docs"|"timeline">("general");
+  const [spTab,sSpTab]=useState<"general"|"contactos"|"canjes"|"hospitalidad"|"pagos"|"galeria"|"docs"|"timeline">("general");
   const [showDelivery,sShowDelivery]=useState(false);
   const [detailId,sDetailId]=useState<number|null>(null);
   const isSA=user?.role==="superadmin";
@@ -1366,6 +1387,30 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
   };
 
   /* ── Donut chart helper (cash vs service) ── */
+  /* ── Health Score (0-100) ── */
+  const calcHealth=(sp:any)=>{
+    let score=0;
+    // Attendance (25pts): % of invitations attended
+    const spInvs=(hospInvitaciones||[]).filter((i:any)=>i.sponsor_id===sp.id);
+    const attended=spInvs.filter((i:any)=>i.asistio===true).length;
+    const invTotal=spInvs.filter((i:any)=>i.asistio!==null&&i.asistio!==undefined).length;
+    score+=invTotal>0?Math.round((attended/invTotal)*25):12;
+    // Canje usage (25pts)
+    const svc=Number(sp.amount_service||0);
+    if(svc>0){const u=(canjeUsado||{})[sp.id]||0;score+=Math.min(25,Math.round((u/svc)*25));}else{score+=25;}
+    // Longevity (25pts): months since created_at, max 24m
+    const created=sp.created_at?new Date(sp.created_at):new Date();
+    const months=Math.max(0,Math.round((Date.now()-created.getTime())/(30*864e5)));
+    score+=Math.min(25,Math.round((months/24)*25));
+    // Amount (25pts): relative to avg
+    const avgAmt=all.length>0?all.reduce((s:number,x:any)=>s+Number(x.amount_cash||0)+Number(x.amount_service||0),0)/all.length:1;
+    const amt=Number(sp.amount_cash||0)+Number(sp.amount_service||0);
+    score+=avgAmt>0?Math.min(25,Math.round((amt/avgAmt)*12.5)):0;
+    return Math.min(100,Math.max(0,score));
+  };
+  const healthColor=(s:number)=>s>=70?"#10B981":s>=40?"#F59E0B":"#DC2626";
+  const healthLabel=(s:number)=>s>=70?"Saludable":s>=40?"Atención":"Riesgo";
+
   const DonutChart=({cash,service,size}:{cash:number;service:number;size:number})=>{
     const total=cash+service;
     if(total===0)return <div style={{width:size,height:size,borderRadius:"50%",background:colors.g2,display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:size/5,color:colors.g4}}>$0</span></div>;
@@ -1422,6 +1467,7 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
           <div style={{flex:1,minWidth:0}}>
             <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap" as const,marginBottom:6}}>
               <span style={{background:st.bg,color:st.c,padding:"3px 10px",borderRadius:12,fontSize:11,fontWeight:600}}>{st.l}</span>
+              {sp.status==="active"&&(()=>{const hs=calcHealth(sp);return <span style={{padding:"3px 10px",borderRadius:12,fontSize:11,fontWeight:700,background:healthColor(hs)+"20",color:healthColor(hs)}}>{healthLabel(hs)} {hs}/100</span>;})()}
               {monthly&&<span style={{background:isDark?"rgba(59,130,246,.15)":"#DBEAFE",color:"#3B82F6",padding:"3px 8px",borderRadius:8,fontSize:10,fontWeight:700}}>Mensual</span>}
               {sp.payment_type&&!monthly&&<span style={{background:isDark?"rgba(139,92,246,.15)":"#EDE9FE",color:colors.pr,padding:"3px 8px",borderRadius:8,fontSize:10,fontWeight:600}}>{sp.payment_type}</span>}
             </div>
@@ -1489,7 +1535,7 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
       {/* ── Tabs: General / Contactos / Canjes / Hospitalidad / Docs / Timeline ── */}
       <Card style={{padding:0,overflow:"hidden"}}>
         <div style={{display:"flex",borderBottom:"1px solid "+colors.g2,overflowX:"auto"}}>
-          {([["general","General"],["contactos","Contactos"],["canjes","Canjes"],["hospitalidad","Hospitalidad"],["docs","Mensajes"],["timeline","Timeline"]] as const).map(([k,l])=><button key={k} onClick={()=>sSpTab(k)} style={{flex:"0 0 auto",padding:"10px 12px",border:"none",borderBottom:spTab===k?"3px solid "+colors.pr:"3px solid transparent",background:"transparent",color:spTab===k?colors.pr:colors.g4,fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>{k==="general"?"🏢 ":k==="contactos"?"👥 ":k==="canjes"?"📦 ":k==="hospitalidad"?"🤝 ":k==="docs"?"💬 ":"📋 "}{l}</button>)}
+          {([["general","General"],["contactos","Contactos"],["canjes","Canjes"],["hospitalidad","Hospitalidad"],["pagos","Pagos"],["galeria","Galería"],["docs","Mensajes"],["timeline","Timeline"]] as const).map(([k,l])=><button key={k} onClick={()=>sSpTab(k)} style={{flex:"0 0 auto",padding:"10px 12px",border:"none",borderBottom:spTab===k?"3px solid "+colors.pr:"3px solid transparent",background:"transparent",color:spTab===k?colors.pr:colors.g4,fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>{k==="general"?"🏢 ":k==="contactos"?"👥 ":k==="canjes"?"📦 ":k==="hospitalidad"?"🤝 ":k==="pagos"?"💳 ":k==="galeria"?"🖼️ ":k==="docs"?"💬 ":"📋 "}{l}</button>)}
         </div>
 
         {/* General tab — CRM ficha + inline edit */}
@@ -1707,6 +1753,141 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
           })()}
         </div>}
 
+        {/* Pagos tab */}
+        {spTab==="pagos"&&<div style={{padding:mob?"10px 12px":"12px 16px",minHeight:200}}>
+          {(()=>{
+            const pagos=(sponPagos||[]).filter((p:any)=>p.sponsor_id===sp.id).sort((a:any,b:any)=>(b.fecha_pago||"").localeCompare(a.fecha_pago||""));
+            const totalPagado=pagos.reduce((s:number,p:any)=>s+Number(p.monto||0),0);
+            const montoEsperado=Number(sp.amount_cash||0);
+            const pctPagado=montoEsperado>0?Math.min(100,Math.round((totalPagado/montoEsperado)*100)):0;
+            const [showPagoForm,sShowPagoForm]=useState(false);
+            const [pagoForm,sPagoForm]=useState({monto:"",fecha_pago:new Date().toISOString().slice(0,10),tipo:"cash",concepto:"",comprobante_url:""});
+            const [editPagoId,sEditPagoId]=useState<number|null>(null);
+            return(<>
+              {/* KPIs */}
+              <div style={{display:"flex",gap:10,marginBottom:12,flexWrap:"wrap"}}>
+                <div style={{flex:1,minWidth:100,padding:"8px 10px",background:isDark?"rgba(16,185,129,.08)":"#ECFDF5",borderRadius:8,textAlign:"center" as const}}>
+                  <div style={{fontSize:16,fontWeight:800,color:"#10B981"}}>{fmtARS(totalPagado)}</div>
+                  <div style={{fontSize:9,color:colors.g4}}>Total Pagado</div>
+                </div>
+                <div style={{flex:1,minWidth:100,padding:"8px 10px",background:isDark?"rgba(59,130,246,.08)":"#EFF6FF",borderRadius:8,textAlign:"center" as const}}>
+                  <div style={{fontSize:16,fontWeight:800,color:"#3B82F6"}}>{fmtARS(montoEsperado)}</div>
+                  <div style={{fontSize:9,color:colors.g4}}>Monto Acordado</div>
+                </div>
+                <div style={{flex:1,minWidth:100,padding:"8px 10px",background:isDark?"rgba(245,158,11,.08)":"#FEF3C7",borderRadius:8,textAlign:"center" as const}}>
+                  <div style={{fontSize:16,fontWeight:800,color:pctPagado>=100?"#10B981":"#F59E0B"}}>{pctPagado}%</div>
+                  <div style={{fontSize:9,color:colors.g4}}>Cumplimiento</div>
+                </div>
+              </div>
+              {/* Progress bar */}
+              <div style={{height:6,background:colors.g2,borderRadius:3,marginBottom:12,overflow:"hidden"}}>
+                <div style={{height:"100%",width:pctPagado+"%",background:pctPagado>=100?"#10B981":"#3B82F6",borderRadius:3,transition:"width .3s"}}/>
+              </div>
+              {/* Add button */}
+              {canFullEdit&&<div style={{marginBottom:10}}>
+                <Btn v="p" s="s" onClick={()=>{sShowPagoForm(!showPagoForm);sEditPagoId(null);sPagoForm({monto:"",fecha_pago:new Date().toISOString().slice(0,10),tipo:"cash",concepto:"",comprobante_url:""});}}>
+                  {showPagoForm?"✕ Cancelar":"+ Registrar Pago"}
+                </Btn>
+              </div>}
+              {/* Form */}
+              {showPagoForm&&<div style={{padding:12,background:isDark?"rgba(255,255,255,.03)":"#F9FAFB",borderRadius:8,marginBottom:12,border:"1px solid "+colors.g2}}>
+                <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8,marginBottom:8}}>
+                  <div><label style={lbl}>Monto ($)</label><input type="number" value={pagoForm.monto} onChange={e=>sPagoForm({...pagoForm,monto:e.target.value})} style={inp} placeholder="0"/></div>
+                  <div><label style={lbl}>Fecha</label><input type="date" value={pagoForm.fecha_pago} onChange={e=>sPagoForm({...pagoForm,fecha_pago:e.target.value})} style={inp}/></div>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8,marginBottom:8}}>
+                  <div><label style={lbl}>Tipo</label>
+                    <select value={pagoForm.tipo} onChange={e=>sPagoForm({...pagoForm,tipo:e.target.value})} style={inp}>
+                      <option value="cash">Efectivo</option>
+                      <option value="transferencia">Transferencia</option>
+                      <option value="cheque">Cheque</option>
+                      <option value="canje">Canje</option>
+                    </select>
+                  </div>
+                  <div><label style={lbl}>Concepto</label><input value={pagoForm.concepto} onChange={e=>sPagoForm({...pagoForm,concepto:e.target.value})} style={inp} placeholder="Ej: Cuota marzo"/></div>
+                </div>
+                <div style={{marginBottom:8}}><label style={lbl}>Comprobante (PDF/imagen)</label>
+                  {pagoForm.comprobante_url?<div style={{display:"flex",alignItems:"center",gap:6}}><a href={pagoForm.comprobante_url} target="_blank" rel="noreferrer" style={{fontSize:11,color:colors.bl,fontWeight:600}}>📄 Ver comprobante</a><button onClick={()=>sPagoForm({...pagoForm,comprobante_url:""})} style={{background:"none",border:"none",cursor:"pointer",fontSize:10,color:colors.g4}}>✕</button></div>
+                  :<input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={async(e:any)=>{const file=e.target.files?.[0];if(!file)return;try{const{uploadFile}=await import("@/lib/storage");const res=await uploadFile(file,"comprobantes");if("error" in res)return;sPagoForm(f=>({...f,comprobante_url:res.url}));}catch{}}} style={{fontSize:10}}/>}
+                </div>
+                <div style={{display:"flex",gap:6}}>
+                  <Btn v="p" s="s" onClick={async()=>{
+                    const m=Number(pagoForm.monto);if(!m){return;}
+                    if(editPagoId){await onUpdPago(editPagoId,{monto:m,fecha_pago:pagoForm.fecha_pago,tipo:pagoForm.tipo,concepto:pagoForm.concepto,comprobante_url:pagoForm.comprobante_url});}
+                    else{await onAddPago({sponsor_id:sp.id,monto:m,fecha_pago:pagoForm.fecha_pago,tipo:pagoForm.tipo,concepto:pagoForm.concepto,comprobante_url:pagoForm.comprobante_url});}
+                    sShowPagoForm(false);sEditPagoId(null);
+                  }}>{editPagoId?"Guardar":"Registrar"}</Btn>
+                  <Btn v="g" s="s" onClick={()=>{sShowPagoForm(false);sEditPagoId(null);}}>Cancelar</Btn>
+                </div>
+              </div>}
+              {/* List */}
+              {pagos.map((p:any)=>(
+                <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid "+colors.g2,fontSize:11}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:600,color:colors.nv}}>{fmtARS(Number(p.monto||0))}</div>
+                    <div style={{color:colors.g4,fontSize:10}}>{p.fecha_pago||"–"} · <span style={{padding:"1px 5px",borderRadius:6,fontSize:9,fontWeight:600,background:p.tipo==="cash"?"#D1FAE5":p.tipo==="transferencia"?"#DBEAFE":p.tipo==="cheque"?"#FEF3C7":"#EDE9FE",color:p.tipo==="cash"?"#059669":p.tipo==="transferencia"?"#2563EB":p.tipo==="cheque"?"#D97706":"#7C3AED"}}>{p.tipo}</span>{p.concepto?` · ${p.concepto}`:""}</div>
+                  </div>
+                  <div style={{display:"flex",gap:4,alignItems:"center"}}>
+                    {p.comprobante_url&&<a href={p.comprobante_url} target="_blank" rel="noreferrer" style={{fontSize:10,color:colors.bl}} title="Ver comprobante">📄</a>}
+                    {canFullEdit&&<>
+                      <button onClick={()=>{sEditPagoId(p.id);sPagoForm({monto:String(p.monto||""),fecha_pago:p.fecha_pago||"",tipo:p.tipo||"cash",concepto:p.concepto||"",comprobante_url:p.comprobante_url||""});sShowPagoForm(true);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:11}} title="Editar">✏️</button>
+                      <button onClick={()=>{if(confirm("Eliminar pago?"))onDelPago(p.id);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:11}} title="Eliminar">🗑</button>
+                    </>}
+                  </div>
+                </div>
+              ))}
+              {pagos.length===0&&!showPagoForm&&<div style={{textAlign:"center",padding:30,color:colors.g4,fontSize:12}}>Sin pagos registrados</div>}
+            </>);
+          })()}
+        </div>}
+
+        {/* Galería de Activaciones tab */}
+        {spTab==="galeria"&&<div style={{padding:mob?"10px 12px":"12px 16px",minHeight:200}}>
+          {(()=>{
+            const fotos=(sponMateriales||[]).filter((m:any)=>m.sponsor_id===sp.id&&m.categoria==="activacion");
+            const isImg=(url:string)=>/\.(jpg|jpeg|png|gif|webp|svg)/i.test(url||"");
+            const [uploading,sUploading]=useState(false);
+            const [lightbox,sLightbox]=useState<string|null>(null);
+            return(<>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                <div style={{fontSize:13,fontWeight:700,color:colors.nv}}>Activaciones ({fotos.length})</div>
+                {canFullEdit&&<label style={{padding:"6px 12px",borderRadius:8,background:colors.bl,color:"#fff",fontSize:11,fontWeight:700,cursor:uploading?"wait":"pointer"}}>
+                  {uploading?"Subiendo...":"+ Subir Foto"}
+                  <input type="file" accept="image/*" multiple style={{display:"none"}} onChange={async(e:any)=>{
+                    const files=Array.from(e.target.files||[]) as File[];if(!files.length)return;
+                    sUploading(true);
+                    try{
+                      const{uploadFile}=await import("@/lib/storage");
+                      for(const file of files){
+                        const res=await uploadFile(file,"materiales");
+                        if(!("error" in res)){
+                          await onAddMaterial({sponsor_id:sp.id,titulo:file.name.replace(/\.[^.]+$/,""),categoria:"activacion",archivo_url:res.url,archivo_nombre:file.name});
+                        }
+                      }
+                    }catch{}
+                    sUploading(false);e.target.value="";
+                  }}/>
+                </label>}
+              </div>
+              {fotos.length>0?<div style={{display:"grid",gridTemplateColumns:mob?"repeat(2,1fr)":"repeat(3,1fr)",gap:8}}>
+                {fotos.map((f:any)=>(
+                  <div key={f.id} style={{position:"relative" as const,borderRadius:10,overflow:"hidden",aspectRatio:"1",background:colors.g2,cursor:"pointer"}} onClick={()=>{if(isImg(f.archivo_url))sLightbox(f.archivo_url);else window.open(f.archivo_url,"_blank");}}>
+                    {isImg(f.archivo_url)
+                      ?<img src={f.archivo_url} alt={f.titulo} style={{width:"100%",height:"100%",objectFit:"cover" as const}}/>
+                      :<div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100%",fontSize:28}}>📄</div>}
+                    <div style={{position:"absolute" as const,bottom:0,left:0,right:0,padding:"4px 6px",background:"rgba(0,0,0,.6)",color:"#fff",fontSize:9,whiteSpace:"nowrap" as const,overflow:"hidden",textOverflow:"ellipsis"}}>{f.titulo}</div>
+                    {canFullEdit&&<button onClick={e=>{e.stopPropagation();if(confirm("Eliminar foto?"))onDelMaterial(f.id);}} style={{position:"absolute" as const,top:4,right:4,background:"rgba(0,0,0,.5)",border:"none",borderRadius:"50%",width:22,height:22,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#fff",fontSize:11}}>✕</button>}
+                  </div>
+                ))}
+              </div>
+              :<div style={{textAlign:"center",padding:40,color:colors.g4,fontSize:12}}>Sin fotos de activaciones. Sube fotos del logo en camisetas, carteles, eventos, etc.</div>}
+              {lightbox&&<div style={{position:"fixed" as const,inset:0,background:"rgba(0,0,0,.85)",zIndex:1100,display:"flex",alignItems:"center",justifyContent:"center",padding:16,cursor:"pointer"}} onClick={()=>sLightbox(null)}>
+                <img src={lightbox} alt="Preview" style={{maxWidth:"90vw",maxHeight:"90vh",borderRadius:8,objectFit:"contain" as const}}/>
+              </div>}
+            </>);
+          })()}
+        </div>}
+
         {/* Docs/Chat tab */}
         {spTab==="docs"&&<div style={{padding:mob?"10px 12px":"12px 16px",minHeight:320}}>
           <Thread
@@ -1724,6 +1905,7 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
             (sponMsgs||[]).filter((m:any)=>m.sponsor_id===sp.id).forEach((m:any)=>events.push({dt:m.created_at,type:"msg",text:`💬 ${m.user_name}: ${m.content}`}));
             (sponDeliveries||[]).filter((d:any)=>d.sponsor_id===sp.id).forEach((d:any)=>events.push({dt:d.created_at,type:"delivery",text:`📦 Entrega: ${d.description} — ${fmtARS(Number(d.total_value||0))}`}));
             (hospInvitaciones||[]).filter((i:any)=>i.sponsor_id===sp.id).forEach((i:any)=>events.push({dt:i.created_at,type:"hosp",text:`🤝 Invitación: ${i.partido_fecha||""} vs ${i.partido_rival||"TBC"} (${i.entradas} entradas)`}));
+            (sponPagos||[]).filter((p:any)=>p.sponsor_id===sp.id).forEach((p:any)=>events.push({dt:p.created_at,type:"pago",text:`💳 Pago: ${fmtARS(Number(p.monto||0))} (${p.tipo||"cash"})${p.concepto?" — "+p.concepto:""}`}));
             events.sort((a,b)=>(b.dt||"").localeCompare(a.dt||""));
             return(<>
               {events.length===0&&<div style={{textAlign:"center",padding:30,color:colors.g4,fontSize:12}}>Sin actividad registrada</div>}
@@ -1972,7 +2154,10 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
           <div style={{padding:"12px 14px"}}>
             {/* Top row: status badge + payment indicator */}
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-              <span style={{background:st.bg,color:st.c,padding:"2px 8px",borderRadius:12,fontSize:10,fontWeight:600}}>{st.l}</span>
+              <div style={{display:"flex",gap:4,alignItems:"center"}}>
+                <span style={{background:st.bg,color:st.c,padding:"2px 8px",borderRadius:12,fontSize:10,fontWeight:600}}>{st.l}</span>
+                {sp.status==="active"&&(()=>{const hs=calcHealth(sp);return <span style={{padding:"2px 6px",borderRadius:8,fontSize:9,fontWeight:700,background:healthColor(hs)+"20",color:healthColor(hs)}} title={healthLabel(hs)}>{hs}</span>;})()}
+              </div>
               <div style={{display:"flex",gap:4,alignItems:"center"}}>
                 {monthly&&<span style={{background:isDark?"rgba(59,130,246,.15)":"#DBEAFE",color:"#3B82F6",padding:"2px 6px",borderRadius:8,fontSize:9,fontWeight:700}}>Mensual</span>}
                 {sp.payment_type&&!monthly&&<span style={{background:isDark?"rgba(139,92,246,.15)":"#EDE9FE",color:colors.pr,padding:"2px 6px",borderRadius:8,fontSize:9,fontWeight:600}}>{sp.payment_type}</span>}

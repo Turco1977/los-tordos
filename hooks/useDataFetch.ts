@@ -53,7 +53,7 @@ export function useDataFetch(
       user ? supabase.from("dm_messages").select("*").or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`).order("created_at", { ascending: true }).limit(500) : Promise.resolve({ data: [] }),
     ]);
     // Batch 3: Secondary data (22 queries)
-    const [invRes, spRes, pbRes, imRes, idRes, sdRes, archRes, tnRes, thRes, tcRes, fxRes, becRes, ascRes, tarRes, scRes, spipeRes, sctRes, spropRes, spvRes, spmRes, hiRes2, smatRes] = await Promise.all([
+    const [invRes, spRes, pbRes, imRes, idRes, sdRes, archRes, tnRes, thRes, tcRes, fxRes, becRes, ascRes, tarRes, scRes, spipeRes, sctRes, spropRes, spvRes, spmRes, hiRes2, smatRes, spagRes] = await Promise.all([
       supabase.from("inventory").select("*").order("id", { ascending: false }),
       supabase.from("sponsors").select("*").order("id", { ascending: false }),
       supabase.from("project_budgets").select("*").order("id", { ascending: false }),
@@ -76,6 +76,7 @@ export function useDataFetch(
       supabase.from("sponsor_propuestas_mensajes").select("*").order("created_at"),
       supabase.from("hospitalidad_invitaciones").select("*").order("id", { ascending: false }),
       supabase.from("sponsor_materiales").select("*").order("id", { ascending: false }),
+      supabase.from("sponsor_pagos").select("*").order("id", { ascending: false }),
     ]);
     const errMsg = (e: any) => e?.message || e?.code || e?.details || "error de conexión";
     const errors: string[] = [];
@@ -143,6 +144,7 @@ export function useDataFetch(
       ...(spmRes.data ? { sponPropMsgs: spmRes.data } : {}),
       ...(hiRes2.data ? { hospInvitaciones: hiRes2.data } : {}),
       ...(smatRes.data ? { sponMateriales: smatRes.data } : {}),
+      ...(spagRes.data ? { sponPagos: spagRes.data } : {}),
       ...(mappedPeds ? { peds: mappedPeds } : {}),
     });
 
