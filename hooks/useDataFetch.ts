@@ -78,15 +78,15 @@ export function useDataFetch(
       supabase.from("sponsor_materiales").select("*").order("id", { ascending: false }),
       supabase.from("sponsor_pagos").select("*").order("id", { ascending: false }),
     ]);
-    const errMsg = (e: any) => e?.message || e?.code || e?.details || "error de conexión";
+    const errMsg = (e: any) => e?.message || e?.code || e?.details || (typeof e === "object" ? JSON.stringify(e) : String(e)) || "error de conexión";
     const errors: string[] = [];
-    if (pRes.error && !isAbort(pRes.error)) errors.push("Perfiles: " + errMsg(pRes.error));
-    if (recentRes.error && !isAbort(recentRes.error)) errors.push("Tareas: " + errMsg(recentRes.error));
-    if (omRes.error && !isAbort(omRes.error)) errors.push("Organigrama: " + errMsg(omRes.error));
-    if (prRes.error && !isAbort(prRes.error)) errors.push("Presupuestos: " + errMsg(prRes.error));
+    if (pRes.error && !isAbort(pRes.error)) { console.error("[fetch] profiles error:", pRes.error); errors.push("Perfiles: " + errMsg(pRes.error)); }
+    if (recentRes.error && !isAbort(recentRes.error)) { console.error("[fetch] tasks error:", recentRes.error); errors.push("Tareas: " + errMsg(recentRes.error)); }
+    if (omRes.error && !isAbort(omRes.error)) { console.error("[fetch] org_members error:", omRes.error); errors.push("Organigrama: " + errMsg(omRes.error)); }
+    if (prRes.error && !isAbort(prRes.error)) { console.error("[fetch] presupuestos error:", prRes.error); errors.push("Presupuestos: " + errMsg(prRes.error)); }
     if (errors.length) {
-      if (retry) { setTimeout(() => fetchAll(false), 3000); return; }
-      showT(errors.join("; "), "err");
+      if (retry) { setTimeout(() => fetchAll(false), 3000); }
+      else { showT(errors.join("; "), "err"); }
     }
 
     // Merge recent + user-assigned tasks without duplicates

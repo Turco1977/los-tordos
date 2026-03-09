@@ -28,7 +28,7 @@ setInterval(() => {
 /* ── Routes that skip auth ── */
 const PUBLIC_PATHS = new Set(["/api/cron/daily-summary", "/api/parse-excel"]);
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Only intercept /api/* routes
