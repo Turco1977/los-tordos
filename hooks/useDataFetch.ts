@@ -1,10 +1,11 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useDataStore } from "@/lib/store";
 import { profileToUser, taskFromDB, presuFromDB, provFromDB } from "@/lib/mappers";
 
 const supabase = createClient();
+const FETCH_COOLDOWN = 120_000; // 2 minutes — don't re-fetch if data is fresh
 
 export function useDataFetch(
   user: any,
@@ -21,8 +22,15 @@ export function useDataFetch(
   } = useDataStore();
 
   const [dataLoading, sDataLoading] = useState(true);
+  const lastFetchRef = useRef(0);
+  const batch3Loaded = useRef(false);
 
-  const fetchAll = useCallback(async (retry = true) => {
+  const fetchAll = useCallback(async (retry = true, force = false) => {
+    // Cooldown: skip if fetched recently (unless forced)
+    const now = Date.now();
+    if (!force && now - lastFetchRef.current < FETCH_COOLDOWN) return;
+    lastFetchRef.current = now;
+
     const isAbort = (e: any) => {
       const m = String(e?.message || ""); const n = String(e?.name || "");
       return n === "AbortError" || m.includes("AbortError") || m.includes("aborted") || m.includes("signal");
@@ -52,32 +60,14 @@ export function useDataFetch(
       supabase.from("rental_config").select("*"),
       user ? supabase.from("dm_messages").select("*").or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`).order("created_at", { ascending: true }).limit(500) : Promise.resolve({ data: [] }),
     ]);
-    // Batch 3: Secondary data (22 queries)
-    const [invRes, spRes, pbRes, imRes, idRes, sdRes, archRes, tnRes, thRes, tcRes, fxRes, becRes, ascRes, tarRes, scRes, spipeRes, sctRes, spropRes, spvRes, spmRes, hiRes2, smatRes, spagRes] = await Promise.all([
-      supabase.from("inventory").select("*").order("id", { ascending: false }),
-      supabase.from("sponsors").select("*").order("id", { ascending: false }),
-      supabase.from("project_budgets").select("*").order("id", { ascending: false }),
-      supabase.from("inventory_maintenance").select("*").order("id", { ascending: false }),
-      supabase.from("inventory_distributions").select("*").order("id", { ascending: false }),
-      supabase.from("sponsor_deliveries").select("*").order("id", { ascending: false }),
-      supabase.from("archivos").select("*").order("created_at", { ascending: false }).limit(500),
-      supabase.from("torneos").select("*").order("id", { ascending: false }),
-      supabase.from("torneo_hitos").select("*").order("id"),
-      supabase.from("torneo_clubes").select("*").order("id", { ascending: false }),
-      supabase.from("fixtures").select("*").order("date", { ascending: false }).limit(500),
-      supabase.from("becas").select("*").order("id", { ascending: false }),
-      supabase.from("atencion_socio_casos").select("*").order("id", { ascending: false }),
-      supabase.from("tarifario").select("*").order("id"),
-      supabase.from("sponsor_contracts").select("*").order("id", { ascending: false }),
-      supabase.from("sponsor_pipeline").select("*").order("id", { ascending: false }),
-      supabase.from("sponsor_contactos").select("*").order("id", { ascending: false }),
-      supabase.from("sponsor_propuestas").select("*").order("id", { ascending: false }),
-      supabase.from("sponsor_propuestas_votos").select("*").order("id"),
-      supabase.from("sponsor_propuestas_mensajes").select("*").order("created_at"),
-      supabase.from("hospitalidad_invitaciones").select("*").order("id", { ascending: false }),
-      supabase.from("sponsor_materiales").select("*").order("id", { ascending: false }),
-      supabase.from("sponsor_pagos").select("*").order("id", { ascending: false }),
-    ]);
+    // Batch 3: Secondary data — deferred (loaded after UI is ready)
+    // Use empty defaults so setAll works; real data loaded in background below
+    const emptyRes = { data: null, error: null };
+    let invRes = emptyRes, spRes = emptyRes, pbRes = emptyRes, imRes = emptyRes, idRes = emptyRes, sdRes = emptyRes;
+    let archRes = emptyRes, tnRes = emptyRes, thRes = emptyRes, tcRes = emptyRes, fxRes = emptyRes;
+    let becRes = emptyRes, ascRes = emptyRes, tarRes = emptyRes;
+    let scRes = emptyRes, spipeRes = emptyRes, sctRes = emptyRes, spropRes = emptyRes, spvRes = emptyRes, spmRes = emptyRes;
+    let hiRes2 = emptyRes, smatRes = emptyRes, spagRes = emptyRes;
     const errMsg = (e: any) => e?.message || e?.code || e?.details || e?.error || (typeof e === "object" ? JSON.stringify(e) : String(e)) || "error de conexión";
     const errors: string[] = [];
     if (pRes.error && !isAbort(pRes.error)) { console.error("[fetch] profiles error:", pRes.error); errors.push("Perfiles: " + errMsg(pRes.error)); }
@@ -118,33 +108,10 @@ export function useDataFetch(
       ...(projRes.data ? { projects: projRes.data } : {}),
       ...(ptRes.data ? { projTasks: ptRes.data } : {}),
       ...(ttRes.data ? { taskTemplates: ttRes.data } : {}),
-      ...(invRes.data ? { inventory: invRes.data } : {}),
-      ...(imRes.data ? { invMaint: imRes.data } : {}),
-      ...(idRes.data ? { invDist: idRes.data } : {}),
       ...(bkRes.data ? { bookings: bkRes.data } : {}),
-      ...(spRes.data ? { sponsors: spRes.data } : {}),
       ...(smRes.data ? { sponMsgs: smRes.data } : {}),
-      ...(sdRes.data ? { sponDeliveries: sdRes.data } : {}),
-      ...(pbRes.data ? { projBudgets: pbRes.data } : {}),
-      ...(archRes.data ? { archivos: archRes.data } : {}),
       ...(rcRes.data ? { rentalConfig: rcRes.data } : {}),
       ...(dmRes.data ? { dmMsgs: dmRes.data } : {}),
-      ...(tnRes.data ? { torneos: tnRes.data } : {}),
-      ...(thRes.data ? { torneoHitos: thRes.data } : {}),
-      ...(tcRes.data ? { torneoClubes: tcRes.data } : {}),
-      ...(fxRes.data ? { fixtures: fxRes.data } : {}),
-      ...(becRes.data ? { becas: becRes.data } : {}),
-      ...(ascRes.data ? { asCasos: ascRes.data } : {}),
-      ...(tarRes.data ? { tarifario: tarRes.data } : {}),
-      ...(scRes.data ? { sponContracts: scRes.data } : {}),
-      ...(spipeRes.data ? { sponPipeline: spipeRes.data } : {}),
-      ...(sctRes.data ? { sponContactos: sctRes.data } : {}),
-      ...(spropRes.data ? { sponPropuestas: spropRes.data } : {}),
-      ...(spvRes.data ? { sponPropVotos: spvRes.data } : {}),
-      ...(spmRes.data ? { sponPropMsgs: spmRes.data } : {}),
-      ...(hiRes2.data ? { hospInvitaciones: hiRes2.data } : {}),
-      ...(smatRes.data ? { sponMateriales: smatRes.data } : {}),
-      ...(spagRes.data ? { sponPagos: spagRes.data } : {}),
       ...(mappedPeds ? { peds: mappedPeds } : {}),
     });
 
@@ -155,10 +122,11 @@ export function useDataFetch(
     }
     sDataLoading(false);
 
-    // Phase 2: Load remaining tasks in background (after 2s delay)
-    if (phase1Tasks.length >= 50) {
-      setTimeout(async () => {
-        try {
+    // Phase 2: Load remaining tasks + batch 3 in background (after 2s delay)
+    setTimeout(async () => {
+      try {
+        // Load remaining tasks if needed
+        if (phase1Tasks.length >= 50) {
           const { data: allTasks } = await supabase.from("tasks").select("*").order("id", { ascending: false }).limit(500);
           if (allTasks && allTasks.length > phase1Tasks.length) {
             const newTasks: any[] = [];
@@ -170,9 +138,70 @@ export function useDataFetch(
               sPd(prev => [...prev, ...mapped]);
             }
           }
-        } catch { /* background load — best effort */ }
-      }, 2000);
-    }
+        }
+        // Load batch 3 secondary data (deferred)
+        if (!batch3Loaded.current) {
+          const [b3inv, b3sp, b3pb, b3im, b3id, b3sd, b3arch, b3tn, b3th, b3tc, b3fx, b3bec, b3asc, b3tar, b3sc, b3pipe, b3ct, b3prop, b3pv, b3pm, b3hi, b3mat, b3pag] = await Promise.all([
+            supabase.from("inventory").select("*").order("id", { ascending: false }),
+            supabase.from("sponsors").select("*").order("id", { ascending: false }),
+            supabase.from("project_budgets").select("*").order("id", { ascending: false }),
+            supabase.from("inventory_maintenance").select("*").order("id", { ascending: false }),
+            supabase.from("inventory_distributions").select("*").order("id", { ascending: false }),
+            supabase.from("sponsor_deliveries").select("*").order("id", { ascending: false }),
+            supabase.from("archivos").select("*").order("created_at", { ascending: false }).limit(500),
+            supabase.from("torneos").select("*").order("id", { ascending: false }),
+            supabase.from("torneo_hitos").select("*").order("id"),
+            supabase.from("torneo_clubes").select("*").order("id", { ascending: false }),
+            supabase.from("fixtures").select("*").order("date", { ascending: false }).limit(500),
+            supabase.from("becas").select("*").order("id", { ascending: false }),
+            supabase.from("atencion_socio_casos").select("*").order("id", { ascending: false }),
+            supabase.from("tarifario").select("*").order("id"),
+            supabase.from("sponsor_contracts").select("*").order("id", { ascending: false }),
+            supabase.from("sponsor_pipeline").select("*").order("id", { ascending: false }),
+            supabase.from("sponsor_contactos").select("*").order("id", { ascending: false }),
+            supabase.from("sponsor_propuestas").select("*").order("id", { ascending: false }),
+            supabase.from("sponsor_propuestas_votos").select("*").order("id"),
+            supabase.from("sponsor_propuestas_mensajes").select("*").order("created_at"),
+            supabase.from("hospitalidad_invitaciones").select("*").order("id", { ascending: false }),
+            supabase.from("sponsor_materiales").select("*").order("id", { ascending: false }),
+            supabase.from("sponsor_pagos").select("*").order("id", { ascending: false }),
+          ]);
+          batch3Loaded.current = true;
+          setAll({
+            ...(b3inv.data ? { inventory: b3inv.data } : {}),
+            ...(b3sp.data ? { sponsors: b3sp.data } : {}),
+            ...(b3pb.data ? { projBudgets: b3pb.data } : {}),
+            ...(b3im.data ? { invMaint: b3im.data } : {}),
+            ...(b3id.data ? { invDist: b3id.data } : {}),
+            ...(b3sd.data ? { sponDeliveries: b3sd.data } : {}),
+            ...(b3arch.data ? { archivos: b3arch.data } : {}),
+            ...(b3tn.data ? { torneos: b3tn.data } : {}),
+            ...(b3th.data ? { torneoHitos: b3th.data } : {}),
+            ...(b3tc.data ? { torneoClubes: b3tc.data } : {}),
+            ...(b3fx.data ? { fixtures: b3fx.data } : {}),
+            ...(b3bec.data ? { becas: b3bec.data } : {}),
+            ...(b3asc.data ? { asCasos: b3asc.data } : {}),
+            ...(b3tar.data ? { tarifario: b3tar.data } : {}),
+            ...(b3sc.data ? { sponContracts: b3sc.data } : {}),
+            ...(b3pipe.data ? { sponPipeline: b3pipe.data } : {}),
+            ...(b3ct.data ? { sponContactos: b3ct.data } : {}),
+            ...(b3prop.data ? { sponPropuestas: b3prop.data } : {}),
+            ...(b3pv.data ? { sponPropVotos: b3pv.data } : {}),
+            ...(b3pm.data ? { sponPropMsgs: b3pm.data } : {}),
+            ...(b3hi.data ? { hospInvitaciones: b3hi.data } : {}),
+            ...(b3mat.data ? { sponMateriales: b3mat.data } : {}),
+            ...(b3pag.data ? { sponPagos: b3pag.data } : {}),
+          });
+          saveToCache({
+            inventory: b3inv.data || [], inventory_maintenance: b3im.data || [],
+            inventory_distributions: b3id.data || [], sponsors: b3sp.data || [],
+            sponsor_deliveries: b3sd.data || [], project_budgets: b3pb.data || [],
+            fixtures: b3fx.data || [], tarifario: b3tar.data || [],
+            sponsor_contracts: b3sc.data || [], sponsor_pipeline: b3pipe.data || [],
+          });
+        }
+      } catch { /* background load — best effort */ }
+    }, 2000);
 
     const anyData = pRes.data || recentRes.data || omRes.data;
     if (anyData) {
@@ -183,10 +212,7 @@ export function useDataFetch(
         presupuestos: prRes.data || [], proveedores: pvRes.data || [],
         reminders: remRes.data || [], projects: projRes.data || [],
         project_tasks: ptRes.data || [], task_templates: ttRes.data || [],
-        inventory: invRes.data || [], inventory_maintenance: imRes.data || [], inventory_distributions: idRes.data || [], bookings: bkRes.data || [],
-        sponsors: spRes.data || [], sponsor_deliveries: sdRes.data || [], project_budgets: pbRes.data || [],
-        fixtures: fxRes.data || [], tarifario: tarRes.data || [],
-        sponsor_contracts: scRes.data || [], sponsor_pipeline: spipeRes.data || [],
+        bookings: bkRes.data || [],
       });
     }
     } catch (e: any) { if (!isAbort(e)) throw e; }

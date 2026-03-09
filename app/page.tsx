@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/client";
 import { T, AREAS, DEPTOS, ROLES, ST, SC, PST, FREQ, fn, isOD, BOOK_FAC, RENTAL_APPROVERS, TESORERO } from "@/lib/constants";
@@ -75,7 +75,7 @@ export default function App() {
   const mob = useMobile();
   const { mode: themeMode, toggle: toggleTheme, colors, isDark, cardBg, headerBg } = useTheme();
   const [toast, sToast] = useState<{ msg: string; type: "ok" | "err" } | null>(null);
-  const showT = (msg: string, type: "ok" | "err" = "ok") => sToast({ msg, type });
+  const showT = useCallback((msg: string, type: "ok" | "err" = "ok") => sToast({ msg, type }), []);
 
   // Auth
   const auth = useAuth();
