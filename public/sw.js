@@ -1,6 +1,6 @@
-const CACHE_VERSION = 'los-tordos-v8';
-const STATIC_CACHE = 'los-tordos-static-v8';
-const API_CACHE = 'los-tordos-api-v8';
+const CACHE_VERSION = 'los-tordos-v9';
+const STATIC_CACHE = 'los-tordos-static-v9';
+const API_CACHE = 'los-tordos-api-v9';
 
 // App shell - always cache these
 const APP_SHELL = [
@@ -54,16 +54,8 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // Supabase calls: return 503 when offline instead of hanging
+  // Supabase calls: pass through to network (don't intercept)
   if (url.hostname.includes('supabase')) {
-    e.respondWith(
-      fetch(e.request).catch(() =>
-        new Response(JSON.stringify({ error: 'Offline' }), {
-          status: 503,
-          headers: { 'Content-Type': 'application/json' }
-        })
-      )
-    );
     return;
   }
 

@@ -78,7 +78,7 @@ export function useDataFetch(
       supabase.from("sponsor_materiales").select("*").order("id", { ascending: false }),
       supabase.from("sponsor_pagos").select("*").order("id", { ascending: false }),
     ]);
-    const errMsg = (e: any) => e?.message || e?.code || e?.details || (typeof e === "object" ? JSON.stringify(e) : String(e)) || "error de conexión";
+    const errMsg = (e: any) => e?.message || e?.code || e?.details || e?.error || (typeof e === "object" ? JSON.stringify(e) : String(e)) || "error de conexión";
     const errors: string[] = [];
     if (pRes.error && !isAbort(pRes.error)) { console.error("[fetch] profiles error:", pRes.error); errors.push("Perfiles: " + errMsg(pRes.error)); }
     if (recentRes.error && !isAbort(recentRes.error)) { console.error("[fetch] tasks error:", recentRes.error); errors.push("Tareas: " + errMsg(recentRes.error)); }
