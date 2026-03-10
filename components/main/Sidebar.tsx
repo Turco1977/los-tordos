@@ -12,6 +12,11 @@ export function SB({aA,aD,onAC,onDC,col,onCol,isPersonal,mob,sbOpen,onClose,vw,o
   const deptos = DEPTOS;
   const {colors,isDark,cardBg}=useC();
 
+  /* Permisos: CD/SE pueden ver Becas y Atencion al Socio */
+  const userAreaIds=user?.dId?DEPTOS.filter((d:any)=>d.id===user.dId).map((d:any)=>d.aId):[];
+  const isCdOrSe=userAreaIds.includes(100)||userAreaIds.includes(101);
+  const canSeeBecasAS=user&&!isPersonal&&(user.role==="admin"||user.role==="superadmin"||isCdOrSe||user.dId===40||user.dId===76);
+
   /* rental badge: count items needing MY action */
   const rentalBadge=(()=>{
     if(!user) return 0;
@@ -54,8 +59,8 @@ export function SB({aA,aD,onAC,onDC,col,onCol,isPersonal,mob,sbOpen,onClose,vw,o
         {k:"recurrentes",l:"Recurrentes",icon:"🔁",show:false},
         {k:"viajes",l:"Viajes",icon:"🚌",show:false},
         {k:"archivos",l:"Archivos",icon:"📂",show:!isPersonal},
-        {k:"atencion-socio",l:"Atención al Socio",icon:"🤝",show:!isPersonal&&user&&(user.role==="admin"||user.role==="superadmin"||user.dId===40)},
-        {k:"becas",l:"Becas",icon:"🎓",show:!isPersonal&&user&&(user.role==="admin"||user.role==="superadmin"||user.dId===76)},
+        {k:"atencion-socio",l:"Atención al Socio",icon:"🤝",show:!!canSeeBecasAS},
+        {k:"becas",l:"Becas",icon:"🎓",show:!!canSeeBecasAS},
         {k:"comm",l:"Comunicar",icon:"📢",show:!isPersonal&&user&&(user.role==="admin"||user.role==="superadmin"||user.role==="coordinador")},
         {k:"reservas",l:"Espacios",icon:"🏟️",show:true},
         {k:"fixtures",l:"Fixtures",icon:"📅",show:!isPersonal&&user&&(user.role==="admin"||user.role==="superadmin"||user.role==="coordinador"||user.role==="enlace")},
@@ -69,7 +74,7 @@ export function SB({aA,aD,onAC,onDC,col,onCol,isPersonal,mob,sbOpen,onClose,vw,o
         {k:"sponsors",l:"Sponsors",icon:"🥇",show:!isPersonal&&user&&(user.role==="admin"||user.role==="superadmin"||user.role==="coordinador"||user.role==="embudo")},
         {k:"torneos",l:"Torneos",icon:"🏆",show:!isPersonal&&user&&(user.role==="admin"||user.role==="superadmin"||user.role==="coordinador")},
         {k:"manual",l:"Manual",icon:"📖",show:true},
-      ].filter(n=>n.show).map(n=><div key={n.k} onClick={()=>{onNav(n.k);if(mob)onClose();}} style={{display:"flex",alignItems:"center",gap:8,padding:mob?"10px 10px":"7px 8px",borderRadius:7,cursor:"pointer",background:vw===n.k?"rgba(255,255,255,.1)":"transparent",fontSize:mob?13:11,fontWeight:vw===n.k?700:500,color:vw===n.k?"#fff":"rgba(255,255,255,.55)",marginBottom:1,minHeight:mob?44:undefined}}><span style={{fontSize:mob?15:13}}>{n.icon}</span>{n.l}{n.k==="reservas"&&rentalBadge>0&&vw!=="reservas"&&<span style={{background:"#DC2626",color:"#fff",fontSize:9,fontWeight:800,borderRadius:10,padding:"1px 6px",minWidth:16,textAlign:"center" as const,marginLeft:"auto",lineHeight:"14px"}}>{rentalBadge}</span>}{n.k==="dm"&&dmUnread>0&&vw!=="dm"&&<span style={{background:"#DC2626",color:"#fff",fontSize:9,fontWeight:800,borderRadius:10,padding:"1px 6px",minWidth:16,textAlign:"center" as const,marginLeft:"auto",lineHeight:"14px"}}>{dmUnread}</span>}{["sponsors","reun","proyectos","inventario","presu"].includes(n.k)&&(sectionBadges[n.k]||0)>0&&vw!==n.k&&<span style={{background:"#DC2626",color:"#fff",fontSize:9,fontWeight:800,borderRadius:10,padding:"1px 6px",minWidth:16,textAlign:"center" as const,marginLeft:"auto",lineHeight:"14px"}}>{sectionBadges[n.k]}</span>}{n.k==="presu"&&tesBadge>0&&vw!=="presu"&&!(sectionBadges["presu"]>0)&&<span style={{background:"#F59E0B",color:"#fff",fontSize:9,fontWeight:800,borderRadius:10,padding:"1px 6px",minWidth:16,textAlign:"center" as const,marginLeft:"auto",lineHeight:"14px"}}>{tesBadge}</span>}</div>)}
+      ].filter(n=>n.show).map(n=><div key={n.k} onClick={()=>{onNav(n.k);if(mob)onClose();}} style={{display:"flex",alignItems:"center",gap:8,padding:mob?"10px 10px":"7px 8px",borderRadius:7,cursor:"pointer",background:vw===n.k?"rgba(255,255,255,.1)":"transparent",fontSize:mob?13:11,fontWeight:vw===n.k?700:500,color:vw===n.k?"#fff":"rgba(255,255,255,.55)",marginBottom:1,minHeight:mob?44:undefined}}><span style={{fontSize:mob?15:13}}>{n.icon}</span>{n.l}{n.k==="reservas"&&rentalBadge>0&&vw!=="reservas"&&<span style={{background:"#DC2626",color:"#fff",fontSize:9,fontWeight:800,borderRadius:10,padding:"1px 6px",minWidth:16,textAlign:"center" as const,marginLeft:"auto",lineHeight:"14px"}}>{rentalBadge}</span>}{n.k==="dm"&&dmUnread>0&&vw!=="dm"&&<span style={{background:"#DC2626",color:"#fff",fontSize:9,fontWeight:800,borderRadius:10,padding:"1px 6px",minWidth:16,textAlign:"center" as const,marginLeft:"auto",lineHeight:"14px"}}>{dmUnread}</span>}{(sectionBadges[n.k]||0)>0&&vw!==n.k&&n.k!=="reservas"&&n.k!=="dm"&&<span style={{background:"#DC2626",color:"#fff",fontSize:9,fontWeight:800,borderRadius:10,padding:"1px 6px",minWidth:16,textAlign:"center" as const,marginLeft:"auto",lineHeight:"14px"}}>{sectionBadges[n.k]}</span>}{n.k==="presu"&&tesBadge>0&&vw!=="presu"&&!(sectionBadges["presu"]>0)&&<span style={{background:"#F59E0B",color:"#fff",fontSize:9,fontWeight:800,borderRadius:10,padding:"1px 6px",minWidth:16,textAlign:"center" as const,marginLeft:"auto",lineHeight:"14px"}}>{tesBadge}</span>}</div>)}
     </div>}
   </div>);
   if(mob){

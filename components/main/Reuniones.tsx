@@ -10,7 +10,7 @@ import { MentionInput, renderMentions } from "@/components/MentionInput";
 
 const TODAY = new Date().toISOString().slice(0,10);
 
-export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,onCreateTasks,onApproveMin,user,mob}:any){
+export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,onCreateTasks,onApproveMin,onRejectMin,user,mob}:any){
   const agendas = useDataStore(s => s.agendas);
   const minutas = useDataStore(s => s.minutas);
   const om = useDataStore(s => s.om);
@@ -26,7 +26,7 @@ export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,on
   const selAreaObj=areaName?areas.find((a:any)=>a.name===areaName):null;
   const areaDepts=selAreaObj?DEPTOS.filter((d:any)=>d.aId===selAreaObj.id):[];
   const members=tab==="cd"?om.filter((m:any)=>m.t==="cd"&&m.n):tab==="se"?om.filter((m:any)=>m.t==="se"&&m.n):areaName?(()=>{const ar=areas.find((a:any)=>a.name===areaName);if(!ar)return[];const dIds=DEPTOS.filter((d:any)=>d.aId===ar.id).map((d:any)=>d.id);return users.filter((u:any)=>dIds.includes(u.dId)).map((u:any)=>({id:u.id,n:u.n,a:u.a,cargo:ROLES[u.role]?.l||u.role}));})():[];
-  const APPROVAL_QUORUM:{[k:string]:number}={cd:5,se:3};
+  const APPROVAL_QUORUM:{[k:string]:number}={cd:8,se:3};
   const isSA=user.role==="superadmin"||user.role==="admin";
   const userDeptIds=(users.find((u:any)=>u.id===user.id))?.dId;
   const userAreaIds=userDeptIds?DEPTOS.filter((d:any)=>d.id===userDeptIds).map((d:any)=>d.aId):[];
@@ -65,7 +65,7 @@ export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,on
           <div style={{fontSize:10,color:colors.g4}}>Progreso: {apps.length}/{q} aprobaciones</div>
           <div style={{height:4,background:"#FDE68A",borderRadius:2,marginTop:3,width:120}}><div style={{height:"100%",background:"#F59E0B",borderRadius:2,width:Math.min(100,apps.length/q*100)+"%"}}/></div>
         </div>
-        <Btn v="w" s="s" onClick={()=>onApproveMin(m.id)} style={{background:"#F59E0B",color:"#fff",border:"none"}}>{"\u2705"} Aprobar</Btn>
+        <div style={{display:"flex",gap:4,flexShrink:0}}><Btn v="w" s="s" onClick={()=>onApproveMin(m.id)} style={{background:"#10B981",color:"#fff",border:"none"}}>{"\u2705"}</Btn><Btn v="w" s="s" onClick={()=>onRejectMin?.(m.id)} style={{background:"#DC2626",color:"#fff",border:"none"}}>{"\u274C"}</Btn></div>
       </div>;})}
     </Card>}
     <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:8}}>{"\u{1F4DA}"} Historial</div>
@@ -394,9 +394,9 @@ export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,on
             <span style={{fontSize:11,fontWeight:700,color:mi.status==="aprobada"?"#065F46":"#92400E"}}>{apps.length}/{q}</span>
           </div>
           <div style={{height:6,background:mi.status==="aprobada"?"#A7F3D0":"#FDE68A",borderRadius:3,marginBottom:8}}><div style={{height:"100%",background:mi.status==="aprobada"?"#10B981":"#F59E0B",borderRadius:3,width:Math.min(100,apps.length/q*100)+"%",transition:"width 0.3s"}}/></div>
-          {apps.length>0&&<div style={{marginBottom:8}}>{apps.map((a:any,i:number)=><div key={i} style={{display:"flex",alignItems:"center",gap:6,padding:"3px 0",fontSize:11}}><span style={{color:"#10B981"}}>{"\u2705"}</span><span style={{fontWeight:600,color:colors.nv}}>{a.userName}</span><span style={{color:colors.g4,fontSize:10}}>{fmtD(a.date)}</span></div>)}</div>}
-          {canApprove&&<Btn v="p" s="s" onClick={()=>onApproveMin(mi.id)} style={{background:"#F59E0B",border:"none",color:"#fff"}}>{"\u2705"} Aprobar minuta</Btn>}
-          {alreadyApproved&&mi.status!=="aprobada"&&<div style={{fontSize:11,color:"#065F46",fontWeight:600}}>{"\u2705"} Ya aprobaste esta minuta</div>}
+          {apps.length>0&&<div style={{marginBottom:8}}>{apps.map((a:any,i:number)=><div key={i} style={{display:"flex",alignItems:"center",gap:6,padding:"3px 0",fontSize:11}}><span style={{color:a.vote==="rechazar"?"#DC2626":"#10B981"}}>{a.vote==="rechazar"?"\u274C":"\u2705"}</span><span style={{fontWeight:600,color:colors.nv}}>{a.userName}</span><span style={{color:colors.g4,fontSize:10}}>{fmtD(a.date)}</span></div>)}</div>}
+          {canApprove&&<div style={{display:"flex",gap:8}}><Btn v="p" s="s" onClick={()=>onApproveMin(mi.id)} style={{background:"#10B981",border:"none",color:"#fff"}}>{"\u2705"} Aprobar</Btn><Btn v="p" s="s" onClick={()=>onRejectMin?.(mi.id)} style={{background:"#DC2626",border:"none",color:"#fff"}}>{"\u274C"} Rechazar</Btn></div>}
+          {alreadyApproved&&mi.status!=="aprobada"&&<div style={{fontSize:11,color:apps.find((a:any)=>a.userId===user.id)?.vote==="rechazar"?"#DC2626":"#065F46",fontWeight:600}}>{apps.find((a:any)=>a.userId===user.id)?.vote==="rechazar"?"\u274C Rechazaste esta minuta":"\u2705 Ya aprobaste esta minuta"}</div>}
         </div>;})()}
         {(mi.presentes?.length>0||mi.ausentes?.length>0)&&<div style={{marginBottom:12,display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8}}>
           <div><div style={{fontSize:10,fontWeight:700,color:colors.gn,marginBottom:2}}>{"\u2705"} PRESENTES</div>{(mi.presentes||[]).map((p:string,i:number)=><div key={i} style={{fontSize:11,color:colors.nv}}>{"\u2022"} {p}</div>)}</div>
