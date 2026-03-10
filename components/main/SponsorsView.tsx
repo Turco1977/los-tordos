@@ -1,6 +1,6 @@
 "use client";
 import { useState, useMemo, useRef, useEffect } from "react";
-import { SPON_ST, SPON_TIER, DOLAR_REF, DIV, TAR_CATS, TAR_VIS, PIPE_ST, PIPE_SC, CONTR_ST, CONTR_SC, PROP_ST, PROP_SC, CONTACT_ROLES, SPON_EJES, HOSP_ST, MAT_CATS, DEPTOS } from "@/lib/constants";
+import { SPON_ST, SPON_TIER, DOLAR_REF, DIV, TAR_CATS, TAR_VIS, TAR_UBICACIONES, PIPE_ST, PIPE_SC, CONTR_ST, CONTR_SC, PROP_ST, PROP_SC, CONTACT_ROLES, SPON_EJES, HOSP_ST, MAT_CATS, DEPTOS } from "@/lib/constants";
 import { exportTarifarioPDF, exportPipelinePDF, exportContractsPDF, exportSponsorsExcel, exportHospitalidadPDF } from "@/lib/export";
 import { fmtD } from "@/lib/mappers";
 import { Btn, Card } from "@/components/ui";
@@ -45,6 +45,28 @@ function TarifarioPanel({tarifario,sponsors,dolarRef,colors,isDark,cardBg,mob,ca
   const [editId,sEditId]=useState<number|null>(null);
   const [form,sForm]=useState(emptyTarForm());
   const [confirmDel,sConfirmDel]=useState<number|null>(null);
+  const [customUbic,sCustomUbic]=useState(false);
+  const [showNewSoporte,sShowNewSoporte]=useState(false);
+  const [newSop,sNewSop]=useState({key:"",label:"",icon:"📦",color:"#6B7280"});
+
+  /* Merge predefined + existing DB + localStorage custom ubicaciones */
+  const getUbicOpts=(cat:string):string[]=>{
+    const pre=TAR_UBICACIONES[cat]||[];
+    const existing=items.filter((t:any)=>t.categoria===cat&&t.ubicacion).map((t:any)=>t.ubicacion.trim());
+    let custom:Record<string,string[]>={};
+    try{custom=JSON.parse(localStorage.getItem("tar_custom_ubicaciones")||"{}");}catch{}
+    const all=[...pre];
+    for(const u of [...existing,...(custom[cat]||[])]){if(u&&!all.includes(u))all.push(u);}
+    return all;
+  };
+
+  /* Merge TAR_CATS + custom soportes from localStorage */
+  const effectiveCats=useMemo(()=>{
+    const base:{[k:string]:{l:string;i:string;c:string}}={...TAR_CATS};
+    try{const cs=JSON.parse(localStorage.getItem("tar_custom_soportes")||"{}");for(const[k,v]of Object.entries(cs)){if(!base[k])base[k]=v as any;}}catch{}
+    for(const t of items){if(t.categoria&&!base[t.categoria])base[t.categoria]={l:t.categoria,i:"📦",c:"#6B7280"};}
+    return base;
+  },[items]);
 
   const vis=useMemo(()=>{
     let v=[...items].filter((t:any)=>t.activo!==false);
@@ -66,16 +88,21 @@ function TarifarioPanel({tarifario,sponsors,dolarRef,colors,isDark,cardBg,mob,ca
     return g;
   },[vis]);
 
-  const openAdd=()=>{sForm(emptyTarForm());sEditId(null);sShowForm(true);};
-  const openEdit=(t:any)=>{sForm({categoria:t.categoria||"indumentaria_rugby",ubicacion:t.ubicacion||"",descripcion:t.descripcion||"",visibilidad:t.visibilidad||"media",precio_min_usd:String(t.precio_min_usd||""),precio_max_usd:String(t.precio_max_usd||""),sponsor_asignado_id:String(t.sponsor_asignado_id||"")});sEditId(t.id);sShowForm(true);};
+  const openAdd=()=>{sForm(emptyTarForm());sEditId(null);sShowForm(true);sCustomUbic(false);sShowNewSoporte(false);};
+  const openEdit=(t:any)=>{sForm({categoria:t.categoria||"indumentaria_rugby",ubicacion:t.ubicacion||"",descripcion:t.descripcion||"",visibilidad:t.visibilidad||"media",precio_min_usd:String(t.precio_min_usd||""),precio_max_usd:String(t.precio_max_usd||""),sponsor_asignado_id:String(t.sponsor_asignado_id||"")});sEditId(t.id);sShowForm(true);sCustomUbic(false);sShowNewSoporte(false);};
 
   useEffect(()=>{if(!highlight)return;const t=items.find((x:any)=>x.id===highlight);if(t){sCatFilter(t.categoria||"all");openEdit(t);}onHighlightDone?.();},[highlight]);
 
   const handleSave=async()=>{
     if(!form.ubicacion.trim())return;
     const d={categoria:form.categoria,ubicacion:form.ubicacion.trim(),descripcion:form.descripcion.trim(),visibilidad:form.visibilidad,precio_min_usd:Number(form.precio_min_usd)||0,precio_max_usd:Number(form.precio_max_usd)||0,sponsor_asignado_id:form.sponsor_asignado_id?Number(form.sponsor_asignado_id):null};
+    /* Persist custom ubicacion to localStorage if not in predefined */
+    const pre=TAR_UBICACIONES[form.categoria]||[];
+    if(!pre.includes(form.ubicacion.trim())){
+      try{const st=JSON.parse(localStorage.getItem("tar_custom_ubicaciones")||"{}");if(!st[form.categoria])st[form.categoria]=[];if(!st[form.categoria].includes(form.ubicacion.trim())){st[form.categoria].push(form.ubicacion.trim());localStorage.setItem("tar_custom_ubicaciones",JSON.stringify(st));}}catch{}
+    }
     if(editId){await onUpd(editId,d);}else{await onAdd(d);}
-    sShowForm(false);sEditId(null);sForm(emptyTarForm());
+    sShowForm(false);sEditId(null);sForm(emptyTarForm());sCustomUbic(false);
   };
 
   const fN=(n:number)=>n?"$"+Math.round(n).toLocaleString("es-AR"):"–";
@@ -99,7 +126,7 @@ function TarifarioPanel({tarifario,sponsors,dolarRef,colors,isDark,cardBg,mob,ca
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,marginBottom:12}}>
       <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
         <button onClick={()=>sCatFilter("all")} style={{padding:"5px 12px",borderRadius:20,border:"1px solid "+(catFilter==="all"?colors.rd:colors.g3),background:catFilter==="all"?colors.rd:"transparent",color:catFilter==="all"?"#fff":colors.g5,fontSize:11,fontWeight:600,cursor:"pointer"}}>Todos</button>
-        {Object.entries(TAR_CATS).map(([k,v])=>(
+        {Object.entries(effectiveCats).map(([k,v])=>(
           <button key={k} onClick={()=>sCatFilter(k)} style={{padding:"5px 12px",borderRadius:20,border:"1px solid "+(catFilter===k?v.c:colors.g3),background:catFilter===k?v.c:"transparent",color:catFilter===k?"#fff":colors.g5,fontSize:11,fontWeight:600,cursor:"pointer"}}>{v.i} {v.l}</button>
         ))}
       </div>
@@ -114,14 +141,35 @@ function TarifarioPanel({tarifario,sponsors,dolarRef,colors,isDark,cardBg,mob,ca
       <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:8}}>{editId?"Editar Tarifa":"Nueva Tarifa"}</div>
       <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8}}>
         <div>
-          <label style={{fontSize:10,color:colors.g4}}>Categoría</label>
-          <select value={form.categoria} onChange={e=>sForm({...form,categoria:e.target.value})} style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:12,background:cardBg,color:colors.nv}}>
-            {Object.entries(TAR_CATS).map(([k,v])=><option key={k} value={k}>{v.l}</option>)}
-          </select>
+          <label style={{fontSize:10,color:colors.g4}}>Soporte</label>
+          <div style={{display:"flex",gap:4}}>
+            <select value={form.categoria} onChange={e=>{sForm({...form,categoria:e.target.value,ubicacion:""});sCustomUbic(false);}} style={{flex:1,padding:"6px 8px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:12,background:cardBg,color:colors.nv}}>
+              {Object.entries(effectiveCats).map(([k,v])=><option key={k} value={k}>{v.i} {v.l}</option>)}
+            </select>
+            <button onClick={()=>sShowNewSoporte(!showNewSoporte)} style={{padding:"4px 8px",borderRadius:6,border:"1px solid "+colors.g3,background:showNewSoporte?colors.rd:"transparent",color:showNewSoporte?"#fff":colors.g5,fontSize:12,cursor:"pointer",fontWeight:700}} title="Agregar soporte">+</button>
+          </div>
+          {showNewSoporte&&<div style={{marginTop:6,padding:8,borderRadius:6,border:"1px dashed "+colors.g3,background:isDark?"rgba(255,255,255,.03)":"#FAFAFA"}}>
+            <div style={{fontSize:10,fontWeight:600,color:colors.g4,marginBottom:4}}>Nuevo Soporte</div>
+            <div style={{display:"flex",gap:4,marginBottom:4}}>
+              <input value={newSop.label} onChange={e=>sNewSop({...newSop,label:e.target.value,key:e.target.value.toLowerCase().replace(/[^a-z0-9]+/g,"_")})} placeholder="Nombre (ej: Campera)" style={{flex:1,padding:"4px 6px",borderRadius:4,border:"1px solid "+colors.g3,fontSize:11,background:cardBg,color:colors.nv}}/>
+              <input value={newSop.icon} onChange={e=>sNewSop({...newSop,icon:e.target.value})} style={{width:36,padding:"4px 6px",borderRadius:4,border:"1px solid "+colors.g3,fontSize:11,background:cardBg,color:colors.nv,textAlign:"center"}} title="Emoji"/>
+            </div>
+            <div style={{display:"flex",gap:4}}>
+              <input type="color" value={newSop.color} onChange={e=>sNewSop({...newSop,color:e.target.value})} style={{width:36,height:28,borderRadius:4,border:"1px solid "+colors.g3,cursor:"pointer"}}/>
+              <button onClick={()=>{if(!newSop.label.trim())return;try{const st=JSON.parse(localStorage.getItem("tar_custom_soportes")||"{}");st[newSop.key]={l:newSop.label.trim(),i:newSop.icon,c:newSop.color};localStorage.setItem("tar_custom_soportes",JSON.stringify(st));}catch{}sForm({...form,categoria:newSop.key,ubicacion:""});sNewSop({key:"",label:"",icon:"📦",color:"#6B7280"});sShowNewSoporte(false);}} style={{flex:1,padding:"4px 8px",borderRadius:4,border:"none",background:colors.rd,color:"#fff",fontSize:11,fontWeight:600,cursor:"pointer"}}>Agregar</button>
+            </div>
+          </div>}
         </div>
         <div>
-          <label style={{fontSize:10,color:colors.g4}}>Ubicación</label>
-          <input value={form.ubicacion} onChange={e=>sForm({...form,ubicacion:e.target.value})} placeholder="Ej: Camiseta titular - pecho" style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:12,background:cardBg,color:colors.nv}}/>
+          <label style={{fontSize:10,color:colors.g4}}>Ubicacion</label>
+          {(()=>{const opts=getUbicOpts(form.categoria);const isInOpts=opts.includes(form.ubicacion);const showCustom=customUbic||(!isInOpts&&form.ubicacion!=="");return(<>
+            <select value={showCustom?"__custom__":form.ubicacion} onChange={e=>{if(e.target.value==="__custom__"){sCustomUbic(true);sForm({...form,ubicacion:""});}else{sCustomUbic(false);sForm({...form,ubicacion:e.target.value});}}} style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:12,background:cardBg,color:colors.nv}}>
+              <option value="">— Seleccionar —</option>
+              {opts.map(u=><option key={u} value={u}>{u}</option>)}
+              <option value="__custom__">+ Personalizado...</option>
+            </select>
+            {showCustom&&<input value={form.ubicacion} onChange={e=>sForm({...form,ubicacion:e.target.value})} placeholder="Escribir ubicacion personalizada" autoFocus style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:12,background:cardBg,color:colors.nv,marginTop:4}}/>}
+          </>);})()}
         </div>
         <div>
           <label style={{fontSize:10,color:colors.g4}}>Visibilidad</label>
@@ -130,15 +178,15 @@ function TarifarioPanel({tarifario,sponsors,dolarRef,colors,isDark,cardBg,mob,ca
           </select>
         </div>
         <div>
-          <label style={{fontSize:10,color:colors.g4}}>Descripción</label>
-          <input value={form.descripcion} onChange={e=>sForm({...form,descripcion:e.target.value})} placeholder="Descripción opcional" style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:12,background:cardBg,color:colors.nv}}/>
+          <label style={{fontSize:10,color:colors.g4}}>Descripcion</label>
+          <input value={form.descripcion} onChange={e=>sForm({...form,descripcion:e.target.value})} placeholder="Descripcion opcional" style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:12,background:cardBg,color:colors.nv}}/>
         </div>
         <div>
-          <label style={{fontSize:10,color:colors.g4}}>Precio Mín USD</label>
+          <label style={{fontSize:10,color:colors.g4}}>Precio Min USD</label>
           <input type="number" value={form.precio_min_usd} onChange={e=>sForm({...form,precio_min_usd:e.target.value})} placeholder="0" style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:12,background:cardBg,color:colors.nv}}/>
         </div>
         <div>
-          <label style={{fontSize:10,color:colors.g4}}>Precio Máx USD</label>
+          <label style={{fontSize:10,color:colors.g4}}>Precio Max USD</label>
           <input type="number" value={form.precio_max_usd} onChange={e=>sForm({...form,precio_max_usd:e.target.value})} placeholder="0" style={{width:"100%",padding:"6px 8px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:12,background:cardBg,color:colors.nv}}/>
         </div>
         <div>
@@ -151,7 +199,7 @@ function TarifarioPanel({tarifario,sponsors,dolarRef,colors,isDark,cardBg,mob,ca
       </div>
       <div style={{display:"flex",gap:8,marginTop:10}}>
         <Btn v="pu" s="s" onClick={handleSave}>{editId?"Guardar":"Agregar"}</Btn>
-        <Btn v="g" s="s" onClick={()=>{sShowForm(false);sEditId(null);}}>Cancelar</Btn>
+        <Btn v="g" s="s" onClick={()=>{sShowForm(false);sEditId(null);sCustomUbic(false);sShowNewSoporte(false);}}>Cancelar</Btn>
       </div>
     </Card>}
 
@@ -166,7 +214,7 @@ function TarifarioPanel({tarifario,sponsors,dolarRef,colors,isDark,cardBg,mob,ca
 
     {/* Tables grouped by category */}
     {Object.entries(grouped).map(([cat,rows])=>{
-      const catInfo=TAR_CATS[cat]||{l:cat,i:"📦",c:"#6B7280"};
+      const catInfo=effectiveCats[cat]||{l:cat,i:"📦",c:"#6B7280"};
       return(<Card key={cat} style={{padding:0,overflow:"hidden",marginBottom:14}}>
         <div style={{padding:"10px 14px",background:isDark?"rgba(255,255,255,.05)":"rgba(0,0,0,.02)",borderBottom:"1px solid "+colors.g2,display:"flex",alignItems:"center",gap:8}}>
           <span style={{fontSize:16}}>{catInfo.i}</span>

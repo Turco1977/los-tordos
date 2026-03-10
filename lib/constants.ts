@@ -234,6 +234,33 @@ export const TAR_VIS:Record<string,{l:string;c:string;bg:string}>={
   media:{l:"Media",c:"#F59E0B",bg:"#FEF3C7"},
   baja:{l:"Baja",c:"#6B7280",bg:"#F3F4F6"},
 };
+export const TAR_UBICACIONES:Record<string,string[]>={
+  indumentaria_rugby:[
+    "Camiseta titular - pecho","Camiseta titular - espalda",
+    "Camiseta titular - manga izq","Camiseta titular - manga der",
+    "Camiseta titular - hombro izq","Camiseta titular - hombro der",
+    "Camiseta titular - cuello",
+    "Camiseta suplente - pecho","Camiseta suplente - espalda",
+    "Short - pierna izq","Short - pierna der",
+    "Medias","Campera de concentracion",
+    "Remera de entrenamiento","Pantalon de entrenamiento",
+  ],
+  hockey:[
+    "Camiseta titular - pecho","Camiseta titular - espalda",
+    "Camiseta titular - manga","Camiseta suplente - pecho",
+    "Pollera","Medias",
+  ],
+  espacio:[
+    "Cartel cancha 1 - lateral","Cartel cancha 1 - cabecera",
+    "Cartel cancha 2","Banner cantina","Bandera ingreso",
+    "Naming salon","Naming cancha","Cartel estacionamiento",
+    "Stand dia de partido","Backing conferencia",
+  ],
+  digital:[
+    "Redes sociales - post mensual","Streaming - logo en pantalla",
+    "Web - banner principal","Newsletter - logo",
+  ],
+};
 
 /* Pipeline stages */
 export const PIPE_ST={PROSP:"prospecto",CONT:"contacto",PROP:"propuesta",NEG:"negociacion",CIERRE:"cierre",PERD:"perdido"};
