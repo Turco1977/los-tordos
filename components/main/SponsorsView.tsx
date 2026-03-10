@@ -38,7 +38,7 @@ const emptyForm=()=>({
 const emptyTarForm=()=>({categoria:"indumentaria_rugby",ubicacion:"",descripcion:"",visibilidad:"media",precio_min_usd:"",precio_max_usd:"",sponsor_asignado_id:""});
 
 /* ── TarifarioPanel ── */
-function TarifarioPanel({tarifario,sponsors,dolarRef,colors,isDark,cardBg,mob,canFullEdit,onAdd,onUpd,onDel}:any){
+function TarifarioPanel({tarifario,sponsors,dolarRef,colors,isDark,cardBg,mob,canFullEdit,onAdd,onUpd,onDel,highlight,onHighlightDone}:any){
   const items:any[]=tarifario||[];
   const [catFilter,sCatFilter]=useState("all");
   const [showForm,sShowForm]=useState(false);
@@ -68,6 +68,8 @@ function TarifarioPanel({tarifario,sponsors,dolarRef,colors,isDark,cardBg,mob,ca
 
   const openAdd=()=>{sForm(emptyTarForm());sEditId(null);sShowForm(true);};
   const openEdit=(t:any)=>{sForm({categoria:t.categoria||"indumentaria_rugby",ubicacion:t.ubicacion||"",descripcion:t.descripcion||"",visibilidad:t.visibilidad||"media",precio_min_usd:String(t.precio_min_usd||""),precio_max_usd:String(t.precio_max_usd||""),sponsor_asignado_id:String(t.sponsor_asignado_id||"")});sEditId(t.id);sShowForm(true);};
+
+  useEffect(()=>{if(!highlight)return;const t=items.find((x:any)=>x.id===highlight);if(t){sCatFilter(t.categoria||"all");openEdit(t);}onHighlightDone?.();},[highlight]);
 
   const handleSave=async()=>{
     if(!form.ubicacion.trim())return;
@@ -506,7 +508,7 @@ function ContratosPanel({contracts,sponsors,tarifario,colors,isDark,cardBg,mob,c
 /* ══════════════════════════════════════════════════════════════
    DashboardPanel — Métricas e ingresos
    ══════════════════════════════════════════════════════════════ */
-function DashboardPanel({sponsors,tarifario,contracts,pipeline,contactos,fixtures,invitaciones,dolarRef,colors,isDark,cardBg,mob}:any){
+function DashboardPanel({sponsors,tarifario,contracts,pipeline,contactos,fixtures,invitaciones,dolarRef,colors,isDark,cardBg,mob,onZoneClick}:any){
   const sp:any[]=sponsors||[];
   const tar:any[]=tarifario||[];
   const ctr:any[]=contracts||[];
@@ -574,8 +576,8 @@ function DashboardPanel({sponsors,tarifario,contracts,pipeline,contactos,fixture
     {key:"manga_izq",label:"Manga Izq",match:/manga.*izq/i,x:32,y:70,w:40,h:38},
     {key:"manga_der",label:"Manga Der",match:/manga.*der/i,x:188,y:70,w:40,h:38},
     {key:"espalda",label:"Espalda",match:/espalda|cola/i,x:90,y:132,w:80,h:52},
-    {key:"pierna_izq",label:"Pierna Izq",match:/pierna.*izq|pantal.*izq/i,x:76,y:210,w:52,h:50},
-    {key:"pierna_der",label:"Pierna Der",match:/pierna.*der|pantal.*der/i,x:132,y:210,w:52,h:50},
+    {key:"pierna_izq",label:"Pierna Izq",match:/pierna|pantal|short/i,x:76,y:210,w:52,h:50,side:"izq"},
+    {key:"pierna_der",label:"Pierna Der",match:/pierna|pantal|short/i,x:132,y:210,w:52,h:50,side:"der"},
     {key:"medias",label:"Medias",match:/media/i,x:84,y:290,w:92,h:32},
   ];
   const indTar=activeTar.filter(t=>t.categoria==="indumentaria_rugby");
@@ -628,11 +630,11 @@ function DashboardPanel({sponsors,tarifario,contracts,pipeline,contactos,fixture
             <rect x={136} y={282} width={42} height={40} rx={4} fill={isDark?"#1E293B":"#F8FAFC"} stroke={colors.g3} strokeWidth={1}/>
             {/* Zone overlays */}
             {zoneData.map(z=>(
-              <g key={z.key}>
+              <g key={z.key} onClick={()=>onZoneClick?.(z)} cursor="pointer">
                 <rect x={z.x} y={z.y} width={z.w} height={z.h} rx={3} fill={z.occupied?"rgba(16,185,129,.15)":"rgba(0,0,0,.02)"} stroke={z.occupied?"#10B981":colors.g3} strokeWidth={z.occupied?2:1} strokeDasharray={z.occupied?"":"4 2"}/>
-                <text x={z.x+z.w/2} y={z.y+z.h/2-(z.occupied?3:0)} textAnchor="middle" fontSize={7} fill={z.occupied?"#10B981":colors.g4} fontWeight={600}>{z.label}</text>
-                {z.occupied&&<text x={z.x+z.w/2} y={z.y+z.h/2+7} textAnchor="middle" fontSize={6} fill={colors.nv} fontWeight={500}>{z.sponsor.length>12?z.sponsor.slice(0,11)+"..":z.sponsor}</text>}
-                {!z.occupied&&<text x={z.x+z.w/2} y={z.y+z.h/2+7} textAnchor="middle" fontSize={6} fill={colors.g4}>Libre</text>}
+                <text x={z.x+z.w/2} y={z.y+z.h/2-(z.occupied?3:0)} textAnchor="middle" fontSize={7} fill={z.occupied?"#10B981":colors.g4} fontWeight={600} style={{pointerEvents:"none"}}>{z.label}</text>
+                {z.occupied&&<text x={z.x+z.w/2} y={z.y+z.h/2+7} textAnchor="middle" fontSize={6} fill={colors.nv} fontWeight={500} style={{pointerEvents:"none"}}>{z.sponsor.length>12?z.sponsor.slice(0,11)+"..":z.sponsor}</text>}
+                {!z.occupied&&<text x={z.x+z.w/2} y={z.y+z.h/2+7} textAnchor="middle" fontSize={6} fill={colors.g4} style={{pointerEvents:"none"}}>Libre</text>}
               </g>
             ))}
           </svg>
@@ -1193,6 +1195,7 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
   const [detailId,sDetailId]=useState<number|null>(null);
   const isSA=user?.role==="superadmin";
   const [hospFixture,sHospFixture]=useState<{date:string;rival:string;id:string}|null>(null);
+  const [tarHighlight,setTarHighlight]=useState<number|null>(null);
   useEffect(()=>{if(!navTarget)return;if(navTarget.startsWith("sponsors:")){const id=Number(navTarget.split(":")[1]);if(id){sDetailId(id);sSpTab("general");}}else if(navTarget.startsWith("hosp:")){const [,date,rival,fid]=navTarget.split(":");sTopTab("hospitalidad");sHospFixture({date:date||"",rival:rival||"",id:fid||""});}if(onNavDone)onNavDone();},[navTarget]);
   const isJH=user&&(user.n||user.first_name||"").toLowerCase().includes("jes")&&(user.a||user.last_name||"").toLowerCase().includes("herrera");
   const canFullEdit=isSA||isJH;
@@ -1960,8 +1963,8 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
       ))}
     </div>
 
-    {topTab==="dashboard"?<DashboardPanel sponsors={sponsors} tarifario={tarifario} contracts={sponContracts} pipeline={sponPipeline} contactos={sponContactos} fixtures={fixtures} invitaciones={hospInvitaciones} dolarRef={dolarRef} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob}/>:null}
-    {topTab==="tarifario"?<TarifarioPanel tarifario={tarifario} sponsors={sponsors} dolarRef={dolarRef} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob} canFullEdit={canFullEdit} onAdd={onAddTarifa} onUpd={onUpdTarifa} onDel={onDelTarifa}/>:null}
+    {topTab==="dashboard"?<DashboardPanel sponsors={sponsors} tarifario={tarifario} contracts={sponContracts} pipeline={sponPipeline} contactos={sponContactos} fixtures={fixtures} invitaciones={hospInvitaciones} dolarRef={dolarRef} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob} onZoneClick={(z:any)=>{if(z.occupied&&z.tarItem?.sponsor_asignado_id){sDetailId(z.tarItem.sponsor_asignado_id);sSpTab("general");sTopTab("clientes");}else if(z.tarItem){sTopTab("tarifario");setTarHighlight(z.tarItem.id);}else{sTopTab("tarifario");}}}/>:null}
+    {topTab==="tarifario"?<TarifarioPanel tarifario={tarifario} sponsors={sponsors} dolarRef={dolarRef} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob} canFullEdit={canFullEdit} onAdd={onAddTarifa} onUpd={onUpdTarifa} onDel={onDelTarifa} highlight={tarHighlight} onHighlightDone={()=>setTarHighlight(null)}/>:null}
     {topTab==="propuestas"?<PropuestasPanel propuestas={sponPropuestas} votos={sponPropVotos} mensajes={sponPropMsgs} sponsors={sponsors} tarifario={tarifario} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob} canCreate={canFullEdit||isGC} canVote={isSE} user={user} onAdd={onAddPropuesta} onUpd={onUpdPropuesta} onDel={onDelPropuesta} onVote={onAddPropVoto} onMsg={onAddPropMsg} onAddSponsor={onAdd} onUpdTarifa={onUpdTarifa} sendNotif={sendNotif}/>:null}
     {topTab==="materiales"?<MaterialesPanel materiales={sponMateriales} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob} canUpload={canFullEdit} onAdd={onAddMaterial} onDel={onDelMaterial} user={user}/>:null}
     {topTab==="hospitalidad"?<HospitalidadPanel invitaciones={hospInvitaciones} sponsors={sponsors} contactos={sponContactos} fixtures={fixtures} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob} canManage={canFullEdit||isBrandi} onAdd={onAddHosp} onUpd={onUpdHosp} onDel={onDelHosp} preFixture={hospFixture} onPreFixtureDone={()=>sHospFixture(null)}/>:null}
