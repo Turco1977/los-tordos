@@ -37,10 +37,10 @@ export function AtencionSocioView({ user, mob, showT, casos, becasAprobadas, onA
   const safeC = (casos || []) as any[];
   const safeB = (becasAprobadas || []) as any[];
 
-  /* ── canVote check (same as minutas: SA/admin or Area 101 = SE) ── */
+  /* ── canVote check: CD+SE members can vote, quorum 3 ── */
   const isSA = user.role === "superadmin" || user.role === "admin";
   const userAreaIds = user.dId ? DEPTOS.filter((d: any) => d.id === user.dId).map((d: any) => d.aId) : [];
-  const canVoteSe = isSA || userAreaIds.includes(101);
+  const canVoteSe = isSA || userAreaIds.includes(100) || userAreaIds.includes(101);
   const pendingVotes = safeC.filter((c: any) => c.estado === AST.DEL && canVoteSe && !(c.votos || []).some((v: any) => v.userId === user.id));
 
   /* ── KPIs ── */

@@ -1,6 +1,6 @@
 "use client";
 import { useMemo } from "react";
-import { ST, AREAS, DEPTOS, RENTAL_APPROVERS, TESORERO } from "@/lib/constants";
+import { ST, AREAS, DEPTOS, RENTAL_APPROVERS, TESORERO, BST, AST } from "@/lib/constants";
 import { useC } from "@/lib/theme-context";
 import { useDataStore } from "@/lib/store";
 
@@ -8,6 +8,8 @@ export function SB({aA,aD,onAC,onDC,col,onCol,isPersonal,mob,sbOpen,onClose,vw,o
   const pedidos = useDataStore(s => s.peds);
   const bookings = useDataStore(s => s.bookings);
   const dmMsgs = useDataStore(s => s.dmMsgs);
+  const becas = useDataStore(s => s.becas);
+  const asCasos = useDataStore(s => s.asCasos);
   const areas = AREAS;
   const deptos = DEPTOS;
   const {colors,isDark,cardBg}=useC();
@@ -45,6 +47,10 @@ export function SB({aA,aD,onAC,onDC,col,onCol,isPersonal,mob,sbOpen,onClose,vw,o
   const sectionBadges = useMemo(() => { const unread = (dbNotifs||[]).filter((n:any) => !n.read && n.link); const counts: Record<string,number> = {}; for (const n of unread) { const view = n.link.split(":")[0]; counts[view] = (counts[view] || 0) + 1; } return counts; }, [dbNotifs]);
   const tesBadge=(()=>{if(!user||!(user.n===TESORERO.first_name&&user.a===TESORERO.last_name))return 0;return(pedidos||[]).filter((p:any)=>p.rG&&p.st===ST.E&&p.tOk===null).length;})();
   const emBadge=(()=>{if(!user||user.role!=="embudo")return 0;return(pedidos||[]).filter((p:any)=>p.st===ST.E&&!p.eOk).length;})();
+  /* Becas/Atencion pending-vote badge: items in deliberación where user can vote and hasn't yet */
+  const canVoteBecasAS=(()=>{if(!user||isPersonal)return false;const isSALocal=user.role==="superadmin"||user.role==="admin";return isSALocal||userAreaIds.includes(100)||userAreaIds.includes(101)||user.dId===40||user.dId===76;})();
+  const becasPending=canVoteBecasAS?(becas||[]).filter((b:any)=>b.estado===BST.DEL&&!(b.votos||[]).some((v:any)=>v.userId===user.id)).length:0;
+  const asPending=canVoteBecasAS?(asCasos||[]).filter((c:any)=>c.estado===AST.DEL&&!(c.votos||[]).some((v:any)=>v.userId===user.id)).length:0;
   const sbContent=(<div style={{flex:1,overflowY:"auto" as const,padding:"8px 6px"}}>
     {!isPersonal&&areas.map((ar:any)=>{const ds=deptos.filter((d:any)=>d.aId===ar.id),ids=ds.map((d:any)=>d.id),ap=pedidos.filter((p:any)=>ids.indexOf(p.dId)>=0),pe=ap.filter((p:any)=>p.st===ST.P).length,cu=ap.filter((p:any)=>[ST.C,ST.E,ST.V].indexOf(p.st)>=0).length,ok=ap.filter((p:any)=>p.st===ST.OK).length;
       return(<div key={ar.id} style={{marginBottom:4}}><div onClick={()=>{onAC(ar.id);if(mob)onClose();}} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:mob?"10px 10px":"7px 8px",borderRadius:7,cursor:"pointer",background:aA===ar.id?"rgba(255,255,255,.1)":"transparent",borderLeft:"3px solid "+ar.color,minHeight:mob?44:undefined}}><span style={{fontSize:mob?13:11,fontWeight:600}}>{ar.icon} {ar.name}</span><div style={{display:"flex",gap:4,fontSize:mob?10:9}}>{pe>0&&<span style={{color:colors.rd}}>🔴{pe}</span>}{cu>0&&<span style={{color:colors.yl}}>🟡{cu}</span>}{ok>0&&<span style={{color:colors.gn}}>🟢{ok}</span>}</div></div>
@@ -74,7 +80,7 @@ export function SB({aA,aD,onAC,onDC,col,onCol,isPersonal,mob,sbOpen,onClose,vw,o
         {k:"sponsors",l:"Sponsors",icon:"🥇",show:!isPersonal&&user&&(user.role==="admin"||user.role==="superadmin"||user.role==="coordinador"||user.role==="embudo")},
         {k:"torneos",l:"Torneos",icon:"🏆",show:!isPersonal&&user&&(user.role==="admin"||user.role==="superadmin"||user.role==="coordinador")},
         {k:"manual",l:"Manual",icon:"📖",show:true},
-      ].filter(n=>n.show).map(n=><div key={n.k} onClick={()=>{onNav(n.k);if(mob)onClose();}} style={{display:"flex",alignItems:"center",gap:8,padding:mob?"10px 10px":"7px 8px",borderRadius:7,cursor:"pointer",background:vw===n.k?"rgba(255,255,255,.1)":"transparent",fontSize:mob?13:11,fontWeight:vw===n.k?700:500,color:vw===n.k?"#fff":"rgba(255,255,255,.55)",marginBottom:1,minHeight:mob?44:undefined}}><span style={{fontSize:mob?15:13}}>{n.icon}</span>{n.l}{n.k==="reservas"&&rentalBadge>0&&vw!=="reservas"&&<span style={{background:"#DC2626",color:"#fff",fontSize:9,fontWeight:800,borderRadius:10,padding:"1px 6px",minWidth:16,textAlign:"center" as const,marginLeft:"auto",lineHeight:"14px"}}>{rentalBadge}</span>}{n.k==="dm"&&dmUnread>0&&vw!=="dm"&&<span style={{background:"#DC2626",color:"#fff",fontSize:9,fontWeight:800,borderRadius:10,padding:"1px 6px",minWidth:16,textAlign:"center" as const,marginLeft:"auto",lineHeight:"14px"}}>{dmUnread}</span>}{(sectionBadges[n.k]||0)>0&&vw!==n.k&&n.k!=="reservas"&&n.k!=="dm"&&<span style={{background:"#DC2626",color:"#fff",fontSize:9,fontWeight:800,borderRadius:10,padding:"1px 6px",minWidth:16,textAlign:"center" as const,marginLeft:"auto",lineHeight:"14px"}}>{sectionBadges[n.k]}</span>}{n.k==="presu"&&tesBadge>0&&vw!=="presu"&&!(sectionBadges["presu"]>0)&&<span style={{background:"#F59E0B",color:"#fff",fontSize:9,fontWeight:800,borderRadius:10,padding:"1px 6px",minWidth:16,textAlign:"center" as const,marginLeft:"auto",lineHeight:"14px"}}>{tesBadge}</span>}</div>)}
+      ].filter(n=>n.show).map(n=><div key={n.k} onClick={()=>{onNav(n.k);if(mob)onClose();}} style={{display:"flex",alignItems:"center",gap:8,padding:mob?"10px 10px":"7px 8px",borderRadius:7,cursor:"pointer",background:vw===n.k?"rgba(255,255,255,.1)":"transparent",fontSize:mob?13:11,fontWeight:vw===n.k?700:500,color:vw===n.k?"#fff":"rgba(255,255,255,.55)",marginBottom:1,minHeight:mob?44:undefined}}><span style={{fontSize:mob?15:13}}>{n.icon}</span>{n.l}{n.k==="reservas"&&rentalBadge>0&&vw!=="reservas"&&<span style={{background:"#DC2626",color:"#fff",fontSize:9,fontWeight:800,borderRadius:10,padding:"1px 6px",minWidth:16,textAlign:"center" as const,marginLeft:"auto",lineHeight:"14px"}}>{rentalBadge}</span>}{n.k==="dm"&&dmUnread>0&&vw!=="dm"&&<span style={{background:"#DC2626",color:"#fff",fontSize:9,fontWeight:800,borderRadius:10,padding:"1px 6px",minWidth:16,textAlign:"center" as const,marginLeft:"auto",lineHeight:"14px"}}>{dmUnread}</span>}{(sectionBadges[n.k]||0)>0&&vw!==n.k&&n.k!=="reservas"&&n.k!=="dm"&&<span style={{background:"#DC2626",color:"#fff",fontSize:9,fontWeight:800,borderRadius:10,padding:"1px 6px",minWidth:16,textAlign:"center" as const,marginLeft:"auto",lineHeight:"14px"}}>{sectionBadges[n.k]}</span>}{n.k==="presu"&&tesBadge>0&&vw!=="presu"&&!(sectionBadges["presu"]>0)&&<span style={{background:"#F59E0B",color:"#fff",fontSize:9,fontWeight:800,borderRadius:10,padding:"1px 6px",minWidth:16,textAlign:"center" as const,marginLeft:"auto",lineHeight:"14px"}}>{tesBadge}</span>}{n.k==="becas"&&becasPending>0&&vw!=="becas"&&!(sectionBadges["becas"]>0)&&<span style={{background:"#F59E0B",color:"#fff",fontSize:9,fontWeight:800,borderRadius:10,padding:"1px 6px",minWidth:16,textAlign:"center" as const,marginLeft:"auto",lineHeight:"14px"}}>{becasPending}</span>}{n.k==="atencion-socio"&&asPending>0&&vw!=="atencion-socio"&&!(sectionBadges["atencion-socio"]>0)&&<span style={{background:"#F59E0B",color:"#fff",fontSize:9,fontWeight:800,borderRadius:10,padding:"1px 6px",minWidth:16,textAlign:"center" as const,marginLeft:"auto",lineHeight:"14px"}}>{asPending}</span>}</div>)}
     </div>}
   </div>);
   if(mob){

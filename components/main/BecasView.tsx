@@ -31,10 +31,10 @@ export function BecasView({ user, mob, showT, becas, onAdd, onUpd, onDel, onVote
 
   const list = becas || [];
 
-  /* ── canVote check: SE (Area 101) votes on becas, quorum 3 ── */
+  /* ── canVote check: CD+SE members can vote on becas, quorum 3 ── */
   const isSA = user.role === "superadmin" || user.role === "admin";
   const userAreaIds = user.dId ? DEPTOS.filter((d: any) => d.id === user.dId).map((d: any) => d.aId) : [];
-  const canVoteSe = isSA || userAreaIds.includes(101);
+  const canVoteSe = isSA || userAreaIds.includes(100) || userAreaIds.includes(101);
   const pendingVotes = list.filter((b: any) => b.estado === BST.DEL && canVoteSe && !(b.votos || []).some((v: any) => v.userId === user.id));
 
   /* ── KPIs ── */
