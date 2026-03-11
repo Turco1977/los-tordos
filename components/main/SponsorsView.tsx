@@ -1250,6 +1250,8 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
   const isGC=user&&(user.n||user.first_name||"").toLowerCase().includes("gómez")&&(user.a||user.last_name||"").toLowerCase().includes("centurión");
   const isBrandi=user&&(user.n||user.first_name||"").toLowerCase().includes("victoria")&&(user.a||user.last_name||"").toLowerCase().includes("brandi");
   const isSE=isSA||user?.role==="admin";
+  const userAreaIds=user?.dId?DEPTOS.filter((d:any)=>d.id===user.dId).map((d:any)=>d.aId):[];
+  const isCd=userAreaIds.includes(100);
   const [dolarRef,sDolarRef]=useState(()=>{if(typeof window!=="undefined"){const v=localStorage.getItem("lt_dolar_ref");if(v)return Number(v);}return DOLAR_REF;});
   const [editDolar,sEditDolar]=useState(false);
   const [dolarInput,sDolarInput]=useState(String(dolarRef));
@@ -2015,7 +2017,7 @@ export function SponsorsView({user,mob,onAdd,onUpd,onDel,canjeUsado,sponMsgs,onS
     {topTab==="tarifario"?<TarifarioPanel tarifario={tarifario} sponsors={sponsors} dolarRef={dolarRef} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob} canFullEdit={canFullEdit} onAdd={onAddTarifa} onUpd={onUpdTarifa} onDel={onDelTarifa} highlight={tarHighlight} onHighlightDone={()=>setTarHighlight(null)}/>:null}
     {topTab==="propuestas"?<PropuestasPanel propuestas={sponPropuestas} votos={sponPropVotos} mensajes={sponPropMsgs} sponsors={sponsors} tarifario={tarifario} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob} canCreate={canFullEdit||isGC} canVote={isSE} user={user} onAdd={onAddPropuesta} onUpd={onUpdPropuesta} onDel={onDelPropuesta} onVote={onAddPropVoto} onMsg={onAddPropMsg} onAddSponsor={onAdd} onUpdTarifa={onUpdTarifa} sendNotif={sendNotif}/>:null}
     {topTab==="materiales"?<MaterialesPanel materiales={sponMateriales} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob} canUpload={canFullEdit} onAdd={onAddMaterial} onDel={onDelMaterial} user={user}/>:null}
-    {topTab==="hospitalidad"?<HospitalidadPanel invitaciones={hospInvitaciones} sponsors={sponsors} contactos={sponContactos} fixtures={fixtures} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob} canManage={canFullEdit||isBrandi||isSE} onAdd={onAddHosp} onUpd={onUpdHosp} onDel={onDelHosp} preFixture={hospFixture} onPreFixtureDone={()=>sHospFixture(null)}/>:null}
+    {topTab==="hospitalidad"?<HospitalidadPanel invitaciones={hospInvitaciones} sponsors={sponsors} contactos={sponContactos} fixtures={fixtures} colors={colors} isDark={isDark} cardBg={cardBg} mob={mob} canManage={canFullEdit||isBrandi||isSE||isCd} onAdd={onAddHosp} onUpd={onUpdHosp} onDel={onDelHosp} preFixture={hospFixture} onPreFixtureDone={()=>sHospFixture(null)}/>:null}
 
     {topTab==="clientes"?<>
     {/* ── Header ── */}
