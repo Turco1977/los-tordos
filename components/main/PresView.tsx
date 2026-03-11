@@ -10,7 +10,7 @@ import { MentionInput } from "@/components/MentionInput";
 
 const TODAY = new Date().toISOString().slice(0,10);
 
-export default function PresView({user,onAddPresu,onUpdPresu,onDelPresu,onAddProv,onSel,mob,UserPicker}:any){
+export default function PresView({user,onAddPresu,onUpdPresu,onDelPresu,onAddProv,onSel,mob,UserPicker,onVotePresu}:any){
   const presu = useDataStore(s => s.presu);
   const provs = useDataStore(s => s.provs);
   const peds = useDataStore(s => s.peds);
@@ -82,12 +82,48 @@ export default function PresView({user,onAddPresu,onUpdPresu,onDelPresu,onAddPro
       {/* List */}
       {vis.length===0&&<Card style={{textAlign:"center" as const,padding:24,color:colors.g4}}><span style={{fontSize:24}}>📭</span><div style={{marginTop:6,fontSize:12}}>Sin presupuestos</div></Card>}
       {vis.map((pr:any)=>{const tk=peds.find((p:any)=>p.id===pr.task_id);const ar=tk?areas.find((a:any)=>{const dIds=deptos.filter((d:any)=>d.aId===a.id).map((d:any)=>d.id);return dIds.indexOf(tk.dId)>=0;}):null;
-        return(<Card key={pr.id} style={{padding:"10px 14px",marginBottom:6,cursor:"pointer",borderLeft:"3px solid "+PSC[pr.status].c}} onClick={()=>{if(tk)onSel(tk);}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"start"}}>
+        const userAreaIds=user?.dId?DEPTOS.filter((d:any)=>d.id===user.dId).map((d:any)=>d.aId):[];
+        const isCompras=user.dId===7||user.role==="embudo";
+        const isTes=user.dId===61||user.dId===53;
+        const isSe=userAreaIds.includes(101)||user.role==="superadmin"||user.role==="admin";
+        const canVote=(pr.status==="solicitado"&&(isCompras||isTes))||(pr.status==="pendiente_se"&&isSe);
+        const votos=pr.votos||[];
+        const yaVoto=votos.some((v:any)=>v.userId===user.id);
+        const comprasV=votos.filter((v:any)=>v.tipo==="compras"&&v.vote==="aprobar");
+        const tesV=votos.filter((v:any)=>v.tipo==="tesoreria"&&v.vote==="aprobar");
+        const seV=votos.filter((v:any)=>v.tipo==="se"&&v.vote==="aprobar");
+        const needs2M=pr.monto>2000000&&pr.moneda==="ARS";
+        return(<Card key={pr.id} style={{padding:"10px 14px",marginBottom:6,borderLeft:"3px solid "+(PSC[pr.status]||PSC[PST.SOL]).c}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"start",cursor:"pointer"}} onClick={()=>{if(tk)onSel(tk);}}>
             <div><div style={{fontSize:12,fontWeight:700,color:colors.nv}}>{pr.proveedor_nombre||"Sin proveedor"}</div><div style={{fontSize:10,color:colors.g4}}>{pr.descripcion}{tk?" · Tarea #"+tk.id+" "+tk.desc.slice(0,30):""}</div></div>
             <div style={{textAlign:"right" as const}}><div style={{fontSize:14,fontWeight:800,color:pr.status===PST.APR?colors.gn:colors.nv}}>${Number(pr.monto).toLocaleString()}</div><PBadge s={pr.status} sm/></div>
           </div>
-          <div style={{display:"flex",gap:8,marginTop:4,fontSize:10,color:colors.g5}}>{ar&&<span>{ar.icon} {ar.name}</span>}{pr.solicitado_at&&<span>📤 {pr.solicitado_at}</span>}{pr.archivo_url&&<span style={{color:colors.bl}}>📎</span>}</div>
+          <div style={{display:"flex",gap:8,marginTop:4,fontSize:10,color:colors.g5}}>{ar&&<span>{ar.icon} {ar.name}</span>}{pr.solicitado_at&&<span>📤 {pr.solicitado_at}</span>}{pr.archivo_url&&<span style={{color:colors.bl}}>📎</span>}{needs2M&&<span style={{color:"#EA580C",fontWeight:700}}>⚠️ &gt;$2M requiere SE</span>}</div>
+          {/* Voting panel */}
+          {(pr.status==="solicitado"||pr.status==="pendiente_se")&&onVotePresu&&<div style={{marginTop:8,padding:"8px 10px",background:isDark?"#1E293B":"#F8FAFC",borderRadius:8,border:"1px solid "+colors.g2}}>
+            {pr.status==="solicitado"&&<div>
+              <div style={{fontSize:10,fontWeight:700,color:colors.g5,marginBottom:6}}>📋 Aprobación Compras / Tesorería</div>
+              <div style={{display:"flex",gap:12,marginBottom:6}}>
+                <div style={{display:"flex",alignItems:"center",gap:4,fontSize:10}}><span style={{width:16,height:16,borderRadius:8,display:"inline-flex",alignItems:"center",justifyContent:"center",background:comprasV.length>=1?"#10B981":"#E5E7EB",color:"#fff",fontSize:8,fontWeight:800}}>{comprasV.length>=1?"✓":"?"}</span><span style={{fontWeight:600}}>Compras</span>{comprasV.length>=1&&<span style={{color:colors.gn}}>{comprasV[0].userName}</span>}</div>
+                <div style={{display:"flex",alignItems:"center",gap:4,fontSize:10}}><span style={{width:16,height:16,borderRadius:8,display:"inline-flex",alignItems:"center",justifyContent:"center",background:tesV.length>=1?"#10B981":"#E5E7EB",color:"#fff",fontSize:8,fontWeight:800}}>{tesV.length>=1?"✓":"?"}</span><span style={{fontWeight:600}}>Tesorería</span>{tesV.length>=1&&<span style={{color:colors.gn}}>{tesV[0].userName}</span>}</div>
+              </div>
+            </div>}
+            {pr.status==="pendiente_se"&&<div>
+              <div style={{fontSize:10,fontWeight:700,color:colors.g5,marginBottom:4}}>⏳ Aprobación Secretaría Ejecutiva ({seV.length}/3)</div>
+              <div style={{display:"flex",gap:4,marginBottom:4}}>
+                <div style={{height:6,flex:1,borderRadius:3,background:colors.g2}}><div style={{height:"100%",width:Math.min(100,seV.length/3*100)+"%",borderRadius:3,background:seV.length>=3?"#10B981":"#EA580C",transition:"width .3s"}}/></div>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:4,fontSize:10,color:colors.gn}}>✅ Compras aprobó · ✅ Tesorería aprobó</div>
+              {seV.length>0&&<div style={{display:"flex",gap:4,flexWrap:"wrap" as const,marginBottom:4}}>{seV.map((v:any,i:number)=><span key={i} style={{fontSize:9,padding:"2px 6px",borderRadius:10,background:"#D1FAE5",color:"#065F46"}}>✅ {v.userName}</span>)}</div>}
+            </div>}
+            {votos.filter((v:any)=>v.vote==="rechazar").length>0&&<div style={{display:"flex",gap:4,flexWrap:"wrap" as const,marginBottom:4}}>{votos.filter((v:any)=>v.vote==="rechazar").map((v:any,i:number)=><span key={i} style={{fontSize:9,padding:"2px 6px",borderRadius:10,background:"#FEE2E2",color:"#991B1B"}}>❌ {v.userName} ({v.tipo})</span>)}</div>}
+            {canVote&&!yaVoto&&<div style={{display:"flex",gap:6,marginTop:4}}>
+              <button onClick={(e)=>{e.stopPropagation();onVotePresu(pr.id,"aprobar");}} style={{padding:"4px 12px",borderRadius:6,border:"none",background:"#10B981",color:"#fff",fontSize:10,fontWeight:700,cursor:"pointer"}}>✅ Aprobar</button>
+              <button onClick={(e)=>{e.stopPropagation();onVotePresu(pr.id,"rechazar");}} style={{padding:"4px 12px",borderRadius:6,border:"none",background:"#EF4444",color:"#fff",fontSize:10,fontWeight:700,cursor:"pointer"}}>❌ Rechazar</button>
+            </div>}
+            {yaVoto&&<div style={{fontSize:10,color:colors.g4,marginTop:2}}>✔ Ya registraste tu voto</div>}
+          </div>}
+          {pr.status===PST.APR&&votos.length>0&&<div style={{marginTop:6,display:"flex",gap:4,flexWrap:"wrap" as const}}>{votos.filter((v:any)=>v.vote==="aprobar").map((v:any,i:number)=><span key={i} style={{fontSize:9,padding:"1px 6px",borderRadius:10,background:"#D1FAE5",color:"#065F46"}}>✅ {v.userName}</span>)}</div>}
         </Card>);})}
     </div>);
   }

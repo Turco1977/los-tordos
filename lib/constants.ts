@@ -24,12 +24,13 @@ export const TIPOS=["Logística","Administrativo","Infraestructura","Material de
 export const ST={P:"pend",C:"curso",E:"emb",V:"valid",OK:"ok"};
 export const SC: Record<string,{l:string;c:string;bg:string;i:string}>={[ST.P]:{l:"Pendiente",c:T.rd,bg:"#FEE2E2",i:"🔴"},[ST.C]:{l:"En Curso",c:T.yl,bg:"#FEF3C7",i:"🟡"},[ST.E]:{l:"Compras",c:T.pr,bg:"#EDE9FE",i:"💰"},[ST.V]:{l:"Validación",c:T.bl,bg:"#DBEAFE",i:"🔵"},[ST.OK]:{l:"Completada",c:T.gn,bg:"#D1FAE5",i:"🟢"}};
 
-export const PST={SOL:"solicitado",REC:"recibido",APR:"aprobado",RECH:"rechazado"};
+export const PST={SOL:"solicitado",REC:"recibido",APR:"aprobado",RECH:"rechazado",PEN_SE:"pendiente_se"};
 export const PSC:Record<string,{l:string;c:string;bg:string;i:string}>={
   [PST.SOL]:{l:"Solicitado",c:T.yl,bg:"#FEF3C7",i:"📤"},
   [PST.REC]:{l:"Recibido",c:T.bl,bg:"#DBEAFE",i:"📥"},
   [PST.APR]:{l:"Aprobado",c:T.gn,bg:"#D1FAE5",i:"✅"},
   [PST.RECH]:{l:"Rechazado",c:T.rd,bg:"#FEE2E2",i:"❌"},
+  [PST.PEN_SE]:{l:"Pendiente SE",c:"#EA580C",bg:"#FFF7ED",i:"⏳"},
 };
 export const MONEDAS=["ARS","USD"];
 export const RUBROS=["Materiales","Servicios","Equipamiento","Indumentaria","Construcción","Catering","Transporte","Otro"];
