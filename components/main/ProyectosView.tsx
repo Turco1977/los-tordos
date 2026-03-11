@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useC } from "@/lib/theme-context";
-import { PJ_ST, PJ_PR } from "@/lib/constants";
+import { PJ_ST, PJ_PR, DEPTOS } from "@/lib/constants";
 import { UserPicker, FileField } from "@/components/ui";
 import { exportProjectPDF } from "@/lib/export";
 import { useDataStore } from "@/lib/store";
@@ -17,7 +17,7 @@ const fmtAmt=(n:number)=>n.toLocaleString("es-AR");
 const parseBudgetOpts=(b:any):any[]=>Array.isArray(b.options)?b.options:(()=>{try{return JSON.parse(b.options)||[];}catch{return[];}})();
 const parseBudgetFiles=(v:any):string[]=>{if(!v)return[];if(Array.isArray(v))return v.filter(Boolean);if(typeof v==="string"){try{const arr=JSON.parse(v);if(Array.isArray(arr))return arr.filter(Boolean);}catch{}return v.trim()?[v]:[];}return[];};
 
-export function ProyectosView({user,mob,onAddProject,onUpdProject,onDelProject,onAddTask,onUpdTask,onDelTask,onAddBudget,onUpdBudget,onDelBudget,filteredProjects}:any){
+export function ProyectosView({user,mob,onAddProject,onUpdProject,onDelProject,onAddTask,onUpdTask,onDelTask,onAddBudget,onUpdBudget,onDelBudget,onVoteProject,onRejectProject,filteredProjects}:any){
   const allProjects = useDataStore(s => s.projects);
   const projects = filteredProjects || allProjects;
   const projTasks = useDataStore(s => s.projTasks);
@@ -183,6 +183,12 @@ export function ProyectosView({user,mob,onAddProject,onUpdProject,onDelProject,o
   const st=viewSt;
   const isAdmin=user&&(user.role==="admin"||user.role==="superadmin"||user.role==="coordinador");
   const isOwner=user&&p.created_by===user.id;
+  const userAreaIds=user?.dId?DEPTOS.filter((d:any)=>d.id===user.dId).map((d:any)=>d.aId):[];
+  const canVoteCd=user&&(user.role==="superadmin"||user.role==="admin"||userAreaIds.includes(100));
+  const projVotos=p.votos||[];
+  const yaVoto=projVotos.some((v:any)=>v.userId===user?.id);
+  const votosApro=projVotos.filter((v:any)=>v.vote==="aprobar").length;
+  const votosRech=projVotos.filter((v:any)=>v.vote==="rechazar").length;
   const tasks=viewTasks;
   const prog=viewProg;
   const budgets=viewBudgets;
@@ -217,12 +223,36 @@ export function ProyectosView({user,mob,onAddProject,onUpdProject,onDelProject,o
       <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap" as const}}>
         {(isOwner||isAdmin)&&<button onClick={()=>{sForm({...emptyForm(),...fd,nombre:fd.nombre||p.name});sEditing(true);sMode("form");}} style={{padding:"5px 10px",borderRadius:6,border:"1px solid "+colors.g3,background:"transparent",fontSize:10,cursor:"pointer",color:colors.nv,fontWeight:600}}>✏️ Editar</button>}
         {(isOwner||isAdmin)&&<button onClick={()=>{if(confirm("¿Eliminar este proyecto y todas sus tareas?"))onDelProject(p.id);sMode("list");sSelProj(null);}} style={{padding:"5px 10px",borderRadius:6,border:"1px solid #FCA5A5",background:"transparent",fontSize:10,cursor:"pointer",color:"#DC2626",fontWeight:600}}>🗑 Eliminar</button>}
-        {isAdmin&&p.status==="enviado"&&<>
-          <button onClick={()=>{if(confirm("¿Aprobar este proyecto?")){onUpdProject(p.id,{status:"aprobado"});sSelProj({...p,status:"aprobado"});}}} style={{padding:"5px 10px",borderRadius:6,border:"none",background:"#10B981",color:"#fff",fontSize:10,fontWeight:700,cursor:"pointer"}}>✅ Aprobar</button>
-          <button onClick={()=>{if(confirm("¿Rechazar este proyecto?")){onUpdProject(p.id,{status:"rechazado"});sSelProj({...p,status:"rechazado"});}}} style={{padding:"5px 10px",borderRadius:6,border:"none",background:"#DC2626",color:"#fff",fontSize:10,fontWeight:700,cursor:"pointer"}}>❌ Rechazar</button>
-        </>}
         <button onClick={()=>exportProjectPDF(p,fd,budgets.map((b:any)=>({...b,options:parseBudgetOpts(b)})),tasks,prog)} style={{padding:"5px 10px",borderRadius:6,border:"1px solid "+colors.g3,background:"transparent",fontSize:10,cursor:"pointer",color:colors.nv,fontWeight:600}}>📄 Informe</button>
       </div>
+      {/* Panel de votación CD */}
+      {p.status==="enviado"&&<div style={{marginTop:12,padding:14,background:isDark?"rgba(59,130,246,.08)":"#EFF6FF",borderRadius:12,border:"1px solid #3B82F640"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+          <div style={{fontSize:13,fontWeight:800,color:"#1E40AF"}}>🗳️ Aprobación CD</div>
+          <div style={{fontSize:11,fontWeight:700,color:votosApro>=5?"#059669":"#3B82F6"}}>{votosApro}/5 votos necesarios</div>
+        </div>
+        <div style={{height:8,borderRadius:4,background:isDark?"rgba(255,255,255,.1)":"#BFDBFE",overflow:"hidden",marginBottom:10}}>
+          <div style={{height:"100%",width:Math.min(100,votosApro/5*100)+"%",borderRadius:4,background:votosApro>=5?"#10B981":"#3B82F6",transition:"width .3s"}}/>
+        </div>
+        {projVotos.length>0&&<div style={{marginBottom:10}}>
+          <div style={{fontSize:10,fontWeight:700,color:colors.g4,textTransform:"uppercase" as const,marginBottom:4}}>Votos registrados ({projVotos.length}/8)</div>
+          <div style={{display:"flex",flexWrap:"wrap" as const,gap:4}}>
+            {projVotos.map((v:any,i:number)=><span key={i} style={{fontSize:10,padding:"2px 8px",borderRadius:8,background:v.vote==="aprobar"?"#D1FAE5":"#FEE2E2",color:v.vote==="aprobar"?"#059669":"#DC2626",fontWeight:600}}>{v.vote==="aprobar"?"✅":"❌"} {v.userName}</span>)}
+          </div>
+        </div>}
+        {canVoteCd&&!yaVoto&&onVoteProject&&onRejectProject&&<div style={{display:"flex",gap:8}}>
+          <button onClick={()=>{onVoteProject(p.id);const nv=[...projVotos,{userId:user.id,userName:((user.n||"")+" "+(user.a||"")).trim(),date:new Date().toISOString().slice(0,10),vote:"aprobar"}];const na=nv.filter((v:any)=>v.vote==="aprobar").length;sSelProj({...p,votos:nv,status:na>=5?"aprobado":p.status});}} style={{flex:1,padding:"8px 16px",borderRadius:8,border:"none",background:"#10B981",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer"}}>✅ Aprobar</button>
+          <button onClick={()=>{onRejectProject(p.id);const nv=[...projVotos,{userId:user.id,userName:((user.n||"")+" "+(user.a||"")).trim(),date:new Date().toISOString().slice(0,10),vote:"rechazar"}];const nr=nv.filter((v:any)=>v.vote==="rechazar").length;sSelProj({...p,votos:nv,status:nr>=4?"rechazado":p.status});}} style={{flex:1,padding:"8px 16px",borderRadius:8,border:"none",background:"#DC2626",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer"}}>❌ Rechazar</button>
+        </div>}
+        {canVoteCd&&yaVoto&&<div style={{fontSize:11,color:"#059669",fontWeight:600,textAlign:"center" as const}}>✔️ Ya registraste tu voto</div>}
+        {!canVoteCd&&<div style={{fontSize:11,color:colors.g4,textAlign:"center" as const}}>Solo miembros de Comisión Directiva pueden votar</div>}
+      </div>}
+      {(p.status==="aprobado"||p.status==="rechazado")&&projVotos.length>0&&<div style={{marginTop:12,padding:14,background:p.status==="aprobado"?(isDark?"rgba(16,185,129,.08)":"#D1FAE5"):(isDark?"rgba(220,38,38,.08)":"#FEE2E2"),borderRadius:12,border:"1px solid "+(p.status==="aprobado"?"#10B98140":"#DC262640")}}>
+        <div style={{fontSize:13,fontWeight:800,color:p.status==="aprobado"?"#059669":"#DC2626",marginBottom:6}}>🗳️ Resultado: {p.status==="aprobado"?"Aprobado":"Rechazado"} ({votosApro} ✅ / {votosRech} ❌)</div>
+        <div style={{display:"flex",flexWrap:"wrap" as const,gap:4}}>
+          {projVotos.map((v:any,i:number)=><span key={i} style={{fontSize:10,padding:"2px 8px",borderRadius:8,background:v.vote==="aprobar"?"#D1FAE5":"#FEE2E2",color:v.vote==="aprobar"?"#059669":"#DC2626",fontWeight:600}}>{v.vote==="aprobar"?"✅":"❌"} {v.userName}</span>)}
+        </div>
+      </div>}
     </div>
 
     {/* Tabs */}
