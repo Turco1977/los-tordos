@@ -133,6 +133,9 @@ export default function App() {
   // Expose audit PDF export
   useEffect(() => { (window as any).exportAuditPDF = () => exportAuditPDF(users); return () => { delete (window as any).exportAuditPDF; }; }, [users]);
 
+  // Auto-mark section notifications as read when navigating
+  useEffect(() => { if (!vw || !user || !dbNotifs?.length) return; const unread = dbNotifs.filter((n: any) => !n.read && n.link && n.link.split(":")[0] === vw); if (unread.length === 0) return; const ids = unread.map((n: any) => n.id); sDbNotifs((prev: any) => prev.map((n: any) => ids.includes(n.id) ? { ...n, read: true } : n)); supabase.from("notifications").update({ read: true }).in("id", ids).then(() => {}); }, [vw]);
+
   // ── EARLY RETURNS ──
   if (!authChecked) return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: colors.g1 }}><div style={{ fontSize: 14, color: colors.g4 }}>Cargando...</div></div>;
   if (!user) return <Login onLogin={(u: any) => auth.sU(u)} mob={mob} />;
