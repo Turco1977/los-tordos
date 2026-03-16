@@ -338,7 +338,7 @@ export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,on
         <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:14}}>
           <Btn v="g" onClick={()=>sMode("home")}>Cancelar</Btn>
           <Btn v="p" onClick={()=>{const aus=members.filter((m:any)=>miPres.indexOf(m.n+" "+m.a)<0).map((m:any)=>m.n+" "+m.a);onAddMin({id:0,type:tab,areaName:areaName||undefined,agendaId:miAgId,date:miDate,horaInicio:miHI,horaCierre:miHC,lugar:miLugar,presentes:[...miPres],ausentes:aus,sections:MINSECS[tab].map((t2:string,i2:number)=>({title:t2,content:secVals[i2]||""})),tareas:miTareas.filter((t2:any)=>t2.desc),status:"borrador",createdAt:TODAY});localStorage.removeItem(draftKey);sMode("home");}}>{"\u{1F4BE}"} Guardar borrador</Btn>
-          <Btn v="r" onClick={()=>{const aus=members.filter((m:any)=>miPres.indexOf(m.n+" "+m.a)<0).map((m:any)=>m.n+" "+m.a);const vt=miTareas.filter((t2:any)=>t2.desc&&t2.respId);onAddMin({id:0,type:tab,areaName:areaName||undefined,agendaId:miAgId,date:miDate,horaInicio:miHI,horaCierre:miHC,lugar:miLugar,presentes:[...miPres],ausentes:aus,sections:MINSECS[tab].map((t2:string,i2:number)=>({title:t2,content:secVals[i2]||""})),tareas:miTareas.filter((t2:any)=>t2.desc),status:"final",createdAt:TODAY});if(vt.length>0)onCreateTasks(vt);localStorage.removeItem(draftKey);sMode("home");}}>{"\u2705"} Finalizar y crear tareas</Btn>
+          <Btn v="r" onClick={()=>{const aus=members.filter((m:any)=>miPres.indexOf(m.n+" "+m.a)<0).map((m:any)=>m.n+" "+m.a);const vt=miTareas.filter((t2:any)=>t2.desc.trim());onAddMin({id:0,type:tab,areaName:areaName||undefined,agendaId:miAgId,date:miDate,horaInicio:miHI,horaCierre:miHC,lugar:miLugar,presentes:[...miPres],ausentes:aus,sections:MINSECS[tab].map((t2:string,i2:number)=>({title:t2,content:secVals[i2]||""})),tareas:miTareas.filter((t2:any)=>t2.desc),status:"final",createdAt:TODAY});if(vt.length>0)onCreateTasks(vt);localStorage.removeItem(draftKey);sMode("home");}}>{"\u2705"} Finalizar y crear tareas</Btn>
         </div>
       </Card>
     </div>);
@@ -355,7 +355,7 @@ export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,on
       const upd:any={sections:secs,tareas:miTareas.filter((t:any)=>t.desc),presentes:[...miPres],ausentes:aus,date:miDate,hora_inicio:miHI,hora_cierre:miHC,lugar:miLugar};
       if(status) upd.status=status;
       onUpdMin(mi.id,upd);
-      if(status==="final"){const vt=miTareas.filter((t:any)=>t.desc&&t.respId);if(vt.length>0)onCreateTasks(vt);}
+      if(status==="final"){const vt=miTareas.filter((t:any)=>t.desc.trim());if(vt.length>0)onCreateTasks(vt);}
       sMode("home");
     };
     return(<div style={{maxWidth:640}}>
