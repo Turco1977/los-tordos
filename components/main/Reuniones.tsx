@@ -395,6 +395,7 @@ export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,on
           <Btn v="g" onClick={()=>{if(autoSaveRef.current)clearTimeout(autoSaveRef.current);sSelId(mi.id);sMode("viewMin");}}>Cancelar</Btn>
           <Btn v="p" onClick={()=>doSaveMin()}>{"\u{1F4BE}"} Guardar cambios</Btn>
           {mi.status==="borrador"&&<Btn v="r" onClick={()=>doSaveMin("final")}>{"\u2705"} Finalizar y crear tareas</Btn>}
+          {mi.status!=="borrador"&&miTareas.some((t:any)=>t.desc.trim())&&<Btn v="r" onClick={()=>{if(autoSaveRef.current)clearTimeout(autoSaveRef.current);const aus=members.filter((m:any)=>miPres.indexOf(m.n+" "+m.a)<0).map((m:any)=>m.n+" "+m.a);const secs=miSecs.map((c:string,i:number)=>({title:(mi.sections||[])[i]?.title||`Secci\u00F3n ${i+1}`,content:c}));onUpdMin(mi.id,{sections:secs,tareas:miTareas.filter((t:any)=>t.desc),presentes:[...miPres],ausentes:aus,date:miDate,hora_inicio:miHI,hora_cierre:miHC,lugar:miLugar});const vt=miTareas.filter((t:any)=>t.desc.trim());onCreateTasks(vt);sMode("home");}}>{"\u{1F4CB}"} Guardar y crear tareas</Btn>}
         </div>
       </Card>
     </div>);
@@ -454,6 +455,7 @@ export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,on
         </div>}
         <div style={{display:"flex",gap:4,justifyContent:"flex-end",marginTop:14}}>
           <Btn v="p" onClick={enterEditMin}>{"\u270F\uFE0F"} Editar Minuta</Btn>
+          {mi.tareas&&mi.tareas.some((t:any)=>t.desc)&&<Btn v="r" onClick={()=>{const vt=mi.tareas.filter((t:any)=>t.desc.trim());onCreateTasks(vt);}}>{"\u{1F4CB}"} Crear tareas en el sistema</Btn>}
         </div>
       </Card>
     </div>);
