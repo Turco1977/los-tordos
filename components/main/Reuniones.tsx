@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { AGT, MINSECS, DEPTOS, ROLES, fn, AREAS } from "@/lib/constants";
 import { fmtD } from "@/lib/mappers";
 import { useC } from "@/lib/theme-context";
@@ -39,6 +39,46 @@ export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,on
   const startNewAg=()=>{resetAg();sMode("newOD");};const startNewMin=(agId?:number)=>{resetMin();if(agId)sMiAgId(agId);sMode("newMin");};
   const stf=users.filter((u:any)=>["usuario","coordinador","embudo","admin","superadmin","enlace"].indexOf(u.role)>=0);
   const attTypes2=[{k:"link",l:"\u{1F517} Link",ph:"https://..."},{k:"video",l:"\u{1F3AC} Video",ph:"URL del video..."},{k:"foto",l:"\u{1F4F7} Foto",ph:"URL de la imagen..."},{k:"doc",l:"\u{1F4C4} Documento",ph:"URL del documento..."}];
+
+  /* Autosave for editMin mode */
+  const [autoSaved,sAutoSaved]=useState(false);
+  const autoSaveRef=useRef<any>(null);
+  useEffect(()=>{
+    if(mode!=="editMin"||!selId){sAutoSaved(false);return;}
+    sAutoSaved(false);
+    if(autoSaveRef.current)clearTimeout(autoSaveRef.current);
+    autoSaveRef.current=setTimeout(()=>{
+      const mi=minutas.find((m:any)=>m.id===selId);
+      if(!mi)return;
+      const secs=miSecs.map((c:string,i:number)=>({title:(mi.sections||[])[i]?.title||`Sección ${i+1}`,content:c}));
+      onUpdMin(mi.id,{sections:secs,tareas:miTareas.filter((t:any)=>t.desc),presentes:[...miPres],date:miDate,hora_inicio:miHI,hora_cierre:miHC,lugar:miLugar,_silent:true});
+      sAutoSaved(true);
+    },3000);
+    return()=>{if(autoSaveRef.current)clearTimeout(autoSaveRef.current);};
+  },[miDate,miHI,miHC,miLugar,miPres,miSecs,miTareas,mode,selId]);
+
+  /* Draft persistence for newMin mode */
+  const draftKey="minuta-draft-"+tab;
+  const draftRestoredRef=useRef(false);
+  const [draftRestored,sDraftRestored]=useState(false);
+  useEffect(()=>{
+    if(mode==="newMin"&&!draftRestoredRef.current){
+      draftRestoredRef.current=true;
+      try{
+        const raw=localStorage.getItem(draftKey);
+        if(raw){const d=JSON.parse(raw);if(d.miDate)sMiDate(d.miDate);if(d.miHI)sMiHI(d.miHI);if(d.miHC)sMiHC(d.miHC);if(d.miLugar)sMiLugar(d.miLugar);if(d.miPres)sMiPres(d.miPres);if(d.miSecs)sMiSecs(d.miSecs);if(d.miTareas)sMiTareas(d.miTareas);if(d.areaName)sAreaName(d.areaName);sDraftRestored(true);}
+      }catch{}
+    }
+    if(mode!=="newMin"){draftRestoredRef.current=false;sDraftRestored(false);}
+  },[mode]);
+  useEffect(()=>{
+    if(mode!=="newMin")return;
+    const timer=setTimeout(()=>{
+      const hasContent=miSecs.some((s:string)=>s.trim())||miTareas.some((t:any)=>t.desc.trim());
+      if(hasContent)localStorage.setItem(draftKey,JSON.stringify({miDate,miHI,miHC,miLugar,miPres,miSecs,miTareas,areaName}));
+    },2000);
+    return()=>clearTimeout(timer);
+  },[miDate,miHI,miHC,miLugar,miPres,miSecs,miTareas,areaName,mode]);
 
   /* HOME */
   if(mode==="home") return(<div style={{maxWidth:720}}>
@@ -266,6 +306,7 @@ export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,on
       <Btn v="g" s="s" onClick={()=>sMode("home")} style={{marginBottom:12}}>{"\u2190"} Volver</Btn>
       <Card>
         <h2 style={{margin:"0 0 14px",fontSize:17,color:colors.nv,fontWeight:800}}>{"\u{1F4DD}"} Nueva Minuta {"\u2013"} {tmpl.title}</h2>
+        {draftRestored&&<div style={{padding:8,background:"#DBEAFE",borderRadius:8,fontSize:11,color:"#1E40AF",marginBottom:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}><span>Borrador recuperado</span><button onClick={()=>{localStorage.removeItem(draftKey);sDraftRestored(false);resetMin();}} style={{background:"none",border:"none",color:"#1E40AF",textDecoration:"underline",cursor:"pointer",fontSize:11}}>Descartar</button></div>}
         {miAgId&&<div style={{padding:8,background:"#EDE9FE",borderRadius:8,fontSize:11,color:"#5B21B6",marginBottom:12}}>{"\u{1F4CB}"} Vinculada a Orden del D{"\u00ED"}a #{miAgId}</div>}
         <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:8,marginBottom:10}}>
           <div><label style={{fontSize:11,fontWeight:600,color:colors.g5}}>Fecha</label><input type="date" value={miDate} onChange={e=>sMiDate(e.target.value)} style={{width:"100%",padding:7,borderRadius:7,border:"1px solid "+colors.g3,fontSize:12,boxSizing:"border-box" as const,marginTop:2}}/></div>
@@ -296,8 +337,8 @@ export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,on
         </div>
         <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:14}}>
           <Btn v="g" onClick={()=>sMode("home")}>Cancelar</Btn>
-          <Btn v="p" onClick={()=>{const aus=members.filter((m:any)=>miPres.indexOf(m.n+" "+m.a)<0).map((m:any)=>m.n+" "+m.a);onAddMin({id:0,type:tab,areaName:areaName||undefined,agendaId:miAgId,date:miDate,horaInicio:miHI,horaCierre:miHC,lugar:miLugar,presentes:[...miPres],ausentes:aus,sections:MINSECS[tab].map((t2:string,i2:number)=>({title:t2,content:secVals[i2]||""})),tareas:miTareas.filter((t2:any)=>t2.desc),status:"borrador",createdAt:TODAY});sMode("home");}}>{"\u{1F4BE}"} Guardar borrador</Btn>
-          <Btn v="r" onClick={()=>{const aus=members.filter((m:any)=>miPres.indexOf(m.n+" "+m.a)<0).map((m:any)=>m.n+" "+m.a);const vt=miTareas.filter((t2:any)=>t2.desc&&t2.respId);onAddMin({id:0,type:tab,areaName:areaName||undefined,agendaId:miAgId,date:miDate,horaInicio:miHI,horaCierre:miHC,lugar:miLugar,presentes:[...miPres],ausentes:aus,sections:MINSECS[tab].map((t2:string,i2:number)=>({title:t2,content:secVals[i2]||""})),tareas:miTareas.filter((t2:any)=>t2.desc),status:"final",createdAt:TODAY});if(vt.length>0)onCreateTasks(vt);sMode("home");}}>{"\u2705"} Finalizar y crear tareas</Btn>
+          <Btn v="p" onClick={()=>{const aus=members.filter((m:any)=>miPres.indexOf(m.n+" "+m.a)<0).map((m:any)=>m.n+" "+m.a);onAddMin({id:0,type:tab,areaName:areaName||undefined,agendaId:miAgId,date:miDate,horaInicio:miHI,horaCierre:miHC,lugar:miLugar,presentes:[...miPres],ausentes:aus,sections:MINSECS[tab].map((t2:string,i2:number)=>({title:t2,content:secVals[i2]||""})),tareas:miTareas.filter((t2:any)=>t2.desc),status:"borrador",createdAt:TODAY});localStorage.removeItem(draftKey);sMode("home");}}>{"\u{1F4BE}"} Guardar borrador</Btn>
+          <Btn v="r" onClick={()=>{const aus=members.filter((m:any)=>miPres.indexOf(m.n+" "+m.a)<0).map((m:any)=>m.n+" "+m.a);const vt=miTareas.filter((t2:any)=>t2.desc&&t2.respId);onAddMin({id:0,type:tab,areaName:areaName||undefined,agendaId:miAgId,date:miDate,horaInicio:miHI,horaCierre:miHC,lugar:miLugar,presentes:[...miPres],ausentes:aus,sections:MINSECS[tab].map((t2:string,i2:number)=>({title:t2,content:secVals[i2]||""})),tareas:miTareas.filter((t2:any)=>t2.desc),status:"final",createdAt:TODAY});if(vt.length>0)onCreateTasks(vt);localStorage.removeItem(draftKey);sMode("home");}}>{"\u2705"} Finalizar y crear tareas</Btn>
         </div>
       </Card>
     </div>);
@@ -308,6 +349,7 @@ export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,on
     const mi=minutas.find((m:any)=>m.id===selId);
     if(!mi) return <div><Btn v="g" s="s" onClick={()=>sMode("home")}>{"\u2190"} Volver</Btn><p>No encontrada</p></div>;
     const doSaveMin=(status?:string)=>{
+      if(autoSaveRef.current)clearTimeout(autoSaveRef.current);
       const aus=members.filter((m:any)=>miPres.indexOf(m.n+" "+m.a)<0).map((m:any)=>m.n+" "+m.a);
       const secs=miSecs.map((c:string,i:number)=>({title:(mi.sections||[])[i]?.title||`Secci\u00F3n ${i+1}`,content:c}));
       const upd:any={sections:secs,tareas:miTareas.filter((t:any)=>t.desc),presentes:[...miPres],ausentes:aus,date:miDate,hora_inicio:miHI,hora_cierre:miHC,lugar:miLugar};
@@ -348,10 +390,11 @@ export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,on
             <button onClick={()=>sMiTareas(p=>p.filter((_:any,j:number)=>j!==i))} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:colors.rd,padding:"4px"}}>{"\u2715"}</button>
           </div>)}
         </div>
-        <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:14}}>
-          <Btn v="g" onClick={()=>{sSelId(mi.id);sMode("viewMin");}}>Cancelar</Btn>
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end",alignItems:"center",marginTop:14}}>
+          {autoSaved&&<span style={{fontSize:10,color:colors.gn,marginRight:"auto"}}>Auto-guardado</span>}
+          <Btn v="g" onClick={()=>{if(autoSaveRef.current)clearTimeout(autoSaveRef.current);sSelId(mi.id);sMode("viewMin");}}>Cancelar</Btn>
           <Btn v="p" onClick={()=>doSaveMin()}>{"\u{1F4BE}"} Guardar cambios</Btn>
-          <Btn v="r" onClick={()=>doSaveMin("final")}>{"\u2705"} Finalizar y crear tareas</Btn>
+          {mi.status==="borrador"&&<Btn v="r" onClick={()=>doSaveMin("final")}>{"\u2705"} Finalizar y crear tareas</Btn>}
         </div>
       </Card>
     </div>);
@@ -375,7 +418,7 @@ export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,on
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"start",marginBottom:4}}>
           <div/>
           <div style={{display:"flex",gap:4,flexWrap:"wrap" as const}}>
-            {mi.status==="borrador"&&<Btn v="g" s="s" onClick={enterEditMin}>{"\u270F\uFE0F"} Editar</Btn>}
+            <Btn v="g" s="s" onClick={enterEditMin}>{"\u270F\uFE0F"} Editar</Btn>
             <Btn v="g" s="s" onClick={()=>shareMinutaWhatsApp({type:mi.type,typeTitle:AGT[mi.type]?.title||"",areaName:mi.areaName,date:mi.date,horaInicio:mi.horaInicio,horaCierre:mi.horaCierre,lugar:mi.lugar,presentes:mi.presentes,ausentes:mi.ausentes,sections:mi.sections,tareas:(mi.tareas||[]).map((t:any)=>({desc:t.desc,resp:stf.find((u:any)=>u.id===t.respId)?fn(stf.find((u:any)=>u.id===t.respId)):"–",fecha:t.fecha})),status:mi.status})} title="Compartir por WhatsApp" style={{color:"#25D366"}}>WhatsApp</Btn>
             <Btn v="g" s="s" onClick={()=>exportMinutaPDF({type:mi.type,typeTitle:AGT[mi.type]?.title||"",areaName:mi.areaName,date:mi.date,horaInicio:mi.horaInicio,horaCierre:mi.horaCierre,lugar:mi.lugar,presentes:mi.presentes,ausentes:mi.ausentes,sections:mi.sections,tareas:(mi.tareas||[]).map((t:any)=>({desc:t.desc,resp:stf.find((u:any)=>u.id===t.respId)?fn(stf.find((u:any)=>u.id===t.respId)):"–",fecha:t.fecha})),status:mi.status})} title="Descargar PDF">PDF</Btn>
             <Btn v="g" s="s" onClick={()=>exportMinutaWord({type:mi.type,typeTitle:AGT[mi.type]?.title||"",areaName:mi.areaName,date:mi.date,horaInicio:mi.horaInicio,horaCierre:mi.horaCierre,lugar:mi.lugar,presentes:mi.presentes,ausentes:mi.ausentes,sections:mi.sections,tareas:(mi.tareas||[]).map((t:any)=>({desc:t.desc,resp:stf.find((u:any)=>u.id===t.respId)?fn(stf.find((u:any)=>u.id===t.respId)):"–",fecha:t.fecha})),status:mi.status})} title="Descargar Word">Word</Btn>
@@ -409,9 +452,9 @@ export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,on
             {mi.tareas.map((t:any,i:number)=>{const resp=stf.find((u:any)=>u.id===t.respId);return <tr key={i} style={{borderBottom:"1px solid #FDE68A"}}><td style={{padding:"4px 6px"}}>{renderMentions(t.desc)}</td><td style={{padding:"4px 6px"}}>{resp?fn(resp):"\u2013"}</td><td style={{padding:"4px 6px"}}>{t.fecha||"\u2013"}</td><td style={{padding:"4px 6px"}}>{mi.status==="final"?<span style={{color:colors.gn,fontWeight:600}}>{"\u2705"} Creada</span>:<span style={{color:colors.g4}}>Pendiente</span>}</td></tr>;})}
           </tbody></table>
         </div>}
-        {mi.status==="borrador"&&<div style={{display:"flex",gap:4,justifyContent:"flex-end",marginTop:14}}>
+        <div style={{display:"flex",gap:4,justifyContent:"flex-end",marginTop:14}}>
           <Btn v="p" onClick={enterEditMin}>{"\u270F\uFE0F"} Editar Minuta</Btn>
-        </div>}
+        </div>
       </Card>
     </div>);
   }
