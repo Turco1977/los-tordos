@@ -73,6 +73,7 @@ export function Det({p,user,onX,onTk,onAs,onRe,onSE,onEO,onTO,onFi,onVa,onMsg,on
           <div style={{display:"flex",gap:4,justifyContent:"flex-end",marginTop:4}}><Btn v="g" onClick={()=>{sEditing(false);sTab("info");}}>Cancelar</Btn><Btn v="p" onClick={()=>{onEditSave(p.id,ef);sEditing(false);sTab("info");}}>💾 Guardar cambios</Btn></div>
         </div>}
         {tab==="info"&&<div>
+          {p.desc&&<div style={{marginBottom:12,padding:10,background:colors.g1,borderRadius:8}}><div style={{fontSize:9,color:colors.g4,fontWeight:700,marginBottom:4}}>DESCRIPCIÓN</div><div style={{fontSize:13,color:colors.nv,whiteSpace:"pre-wrap" as const,lineHeight:1.5}}>{p.desc}</div></div>}
           <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:10,marginBottom:12}}>
             {[...(p.tit?[["TÍTULO",p.tit]]:[]),["DIVISIÓN",p.div||"–"],["SOLICITANTE",p.cN],["TIPO",p.tipo],["URGENCIA",p.urg],["FECHA LÍMITE",p.fReq],["CREADO",p.cAt],["REQUIERE GASTO",p.rG?"Sí 💰":"No"],...(p.rG?[["COMPRAS",p.eOk===true?"✅ Aprobado":p.eOk===false?"❌ Rechazado":"⏳ Pendiente"],["TESORERÍA",p.tOk===true?"✅ Aprobado":p.tOk===false?"❌ Rechazado":"⏳ Pendiente"]]:[]),["MONTO",p.monto?"$"+p.monto.toLocaleString():"–"]].map(([l,v],i)=>
               <div key={i}><div style={{fontSize:9,color:colors.g4,fontWeight:700}}>{l}</div><div style={{fontSize:12,color:colors.nv}}>{v}</div></div>
