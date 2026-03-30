@@ -16,7 +16,9 @@ export function Det({p,user,onX,onTk,onAs,onRe,onSE,onEO,onTO,onFi,onVa,onMsg,on
   const provs = useDataStore(s => s.provs);
   const sponsors = useDataStore(s => s.sponsors);
   const {colors,isDark,cardBg}=useC();
-  const [at,sAt]=useState("");const [mt,sMt]=useState(p.monto||"");const [tab,sTab]=useState("chat");const [rp,sRp]=useState(p.resp||"");
+  const [at,sAt]=useState("");const [mt,sMt]=useState(p.monto||"");
+  const initTab=(()=>{const _isM=p.asTo===user?.id;const _st=p.st;if(_isM&&_st===ST.C)return"acc";return"chat";})();
+  const [tab,sTab]=useState(initTab);const [rp,sRp]=useState(p.resp||"");
   const [editing,sEditing]=useState(false);const [ef,sEf]=useState({tipo:p.tipo,tit:p.tit||"",desc:p.desc,fReq:p.fReq,urg:p.urg,div:p.div||"",rG:p.rG});
   /* Checklist state (Feature 6) */
   const checkLogs=(p.log||[]).filter((l:any)=>l.t==="check");
@@ -87,7 +89,12 @@ export function Det({p,user,onX,onTk,onAs,onRe,onSE,onEO,onTO,onFi,onVa,onMsg,on
           {canT&&<Btn v="w" onClick={()=>{onTk(p.id);onX();}}>🙋 Tomar esta tarea</Btn>}
           {isCo&&(p.st===ST.P||p.st===ST.C)&&<div><div style={{fontSize:11,fontWeight:600,color:colors.g5,marginBottom:4}}>Asignar a:</div><div style={{display:"flex",gap:4}}><UserPicker users={stf} value={at} onChange={(id)=>sAt(id)} placeholder="Buscar persona..." labelFn={(u:any)=>fn(u)+" ("+((ROLES[u.role]||{}).l||"")+")"}  style={{flex:1}}/><Btn disabled={!at} onClick={()=>{onAs(p.id,at);onX();}}>Asignar</Btn></div></div>}
           {(isM||isSA)&&p.st===ST.C&&<div style={{display:"flex",flexDirection:"column" as const,gap:6}}>
-            <MentionInput users={users} value={rp} onChange={sRp} rows={2} placeholder="Resolución..." style={{padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,resize:"vertical" as const}}/>
+            <div style={{padding:"8px 10px",background:"#EFF6FF",borderRadius:8,border:"1px solid #BFDBFE",fontSize:11,color:"#1D4ED8",fontWeight:600}}>
+              ✏️ Contá brevemente cómo resolviste esta tarea — luego hacé clic en <strong>✅ Terminado</strong>
+            </div>
+            <MentionInput users={users} value={rp} onChange={sRp} rows={3} placeholder="Escribí la resolución acá..." style={{padding:8,borderRadius:8,border:"1px solid "+(rp.trim()?colors.gn:colors.g3),fontSize:12,resize:"vertical" as const,outline:"none"}}/>
+            {!rp.trim()&&<div style={{fontSize:10,color:colors.rd,fontWeight:600}}>⚠️ Requerido: escribí una resolución para poder finalizar la tarea</div>}
+            {p.rG&&!(p.eOk&&p.tOk)&&rp.trim()&&<div style={{fontSize:10,color:"#92400E",fontWeight:600,padding:"6px 8px",background:"#FEF3C7",borderRadius:6}}>💰 Esta tarea requiere aprobación de Compras y Tesorería antes de finalizar</div>}
             {p.rG&&!p.eOk&&<div><label style={{fontSize:11,color:colors.g5}}>Monto ($)</label><input type="number" value={mt} onChange={(e:any)=>sMt(e.target.value)} style={{width:mob?"100%":160,padding:mob?"10px 10px":"6px 8px",borderRadius:6,border:"1px solid "+colors.g3,fontSize:mob?14:12,marginLeft:mob?0:6,marginTop:mob?4:0,boxSizing:"border-box" as const,minHeight:mob?44:undefined}}/></div>}
             <div style={{display:"flex",gap:4,flexWrap:"wrap" as const}}>
               <Btn v="g" s="s" onClick={()=>onRe(p.id,rp)}>💾 Guardar</Btn>
