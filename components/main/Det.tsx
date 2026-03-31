@@ -17,7 +17,7 @@ export function Det({p,user,onX,onTk,onAs,onRe,onSE,onEO,onTO,onFi,onVa,onMsg,on
   const sponsors = useDataStore(s => s.sponsors);
   const {colors,isDark,cardBg}=useC();
   const [at,sAt]=useState("");const [mt,sMt]=useState(p.monto||"");
-  const initTab=(()=>{const _isM=p.asTo===user?.id;const _st=p.st;if(_isM&&_st===ST.C)return"acc";return"chat";})();
+  const initTab=(()=>{const _isM=p.asTo===user?.id;const _st=p.st;if(_isM&&(_st===ST.C||_st===ST.P))return"acc";return"chat";})();
   const [tab,sTab]=useState(initTab);const [rp,sRp]=useState(p.resp||"");
   const [editing,sEditing]=useState(false);const [ef,sEf]=useState({tipo:p.tipo,tit:p.tit||"",desc:p.desc,fReq:p.fReq,urg:p.urg,div:p.div||"",rG:p.rG});
   /* Checklist state (Feature 6) */
@@ -88,7 +88,7 @@ export function Det({p,user,onX,onTk,onAs,onRe,onSE,onEO,onTO,onFi,onVa,onMsg,on
           {p.st===ST.OK&&<div style={{padding:16,background:"#D1FAE5",borderRadius:10,textAlign:"center" as const}}><span style={{fontSize:24}}>✅</span><div style={{fontSize:14,fontWeight:700,color:"#065F46",marginTop:4}}>Tarea Completada</div></div>}
           {canT&&<Btn v="w" onClick={()=>{onTk(p.id);onX();}}>🙋 Tomar esta tarea</Btn>}
           {isCo&&(p.st===ST.P||p.st===ST.C)&&<div><div style={{fontSize:11,fontWeight:600,color:colors.g5,marginBottom:4}}>Asignar a:</div><div style={{display:"flex",gap:4}}><UserPicker users={stf} value={at} onChange={(id)=>sAt(id)} placeholder="Buscar persona..." labelFn={(u:any)=>fn(u)+" ("+((ROLES[u.role]||{}).l||"")+")"}  style={{flex:1}}/><Btn disabled={!at} onClick={()=>{onAs(p.id,at);onX();}}>Asignar</Btn></div></div>}
-          {(isM||isSA)&&p.st===ST.C&&<div style={{display:"flex",flexDirection:"column" as const,gap:6}}>
+          {(isM||isSA)&&(p.st===ST.C||p.st===ST.P)&&<div style={{display:"flex",flexDirection:"column" as const,gap:6}}>
             <div style={{padding:"8px 10px",background:"#EFF6FF",borderRadius:8,border:"1px solid #BFDBFE",fontSize:11,color:"#1D4ED8",fontWeight:600}}>
               ✏️ Contá brevemente cómo resolviste esta tarea — luego hacé clic en <strong>✅ Terminado</strong>
             </div>
