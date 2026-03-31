@@ -506,6 +506,46 @@ CREATE POLICY dm_messages_all ON dm_messages FOR ALL USING (true) WITH CHECK (tr
     });
   }
 
+  // Check votaciones table
+  const { error: eVot } = await admin.from("votaciones").select("id").limit(1);
+  if (isMissing(eVot)) {
+    missing.push({
+      table: "votaciones",
+      sql: `CREATE TABLE votaciones (
+  id SERIAL PRIMARY KEY,
+  titulo TEXT NOT NULL DEFAULT '',
+  descripcion TEXT DEFAULT '',
+  tipo TEXT NOT NULL DEFAULT 'cd',
+  estado TEXT NOT NULL DEFAULT 'abierta',
+  resultado TEXT,
+  creado_por UUID,
+  creado_por_nombre TEXT,
+  created_at TEXT NOT NULL DEFAULT ''
+);
+ALTER TABLE votaciones ENABLE ROW LEVEL SECURITY;
+CREATE POLICY votaciones_all ON votaciones FOR ALL USING (true) WITH CHECK (true);`,
+    });
+  }
+
+  // Check votos table
+  const { error: eVts } = await admin.from("votos").select("id").limit(1);
+  if (isMissing(eVts)) {
+    missing.push({
+      table: "votos",
+      sql: `CREATE TABLE votos (
+  id SERIAL PRIMARY KEY,
+  votacion_id INTEGER REFERENCES votaciones(id) ON DELETE CASCADE,
+  user_id UUID,
+  user_nombre TEXT,
+  voto TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT '',
+  UNIQUE(votacion_id, user_id)
+);
+ALTER TABLE votos ENABLE ROW LEVEL SECURITY;
+CREATE POLICY votos_all ON votos FOR ALL USING (true) WITH CHECK (true);`,
+    });
+  }
+
   if (missing.length > 0) {
     return NextResponse.json({
       status: "missing",

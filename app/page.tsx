@@ -138,7 +138,7 @@ export default function App() {
 
   // ── EARLY RETURNS ──
   if (!authChecked) return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: colors.g1 }}><div style={{ fontSize: 14, color: colors.g4 }}>Cargando...</div></div>;
-  if (!user) return <Login onLogin={(u: any) => auth.sU(u)} mob={mob} />;
+  if (!user) return <Login onLogin={(u: any) => { auth.sU(u); const redir = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("redirect") : null; if (redir) { window.history.replaceState({}, "", "/"); setTimeout(() => { window.location.href = redir; }, 100); } }} mob={mob} />;
 
   // Computed values (after early returns is OK — not hooks)
   const nav = computeNav();

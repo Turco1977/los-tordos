@@ -50,7 +50,7 @@ export function useDataFetch(
       supabase.from("reminders").select("*").order("date", { ascending: true }),
     ]);
     // Batch 2: Meetings + projects (8 queries)
-    const [agRes, miRes, projRes, ptRes, ttRes, bkRes, rcRes, dmRes] = await Promise.all([
+    const [agRes, miRes, projRes, ptRes, ttRes, bkRes, rcRes, dmRes, votRes, vtsRes] = await Promise.all([
       supabase.from("agendas").select("*").order("id", { ascending: false }).limit(100),
       supabase.from("minutas").select("*").order("id", { ascending: false }).limit(100),
       supabase.from("projects").select("*").order("id", { ascending: false }),
@@ -59,6 +59,8 @@ export function useDataFetch(
       supabase.from("bookings").select("*").order("id", { ascending: false }),
       supabase.from("rental_config").select("*"),
       user ? supabase.from("dm_messages").select("*").or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`).order("created_at", { ascending: true }).limit(500) : Promise.resolve({ data: [] }),
+      supabase.from("votaciones").select("*").order("id", { ascending: false }),
+      supabase.from("votos").select("*"),
     ]);
     // Batch 3: Secondary data — deferred (loaded after UI is ready)
     // Use empty defaults so setAll works; real data loaded in background below
@@ -102,6 +104,8 @@ export function useDataFetch(
       ...(msRes.data ? { hitos: msRes.data.map((h: any) => ({ id: h.id, fase: h.phase, name: h.name, periodo: h.period, pct: h.pct, color: h.color })) } : {}),
       ...(agRes.data ? { agendas: agRes.data.map((a: any) => ({ id: a.id, type: a.type, areaName: a.area_name, date: a.date, sections: a.sections, presentes: a.presentes || [], status: a.status, createdAt: a.created_at })) } : {}),
       ...(miRes.data ? { minutas: miRes.data.map((m: any) => ({ id: m.id, type: m.type, areaName: m.area_name, agendaId: m.agenda_id, date: m.date, horaInicio: m.hora_inicio, horaCierre: m.hora_cierre, lugar: m.lugar, presentes: m.presentes, ausentes: m.ausentes, sections: m.sections, tareas: m.tareas, status: m.status, approvals: m.approvals || [], createdAt: m.created_at })) } : {}),
+      ...(votRes.data ? { votaciones: votRes.data } : {}),
+      ...(vtsRes.data ? { votos: vtsRes.data } : {}),
       ...(prRes.data ? { presu: prRes.data.map(presuFromDB) } : {}),
       ...(pvRes.data ? { provs: pvRes.data.map(provFromDB) } : {}),
       ...(remRes.data ? { reminders: remRes.data } : {}),

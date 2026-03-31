@@ -7,6 +7,7 @@ import { Btn, Card } from "@/components/ui";
 import { exportMinutaPDF, exportMinutaWord, exportODPDF, exportODWord, shareODWhatsApp, shareMinutaWhatsApp } from "@/lib/export";
 import { useDataStore } from "@/lib/store";
 import { MentionInput, renderMentions } from "@/components/MentionInput";
+import { Votaciones } from "@/components/main/Votaciones";
 
 const TODAY = new Date().toISOString().slice(0,10);
 
@@ -17,6 +18,7 @@ export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,on
   const users = useDataStore(s => s.users);
   const areas = AREAS;
   const {colors,isDark,cardBg}=useC();
+  const [mainSection,sMainSection]=useState<"reuniones"|"votaciones">("reuniones");
   const [tab,sTab]=useState("cd");const [mode,sMode]=useState("home");const [selId,sSelId]=useState<number|null>(null);
   const [agDate,sAgDate]=useState(TODAY);const [agSecs,sAgSecs]=useState<{t:string;sub:string[];notes:string;atts:{type:string;label:string;val:string}[]}[]>([]);const [agPres,sAgPres]=useState<string[]>([]);const [areaName,sAreaName]=useState("");const [deptName,sDeptName]=useState("");
   const [attOpenIdx,sAttOpenIdx]=useState<number|null>(null);const [attType2,sAttType2]=useState("");const [attVal2,sAttVal2]=useState("");
@@ -83,7 +85,14 @@ export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,on
   /* HOME */
   if(mode==="home") return(<div style={{maxWidth:720}}>
     <h2 style={{margin:"0 0 4px",fontSize:19,color:colors.nv,fontWeight:800}}>{"\u{1F4C5}"} Reuniones</h2>
-    <p style={{color:colors.g4,fontSize:12,margin:"0 0 14px"}}>{"\u00D3"}rdenes del d{"\u00ED"}a y minutas institucionales</p>
+    <p style={{color:colors.g4,fontSize:12,margin:"0 0 14px"}}>{"\u00D3"}rdenes del d{"\u00ED"}a, minutas y votaciones</p>
+    {/* Main section switcher */}
+    <div style={{display:"flex",gap:4,marginBottom:16,borderBottom:"1px solid "+colors.g2,paddingBottom:10}}>
+      <Btn v={mainSection==="reuniones"?"p":"g"} s="s" onClick={()=>sMainSection("reuniones")}>{"\u{1F4C5}"} Reuniones</Btn>
+      <Btn v={mainSection==="votaciones"?"p":"g"} s="s" onClick={()=>sMainSection("votaciones")}>{"\u{1F5F3}\uFE0F"} Votaciones</Btn>
+    </div>
+    {mainSection==="votaciones"&&<Votaciones user={user} mob={mob} />}
+    {mainSection==="reuniones"&&<>
     <div style={{display:"flex",gap:4,marginBottom:16}}>{Object.keys(AGT).map(k=><Btn key={k} v={tab===k?"p":"g"} s="s" onClick={()=>sTab(k)}>{AGT[k].icon} {AGT[k].title}</Btn>)}</div>
     <Card style={{marginBottom:14,borderLeft:"4px solid "+tmpl.color,padding:"12px 16px"}}>
       <div style={{fontSize:14,fontWeight:700,color:colors.nv}}>{tmpl.icon} {tmpl.title}</div>
@@ -121,6 +130,7 @@ export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,on
         <div style={{display:"flex",gap:4,alignItems:"center"}}><button onClick={(e)=>{e.stopPropagation();if(confirm("\u00BFEliminar esta Minuta?"))onDelMin(m.id);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:colors.rd,padding:4}} title="Eliminar">{"\u{1F5D1}\uFE0F"}</button><span style={{color:colors.g4}}>{"\u203A"}</span></div>
       </Card>;})}
     </div>}
+  </>}
   </div>);
 
   /* ── Shared section editor for newOD / editOD ── */
