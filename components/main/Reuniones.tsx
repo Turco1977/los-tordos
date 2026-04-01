@@ -197,7 +197,7 @@ export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,on
       const agObj={id:0,type:tab,areaName:areaName||undefined,date:agDate,sections:secs,presentes:[...agPres],status,createdAt:TODAY};
       const agId=await onAddAg(agObj);
       if(status==="enviada"){
-        const minSecs=secs.map((s:any,i:number)=>({title:`${i+1}. ${s.t}`,content:""}));
+        const minSecs=secs.map((s:any,i:number)=>({title:`${i+1}. ${s.t}`,content:s.sub?.filter((x:string)=>x.trim()).map((x:string)=>`• ${x}`).join("\n")||""}));
         const aus=members.filter((m:any)=>agPres.indexOf(m.n+" "+m.a)<0).map((m:any)=>m.n+" "+m.a);
         onAddMin({id:0,type:tab,areaName:areaName||undefined,agendaId:agId||0,date:agDate,horaInicio:"",horaCierre:"",lugar:"Club Los Tordos",presentes:[...agPres],ausentes:aus,sections:minSecs,tareas:[],status:"borrador",createdAt:TODAY});
       }
@@ -232,7 +232,7 @@ export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,on
       if(status) upd.status=status;
       onUpdAg(ag.id,upd);
       if(status==="enviada"){
-        const minSecs=secs.map((s:any,i:number)=>({title:`${i+1}. ${s.t}`,content:""}));
+        const minSecs=secs.map((s:any,i:number)=>({title:`${i+1}. ${s.t}`,content:s.sub?.filter((x:string)=>x.trim()).map((x:string)=>`• ${x}`).join("\n")||""}));
         const aus=members.filter((m:any)=>agPres.indexOf(m.n+" "+m.a)<0).map((m:any)=>m.n+" "+m.a);
         onAddMin({id:0,type:tab,areaName:areaName||undefined,agendaId:ag.id,date:agDate,horaInicio:"",horaCierre:"",lugar:"Club Los Tordos",presentes:[...agPres],ausentes:aus,sections:minSecs,tareas:[],status:"borrador",createdAt:TODAY});
       }

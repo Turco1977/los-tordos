@@ -252,6 +252,7 @@ export function shareMinutaWhatsApp(mi: MinutaData) {
     mi.tareas.forEach(t => { text += `• ${t.desc} → ${t.resp}${t.fecha ? " (" + fmtD(t.fecha) + ")" : ""}\n`; });
   }
   text += `\n_Generado: ${new Date().toLocaleDateString("es-AR")}_`;
+  text += `\n\n🗳️ *Entrar y votar:* ${window.location.origin}`;
   window.open("https://wa.me/?text=" + encodeURIComponent(text), "_blank");
 }
 

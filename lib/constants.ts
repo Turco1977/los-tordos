@@ -420,6 +420,10 @@ export const TN_BUDGET_RUBROS=[
   "Eventos sociales","Logística","Merchandising","Imprevistos (10%)",
 ];
 
+/* Budget item helpers for hierarchical structure */
+export const newBudgetItem=(nombre:string)=>({nombre,estimado:0,real:0,notas:"",subs:[] as string[]});
+export const newBudgetRubro=(rubro:string)=>({rubro,estimado:0,real:0,notas:"",items:[] as any[]});
+
 /* ── Fichas de Puesto por Departamento ── */
 export const DEPT_DESC:Record<number,{titulo:string;proposito:string;responsable:string;estructura:{area:string;items:string[]}[];funciones:string[];kpis:string[];relaciones:{area:string;desc:string}[];obligaciones:string[]}>={
   1:{

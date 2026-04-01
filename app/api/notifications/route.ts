@@ -57,8 +57,84 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const body = await req.json();
-  const { user_id, title, message, type, link, send_email } = body;
+  const { user_id, title, message, type, link, send_email, broadcast } = body;
 
+  const db = createAdminClient();
+
+  /* ── Broadcast mode: notify all active users (admin/superadmin only) ── */
+  if (broadcast) {
+    if (!title)
+      return NextResponse.json({ error: "title requerido" }, { status: 400 });
+
+    // Only admins can broadcast
+    const { data: callerProfile } = await db
+      .from("profiles")
+      .select("role")
+      .eq("id", auth.user.id)
+      .single();
+    const callerRole = callerProfile?.role || "usuario";
+    if (!["superadmin", "admin"].includes(callerRole))
+      return NextResponse.json({ error: "No autorizado para broadcast" }, { status: 403 });
+
+    // Get all active users except the sender
+    const { data: allUsers } = await db
+      .from("profiles")
+      .select("id")
+      .neq("id", auth.user.id);
+
+    if (!allUsers?.length)
+      return NextResponse.json({ ok: true, count: 0 });
+
+    // Insert notifications for all users
+    const rows = allUsers.map((u: any) => ({
+      user_id: u.id,
+      title,
+      message: message || "",
+      type: type || "info",
+      link: link || "",
+      read: false,
+    }));
+    await db.from("notifications").insert(rows);
+
+    // Send push notifications to all users (best-effort)
+    ensureVapid();
+    if (vapidConfigured) {
+      try {
+        const { data: subs } = await db
+          .from("push_subscriptions")
+          .select("endpoint,p256dh,auth");
+
+        if (subs?.length) {
+          const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://lostordos.vercel.app";
+          const payload = JSON.stringify({
+            title,
+            body: message || "",
+            icon: "/logo.jpg",
+            url: link ? `${appUrl}${link}` : appUrl,
+          });
+
+          await Promise.allSettled(
+            subs.map((s) =>
+              webpush
+                .sendNotification(
+                  { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+                  payload
+                )
+                .catch(async (err) => {
+                  if (err.statusCode === 410 || err.statusCode === 404) {
+                    await db.from("push_subscriptions").delete().eq("endpoint", s.endpoint);
+                  }
+                })
+            )
+          );
+        }
+      } catch { /* Push is best-effort */ }
+    }
+
+    return NextResponse.json({ ok: true, count: allUsers.length });
+  }
+
+  /* ── Single-user notification ── */
   if (!user_id || !title)
     return NextResponse.json(
       { error: "user_id y title requeridos" },
@@ -66,7 +142,6 @@ export async function POST(req: NextRequest) {
     );
 
   // Authorization: users can only notify themselves unless admin/coordinador
-  const db = createAdminClient();
   if (user_id !== auth.user.id) {
     const { data: callerProfile } = await db
       .from("profiles")

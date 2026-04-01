@@ -1,8 +1,8 @@
 "use client";
-import { useState, useMemo, useRef, useCallback, useEffect } from "react";
+import { useState, useMemo, useRef, useCallback, useEffect, Fragment } from "react";
 import { useC } from "@/lib/theme-context";
 import { useDataStore } from "@/lib/store";
-import { TN_ST, TN_HITOS_TEMPLATE, TN_CHECKLIST, TN_BUDGET_RUBROS, PST, PSC, ST, SC, MONEDAS, fn } from "@/lib/constants";
+import { TN_ST, TN_HITOS_TEMPLATE, TN_CHECKLIST, TN_BUDGET_RUBROS, newBudgetRubro, newBudgetItem, PST, PSC, ST, SC, MONEDAS, fn } from "@/lib/constants";
 import { Btn, Card, PBadge, FileField } from "@/components/ui";
 import { MentionInput } from "@/components/MentionInput";
 
@@ -75,6 +75,13 @@ export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHi
   const [newItemText, sNewItemText] = useState("");
   const [budEdit, sBudEdit] = useState(false);
   const [newRubro, sNewRubro] = useState("");
+  const [expandedRubros, sExpandedRubros] = useState<Set<number>>(new Set());
+  const [newItemName, sNewItemName] = useState<Record<number, string>>({});
+  const [newSubText, sNewSubText] = useState<string>("");
+  const [newSubTarget, sNewSubTarget] = useState<{ ri: number; ii: number } | null>(null);
+  const toggleRubro = (i: number) => sExpandedRubros(prev => { const n = new Set(prev); n.has(i) ? n.delete(i) : n.add(i); return n; });
+  const rubroEst = (r: any): number => r.items?.length ? r.items.reduce((s: number, it: any) => s + Number(it.estimado || 0), 0) : Number(r.estimado || 0);
+  const rubroReal = (r: any): number => r.items?.length ? r.items.reduce((s: number, it: any) => s + Number(it.real || 0), 0) : Number(r.real || 0);
   const [presuForm, sPresuForm] = useState<any | null>(null);
   const [provSearch, sProvSearch] = useState("");
   const [commForm, sCommForm] = useState<any | null>(null);
@@ -219,8 +226,8 @@ export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHi
 
   // Budget (JSON planning estimates)
   const budget: any[] = budgetLocal ?? (Array.isArray(sel.budget) ? sel.budget : []);
-  const budgetTotal = budget.reduce((s: number, r: any) => s + Number(r.estimado || 0), 0);
-  const budgetReal = budget.reduce((s: number, r: any) => s + Number(r.real || 0), 0);
+  const budgetTotal = budget.reduce((s: number, r: any) => s + rubroEst(r), 0);
+  const budgetReal = budget.reduce((s: number, r: any) => s + rubroReal(r), 0);
 
   const presuSol = torneoPresu.filter((p: any) => p.status === PST.SOL || p.status === PST.REC);
   const presuApr = torneoPresu.filter((p: any) => p.status === PST.APR);
@@ -498,7 +505,7 @@ export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHi
           <div style={{ fontSize: 14, fontWeight: 700, color: colors.nv }}>📋 Planificación estimativa</div>
           <div style={{ display: "flex", gap: 6 }}>
             {budget.length === 0 && <Btn v="p" s="s" onClick={async () => {
-              const initial = TN_BUDGET_RUBROS.map(r => ({ rubro: r, estimado: 0, real: 0, notas: "" }));
+              const initial = TN_BUDGET_RUBROS.map(r => newBudgetRubro(r));
               await onUpd(sel.id, { budget: initial });
             }}>Cargar template</Btn>}
             {budget.length > 0 && <Btn v="g" s="s" onClick={() => sBudEdit(!budEdit)}>{budEdit ? "Listo" : "Editar"}</Btn>}
@@ -517,36 +524,148 @@ export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHi
                 {budEdit && <th style={{ width: 30, padding: "6px 4px" }}></th>}
               </tr></thead>
               <tbody>
-                {budget.map((r: any, i: number) => (<tr key={i} style={{ borderBottom: "1px solid " + colors.g2 }}>
-                  {budEdit && <td style={{ padding: "4px 4px", textAlign: "center" }}>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                      {i > 0 && <button onClick={async () => { const nb = [...budget]; [nb[i - 1], nb[i]] = [nb[i], nb[i - 1]]; await onUpd(sel.id, { budget: nb }); }} style={{ background: "none", border: "1px solid " + colors.g3, borderRadius: 3, cursor: "pointer", fontSize: 9, padding: "0px 4px", color: colors.g5, lineHeight: "14px" }}>▲</button>}
-                      {i < budget.length - 1 && <button onClick={async () => { const nb = [...budget]; [nb[i], nb[i + 1]] = [nb[i + 1], nb[i]]; await onUpd(sel.id, { budget: nb }); }} style={{ background: "none", border: "1px solid " + colors.g3, borderRadius: 3, cursor: "pointer", fontSize: 9, padding: "0px 4px", color: colors.g5, lineHeight: "14px" }}>▼</button>}
-                    </div>
-                  </td>}
-                  <td style={{ padding: "6px 8px", fontWeight: 600, color: colors.nv }}>{budEdit
-                    ? <input value={r.rubro || ""} onChange={e => { const nb = [...budget]; nb[i] = { ...nb[i], rubro: e.target.value }; saveBudget(sel.id, nb); }} style={{ ...iS, padding: "4px 6px", fontWeight: 600 }} />
-                    : r.rubro}</td>
-                  <td style={{ padding: "4px 4px", textAlign: "right" }}>
-                    <input type="number" value={r.estimado || ""} placeholder="0" onChange={e => {
-                      const nb = [...budget]; nb[i] = { ...nb[i], estimado: Number(e.target.value) || 0 };
-                      saveBudget(sel.id, nb);
-                    }} style={{ ...iS, width: 90, textAlign: "right", padding: "4px 6px" }} />
-                  </td>
-                  <td style={{ padding: "4px 4px", textAlign: "right" }}>
-                    <input type="number" value={r.real || ""} placeholder="0" onChange={e => {
-                      const nb = [...budget]; nb[i] = { ...nb[i], real: Number(e.target.value) || 0 };
-                      saveBudget(sel.id, nb);
-                    }} style={{ ...iS, width: 90, textAlign: "right", padding: "4px 6px" }} />
-                  </td>
-                  <td style={{ padding: "4px 4px" }}>
-                    <input value={r.notas || ""} onChange={e => {
-                      const nb = [...budget]; nb[i] = { ...nb[i], notas: e.target.value };
-                      saveBudget(sel.id, nb);
-                    }} style={{ ...iS, padding: "4px 6px" }} />
-                  </td>
-                  {budEdit && <td style={{ padding: "4px 2px" }}><button onClick={async () => { const nb = budget.filter((_: any, ii: number) => ii !== i); await onUpd(sel.id, { budget: nb }); }} style={{ background: "#FEE2E2", border: "1px solid #DC262640", borderRadius: 4, cursor: "pointer", fontSize: 10, padding: "1px 5px", color: "#DC2626" }}>✕</button></td>}
-                </tr>))}
+                {budget.map((r: any, i: number) => {
+                  const exp = expandedRubros.has(i);
+                  const hasItems = r.items?.length > 0;
+                  const rEst = rubroEst(r);
+                  const rReal = rubroReal(r);
+                  return (<Fragment key={i}>
+                    {/* ── RUBRO ROW ── */}
+                    <tr style={{ borderBottom: "1px solid " + colors.g2, background: hasItems && exp ? (isDark ? "#1a2236" : "#F8FAFC") : undefined }}>
+                      {budEdit && <td style={{ padding: "4px 4px", textAlign: "center" }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                          {i > 0 && <button onClick={async () => { const nb = [...budget]; [nb[i - 1], nb[i]] = [nb[i], nb[i - 1]]; await onUpd(sel.id, { budget: nb }); }} style={{ background: "none", border: "1px solid " + colors.g3, borderRadius: 3, cursor: "pointer", fontSize: 9, padding: "0px 4px", color: colors.g5, lineHeight: "14px" }}>▲</button>}
+                          {i < budget.length - 1 && <button onClick={async () => { const nb = [...budget]; [nb[i], nb[i + 1]] = [nb[i + 1], nb[i]]; await onUpd(sel.id, { budget: nb }); }} style={{ background: "none", border: "1px solid " + colors.g3, borderRadius: 3, cursor: "pointer", fontSize: 9, padding: "0px 4px", color: colors.g5, lineHeight: "14px" }}>▼</button>}
+                        </div>
+                      </td>}
+                      <td style={{ padding: "6px 8px", fontWeight: 600, color: colors.nv }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          <button onClick={() => toggleRubro(i)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 10, color: colors.g5, padding: 0, lineHeight: 1 }}>{exp ? "▼" : "▶"}</button>
+                          {budEdit
+                            ? <input value={r.rubro || ""} onChange={e => { const nb = [...budget]; nb[i] = { ...nb[i], rubro: e.target.value }; saveBudget(sel.id, nb); }} style={{ ...iS, padding: "4px 6px", fontWeight: 600 }} />
+                            : r.rubro}
+                        </div>
+                      </td>
+                      <td style={{ padding: "4px 4px", textAlign: "right" }}>
+                        {hasItems
+                          ? <span style={{ fontSize: 11, fontWeight: 600, color: colors.g5 }}>${rEst.toLocaleString()}</span>
+                          : <input type="number" value={r.estimado || ""} placeholder="0" onChange={e => { const nb = [...budget]; nb[i] = { ...nb[i], estimado: Number(e.target.value) || 0 }; saveBudget(sel.id, nb); }} style={{ ...iS, width: 90, textAlign: "right", padding: "4px 6px" }} />}
+                      </td>
+                      <td style={{ padding: "4px 4px", textAlign: "right" }}>
+                        {hasItems
+                          ? <span style={{ fontSize: 11, fontWeight: 600, color: rReal > rEst ? "#DC2626" : "#10B981" }}>${rReal.toLocaleString()}</span>
+                          : <input type="number" value={r.real || ""} placeholder="0" onChange={e => { const nb = [...budget]; nb[i] = { ...nb[i], real: Number(e.target.value) || 0 }; saveBudget(sel.id, nb); }} style={{ ...iS, width: 90, textAlign: "right", padding: "4px 6px" }} />}
+                      </td>
+                      <td style={{ padding: "4px 4px" }}>
+                        <input value={r.notas || ""} onChange={e => { const nb = [...budget]; nb[i] = { ...nb[i], notas: e.target.value }; saveBudget(sel.id, nb); }} style={{ ...iS, padding: "4px 6px" }} />
+                      </td>
+                      {budEdit && <td style={{ padding: "4px 2px" }}><button onClick={async () => { const nb = budget.filter((_: any, ii: number) => ii !== i); await onUpd(sel.id, { budget: nb }); }} style={{ background: "#FEE2E2", border: "1px solid #DC262640", borderRadius: 4, cursor: "pointer", fontSize: 10, padding: "1px 5px", color: "#DC2626" }}>✕</button></td>}
+                    </tr>
+
+                    {/* ── ITEM ROWS (expanded) ── */}
+                    {exp && (r.items || []).map((it: any, j: number) => (
+                      <Fragment key={`${i}-${j}`}>
+                        <tr style={{ borderBottom: "1px solid " + colors.g2, background: isDark ? "#111827" : "#FAFBFD" }}>
+                          {budEdit && <td></td>}
+                          <td style={{ padding: "4px 8px 4px 32px", color: colors.g5, fontSize: 11 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                              {it.subs?.length > 0 && <span style={{ fontSize: 8, color: colors.g4 }}>●</span>}
+                              {budEdit
+                                ? <input value={it.nombre || ""} onChange={e => { const nb = [...budget]; const items = [...(nb[i].items || [])]; items[j] = { ...items[j], nombre: e.target.value }; nb[i] = { ...nb[i], items }; saveBudget(sel.id, nb); }} style={{ ...iS, padding: "3px 5px", fontSize: 11 }} />
+                                : it.nombre}
+                            </div>
+                          </td>
+                          <td style={{ padding: "3px 4px", textAlign: "right" }}>
+                            <input type="number" value={it.estimado || ""} placeholder="0" onChange={e => { const nb = [...budget]; const items = [...(nb[i].items || [])]; items[j] = { ...items[j], estimado: Number(e.target.value) || 0 }; nb[i] = { ...nb[i], items }; saveBudget(sel.id, nb); }} style={{ ...iS, width: 80, textAlign: "right", padding: "3px 5px", fontSize: 11 }} />
+                          </td>
+                          <td style={{ padding: "3px 4px", textAlign: "right" }}>
+                            <input type="number" value={it.real || ""} placeholder="0" onChange={e => { const nb = [...budget]; const items = [...(nb[i].items || [])]; items[j] = { ...items[j], real: Number(e.target.value) || 0 }; nb[i] = { ...nb[i], items }; saveBudget(sel.id, nb); }} style={{ ...iS, width: 80, textAlign: "right", padding: "3px 5px", fontSize: 11 }} />
+                          </td>
+                          <td style={{ padding: "3px 4px" }}>
+                            <input value={it.notas || ""} onChange={e => { const nb = [...budget]; const items = [...(nb[i].items || [])]; items[j] = { ...items[j], notas: e.target.value }; nb[i] = { ...nb[i], items }; saveBudget(sel.id, nb); }} style={{ ...iS, padding: "3px 5px", fontSize: 11 }} />
+                          </td>
+                          {budEdit && <td style={{ padding: "3px 2px" }}><button onClick={() => { const nb = [...budget]; const items = (nb[i].items || []).filter((_: any, jj: number) => jj !== j); nb[i] = { ...nb[i], items }; saveBudget(sel.id, nb); }} style={{ background: "#FEE2E2", border: "1px solid #DC262640", borderRadius: 4, cursor: "pointer", fontSize: 9, padding: "0px 4px", color: "#DC2626" }}>✕</button></td>}
+                        </tr>
+
+                        {/* ── SUBITEM ROWS ── */}
+                        {(it.subs || []).map((sub: string, k: number) => (
+                          <tr key={`${i}-${j}-${k}`} style={{ borderBottom: "1px dotted " + colors.g2 }}>
+                            {budEdit && <td></td>}
+                            <td colSpan={4} style={{ padding: "2px 8px 2px 52px", fontSize: 10, color: colors.g4 }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                <span>•</span>
+                                {budEdit
+                                  ? <><input value={sub} onChange={e => { const nb = [...budget]; const items = [...(nb[i].items || [])]; const subs = [...(items[j].subs || [])]; subs[k] = e.target.value; items[j] = { ...items[j], subs }; nb[i] = { ...nb[i], items }; saveBudget(sel.id, nb); }} style={{ ...iS, padding: "2px 4px", fontSize: 10, flex: 1 }} />
+                                    <button onClick={() => { const nb = [...budget]; const items = [...(nb[i].items || [])]; const subs = (items[j].subs || []).filter((_: any, kk: number) => kk !== k); items[j] = { ...items[j], subs }; nb[i] = { ...nb[i], items }; saveBudget(sel.id, nb); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 9, color: "#DC2626", padding: 0 }}>✕</button></>
+                                  : sub}
+                              </div>
+                            </td>
+                            {budEdit && <td></td>}
+                          </tr>
+                        ))}
+
+                        {/* Add subitem inline */}
+                        {budEdit && newSubTarget?.ri === i && newSubTarget?.ii === j && (
+                          <tr>
+                            <td></td>
+                            <td colSpan={4} style={{ padding: "2px 8px 2px 52px" }}>
+                              <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                                <span style={{ fontSize: 10, color: colors.g4 }}>•</span>
+                                <input autoFocus value={newSubText} onChange={e => sNewSubText(e.target.value)} onKeyDown={e => {
+                                  if (e.key === "Enter" && newSubText.trim()) { const nb = [...budget]; const items = [...(nb[i].items || [])]; const subs = [...(items[j].subs || []), newSubText.trim()]; items[j] = { ...items[j], subs }; nb[i] = { ...nb[i], items }; saveBudget(sel.id, nb); sNewSubText(""); }
+                                  if (e.key === "Escape") { sNewSubTarget(null); sNewSubText(""); }
+                                }} placeholder="Detalle..." style={{ ...iS, padding: "2px 4px", fontSize: 10, flex: 1 }} />
+                                <button onClick={() => { if (!newSubText.trim()) return; const nb = [...budget]; const items = [...(nb[i].items || [])]; const subs = [...(items[j].subs || []), newSubText.trim()]; items[j] = { ...items[j], subs }; nb[i] = { ...nb[i], items }; saveBudget(sel.id, nb); sNewSubText(""); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 10, color: colors.bl, fontWeight: 700 }}>✓</button>
+                                <button onClick={() => { sNewSubTarget(null); sNewSubText(""); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 10, color: colors.g4 }}>✕</button>
+                              </div>
+                            </td>
+                            <td></td>
+                          </tr>
+                        )}
+
+                        {/* + Subitem button */}
+                        {budEdit && !(newSubTarget?.ri === i && newSubTarget?.ii === j) && (
+                          <tr>
+                            <td></td>
+                            <td colSpan={4} style={{ padding: "1px 8px 1px 52px" }}>
+                              <button onClick={() => { sNewSubTarget({ ri: i, ii: j }); sNewSubText(""); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 9, color: colors.bl, padding: 0, fontWeight: 600 }}>+ subitem</button>
+                            </td>
+                            <td></td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    ))}
+
+                    {/* ── ADD ITEM ROW (expanded + editing) ── */}
+                    {exp && budEdit && (
+                      <tr style={{ borderBottom: "1px solid " + colors.g2 }}>
+                        <td></td>
+                        <td colSpan={4} style={{ padding: "4px 8px 4px 32px" }}>
+                          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                            <input value={newItemName[i] || ""} onChange={e => sNewItemName(p => ({ ...p, [i]: e.target.value }))} onKeyDown={e => {
+                              if (e.key === "Enter" && (newItemName[i] || "").trim()) {
+                                const nb = [...budget]; const items = [...(nb[i].items || []), newBudgetItem((newItemName[i] || "").trim())]; nb[i] = { ...nb[i], items }; saveBudget(sel.id, nb); sNewItemName(p => ({ ...p, [i]: "" }));
+                              }
+                            }} placeholder="Nombre del item..." style={{ ...iS, padding: "3px 5px", fontSize: 11, flex: 1 }} />
+                            <button onClick={() => { if (!(newItemName[i] || "").trim()) return; const nb = [...budget]; const items = [...(nb[i].items || []), newBudgetItem((newItemName[i] || "").trim())]; nb[i] = { ...nb[i], items }; saveBudget(sel.id, nb); sNewItemName(p => ({ ...p, [i]: "" })); }} style={{ background: "none", border: "1px solid " + colors.bl, borderRadius: 4, cursor: "pointer", fontSize: 10, padding: "2px 8px", color: colors.bl, fontWeight: 700 }}>+ Item</button>
+                          </div>
+                        </td>
+                        <td></td>
+                      </tr>
+                    )}
+
+                    {/* Show item count when collapsed */}
+                    {!exp && hasItems && (
+                      <tr>
+                        {budEdit && <td></td>}
+                        <td colSpan={budEdit ? 4 : 4} style={{ padding: "0 8px 4px 32px" }}>
+                          <span style={{ fontSize: 9, color: colors.g4 }}>{r.items.length} item{r.items.length > 1 ? "s" : ""}</span>
+                        </td>
+                        {budEdit && <td></td>}
+                      </tr>
+                    )}
+                  </Fragment>);
+                })}
                 <tr style={{ fontWeight: 800, borderTop: "2px solid " + colors.g3 }}>
                   {budEdit && <td></td>}
                   <td style={{ padding: "8px 8px", color: colors.nv }}>TOTAL</td>
@@ -561,13 +680,13 @@ export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHi
           {budEdit && <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
             <input style={{ ...iS, flex: 1, padding: "6px 10px" }} placeholder="Nombre del rubro..." value={newRubro} onChange={e => sNewRubro(e.target.value)} onKeyDown={async e => {
               if (e.key === "Enter" && newRubro.trim()) {
-                const nb = [...budget, { rubro: newRubro.trim(), estimado: 0, real: 0, notas: "" }];
+                const nb = [...budget, newBudgetRubro(newRubro.trim())];
                 await onUpd(sel.id, { budget: nb }); sNewRubro("");
               }
             }} />
             <Btn v="p" s="s" onClick={async () => {
               if (!newRubro.trim()) return;
-              const nb = [...budget, { rubro: newRubro.trim(), estimado: 0, real: 0, notas: "" }];
+              const nb = [...budget, newBudgetRubro(newRubro.trim())];
               await onUpd(sel.id, { budget: nb }); sNewRubro("");
             }}>+ Rubro</Btn>
           </div>}
