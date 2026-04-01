@@ -45,19 +45,63 @@ export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,on
   /* Autosave for editMin mode */
   const [autoSaved,sAutoSaved]=useState(false);
   const autoSaveRef=useRef<any>(null);
+  const miSecTitlesRef=useRef<string[]>([]);
+  useEffect(()=>{
+    if(mode==="editMin"&&selId){
+      const mi=minutas.find((m:any)=>m.id===selId);
+      if(mi) miSecTitlesRef.current=(mi.sections||[]).map((s:any)=>s.title||"");
+    }
+  },[mode,selId,minutas]);
   useEffect(()=>{
     if(mode!=="editMin"||!selId){sAutoSaved(false);return;}
     sAutoSaved(false);
     if(autoSaveRef.current)clearTimeout(autoSaveRef.current);
     autoSaveRef.current=setTimeout(()=>{
-      const mi=minutas.find((m:any)=>m.id===selId);
-      if(!mi)return;
-      const secs=miSecs.map((c:string,i:number)=>({title:(mi.sections||[])[i]?.title||`Sección ${i+1}`,content:c}));
-      onUpdMin(mi.id,{sections:secs,tareas:miTareas.filter((t:any)=>t.desc),presentes:[...miPres],date:miDate,hora_inicio:miHI,hora_cierre:miHC,lugar:miLugar,_silent:true});
+      const titles=miSecTitlesRef.current;
+      const secs=miSecs.map((c:string,i:number)=>({title:titles[i]||`Sección ${i+1}`,content:c}));
+      onUpdMin(selId,{sections:secs,tareas:miTareas,presentes:[...miPres],date:miDate,hora_inicio:miHI,hora_cierre:miHC,lugar:miLugar,_silent:true});
       sAutoSaved(true);
     },3000);
     return()=>{if(autoSaveRef.current)clearTimeout(autoSaveRef.current);};
-  },[miDate,miHI,miHC,miLugar,miPres,miSecs,miTareas,mode,selId]);
+  },[miDate,miHI,miHC,miLugar,miPres,miSecs,miTareas,mode,selId,onUpdMin]);
+
+  /* Autosave for editOD mode */
+  const [agAutoSaved,sAgAutoSaved]=useState(false);
+  const agAutoSaveRef=useRef<any>(null);
+  useEffect(()=>{
+    if(mode!=="editOD"||!selId){sAgAutoSaved(false);return;}
+    sAgAutoSaved(false);
+    if(agAutoSaveRef.current)clearTimeout(agAutoSaveRef.current);
+    agAutoSaveRef.current=setTimeout(()=>{
+      const secs=agSecs.map(s=>({t:s.t,sub:s.sub.filter(x=>x.trim()),notes:s.notes,atts:s.atts}));
+      onUpdAg(selId,{sections:secs,presentes:[...agPres],date:agDate,area_name:areaName||null,_silent:true});
+      sAgAutoSaved(true);
+    },3000);
+    return()=>{if(agAutoSaveRef.current)clearTimeout(agAutoSaveRef.current);};
+  },[agDate,agSecs,agPres,areaName,mode,selId,onUpdAg]);
+
+  /* Draft persistence for newOD mode */
+  const odDraftKey="od-draft-"+tab;
+  const odDraftRestoredRef=useRef(false);
+  const [odDraftRestored,sOdDraftRestored]=useState(false);
+  useEffect(()=>{
+    if(mode==="newOD"&&!odDraftRestoredRef.current){
+      odDraftRestoredRef.current=true;
+      try{
+        const raw=localStorage.getItem(odDraftKey);
+        if(raw){const d=JSON.parse(raw);if(d.agDate)sAgDate(d.agDate);if(d.agSecs)sAgSecs(d.agSecs);if(d.agPres)sAgPres(d.agPres);if(d.areaName)sAreaName(d.areaName);sOdDraftRestored(true);}
+      }catch{}
+    }
+    if(mode!=="newOD"){odDraftRestoredRef.current=false;sOdDraftRestored(false);}
+  },[mode]);
+  useEffect(()=>{
+    if(mode!=="newOD")return;
+    const timer=setTimeout(()=>{
+      const hasContent=agSecs.some((s:any)=>s.sub.some((x:string)=>x.trim())||s.notes.trim());
+      if(hasContent)localStorage.setItem(odDraftKey,JSON.stringify({agDate,agSecs,agPres,areaName}));
+    },2000);
+    return()=>clearTimeout(timer);
+  },[agDate,agSecs,agPres,areaName,mode]);
 
   /* Draft persistence for newMin mode */
   const draftKey="minuta-draft-"+tab;
@@ -201,6 +245,7 @@ export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,on
         const aus=members.filter((m:any)=>agPres.indexOf(m.n+" "+m.a)<0).map((m:any)=>m.n+" "+m.a);
         onAddMin({id:0,type:tab,areaName:areaName||undefined,agendaId:agId||0,date:agDate,horaInicio:"",horaCierre:"",lugar:"Club Los Tordos",presentes:[...agPres],ausentes:aus,sections:minSecs,tareas:[],status:"borrador",createdAt:TODAY});
       }
+      localStorage.removeItem(odDraftKey);
       sMode("home");
     };
     return(<div style={{maxWidth:640}}>
@@ -212,8 +257,9 @@ export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,on
         {tab==="area"&&<div style={{marginBottom:10}}><label style={{fontSize:12,fontWeight:600,color:colors.g5}}>{"\u00C1"}rea</label><select value={areaName} onChange={e=>{sAreaName(e.target.value);sDeptName("");}} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,marginTop:3}}><option value="">Seleccionar...</option>{areas.filter((a:any)=>a.id!==100&&a.id!==101).map((a:any)=><option key={a.id} value={a.name}>{a.icon} {a.name}</option>)}</select></div>}
         {tab==="area"&&areaName&&areaDepts.length>0&&<div style={{marginBottom:10}}><label style={{fontSize:12,fontWeight:600,color:colors.g5}}>Departamento</label><select value={deptName} onChange={e=>sDeptName(e.target.value)} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,marginTop:3}}><option value="">Todos los departamentos</option>{areaDepts.map((d:any)=><option key={d.id} value={d.name}>{d.name}</option>)}</select></div>}
         {renderSecEditor()}
-        <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:12}}>
-          <Btn v="g" onClick={()=>sMode("home")}>Cancelar</Btn>
+        {odDraftRestored&&<div style={{padding:6,background:"#FEF3C7",borderRadius:6,fontSize:10,color:"#92400E",marginTop:8,textAlign:"center" as const}}>{"\u{1F4BE}"} Borrador recuperado del almacenamiento local</div>}
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:12,alignItems:"center"}}>
+          <Btn v="g" onClick={()=>{localStorage.removeItem(odDraftKey);sMode("home");}}>Cancelar</Btn>
           <Btn v="p" onClick={()=>doSendOD("borrador")}>{"\u{1F4BE}"} Guardar borrador</Btn>
           <Btn v="r" onClick={()=>doSendOD("enviada")}>{"\u{1F4E8}"} Guardar y enviar</Btn>
         </div>
@@ -246,10 +292,11 @@ export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,on
         {tab==="area"&&<div style={{marginBottom:10}}><label style={{fontSize:12,fontWeight:600,color:colors.g5}}>{"\u00C1"}rea</label><select value={areaName} onChange={e=>{sAreaName(e.target.value);sDeptName("");}} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,marginTop:3}}><option value="">Seleccionar...</option>{areas.filter((a:any)=>a.id!==100&&a.id!==101).map((a:any)=><option key={a.id} value={a.name}>{a.icon} {a.name}</option>)}</select></div>}
         {tab==="area"&&areaName&&areaDepts.length>0&&<div style={{marginBottom:10}}><label style={{fontSize:12,fontWeight:600,color:colors.g5}}>Departamento</label><select value={deptName} onChange={e=>sDeptName(e.target.value)} style={{width:"100%",padding:8,borderRadius:8,border:"1px solid "+colors.g3,fontSize:12,marginTop:3}}><option value="">Todos los departamentos</option>{areaDepts.map((d:any)=><option key={d.id} value={d.name}>{d.name}</option>)}</select></div>}
         {renderSecEditor()}
-        <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:12}}>
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:12,alignItems:"center"}}>
+          {agAutoSaved&&<span style={{fontSize:10,color:"#10B981",marginRight:"auto"}}>{"\u2705"} Autoguardado</span>}
           <Btn v="g" onClick={()=>{sSelId(ag.id);sMode("viewOD");}}>Cancelar</Btn>
-          <Btn v="p" onClick={()=>doSaveEdit()}>{"\u{1F4BE}"} Guardar cambios</Btn>
-          {ag.status==="borrador"&&<Btn v="r" onClick={()=>doSaveEdit("enviada")}>{"\u{1F4E8}"} Guardar y enviar</Btn>}
+          <Btn v="p" onClick={()=>{if(agAutoSaveRef.current)clearTimeout(agAutoSaveRef.current);doSaveEdit();}}>{"\u{1F4BE}"} Guardar cambios</Btn>
+          {ag.status==="borrador"&&<Btn v="r" onClick={()=>{if(agAutoSaveRef.current)clearTimeout(agAutoSaveRef.current);doSaveEdit("enviada");}}>{"\u{1F4E8}"} Guardar y enviar</Btn>}
         </div>
       </Card>
     </div>);
