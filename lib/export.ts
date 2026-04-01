@@ -149,6 +149,119 @@ function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
+/* ── TORNEO BUDGET XLSX EXPORT / IMPORT ── */
+type BudgetItem = { nombre: string; estimado: number; real: number; notas: string; subs: string[] };
+type BudgetRubro = { rubro: string; estimado: number; real: number; notas: string; items: BudgetItem[] };
+
+export async function exportBudgetXLSX(torneoName: string, budget: BudgetRubro[]) {
+  const { loadXLSX } = await import("@/lib/xlsx-cdn");
+  const XLSX = await loadXLSX();
+
+  const rows: any[][] = [];
+  // Header
+  rows.push(["Rubro", "Item", "Sub-item", "Estimado", "Real", "Diferencia", "Notas"]);
+
+  let totalEst = 0, totalReal = 0;
+  for (const r of budget) {
+    const hasItems = r.items?.length > 0;
+    const rEst = hasItems ? r.items.reduce((s, it) => s + Number(it.estimado || 0), 0) : Number(r.estimado || 0);
+    const rReal = hasItems ? r.items.reduce((s, it) => s + Number(it.real || 0), 0) : Number(r.real || 0);
+    totalEst += rEst; totalReal += rReal;
+    // Rubro row
+    rows.push([r.rubro, "", "", rEst, rReal, rReal - rEst, r.notas || ""]);
+
+    if (hasItems) {
+      for (const it of r.items) {
+        const est = Number(it.estimado || 0), re = Number(it.real || 0);
+        rows.push(["", it.nombre, "", est, re, re - est, it.notas || ""]);
+        for (const sub of (it.subs || [])) {
+          rows.push(["", "", sub, "", "", "", ""]);
+        }
+      }
+    }
+  }
+  // Total row
+  rows.push(["TOTAL", "", "", totalEst, totalReal, totalReal - totalEst, ""]);
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+
+  // Column widths
+  ws["!cols"] = [{ wch: 28 }, { wch: 28 }, { wch: 24 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 30 }];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Presupuesto");
+  const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" });
+  const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const safeName = torneoName.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ ]/g, "").replace(/\s+/g, "_");
+  downloadBlob(blob, `Presupuesto_${safeName}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+}
+
+export async function parseBudgetXLSX(file: File): Promise<{ budget: BudgetRubro[]; warnings: string[] }> {
+  const { loadXLSX } = await import("@/lib/xlsx-cdn");
+  const XLSX = await loadXLSX();
+
+  const data = new Uint8Array(await file.arrayBuffer());
+  const wb = XLSX.read(data, { type: "array" });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const raw: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+
+  if (raw.length < 2) throw new Error("Archivo vacío o sin datos");
+
+  // Find header row (look for "Rubro" in first 5 rows)
+  let headerIdx = 0;
+  for (let i = 0; i < Math.min(5, raw.length); i++) {
+    const first = String(raw[i][0] || "").toLowerCase().trim();
+    if (first === "rubro") { headerIdx = i; break; }
+  }
+
+  const warnings: string[] = [];
+  const budget: BudgetRubro[] = [];
+  let currentRubro: BudgetRubro | null = null;
+  let currentItem: BudgetItem | null = null;
+
+  for (let i = headerIdx + 1; i < raw.length; i++) {
+    const row = raw[i];
+    const col0 = String(row[0] || "").trim();
+    const col1 = String(row[1] || "").trim();
+    const col2 = String(row[2] || "").trim();
+    const est = Number(row[3]) || 0;
+    const real = Number(row[4]) || 0;
+    // col[5] = diferencia (calculated, skip)
+    const notas = String(row[6] || "").trim();
+
+    // Skip TOTAL row
+    if (col0.toUpperCase() === "TOTAL") continue;
+    // Skip completely empty rows
+    if (!col0 && !col1 && !col2) continue;
+
+    if (col0) {
+      // New rubro
+      currentRubro = { rubro: col0, estimado: est, real, notas, items: [] };
+      budget.push(currentRubro);
+      currentItem = null;
+    } else if (col1 && currentRubro) {
+      // Item within current rubro
+      currentItem = { nombre: col1, estimado: est, real, notas, subs: [] };
+      currentRubro.items.push(currentItem);
+    } else if (col2 && currentItem) {
+      // Sub-item
+      currentItem.subs.push(col2);
+    } else if (col1 && !currentRubro) {
+      warnings.push(`Fila ${i + 1}: item "${col1}" sin rubro padre, se ignoró`);
+    } else if (col2 && !currentItem) {
+      warnings.push(`Fila ${i + 1}: sub-item "${col2}" sin item padre, se ignoró`);
+    }
+  }
+
+  // For rubros that have items, clear the rubro-level amounts (they're calculated from items)
+  for (const r of budget) {
+    if (r.items.length > 0) { r.estimado = 0; r.real = 0; }
+  }
+
+  if (budget.length === 0) throw new Error("No se encontraron rubros en el archivo");
+  return { budget, warnings };
+}
+
 /* ── OD (Orden del Día) types ── */
 type ODData = {typeTitle:string;areaName?:string;date:string;presentes?:string[];sections?:{t:string;sub:string[];notes:string;atts?:{type:string;label:string;val:string}[]}[];status:string};
 

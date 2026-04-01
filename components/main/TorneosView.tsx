@@ -3,6 +3,7 @@ import { useState, useMemo, useRef, useCallback, useEffect, Fragment } from "rea
 import { useC } from "@/lib/theme-context";
 import { useDataStore } from "@/lib/store";
 import { TN_ST, TN_HITOS_TEMPLATE, TN_CHECKLIST, TN_BUDGET_RUBROS, newBudgetRubro, newBudgetItem, PST, PSC, ST, SC, MONEDAS, fn } from "@/lib/constants";
+import { exportBudgetXLSX, parseBudgetXLSX } from "@/lib/export";
 import { Btn, Card, PBadge, FileField } from "@/components/ui";
 import { MentionInput } from "@/components/MentionInput";
 
@@ -79,6 +80,8 @@ export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHi
   const [newItemName, sNewItemName] = useState<Record<number, string>>({});
   const [newSubText, sNewSubText] = useState<string>("");
   const [newSubTarget, sNewSubTarget] = useState<{ ri: number; ii: number } | null>(null);
+  const [budImport, sBudImport] = useState<{ budget: any[]; warnings: string[] } | null>(null);
+  const budFileRef = useRef<HTMLInputElement>(null);
   const toggleRubro = (i: number) => sExpandedRubros(prev => { const n = new Set(prev); n.has(i) ? n.delete(i) : n.add(i); return n; });
   const rubroEst = (r: any): number => r.items?.length ? r.items.reduce((s: number, it: any) => s + Number(it.estimado || 0), 0) : Number(r.estimado || 0);
   const rubroReal = (r: any): number => r.items?.length ? r.items.reduce((s: number, it: any) => s + Number(it.real || 0), 0) : Number(r.real || 0);
@@ -508,9 +511,58 @@ export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHi
               const initial = TN_BUDGET_RUBROS.map(r => newBudgetRubro(r));
               await onUpd(sel.id, { budget: initial });
             }}>Cargar template</Btn>}
+            {budget.length > 0 && <Btn v="g" s="s" onClick={() => exportBudgetXLSX(sel.name || "Torneo", budget)}>📥 Excel</Btn>}
+            <Btn v="g" s="s" onClick={() => budFileRef.current?.click()}>📤 Importar</Btn>
+            <input ref={budFileRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: "none" }} onChange={async e => {
+              const f = e.target.files?.[0]; if (!f) return; e.target.value = "";
+              try { const res = await parseBudgetXLSX(f); sBudImport(res); } catch (err: any) { alert("Error: " + err.message); }
+            }} />
             {budget.length > 0 && <Btn v="g" s="s" onClick={() => sBudEdit(!budEdit)}>{budEdit ? "Listo" : "Editar"}</Btn>}
           </div>
         </div>
+        {/* Import preview modal */}
+        {budImport && <Card style={{ padding: 16, marginBottom: 12, border: "2px solid #3B82F630" }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#3B82F6", marginBottom: 8 }}>📤 Preview de importación ({budImport.budget.length} rubros)</div>
+          {budImport.warnings.length > 0 && <div style={{ fontSize: 11, color: "#F59E0B", marginBottom: 8, padding: "6px 8px", background: "#FEF3C7", borderRadius: 6 }}>⚠️ {budImport.warnings.join(" · ")}</div>}
+          <div style={{ overflowX: "auto", maxHeight: 300, overflowY: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+              <thead><tr style={{ borderBottom: "2px solid " + colors.g2 }}>
+                <th style={{ textAlign: "left", padding: "4px 6px", fontSize: 10, color: colors.g5 }}>Rubro</th>
+                <th style={{ textAlign: "left", padding: "4px 6px", fontSize: 10, color: colors.g5 }}>Item</th>
+                <th style={{ textAlign: "right", padding: "4px 6px", fontSize: 10, color: colors.g5 }}>Estimado</th>
+                <th style={{ textAlign: "right", padding: "4px 6px", fontSize: 10, color: colors.g5 }}>Real</th>
+              </tr></thead>
+              <tbody>{budImport.budget.map((r: any, i: number) => (
+                <Fragment key={i}>
+                  <tr style={{ borderBottom: "1px solid " + colors.g2, background: isDark ? "#1a2236" : "#F8FAFC" }}>
+                    <td style={{ padding: "4px 6px", fontWeight: 700 }}>{r.rubro}</td>
+                    <td></td>
+                    <td style={{ padding: "4px 6px", textAlign: "right" }}>${(r.items?.length ? r.items.reduce((s: number, it: any) => s + Number(it.estimado || 0), 0) : Number(r.estimado || 0)).toLocaleString()}</td>
+                    <td style={{ padding: "4px 6px", textAlign: "right" }}>${(r.items?.length ? r.items.reduce((s: number, it: any) => s + Number(it.real || 0), 0) : Number(r.real || 0)).toLocaleString()}</td>
+                  </tr>
+                  {(r.items || []).map((it: any, j: number) => (
+                    <tr key={`${i}-${j}`} style={{ borderBottom: "1px solid " + colors.g2 }}>
+                      <td></td>
+                      <td style={{ padding: "3px 6px 3px 16px", color: colors.g5 }}>{it.nombre}{it.subs?.length ? ` (${it.subs.length} sub)` : ""}</td>
+                      <td style={{ padding: "3px 6px", textAlign: "right" }}>${Number(it.estimado || 0).toLocaleString()}</td>
+                      <td style={{ padding: "3px 6px", textAlign: "right" }}>${Number(it.real || 0).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </Fragment>
+              ))}</tbody>
+            </table>
+          </div>
+          <div style={{ display: "flex", gap: 6, marginTop: 10, justifyContent: "flex-end" }}>
+            <Btn v="g" s="s" onClick={() => sBudImport(null)}>Cancelar</Btn>
+            {budget.length > 0 && <Btn v="w" s="s" onClick={async () => { await onUpd(sel.id, { budget: budImport.budget }); sBudgetLocal(null); sBudImport(null); }}>Reemplazar todo</Btn>}
+            <Btn v="p" s="s" onClick={async () => {
+              const merged = budget.length > 0
+                ? [...budget, ...budImport.budget.filter((nr: any) => !budget.some((er: any) => er.rubro === nr.rubro))]
+                : budImport.budget;
+              await onUpd(sel.id, { budget: merged }); sBudgetLocal(null); sBudImport(null);
+            }}>{budget.length > 0 ? "Agregar nuevos rubros" : "Importar"}</Btn>
+          </div>
+        </Card>}
         {budget.length === 0 && <div style={{ fontSize: 12, color: colors.g4, textAlign: "center", padding: 20 }}>Rubros estimativos sin cargar. Usá el template o editá manualmente.</div>}
         {budget.length > 0 && <div>
           <div style={{ overflowX: "auto" }}>
