@@ -424,6 +424,82 @@ export const TN_INCOME_RUBROS=[
   "Inscripción clubes","Sponsors / Auspicios","Venta de entradas","Merchandising","Gastronomía / Bar","Otros ingresos",
 ];
 
+export const TN_AREAS_TEMPLATE=[
+  {title:"Invitaciones",emoji:"🎫",responsable_id:"",responsable:"",tareas:[
+    {text:"Armar flyer del encuentro",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Soporte delegaciones antes, durante y post torneo (teléfono 24/7)",done:false,responsable_id:"",responsable:"",notas:""},
+  ]},
+  {title:"Juego",emoji:"🏉",responsable_id:"",responsable:"",tareas:[
+    {text:"Consensuar equipos para sábado y domingo",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Inscripción de equipos",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Fixture armado y publicado",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Planilleros confirmados",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Armado de canchas",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Cancheros asignados",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Árbitros confirmados",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Pelotas oficiales (mín 3/cancha + reserva)",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Agua / fruta para árbitros",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Silbatos y tarjetas",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Remeras para árbitros",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Designar canchas, espacios y horarios según cantidad de jugadores",done:false,responsable_id:"",responsable:"",notas:""},
+  ]},
+  {title:"Sponsors y Stands",emoji:"🤝",responsable_id:"",responsable:"",tareas:[
+    {text:"Conseguir fruta",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Conseguir descartables",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Conseguir bebidas",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Gestionar meriendas",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Conseguir stand de juegos para niños",done:false,responsable_id:"",responsable:"",notas:""},
+  ]},
+  {title:"Amenities",emoji:"🎁",responsable_id:"",responsable:"",tareas:[
+    {text:"Brigada de la fruta",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Invitados especiales coordinados",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"DJ confirmado",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Tordos Shop preparado",done:false,responsable_id:"",responsable:"",notas:""},
+  ]},
+  {title:"Tercer Tiempo",emoji:"🍻",responsable_id:"",responsable:"",tareas:[
+    {text:"Colación organizada",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Tercer tiempo sábado",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Tercer tiempo domingo",done:false,responsable_id:"",responsable:"",notas:""},
+  ]},
+  {title:"Hospitality y Recepciones",emoji:"🏨",responsable_id:"",responsable:"",tareas:[
+    {text:"Recepción viernes",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Almuerzo sábado",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Cena sábado",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Almuerzo domingo",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Responsables de delegaciones asignados",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Gestión de compra y regalo de presentes institucionales",done:false,responsable_id:"",responsable:"",notas:""},
+  ]},
+  {title:"Institucional",emoji:"🏛️",responsable_id:"",responsable:"",tareas:[
+    {text:"Solicitar ambulancias",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Coordinar agentes municipales",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Invitar al Intendente, Secretario de Deporte y Gobernador",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Homenajes definidos",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Prensa y difusión del encuentro",done:false,responsable_id:"",responsable:"",notas:""},
+  ]},
+  {title:"Acción Solidaria",emoji:"❤️",responsable_id:"",responsable:"",tareas:[
+    {text:"Donación de sangre organizada",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Donación de ropa coordinada",done:false,responsable_id:"",responsable:"",notas:""},
+  ]},
+  {title:"Administrativo",emoji:"📋",responsable_id:"",responsable:"",tareas:[
+    {text:"Generar medios/link de pagos",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Inscripción administrativa lista",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Médicos confirmados",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Área protegida delimitada",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Baños verificados",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Designar lugares de derivación médica y referenciar en flyer",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Chequear médicos de guardia en hospitales principales",done:false,responsable_id:"",responsable:"",notas:""},
+  ]},
+  {title:"Voluntarios",emoji:"👥",responsable_id:"",responsable:"",tareas:[
+    {text:"Limpieza: equipo asignado",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Playa de estacionamiento: equipo asignado",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Cancheros: equipo asignado",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Mozos viernes: equipo asignado",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Mozos sábado: equipo asignado",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Mozos domingo: equipo asignado",done:false,responsable_id:"",responsable:"",notas:""},
+    {text:"Agasajo post-torneo a voluntarios",done:false,responsable_id:"",responsable:"",notas:""},
+  ]},
+];
+
 /* Budget item helpers for hierarchical structure */
 export const newBudgetItem=(nombre:string)=>({nombre,estimado:0,real:0,notas:"",subs:[] as string[]});
 export const newBudgetRubro=(rubro:string)=>({rubro,estimado:0,real:0,notas:"",items:[] as any[]});

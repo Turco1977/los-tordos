@@ -2,7 +2,7 @@
 import { useState, useMemo, useRef, useCallback, useEffect, Fragment } from "react";
 import { useC } from "@/lib/theme-context";
 import { useDataStore } from "@/lib/store";
-import { TN_ST, TN_HITOS_TEMPLATE, TN_CHECKLIST, TN_BUDGET_RUBROS, TN_INCOME_RUBROS, newBudgetRubro, newBudgetItem, PST, PSC, ST, SC, MONEDAS, fn } from "@/lib/constants";
+import { TN_ST, TN_HITOS_TEMPLATE, TN_CHECKLIST, TN_BUDGET_RUBROS, TN_INCOME_RUBROS, TN_AREAS_TEMPLATE, newBudgetRubro, newBudgetItem, PST, PSC, ST, SC, MONEDAS, fn } from "@/lib/constants";
 import { exportBudgetXLSX, parseBudgetXLSX } from "@/lib/export";
 import { Btn, Card, PBadge, FileField } from "@/components/ui";
 import { MentionInput } from "@/components/MentionInput";
@@ -78,6 +78,10 @@ export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHi
   const [newItemIdx, sNewItemIdx] = useState<number | null>(null);
   const [newItemText, sNewItemText] = useState("");
   const [budEdit, sBudEdit] = useState(false);
+  const [areaEdit, sAreaEdit] = useState(false);
+  const [newArea, sNewArea] = useState<{ title: string; emoji: string } | null>(null);
+  const [newTareaIdx, sNewTareaIdx] = useState<number | null>(null);
+  const [newTareaText, sNewTareaText] = useState("");
   const [newRubro, sNewRubro] = useState("");
   const [expandedRubros, sExpandedRubros] = useState<Set<number>>(new Set());
   const [newItemName, sNewItemName] = useState<Record<number, string>>({});
@@ -119,6 +123,20 @@ export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHi
     }
     return [];
   }, [sel?.checklist]);
+  const areas: any[] = useMemo(() => {
+    const raw = sel?.areas;
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw;
+    return [];
+  }, [sel?.areas]);
+  const areasDone = areas.reduce((s, a) => s + (a.tareas || []).filter((t: any) => t.done).length, 0);
+  const areasTotal = areas.reduce((s, a) => s + (a.tareas || []).length, 0);
+  const areasPct = areasTotal ? Math.round(areasDone / areasTotal * 100) : 0;
+
+  const saveAreas = useCallback((newAreas: any[]) => {
+    onUpd(sel?.id, { areas: newAreas });
+  }, [onUpd, sel?.id]);
+
   const torneoPresu = useMemo(() => presu.filter((p: any) => p.torneo_id === selId), [presu, selId]);
   const torneoComm = useMemo(() => peds.filter((p: any) => p.torneo_id === selId && p.tipo === "Comunicación"), [peds, selId]);
 
@@ -251,6 +269,7 @@ export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHi
     { k: "timeline", l: "Timeline", i: "📅" },
     { k: "clubes", l: "Clubes", i: "🏉" },
     { k: "checklist", l: "Checklist D-7", i: "✅" },
+    { k: "areas", l: "Áreas", i: "👥" },
     { k: "presupuesto", l: "Presupuesto", i: "💰" },
     { k: "comunicacion", l: "Comunicación", i: "📣" },
     { k: "notas", l: "Notas", i: "💬" },
@@ -284,10 +303,11 @@ export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHi
     </div>
 
     {/* ── TAB: RESUMEN ── */}
-    {tab === "resumen" && <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr 1fr 1fr", gap: 10, marginBottom: 16 }}>
+    {tab === "resumen" && <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr 1fr" : (areasTotal > 0 ? "1fr 1fr 1fr 1fr 1fr" : "1fr 1fr 1fr 1fr"), gap: 10, marginBottom: 16 }}>
       <Card style={{ padding: 14, textAlign: "center" }}><div style={{ fontSize: 22, fontWeight: 800, color: colors.nv }}>{hitosPct}%</div><div style={{ fontSize: 10, color: colors.g4 }}>Timeline ({hitosDone}/{hitos.length})</div><div style={{ marginTop: 6, height: 4, background: colors.g2, borderRadius: 2, overflow: "hidden" }}><div style={{ height: "100%", width: hitosPct + "%", background: "#10B981", borderRadius: 2 }} /></div></Card>
       <Card style={{ padding: 14, textAlign: "center" }}><div style={{ fontSize: 22, fontWeight: 800, color: colors.nv }}>{clubConf}/{clubes.length}</div><div style={{ fontSize: 10, color: colors.g4 }}>Clubes confirmados</div></Card>
       <Card style={{ padding: 14, textAlign: "center" }}><div style={{ fontSize: 22, fontWeight: 800, color: colors.nv }}>{checkPct}%</div><div style={{ fontSize: 10, color: colors.g4 }}>Checklist D-7 ({checkedItems}/{totalCheckItems})</div><div style={{ marginTop: 6, height: 4, background: colors.g2, borderRadius: 2, overflow: "hidden" }}><div style={{ height: "100%", width: checkPct + "%", background: "#3B82F6", borderRadius: 2 }} /></div></Card>
+      {areasTotal > 0 && <Card style={{ padding: 14, textAlign: "center" }}><div style={{ fontSize: 22, fontWeight: 800, color: colors.nv }}>{areasPct}%</div><div style={{ fontSize: 10, color: colors.g4 }}>Áreas ({areasDone}/{areasTotal})</div><div style={{ marginTop: 6, height: 4, background: colors.g2, borderRadius: 2, overflow: "hidden" }}><div style={{ height: "100%", width: areasPct + "%", background: "#8B5CF6", borderRadius: 2 }} /></div></Card>}
       <Card style={{ padding: 14, textAlign: "center" }}><div style={{ fontSize: 22, fontWeight: 800, color: colors.nv }}>${presuTotalApr.toLocaleString()}</div><div style={{ fontSize: 10, color: colors.g4 }}>Aprobado ({presuApr.length})</div>{presuSol.length > 0 && <div style={{ fontSize: 10, color: "#F59E0B", marginTop: 2 }}>${presuTotalSol.toLocaleString()} solicitado</div>}</Card>
     </div>}
     {tab === "resumen" && (income.length > 0 || budget.length > 0) && <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr 1fr", gap: 10, marginBottom: 16 }}>
@@ -464,6 +484,125 @@ export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHi
             await saveChecklist(ns); sNewSec(null);
           }}>Agregar</Btn>
           <Btn v="g" s="s" onClick={() => sNewSec(null)}>Cancelar</Btn>
+        </div>
+      </Card>}
+    </div>}
+
+    {/* ── TAB: ÁREAS DE TRABAJO ── */}
+    {tab === "areas" && <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: colors.nv }}>👥 Áreas de Trabajo</div>
+          {areasTotal > 0 && <span style={{ fontSize: 11, color: colors.g4 }}>{areasDone}/{areasTotal} ({areasPct}%)</span>}
+        </div>
+        <div style={{ display: "flex", gap: 6 }}>
+          {areas.length === 0 && <Btn v="p" s="s" onClick={() => saveAreas(TN_AREAS_TEMPLATE)}>Cargar template</Btn>}
+          <Btn v="g" s="s" onClick={() => sAreaEdit(!areaEdit)}>{areaEdit ? "Listo" : "Editar"}</Btn>
+        </div>
+      </div>
+      {areasTotal > 0 && <div style={{ marginBottom: 12, height: 6, background: colors.g2, borderRadius: 3, overflow: "hidden" }}><div style={{ height: "100%", width: areasPct + "%", background: "#8B5CF6", borderRadius: 3, transition: "width .3s" }} /></div>}
+      {areas.length === 0 && <Card style={{ textAlign: "center", padding: 30 }}><div style={{ fontSize: 12, color: colors.g4 }}>Sin áreas cargadas. Usá el template Julio Cano o creá áreas manualmente.</div></Card>}
+
+      {areas.map((area: any, ai: number) => {
+        const aTareas = area.tareas || [];
+        const aDone = aTareas.filter((t: any) => t.done).length;
+        const aPct = aTareas.length ? Math.round(aDone / aTareas.length * 100) : 0;
+        return (<Card key={ai} style={{ padding: mob ? 14 : 16, marginBottom: 10 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
+              <span style={{ fontSize: 18 }}>{area.emoji}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: colors.nv }}>{area.title}</div>
+                {area.responsable ? <div style={{ fontSize: 10, color: "#8B5CF6", fontWeight: 600 }}>👤 {area.responsable}</div>
+                  : <div style={{ fontSize: 10, color: colors.g4, fontStyle: "italic" }}>Sin responsable asignado</div>}
+              </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 10, color: aPct === 100 ? "#10B981" : colors.g4, fontWeight: aPct === 100 ? 700 : 400 }}>{aDone}/{aTareas.length} ({aPct}%)</span>
+              {areaEdit && <>
+                {ai > 0 && <button onClick={() => { const na = [...areas]; [na[ai - 1], na[ai]] = [na[ai], na[ai - 1]]; saveAreas(na); }} style={{ background: "none", border: "1px solid " + colors.g3, borderRadius: 4, cursor: "pointer", fontSize: 11, padding: "1px 5px", color: colors.g5 }}>▲</button>}
+                {ai < areas.length - 1 && <button onClick={() => { const na = [...areas]; [na[ai], na[ai + 1]] = [na[ai + 1], na[ai]]; saveAreas(na); }} style={{ background: "none", border: "1px solid " + colors.g3, borderRadius: 4, cursor: "pointer", fontSize: 11, padding: "1px 5px", color: colors.g5 }}>▼</button>}
+                <button onClick={() => { if (confirm("Eliminar área \"" + area.title + "\"?")) { saveAreas(areas.filter((_: any, i: number) => i !== ai)); } }} style={{ background: "#FEE2E2", border: "1px solid #DC262640", borderRadius: 4, cursor: "pointer", fontSize: 10, padding: "1px 5px", color: "#DC2626" }}>✕</button>
+              </>}
+            </div>
+          </div>
+
+          {/* Responsable selector (edit mode) */}
+          {areaEdit && <div style={{ marginBottom: 8 }}>
+            <select style={{ ...iS, padding: "4px 8px", fontSize: 11 }} value={area.responsable_id || ""} onChange={e => {
+              const u = users.find((u: any) => u.id === e.target.value);
+              const na = [...areas]; na[ai] = { ...na[ai], responsable_id: e.target.value, responsable: u ? fn(u) : "" }; saveAreas(na);
+            }}>
+              <option value="">– Asignar responsable –</option>
+              {users.map((u: any) => <option key={u.id} value={u.id}>{fn(u)}</option>)}
+            </select>
+          </div>}
+
+          {/* Progress bar */}
+          {aTareas.length > 0 && <div style={{ marginBottom: 8, height: 3, background: colors.g2, borderRadius: 2, overflow: "hidden" }}><div style={{ height: "100%", width: aPct + "%", background: aPct === 100 ? "#10B981" : "#8B5CF6", borderRadius: 2, transition: "width .3s" }} /></div>}
+
+          {/* Tareas */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            {aTareas.map((tarea: any, ti: number) => (
+              <div key={ti} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "4px 0", borderBottom: "1px solid " + colors.g1 }}>
+                <input type="checkbox" checked={tarea.done} onChange={() => {
+                  const na = [...areas]; const tareas = [...(na[ai].tareas || [])]; tareas[ti] = { ...tareas[ti], done: !tareas[ti].done }; na[ai] = { ...na[ai], tareas }; saveAreas(na);
+                  if (!tarea.done && onTorneoMsg) onTorneoMsg(sel.id, `✅ Tarea completada en ${area.emoji} ${area.title}: "${tarea.text}"`, "sys");
+                }} style={{ accentColor: "#8B5CF6", cursor: "pointer", marginTop: 2 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ fontSize: 12, color: tarea.done ? colors.g4 : colors.nv, textDecoration: tarea.done ? "line-through" : "none" }}>{tarea.text}</span>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 2 }}>
+                    {areaEdit
+                      ? <select style={{ fontSize: 10, padding: "1px 4px", borderRadius: 4, border: "1px solid " + colors.g3, background: cardBg, color: colors.g5 }} value={tarea.responsable_id || ""} onChange={e => {
+                          const u = users.find((u: any) => u.id === e.target.value);
+                          const na = [...areas]; const tareas = [...(na[ai].tareas || [])]; tareas[ti] = { ...tareas[ti], responsable_id: e.target.value, responsable: u ? fn(u) : "" }; na[ai] = { ...na[ai], tareas }; saveAreas(na);
+                        }}>
+                          <option value="">– sin asignar –</option>
+                          {users.map((u: any) => <option key={u.id} value={u.id}>{fn(u)}</option>)}
+                        </select>
+                      : tarea.responsable && <span style={{ fontSize: 10, color: "#8B5CF6", fontWeight: 600 }}>👤 {tarea.responsable}</span>}
+                    {areaEdit && <input value={tarea.notas || ""} onChange={e => {
+                      const na = [...areas]; const tareas = [...(na[ai].tareas || [])]; tareas[ti] = { ...tareas[ti], notas: e.target.value }; na[ai] = { ...na[ai], tareas }; saveAreas(na);
+                    }} placeholder="Notas..." style={{ fontSize: 10, padding: "1px 4px", borderRadius: 4, border: "1px solid " + colors.g3, background: cardBg, color: colors.g5, flex: 1 }} />}
+                    {!areaEdit && tarea.notas && <span style={{ fontSize: 10, color: colors.g4 }}>📝 {tarea.notas}</span>}
+                  </div>
+                </div>
+                {areaEdit && <button onClick={() => { const na = [...areas]; const tareas = (na[ai].tareas || []).filter((_: any, i: number) => i !== ti); na[ai] = { ...na[ai], tareas }; saveAreas(na); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 10, color: "#DC2626", padding: "0 2px", marginTop: 2 }}>✕</button>}
+              </div>
+            ))}
+          </div>
+
+          {/* Add tarea inline */}
+          {areaEdit && newTareaIdx === ai && <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+            <input style={{ ...iS, flex: 1, padding: "5px 8px" }} placeholder="Nueva tarea..." value={newTareaText} onChange={e => sNewTareaText(e.target.value)} onKeyDown={e => {
+              if (e.key === "Enter" && newTareaText.trim()) {
+                const na = [...areas]; const tareas = [...(na[ai].tareas || []), { text: newTareaText.trim(), done: false, responsable_id: "", responsable: "", notas: "" }]; na[ai] = { ...na[ai], tareas }; saveAreas(na); sNewTareaText(""); sNewTareaIdx(null);
+              }
+            }} autoFocus />
+            <Btn v="p" s="s" onClick={() => {
+              if (!newTareaText.trim()) return;
+              const na = [...areas]; const tareas = [...(na[ai].tareas || []), { text: newTareaText.trim(), done: false, responsable_id: "", responsable: "", notas: "" }]; na[ai] = { ...na[ai], tareas }; saveAreas(na); sNewTareaText(""); sNewTareaIdx(null);
+            }}>+</Btn>
+            <Btn v="g" s="s" onClick={() => { sNewTareaIdx(null); sNewTareaText(""); }}>✕</Btn>
+          </div>}
+          {areaEdit && newTareaIdx !== ai && <button onClick={() => { sNewTareaIdx(ai); sNewTareaText(""); }} style={{ marginTop: 6, background: "none", border: "1px dashed " + colors.g3, borderRadius: 6, padding: "4px 10px", fontSize: 11, color: colors.g4, cursor: "pointer", width: "100%" }}>+ Agregar tarea</button>}
+        </Card>);
+      })}
+
+      {/* Add area form */}
+      {areaEdit && !newArea && <button onClick={() => sNewArea({ title: "", emoji: "" })} style={{ background: "none", border: "2px dashed " + colors.g3, borderRadius: 10, padding: "14px 10px", fontSize: 12, color: colors.g4, cursor: "pointer", width: "100%", fontWeight: 600 }}>+ Agregar área</button>}
+      {areaEdit && newArea && <Card style={{ padding: mob ? 14 : 16, marginBottom: 10 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: colors.nv, marginBottom: 8 }}>Nueva área</div>
+        <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+          <div style={{ width: 60 }}><label style={lbl}>Emoji</label><input style={{ ...iS, textAlign: "center" }} value={newArea.emoji} onChange={e => sNewArea({ ...newArea, emoji: e.target.value })} placeholder="🔧" maxLength={4} /></div>
+          <div style={{ flex: 1 }}><label style={lbl}>Título *</label><input style={iS} value={newArea.title} onChange={e => sNewArea({ ...newArea, title: e.target.value })} placeholder="Nombre del área" /></div>
+        </div>
+        <div style={{ display: "flex", gap: 6 }}>
+          <Btn v="p" s="s" onClick={() => {
+            if (!newArea.title.trim()) return;
+            saveAreas([...areas, { title: newArea.title.trim(), emoji: newArea.emoji || "📌", responsable_id: "", responsable: "", tareas: [] }]); sNewArea(null);
+          }}>Agregar</Btn>
+          <Btn v="g" s="s" onClick={() => sNewArea(null)}>Cancelar</Btn>
         </div>
       </Card>}
     </div>}
