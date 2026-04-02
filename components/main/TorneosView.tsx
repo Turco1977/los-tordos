@@ -2,10 +2,11 @@
 import { useState, useMemo, useRef, useCallback, useEffect, Fragment } from "react";
 import { useC } from "@/lib/theme-context";
 import { useDataStore } from "@/lib/store";
-import { TN_ST, TN_HITOS_TEMPLATE, TN_CHECKLIST, TN_BUDGET_RUBROS, newBudgetRubro, newBudgetItem, PST, PSC, ST, SC, MONEDAS, fn } from "@/lib/constants";
+import { TN_ST, TN_HITOS_TEMPLATE, TN_CHECKLIST, TN_BUDGET_RUBROS, TN_INCOME_RUBROS, newBudgetRubro, newBudgetItem, PST, PSC, ST, SC, MONEDAS, fn } from "@/lib/constants";
 import { exportBudgetXLSX, parseBudgetXLSX } from "@/lib/export";
 import { Btn, Card, PBadge, FileField } from "@/components/ui";
 import { MentionInput } from "@/components/MentionInput";
+import { Thread } from "@/components/main/Thread";
 
 const TODAY = new Date().toISOString().slice(0, 10);
 
@@ -53,9 +54,10 @@ interface Props {
   onDelClub: (id: number) => Promise<void>;
   onAddPresu: (d: any) => Promise<void>;
   onAddComm: (d: any) => Promise<void>;
+  onTorneoMsg: (torneoId: number, txt: string, type?: string) => Promise<void>;
 }
 
-export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHito, onAddClub, onUpdClub, onDelClub, onAddPresu, onAddComm }: Props) {
+export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHito, onAddClub, onUpdClub, onDelClub, onAddPresu, onAddComm, onTorneoMsg }: Props) {
   const { colors, isDark, cardBg } = useC();
   const torneos = useDataStore(s => s.torneos);
   const torneoHitos = useDataStore(s => s.torneoHitos);
@@ -64,6 +66,7 @@ export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHi
   const presu = useDataStore(s => s.presu);
   const peds = useDataStore(s => s.peds);
   const provs = useDataStore(s => s.provs);
+  const torneoMsgs = useDataStore(s => s.torneoMsgs);
 
   const [mode, sMode] = useState<"list" | "form" | "detail">("list");
   const [selId, sSelId] = useState<number | null>(null);
@@ -227,10 +230,15 @@ export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHi
     onUpd(sel.id, { checklist: { sections } });
   };
 
-  // Budget (JSON planning estimates)
+  // Budget (JSON planning estimates — gastos)
   const budget: any[] = budgetLocal ?? (Array.isArray(sel.budget) ? sel.budget : []);
   const budgetTotal = budget.reduce((s: number, r: any) => s + rubroEst(r), 0);
   const budgetReal = budget.reduce((s: number, r: any) => s + rubroReal(r), 0);
+
+  // Income (JSON planning estimates — ingresos)
+  const income: any[] = Array.isArray(sel.income) ? sel.income : [];
+  const incomeTotal = income.reduce((s: number, r: any) => s + rubroEst(r), 0);
+  const incomeReal = income.reduce((s: number, r: any) => s + rubroReal(r), 0);
 
   const presuSol = torneoPresu.filter((p: any) => p.status === PST.SOL || p.status === PST.REC);
   const presuApr = torneoPresu.filter((p: any) => p.status === PST.APR);
@@ -245,6 +253,7 @@ export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHi
     { k: "checklist", l: "Checklist D-7", i: "✅" },
     { k: "presupuesto", l: "Presupuesto", i: "💰" },
     { k: "comunicacion", l: "Comunicación", i: "📣" },
+    { k: "notas", l: "Notas", i: "💬" },
   ];
 
   return (<div>
@@ -281,6 +290,11 @@ export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHi
       <Card style={{ padding: 14, textAlign: "center" }}><div style={{ fontSize: 22, fontWeight: 800, color: colors.nv }}>{checkPct}%</div><div style={{ fontSize: 10, color: colors.g4 }}>Checklist D-7 ({checkedItems}/{totalCheckItems})</div><div style={{ marginTop: 6, height: 4, background: colors.g2, borderRadius: 2, overflow: "hidden" }}><div style={{ height: "100%", width: checkPct + "%", background: "#3B82F6", borderRadius: 2 }} /></div></Card>
       <Card style={{ padding: 14, textAlign: "center" }}><div style={{ fontSize: 22, fontWeight: 800, color: colors.nv }}>${presuTotalApr.toLocaleString()}</div><div style={{ fontSize: 10, color: colors.g4 }}>Aprobado ({presuApr.length})</div>{presuSol.length > 0 && <div style={{ fontSize: 10, color: "#F59E0B", marginTop: 2 }}>${presuTotalSol.toLocaleString()} solicitado</div>}</Card>
     </div>}
+    {tab === "resumen" && (income.length > 0 || budget.length > 0) && <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr 1fr", gap: 10, marginBottom: 16 }}>
+      <Card style={{ padding: 14, textAlign: "center" }}><div style={{ fontSize: 18, fontWeight: 800, color: "#10B981" }}>${incomeReal.toLocaleString()}</div><div style={{ fontSize: 10, color: colors.g4 }}>Ingresos reales</div><div style={{ fontSize: 10, color: colors.g4, marginTop: 2 }}>Est: ${incomeTotal.toLocaleString()}</div></Card>
+      <Card style={{ padding: 14, textAlign: "center" }}><div style={{ fontSize: 18, fontWeight: 800, color: "#DC2626" }}>${budgetReal.toLocaleString()}</div><div style={{ fontSize: 10, color: colors.g4 }}>Gastos reales</div><div style={{ fontSize: 10, color: colors.g4, marginTop: 2 }}>Est: ${budgetTotal.toLocaleString()}</div></Card>
+      <Card style={{ padding: 14, textAlign: "center", border: "1px solid " + ((incomeReal - budgetReal) >= 0 ? "#10B98130" : "#DC262630") }}><div style={{ fontSize: 18, fontWeight: 800, color: (incomeReal - budgetReal) >= 0 ? "#10B981" : "#DC2626" }}>{(incomeReal - budgetReal) >= 0 ? "+" : ""}${(incomeReal - budgetReal).toLocaleString()}</div><div style={{ fontSize: 10, color: colors.g4 }}>Resultado</div>{incomeReal > 0 && budgetReal > 0 && <div style={{ fontSize: 10, color: colors.g4, marginTop: 2 }}>Margen: {Math.round((incomeReal - budgetReal) / incomeReal * 100)}%</div>}</Card>
+    </div>}
 
     {/* ── TAB: TIMELINE ── */}
     {tab === "timeline" && <Card style={{ padding: mob ? 14 : 18 }}>
@@ -294,7 +308,7 @@ export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHi
           const hcd = countdown(h.due_date);
           const isPast = h.due_date && h.due_date < new Date().toISOString().slice(0, 10);
           return (<div key={h.id} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "8px 10px", borderRadius: 8, background: h.done ? (isDark ? "#064e3b22" : "#D1FAE520") : (isPast && !h.done ? (isDark ? "#7f1d1d22" : "#FEE2E220") : "transparent"), border: "1px solid " + (h.done ? "#10B98130" : isPast && !h.done ? "#DC262630" : colors.g2) }}>
-            <input type="checkbox" checked={!!h.done} onChange={async () => { await onUpdHito(h.id, { done: !h.done }); }} style={{ marginTop: 2, cursor: "pointer", accentColor: "#10B981" }} />
+            <input type="checkbox" checked={!!h.done} onChange={async () => { const newDone = !h.done; await onUpdHito(h.id, { done: newDone }); if (newDone) onTorneoMsg(sel.id, "✅ Hito completado: " + h.description, "sys"); }} style={{ marginTop: 2, cursor: "pointer", accentColor: "#10B981" }} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
                 <span style={{ fontSize: 12, fontWeight: 700, color: h.done ? "#10B981" : colors.nv, textDecoration: h.done ? "line-through" : "none" }}><span style={{ color: colors.g4, fontWeight: 600, marginRight: 6 }}>{h.code}</span>{h.description}</span>
@@ -363,8 +377,8 @@ export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHi
             <div style={{ display: "flex", gap: 4, marginTop: 8 }}>
               <button onClick={() => sClubForm({ ...c })} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, border: "1px solid " + colors.g3, background: cardBg, color: colors.g5, cursor: "pointer" }}>Editar</button>
               <button onClick={async () => { if (confirm("Eliminar club?")) await onDelClub(c.id); }} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, border: "1px solid #DC262640", background: "#FEE2E2", color: "#DC2626", cursor: "pointer" }}>Eliminar</button>
-              {c.status !== "confirmado" && <button onClick={() => onUpdClub(c.id, { status: "confirmado" })} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, border: "1px solid #10B98140", background: "#D1FAE5", color: "#10B981", cursor: "pointer" }}>Confirmar</button>}
-              {c.status !== "declinado" && c.status !== "confirmado" && <button onClick={() => onUpdClub(c.id, { status: "declinado" })} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, border: "1px solid #DC262640", background: "#FEE2E2", color: "#DC2626", cursor: "pointer" }}>Declinó</button>}
+              {c.status !== "confirmado" && <button onClick={() => { onUpdClub(c.id, { status: "confirmado" }); onTorneoMsg(sel.id, "✅ " + c.club_name + " confirmó participación", "sys"); }} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, border: "1px solid #10B98140", background: "#D1FAE5", color: "#10B981", cursor: "pointer" }}>Confirmar</button>}
+              {c.status !== "declinado" && c.status !== "confirmado" && <button onClick={() => { onUpdClub(c.id, { status: "declinado" }); onTorneoMsg(sel.id, "❌ " + c.club_name + " declinó participación", "sys"); }} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, border: "1px solid #DC262640", background: "#FEE2E2", color: "#DC2626", cursor: "pointer" }}>Declinó</button>}
             </div>
           </Card>);
         })}
@@ -744,6 +758,95 @@ export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHi
           </div>}
         </div>}
       </Card>
+
+      {/* ── Ingresos estimados ── */}
+      <Card style={{ padding: mob ? 14 : 18, marginTop: 12 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "#10B981" }}>📈 Ingresos estimados</div>
+          {income.length === 0 && <Btn v="p" s="s" onClick={async () => {
+            const initial = TN_INCOME_RUBROS.map(r => newBudgetRubro(r));
+            await onUpd(sel.id, { income: initial });
+          }}>Cargar template</Btn>}
+        </div>
+        {income.length === 0 && <div style={{ fontSize: 12, color: colors.g4, textAlign: "center", padding: 20 }}>Ingresos sin cargar. Usá el template para empezar.</div>}
+        {income.length > 0 && <div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+              <thead><tr style={{ borderBottom: "2px solid " + colors.g2 }}>
+                <th style={{ textAlign: "left", padding: "6px 8px", color: colors.g5, fontSize: 10, fontWeight: 700 }}>Concepto</th>
+                <th style={{ textAlign: "right", padding: "6px 8px", color: colors.g5, fontSize: 10, fontWeight: 700 }}>Estimado</th>
+                <th style={{ textAlign: "right", padding: "6px 8px", color: colors.g5, fontSize: 10, fontWeight: 700 }}>Real</th>
+                <th style={{ textAlign: "left", padding: "6px 8px", color: colors.g5, fontSize: 10, fontWeight: 700 }}>Notas</th>
+              </tr></thead>
+              <tbody>
+                {income.map((r: any, i: number) => (
+                  <tr key={i} style={{ borderBottom: "1px solid " + colors.g2 }}>
+                    <td style={{ padding: "6px 8px", fontWeight: 600, color: colors.nv }}>
+                      <input value={r.rubro || ""} onChange={e => { const ni = [...income]; ni[i] = { ...ni[i], rubro: e.target.value }; onUpd(sel.id, { income: ni }); }} style={{ ...iS, padding: "4px 6px", fontWeight: 600, border: "none", background: "transparent", width: "100%" }} />
+                    </td>
+                    <td style={{ padding: "4px 4px", textAlign: "right" }}>
+                      <input type="number" value={r.estimado || ""} placeholder="0" onChange={e => { const ni = [...income]; ni[i] = { ...ni[i], estimado: Number(e.target.value) || 0 }; onUpd(sel.id, { income: ni }); }} style={{ ...iS, width: 90, textAlign: "right", padding: "4px 6px" }} />
+                    </td>
+                    <td style={{ padding: "4px 4px", textAlign: "right" }}>
+                      <input type="number" value={r.real || ""} placeholder="0" onChange={e => { const ni = [...income]; ni[i] = { ...ni[i], real: Number(e.target.value) || 0 }; onUpd(sel.id, { income: ni }); }} style={{ ...iS, width: 90, textAlign: "right", padding: "4px 6px" }} />
+                    </td>
+                    <td style={{ padding: "4px 4px", display: "flex", alignItems: "center", gap: 4 }}>
+                      <input value={r.notas || ""} onChange={e => { const ni = [...income]; ni[i] = { ...ni[i], notas: e.target.value }; onUpd(sel.id, { income: ni }); }} style={{ ...iS, padding: "4px 6px", flex: 1 }} />
+                      <button onClick={async () => { const ni = income.filter((_: any, ii: number) => ii !== i); await onUpd(sel.id, { income: ni }); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 10, color: "#DC2626", padding: 0, flexShrink: 0 }}>✕</button>
+                    </td>
+                  </tr>
+                ))}
+                <tr style={{ fontWeight: 800, borderTop: "2px solid " + colors.g3 }}>
+                  <td style={{ padding: "8px 8px", color: "#10B981" }}>TOTAL INGRESOS</td>
+                  <td style={{ padding: "8px 8px", textAlign: "right", color: "#10B981" }}>${incomeTotal.toLocaleString()}</td>
+                  <td style={{ padding: "8px 8px", textAlign: "right", color: "#10B981" }}>${incomeReal.toLocaleString()}</td>
+                  <td style={{ padding: "8px 8px", fontSize: 10, color: colors.g4 }}>{incomeTotal > 0 ? Math.round(incomeReal / incomeTotal * 100) + "% cobrado" : ""}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+            <input style={{ ...iS, flex: 1, padding: "6px 10px" }} placeholder="Nuevo concepto de ingreso..." value={newRubro} onChange={e => sNewRubro(e.target.value)} onKeyDown={async e => {
+              if (e.key === "Enter" && newRubro.trim()) {
+                const ni = [...income, newBudgetRubro(newRubro.trim())];
+                await onUpd(sel.id, { income: ni }); sNewRubro("");
+              }
+            }} />
+            <Btn v="p" s="s" onClick={async () => {
+              if (!newRubro.trim()) return;
+              const ni = [...income, newBudgetRubro(newRubro.trim())];
+              await onUpd(sel.id, { income: ni }); sNewRubro("");
+            }}>+ Ingreso</Btn>
+          </div>
+        </div>}
+      </Card>
+
+      {/* ── Resumen de Rentabilidad ── */}
+      {(budget.length > 0 || income.length > 0) && <Card style={{ padding: mob ? 14 : 18, marginTop: 12, border: "2px solid " + ((incomeReal - budgetReal) >= 0 ? "#10B98130" : "#DC262630") }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: colors.nv, marginBottom: 10 }}>📊 Resumen de Rentabilidad</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          <div style={{ textAlign: "center", padding: 12, borderRadius: 8, background: isDark ? "#1a2236" : "#F0FDF4" }}>
+            <div style={{ fontSize: 10, color: "#10B981", fontWeight: 700, marginBottom: 4 }}>INGRESOS</div>
+            <div style={{ fontSize: 11, color: colors.g4 }}>Est: ${incomeTotal.toLocaleString()}</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: "#10B981" }}>${incomeReal.toLocaleString()}</div>
+          </div>
+          <div style={{ textAlign: "center", padding: 12, borderRadius: 8, background: isDark ? "#1a2236" : "#FEF2F2" }}>
+            <div style={{ fontSize: 10, color: "#DC2626", fontWeight: 700, marginBottom: 4 }}>GASTOS</div>
+            <div style={{ fontSize: 11, color: colors.g4 }}>Est: ${budgetTotal.toLocaleString()}</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: "#DC2626" }}>${budgetReal.toLocaleString()}</div>
+          </div>
+        </div>
+        <div style={{ textAlign: "center", marginTop: 12, padding: 14, borderRadius: 8, background: isDark ? "#111827" : ((incomeReal - budgetReal) >= 0 ? "#ECFDF5" : "#FEF2F2"), border: "1px solid " + ((incomeReal - budgetReal) >= 0 ? "#10B98130" : "#DC262630") }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: colors.g5, marginBottom: 4 }}>RESULTADO</div>
+          <div style={{ fontSize: 10, color: colors.g4 }}>Est: ${(incomeTotal - budgetTotal).toLocaleString()}</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: (incomeReal - budgetReal) >= 0 ? "#10B981" : "#DC2626" }}>
+            {(incomeReal - budgetReal) >= 0 ? "+" : ""}${(incomeReal - budgetReal).toLocaleString()}
+          </div>
+          <div style={{ fontSize: 10, color: colors.g4, marginTop: 2 }}>
+            {incomeReal > 0 && budgetReal > 0 ? "Margen: " + Math.round((incomeReal - budgetReal) / incomeReal * 100) + "%" : ""}
+          </div>
+        </div>
+      </Card>}
     </div>}
 
     {/* ── TAB: COMUNICACIÓN ── */}
@@ -806,6 +909,17 @@ export function TorneosView({ user, mob, onAdd, onUpd, onDel, onAddHito, onUpdHi
           </Card>);
         })}
       </div>}
+    </div>}
+
+    {/* ── TAB: Notas ── */}
+    {tab === "notas" && <div style={{ display: "flex", flexDirection: "column", height: mob ? "calc(100vh - 260px)" : 480 }}>
+      <div style={{ fontSize: 14, fontWeight: 700, color: colors.nv, marginBottom: 8 }}>💬 Notas y Discusión</div>
+      <Thread
+        log={(torneoMsgs || []).filter((m: any) => m.torneo_id === sel.id).map((m: any) => ({ uid: m.user_id, by: m.user_name, act: m.content, t: m.type, dt: m.created_at }))}
+        userId={user.id}
+        users={users}
+        onSend={(txt: string) => onTorneoMsg(sel.id, txt)}
+      />
     </div>}
   </div>);
 }

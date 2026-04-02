@@ -145,7 +145,7 @@ export function useDataFetch(
         }
         // Load batch 3 secondary data (deferred)
         if (!batch3Loaded.current) {
-          const [b3inv, b3sp, b3pb, b3im, b3id, b3sd, b3arch, b3tn, b3th, b3tc, b3fx, b3bec, b3asc, b3tar, b3sc, b3pipe, b3ct, b3prop, b3pv, b3pm, b3hi, b3mat, b3pag] = await Promise.all([
+          const [b3inv, b3sp, b3pb, b3im, b3id, b3sd, b3arch, b3tn, b3th, b3tc, b3fx, b3bec, b3asc, b3tar, b3sc, b3pipe, b3ct, b3prop, b3pv, b3pm, b3hi, b3mat, b3pag, b3tmsg] = await Promise.all([
             supabase.from("inventory").select("*").order("id", { ascending: false }),
             supabase.from("sponsors").select("*").order("id", { ascending: false }),
             supabase.from("project_budgets").select("*").order("id", { ascending: false }),
@@ -169,6 +169,7 @@ export function useDataFetch(
             supabase.from("hospitalidad_invitaciones").select("*").order("id", { ascending: false }),
             supabase.from("sponsor_materiales").select("*").order("id", { ascending: false }),
             supabase.from("sponsor_pagos").select("*").order("id", { ascending: false }),
+            supabase.from("torneo_messages").select("*").order("created_at"),
           ]);
           batch3Loaded.current = true;
           setAll({
@@ -195,6 +196,7 @@ export function useDataFetch(
             ...(b3hi.data ? { hospInvitaciones: b3hi.data } : {}),
             ...(b3mat.data ? { sponMateriales: b3mat.data } : {}),
             ...(b3pag.data ? { sponPagos: b3pag.data } : {}),
+            ...(b3tmsg.data ? { torneoMsgs: b3tmsg.data } : {}),
           });
           saveToCache({
             inventory: b3inv.data || [], inventory_maintenance: b3im.data || [],

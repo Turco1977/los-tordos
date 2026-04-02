@@ -61,6 +61,16 @@ export interface SponsorMessage {
   created_at?: string;
 }
 
+export interface TorneoMessage {
+  id?: number;
+  torneo_id: number;
+  user_id: string;
+  user_name: string;
+  content: string;
+  type: "sys" | "msg";
+  created_at?: string;
+}
+
 export interface Milestone {
   id: number;
   phase: string;

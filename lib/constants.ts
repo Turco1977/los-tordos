@@ -420,6 +420,10 @@ export const TN_BUDGET_RUBROS=[
   "Eventos sociales","Logística","Merchandising","Imprevistos (10%)",
 ];
 
+export const TN_INCOME_RUBROS=[
+  "Inscripción clubes","Sponsors / Auspicios","Venta de entradas","Merchandising","Gastronomía / Bar","Otros ingresos",
+];
+
 /* Budget item helpers for hierarchical structure */
 export const newBudgetItem=(nombre:string)=>({nombre,estimado:0,real:0,notas:"",subs:[] as string[]});
 export const newBudgetRubro=(rubro:string)=>({rubro,estimado:0,real:0,notas:"",items:[] as any[]});
