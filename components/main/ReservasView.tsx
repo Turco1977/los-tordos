@@ -27,28 +27,26 @@ const WEEKS_AHEAD=12;
 
 const getMonday=(dt:Date)=>{const d=new Date(dt);const day=d.getDay();const diff=d.getDate()-day+(day===0?-6:1);d.setDate(diff);return d;};
 const addDays=(dt:Date,n:number)=>{const d=new Date(dt);d.setDate(d.getDate()+n);return d;};
-const dateISO=(dt:Date)=>dt.toISOString().slice(0,10);
+const dateISO=(dt:Date)=>{const y=dt.getFullYear();const m=String(dt.getMonth()+1).padStart(2,"0");const d=String(dt.getDate()).padStart(2,"0");return y+"-"+m+"-"+d;};
 const timeToMin=(t:string)=>{const [h,m]=t.split(":").map(Number);return h*60+(m||0);};
 const overlap=(a0:string,a1:string,b0:string,b1:string)=>timeToMin(a0)<timeToMin(b1)&&timeToMin(b0)<timeToMin(a1);
 
+const parseLocalDate=(s:string)=>{const [y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d);};
 const generateDates=(startDate:string,rec:string,recDays?:number[])=>{
   if(rec==="none") return [startDate];
-  const start=new Date(startDate);
+  const start=parseLocalDate(startDate);
   if(rec==="semanal"&&recDays&&recDays.length>0){
-    // Generate dates for selected weekdays over WEEKS_AHEAD weeks
     const dates:string[]=[];
     for(let w=0;w<WEEKS_AHEAD;w++){
       for(const dayNum of recDays){
         const d=new Date(start);
         d.setDate(d.getDate()+w*7);
-        // Align to the correct day of week
         const curr=d.getDay();
         const diff=dayNum-curr;
         d.setDate(d.getDate()+diff);
         if(d>=start) dates.push(dateISO(d));
       }
     }
-    // Deduplicate and sort
     return [...new Set(dates)].sort();
   }
   const dates=[startDate];
