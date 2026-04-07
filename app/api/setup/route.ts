@@ -299,6 +299,24 @@ CREATE POLICY project_budgets_all ON project_budgets FOR ALL USING (true) WITH C
     });
   }
 
+  const { error: eProjMsg } = await admin.from("project_messages").select("id").limit(1);
+  if (isMissing(eProjMsg)) {
+    missing.push({
+      table: "project_messages",
+      sql: `CREATE TABLE project_messages (
+  id SERIAL PRIMARY KEY,
+  project_id INT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL,
+  user_name TEXT DEFAULT '',
+  content TEXT NOT NULL DEFAULT '',
+  type TEXT DEFAULT 'msg',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE project_messages ENABLE ROW LEVEL SECURITY;
+CREATE POLICY project_messages_all ON project_messages FOR ALL USING (true) WITH CHECK (true);`,
+    });
+  }
+
   // Check if inventory table needs new columns (v2 upgrade)
   const { error: eInvCol } = await admin.from("inventory").select("item_type").limit(1);
   if (eInvCol && eInvCol.code === "42703") {
