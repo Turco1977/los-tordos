@@ -200,6 +200,8 @@ export function useDataFetch(
             ...(b3tmsg.data ? { torneoMsgs: b3tmsg.data } : {}),
             ...(b3pmsg.data ? { projMsgs: b3pmsg.data } : {}),
           });
+          // Auto-create missing tables (project_messages, etc.)
+          if (b3pmsg.error && b3pmsg.error.code === "42P01") { fetch("/api/setup").catch(() => {}); }
           saveToCache({
             inventory: b3inv.data || [], inventory_maintenance: b3im.data || [],
             inventory_distributions: b3id.data || [], sponsors: b3sp.data || [],
