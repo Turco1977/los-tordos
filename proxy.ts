@@ -26,7 +26,7 @@ setInterval(() => {
 }, 300_000);
 
 /* ── Routes that skip auth ── */
-const PUBLIC_PATHS = new Set(["/api/cron/daily-summary", "/api/parse-excel"]);
+const PUBLIC_PATHS = new Set(["/api/cron/daily-summary", "/api/parse-excel", "/api/setup", "/api/fix-bookings"]);
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
