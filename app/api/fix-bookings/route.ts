@@ -17,7 +17,7 @@ async function fix() {
 
     const { data: allBookings, error: fetchErr } = await admin
       .from("bookings")
-      .select("id, date, title, space_id, start_time")
+      .select("id, date, title, start_time")
       .gte("date", todayStr)
       .order("date");
 
