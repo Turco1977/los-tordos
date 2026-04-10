@@ -48,12 +48,15 @@ export async function PUT(req: NextRequest) {
   }
   const { admin } = auth;
 
-  const { userId, email } = await req.json();
-  if (!userId || !email) {
+  const { userId, email, password } = await req.json();
+  if (!userId || (!email && !password)) {
     return NextResponse.json({ error: "Faltan campos" }, { status: 400 });
   }
 
-  const { error } = await admin.auth.admin.updateUserById(userId, { email });
+  const updateData: any = {};
+  if (email) updateData.email = email;
+  if (password) updateData.password = password;
+  const { error } = await admin.auth.admin.updateUserById(userId, updateData);
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
