@@ -4,7 +4,7 @@ import { verifyAdmin } from "@/lib/api/auth";
 
 export async function POST(req: NextRequest) {
   const auth = await verifyAdmin(req);
-  if (auth.error) return NextResponse.json({ error: auth.error }, { status: auth.status });
+  if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const { userId, role } = await req.json();
   if (!userId || !role) return NextResponse.json({ error: "Faltan userId y role" }, { status: 400 });
