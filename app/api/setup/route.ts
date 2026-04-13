@@ -426,6 +426,15 @@ CREATE POLICY dep_cuotas_all ON dep_cuotas FOR ALL USING (true) WITH CHECK (true
     });
   }
 
+  // Check projects.log column (chat)
+  const { error: eProjLog } = await admin.from("projects").select("log").limit(1);
+  if (eProjLog && eProjLog.code === "42703") {
+    missing.push({
+      table: "projects (ALTER log)",
+      sql: `ALTER TABLE projects ADD COLUMN IF NOT EXISTS log JSONB DEFAULT '[]'::jsonb;`,
+    });
+  }
+
   // Check archivos.titulo column
   const { error: eArchTit } = await admin.from("archivos").select("titulo").limit(1);
   if (eArchTit && eArchTit.code === "42703") {

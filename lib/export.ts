@@ -482,6 +482,15 @@ export async function exportProjectPDF(project: ProjectInfo, formData: any, budg
   // Max options count across all budgets
   const maxOpts = budgets.reduce((mx, b) => Math.max(mx, (b.options || []).length), 0);
 
+  // Compute summary stats
+  const overdueTasks = tasks.filter(t => t.due_date && t.status !== "done" && t.due_date < new Date().toISOString().slice(0, 10));
+  const byStatus: Record<string, number> = {};
+  tasks.forEach(t => { byStatus[t.status] = (byStatus[t.status] || 0) + 1; });
+  const byAssignee: Record<string, { total: number; done: number }> = {};
+  tasks.forEach(t => { const n = t.assignee_name || "Sin asignar"; if (!byAssignee[n]) byAssignee[n] = { total: 0, done: 0 }; byAssignee[n].total++; if (t.status === "done") byAssignee[n].done++; });
+  const totalBudgetMin = budgets.reduce((s, b) => { const opts = b.options || []; const amounts = opts.map((o: any) => Number(o.amount) || 0).filter((a: number) => a > 0); return s + (amounts.length ? Math.min(...amounts) : 0); }, 0);
+  const totalBudgetMax = budgets.reduce((s, b) => { const opts = b.options || []; const amounts = opts.map((o: any) => Number(o.amount) || 0).filter((a: number) => a > 0); return s + (amounts.length ? Math.max(...amounts) : 0); }, 0);
+
   const html = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:12px;color:#1a1a1a;line-height:1.5;padding:10px;">
 <div style="text-align:center;border-bottom:3px solid #0A1628;padding-bottom:12px;margin-bottom:16px;">
   <div style="font-size:10px;color:#999;text-transform:uppercase;letter-spacing:1px;">Los Tordos Rugby Club</div>
@@ -490,8 +499,67 @@ export async function exportProjectPDF(project: ProjectInfo, formData: any, budg
   ${project.created_by_name ? `<div style="font-size:10px;color:#888;margin-top:2px;">Creado por: ${esc(project.created_by_name)}</div>` : ""}
 </div>
 
-<!-- PROPUESTA -->
-<h2 style="font-size:14px;color:#0A1628;border-bottom:2px solid #0A1628;padding-bottom:4px;margin:16px 0 10px;">PROPUESTA</h2>
+<!-- RESUMEN EJECUTIVO -->
+<div style="background:#F0F4FF;border:1px solid #BFDBFE;border-radius:8px;padding:14px;margin-bottom:16px;">
+  <h2 style="font-size:14px;color:#1E40AF;margin:0 0 10px;border:none;">RESUMEN EJECUTIVO</h2>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;">
+    <div style="flex:1;min-width:120px;background:#fff;border-radius:6px;padding:10px;text-align:center;border:1px solid #E5E7EB;">
+      <div style="font-size:22px;font-weight:800;color:#0A1628;">${progress.pct}%</div>
+      <div style="font-size:9px;color:#666;text-transform:uppercase;">Avance</div>
+    </div>
+    <div style="flex:1;min-width:120px;background:#fff;border-radius:6px;padding:10px;text-align:center;border:1px solid #E5E7EB;">
+      <div style="font-size:22px;font-weight:800;color:#0A1628;">${progress.done}/${progress.total}</div>
+      <div style="font-size:9px;color:#666;text-transform:uppercase;">Tareas completadas</div>
+    </div>
+    <div style="flex:1;min-width:120px;background:#fff;border-radius:6px;padding:10px;text-align:center;border:1px solid ${overdueTasks.length ? "#FCA5A5" : "#E5E7EB"};">
+      <div style="font-size:22px;font-weight:800;color:${overdueTasks.length ? "#DC2626" : "#0A1628"};">${overdueTasks.length}</div>
+      <div style="font-size:9px;color:#666;text-transform:uppercase;">Tareas vencidas</div>
+    </div>
+    <div style="flex:1;min-width:120px;background:#fff;border-radius:6px;padding:10px;text-align:center;border:1px solid #E5E7EB;">
+      <div style="font-size:22px;font-weight:800;color:#0A1628;">${budgets.length}</div>
+      <div style="font-size:9px;color:#666;text-transform:uppercase;">Presupuestos</div>
+    </div>
+  </div>
+  ${totalBudgetMin > 0 ? `<div style="margin-top:10px;font-size:11px;color:#1E40AF;font-weight:600;">Rango presupuestario: $${fmtN(totalBudgetMin)}${totalBudgetMax !== totalBudgetMin ? " – $" + fmtN(totalBudgetMax) : ""}</div>` : ""}
+  ${formData.responsable ? `<div style="margin-top:4px;font-size:11px;color:#333;">Responsable: <strong>${esc(formData.responsable)}</strong>${formData.equipo ? " · Equipo: " + esc(formData.equipo) : ""}</div>` : ""}
+  ${formData.eje ? `<div style="margin-top:2px;font-size:11px;color:#333;">Eje estratégico: <strong>${esc(formData.eje)}</strong></div>` : ""}
+</div>
+
+${formData.obj_lograr || formData.descripcion ? `<!-- OBJETIVO Y DESCRIPCIÓN -->
+<div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:14px;margin-bottom:16px;">
+  ${formData.obj_lograr ? `<div style="margin-bottom:6px;"><span style="font-size:10px;font-weight:700;color:#065F46;text-transform:uppercase;">Objetivo</span><div style="font-size:12px;color:#333;margin-top:2px;">${esc(formData.obj_lograr)}</div></div>` : ""}
+  ${formData.obj_beneficio ? `<div style="margin-bottom:6px;"><span style="font-size:10px;font-weight:700;color:#065F46;text-transform:uppercase;">Beneficio para el club</span><div style="font-size:12px;color:#333;margin-top:2px;">${esc(formData.obj_beneficio)}</div></div>` : ""}
+  ${formData.descripcion ? `<div><span style="font-size:10px;font-weight:700;color:#065F46;text-transform:uppercase;">Descripción</span><div style="font-size:12px;color:#333;margin-top:2px;white-space:pre-wrap;">${esc(formData.descripcion)}</div></div>` : ""}
+</div>` : ""}
+
+<!-- TAREAS -->
+${tasks.length ? `<h2 style="font-size:14px;color:#0A1628;border-bottom:2px solid #0A1628;padding-bottom:4px;margin:16px 0 10px;">TAREAS (${progress.done}/${progress.total} completadas — ${progress.pct}%)</h2>
+<div style="margin-bottom:8px;"><div style="height:8px;border-radius:4px;background:#e5e5e5;overflow:hidden;"><div style="height:100%;width:${progress.pct}%;border-radius:4px;background:${progress.pct === 100 ? "#10B981" : "#3B82F6"};"></div></div></div>
+${overdueTasks.length ? `<div style="background:#FEF2F2;border:1px solid #FCA5A5;border-radius:6px;padding:8px 10px;margin-bottom:8px;font-size:11px;color:#DC2626;font-weight:600;">⚠️ ${overdueTasks.length} tarea${overdueTasks.length > 1 ? "s" : ""} vencida${overdueTasks.length > 1 ? "s" : ""}: ${overdueTasks.map(t => esc(t.title) + " (vence " + fmtD(t.due_date || "") + ")").join(", ")}</div>` : ""}
+<table style="width:100%;border-collapse:collapse;font-size:11px;">
+<thead><tr><th style="background:#0A1628;color:#fff;padding:5px 8px;text-align:left;font-size:10px;">#</th><th style="background:#0A1628;color:#fff;padding:5px 8px;text-align:left;font-size:10px;">Título</th><th style="background:#0A1628;color:#fff;padding:5px 8px;text-align:left;font-size:10px;">Estado</th><th style="background:#0A1628;color:#fff;padding:5px 8px;text-align:left;font-size:10px;">Prioridad</th><th style="background:#0A1628;color:#fff;padding:5px 8px;text-align:left;font-size:10px;">Asignado</th><th style="background:#0A1628;color:#fff;padding:5px 8px;text-align:left;font-size:10px;">Vence</th></tr></thead>
+<tbody>${tasks.map((t, i) => { const isOD = t.due_date && t.status !== "done" && t.due_date < new Date().toISOString().slice(0, 10); return `<tr style="background:${isOD ? "#FEF2F2" : i % 2 ? "#f9f9f9" : "#fff"}"><td style="padding:4px 8px;border-bottom:1px solid #e5e5e5;">${i + 1}</td><td style="padding:4px 8px;border-bottom:1px solid #e5e5e5;${isOD ? "color:#DC2626;font-weight:600;" : ""}">${esc(t.title)}</td><td style="padding:4px 8px;border-bottom:1px solid #e5e5e5;">${esc(PJ_ST_LABELS[t.status] || t.status)}</td><td style="padding:4px 8px;border-bottom:1px solid #e5e5e5;">${esc(PJ_PR_LABELS[t.priority] || t.priority)}</td><td style="padding:4px 8px;border-bottom:1px solid #e5e5e5;">${esc(t.assignee_name || "–")}</td><td style="padding:4px 8px;border-bottom:1px solid #e5e5e5;${isOD ? "color:#DC2626;font-weight:600;" : ""}">${fmtD(t.due_date || "")}</td></tr>`; }).join("")}</tbody></table>
+${Object.keys(byAssignee).length > 1 ? `<div style="margin-top:10px;"><div style="font-size:10px;font-weight:700;color:#666;text-transform:uppercase;margin-bottom:4px;">Carga por responsable</div>${Object.entries(byAssignee).map(([name, s]) => `<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;"><span style="font-size:10px;min-width:100px;">${esc(name)}</span><div style="flex:1;height:6px;border-radius:3px;background:#e5e5e5;overflow:hidden;"><div style="height:100%;width:${s.total ? Math.round(s.done / s.total * 100) : 0}%;border-radius:3px;background:${s.done === s.total ? "#10B981" : "#3B82F6"};"></div></div><span style="font-size:9px;color:#666;min-width:30px;text-align:right;">${s.done}/${s.total}</span></div>`).join("")}</div>` : ""}` : `<div style="margin:16px 0;padding:12px;background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;text-align:center;font-size:12px;color:#6B7280;">Este proyecto no tiene tareas asignadas aún.</div>`}
+
+<!-- PRESUPUESTOS -->
+${budgets.length ? `<h2 style="font-size:14px;color:#0A1628;border-bottom:2px solid #0A1628;padding-bottom:4px;margin:16px 0 10px;">PRESUPUESTOS (${budgets.length})</h2>
+<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:16px;">
+<thead><tr><th style="background:#0A1628;color:#fff;padding:5px 8px;text-align:left;font-size:10px;">Proveedor</th>${Array.from({ length: maxOpts }, (_, i) => `<th style="background:#0A1628;color:#fff;padding:5px 8px;text-align:right;font-size:10px;">Opción ${i + 1}</th>`).join("")}</tr></thead>
+<tbody>${budgets.map((b, bi) => {
+    const opts = b.options || [];
+    return `<tr style="background:${bi % 2 ? "#f9f9f9" : "#fff"}"><td style="padding:5px 8px;border-bottom:1px solid #e5e5e5;font-weight:600;">${esc(b.provider)}</td>${Array.from({ length: maxOpts }, (_, i) => {
+      const opt = opts[i];
+      const amt = opt ? opt.amount : 0;
+      const colAmts = budgets.map(bb => (bb.options || [])[i]?.amount || 0).filter(a => a > 0);
+      const isMin = colAmts.length > 1 && amt > 0 && amt === Math.min(...colAmts);
+      const cur = opt?.currency === "USD" ? "US$" : "$";
+      return `<td style="padding:5px 8px;border-bottom:1px solid #e5e5e5;text-align:right;${isMin ? "background:#D1FAE5;color:#065F46;font-weight:700;" : ""}">${opt && amt ? cur + fmtN(amt) : "–"}</td>`;
+    }).join("")}</tr>`;
+  }).join("")}</tbody></table>
+${totalBudgetMin > 0 ? `<div style="font-size:11px;font-weight:600;color:#0A1628;margin-bottom:8px;">Total estimado: $${fmtN(totalBudgetMin)}${totalBudgetMax !== totalBudgetMin ? " – $" + fmtN(totalBudgetMax) : ""}</div>` : ""}` : ""}
+
+<!-- PROPUESTA COMPLETA -->
+<h2 style="font-size:14px;color:#0A1628;border-bottom:2px solid #0A1628;padding-bottom:4px;margin:16px 0 10px;">PROPUESTA COMPLETA</h2>
 ${sectionField("Nombre", formData.nombre)}
 ${sectionField("Responsable", formData.responsable)}
 ${sectionField("Equipo inicial", formData.equipo)}
@@ -508,30 +576,6 @@ ${sectionField("Infraestructura / equipamiento", formData.rec_infra)}
 ${sectionField("¿Qué puede salir mal?", formData.riesgo_mal)}
 ${sectionField("Clave para que funcione", formData.riesgo_clave)}
 ${sectionField("Entregables esperados", formData.entregables)}
-
-<!-- PRESUPUESTOS -->
-${budgets.length ? `<h2 style="font-size:14px;color:#0A1628;border-bottom:2px solid #0A1628;padding-bottom:4px;margin:16px 0 10px;">PRESUPUESTOS (${budgets.length})</h2>
-<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:16px;">
-<thead><tr><th style="background:#0A1628;color:#fff;padding:5px 8px;text-align:left;font-size:10px;">Proveedor</th>${Array.from({ length: maxOpts }, (_, i) => `<th style="background:#0A1628;color:#fff;padding:5px 8px;text-align:right;font-size:10px;">Opción ${i + 1}</th>`).join("")}</tr></thead>
-<tbody>${budgets.map((b, bi) => {
-    const opts = b.options || [];
-    return `<tr style="background:${bi % 2 ? "#f9f9f9" : "#fff"}"><td style="padding:5px 8px;border-bottom:1px solid #e5e5e5;font-weight:600;">${esc(b.provider)}</td>${Array.from({ length: maxOpts }, (_, i) => {
-      const opt = opts[i];
-      const amt = opt ? opt.amount : 0;
-      // Find min for this column
-      const colAmts = budgets.map(bb => (bb.options || [])[i]?.amount || 0).filter(a => a > 0);
-      const isMin = colAmts.length > 1 && amt > 0 && amt === Math.min(...colAmts);
-      const cur = opt?.currency === "USD" ? "US$" : "$";
-      return `<td style="padding:5px 8px;border-bottom:1px solid #e5e5e5;text-align:right;${isMin ? "background:#D1FAE5;color:#065F46;font-weight:700;" : ""}">${opt && amt ? cur + fmtN(amt) : "–"}</td>`;
-    }).join("")}</tr>`;
-  }).join("")}</tbody></table>` : ""}
-
-<!-- TAREAS -->
-${tasks.length ? `<h2 style="font-size:14px;color:#0A1628;border-bottom:2px solid #0A1628;padding-bottom:4px;margin:16px 0 10px;">TAREAS (${progress.done}/${progress.total} completadas — ${progress.pct}%)</h2>
-<div style="margin-bottom:8px;"><div style="height:8px;border-radius:4px;background:#e5e5e5;overflow:hidden;"><div style="height:100%;width:${progress.pct}%;border-radius:4px;background:${progress.pct === 100 ? "#10B981" : "#3B82F6"};"></div></div></div>
-<table style="width:100%;border-collapse:collapse;font-size:11px;">
-<thead><tr><th style="background:#0A1628;color:#fff;padding:5px 8px;text-align:left;font-size:10px;">#</th><th style="background:#0A1628;color:#fff;padding:5px 8px;text-align:left;font-size:10px;">Título</th><th style="background:#0A1628;color:#fff;padding:5px 8px;text-align:left;font-size:10px;">Estado</th><th style="background:#0A1628;color:#fff;padding:5px 8px;text-align:left;font-size:10px;">Prioridad</th><th style="background:#0A1628;color:#fff;padding:5px 8px;text-align:left;font-size:10px;">Asignado</th><th style="background:#0A1628;color:#fff;padding:5px 8px;text-align:left;font-size:10px;">Vence</th></tr></thead>
-<tbody>${tasks.map((t, i) => `<tr style="background:${i % 2 ? "#f9f9f9" : "#fff"}"><td style="padding:4px 8px;border-bottom:1px solid #e5e5e5;">${i + 1}</td><td style="padding:4px 8px;border-bottom:1px solid #e5e5e5;">${esc(t.title)}</td><td style="padding:4px 8px;border-bottom:1px solid #e5e5e5;">${esc(PJ_ST_LABELS[t.status] || t.status)}</td><td style="padding:4px 8px;border-bottom:1px solid #e5e5e5;">${esc(PJ_PR_LABELS[t.priority] || t.priority)}</td><td style="padding:4px 8px;border-bottom:1px solid #e5e5e5;">${esc(t.assignee_name || "–")}</td><td style="padding:4px 8px;border-bottom:1px solid #e5e5e5;">${fmtD(t.due_date || "")}</td></tr>`).join("")}</tbody></table>` : ""}
 
 <div style="margin-top:20px;text-align:center;font-size:9px;color:#999;border-top:1px solid #e5e5e5;padding-top:8px;">Los Tordos Rugby Club · Generado: ${new Date().toLocaleDateString("es-AR")} ${new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}</div>
 </div>`;
