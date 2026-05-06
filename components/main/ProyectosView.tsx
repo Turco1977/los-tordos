@@ -6,7 +6,7 @@ import { UserPicker, FileField } from "@/components/ui";
 import { exportProjectPDF } from "@/lib/export";
 import { useDataStore } from "@/lib/store";
 import { MentionInput, renderMentions } from "@/components/MentionInput";
-import { Thread } from "./Thread";
+import { Thread } from "@/components/main/Thread";
 
 const PJ_EJES=["Deportivo","Social","Institucional","Infraestructura"];
 const PJ_STATUS:{[k:string]:{l:string;c:string;bg:string}}={borrador:{l:"Borrador",c:"#6B7280",bg:"#F3F4F6"},enviado:{l:"Enviado",c:"#3B82F6",bg:"#DBEAFE"},aprobado:{l:"Aprobado",c:"#10B981",bg:"#D1FAE5"},rechazado:{l:"Rechazado",c:"#DC2626",bg:"#FEE2E2"}};
@@ -23,6 +23,7 @@ export function ProyectosView({user,mob,onAddProject,onUpdProject,onDelProject,o
   const projects = filteredProjects || allProjects;
   const projTasks = useDataStore(s => s.projTasks);
   const projBudgets = useDataStore(s => s.projBudgets);
+  const projMsgs = useDataStore(s => s.projMsgs);
   const users = useDataStore(s => s.users);
   const{colors,isDark,cardBg}=useC();
   const [mode,sMode]=useState<"list"|"form"|"view">("list");
@@ -30,7 +31,7 @@ export function ProyectosView({user,mob,onAddProject,onUpdProject,onDelProject,o
   const [form,sForm]=useState(emptyForm());
   const [editing,sEditing]=useState(false);
   const [formErr,sFormErr]=useState("");
-  const [viewTab,sViewTab]=useState<"chat"|"tareas"|"presupuestos"|"propuesta">("tareas");
+  const [viewTab,sViewTab]=useState<"tareas"|"presupuestos"|"propuesta"|"discusion">("tareas");
   const [taskForm,sTaskForm]=useState<any>(null);
   const [editTask,sEditTask]=useState<any>(null);
   const [taskSearch,sTaskSearch]=useState("");
@@ -75,45 +76,79 @@ export function ProyectosView({user,mob,onAddProject,onUpdProject,onDelProject,o
     return ts;
   })();
 
-  // ── List ──
-  if(mode==="list") return(<div style={{maxWidth:900}}>
+  // ── Kanban columns config ──
+  const KANBAN_COLS:[string,{l:string;c:string;bg:string;border:string;icon:string}][]=[
+    ["enviado",{l:"Pendientes",c:"#3B82F6",bg:"#DBEAFE",border:"#93C5FD",icon:"📨"}],
+    ["aprobado",{l:"Aprobados",c:"#059669",bg:"#D1FAE5",border:"#6EE7B7",icon:"✅"}],
+    ["rechazado",{l:"Rechazados",c:"#DC2626",bg:"#FEE2E2",border:"#FCA5A5",icon:"❌"}],
+    ["borrador",{l:"Borradores",c:"#6B7280",bg:"#F3F4F6",border:"#D1D5DB",icon:"📝"}],
+  ];
+  const projectsByStatus=(status:string)=>projects.filter((p:any)=>(p.status||"borrador")===status);
+
+  // ── List (Kanban) ──
+  if(mode==="list") return(<div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
       <div><h2 style={{margin:0,fontSize:mob?16:19,fontWeight:800,color:colors.nv}}>📋 Proyectos</h2><p style={{color:colors.g4,fontSize:12,margin:"2px 0 0"}}>Modelo de Presentación de Proyectos · Plan 2035</p></div>
       <button onClick={()=>{sForm(emptyForm());sEditing(false);sMode("form");}} style={{padding:"7px 14px",borderRadius:8,border:"none",background:colors.nv,color:isDark?"#0F172A":"#fff",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ Nuevo Proyecto</button>
     </div>
     {projects.length===0&&<div style={{background:cardBg,borderRadius:14,padding:32,textAlign:"center" as const,border:"1px solid "+colors.g2}}><div style={{fontSize:32,marginBottom:8}}>📋</div><div style={{fontSize:13,color:colors.g4,marginBottom:4}}>No hay proyectos presentados aún.</div><div style={{fontSize:11,color:colors.g4}}>Usá el botón "+ Nuevo Proyecto" para crear tu primera propuesta.</div></div>}
-    <div style={{display:"grid",gridTemplateColumns:mob?"1fr":"repeat(auto-fill,minmax(320px,1fr))",gap:12}}>
-      {projects.map((p:any)=>{const fd=parseFormData(p.description);const st=PJ_STATUS[p.status]||PJ_STATUS.borrador;const prog=taskProgress(p.id);return(<div key={p.id} onClick={()=>{sSelProj(p);sViewTab("tareas");sMode("view");}} style={{background:cardBg,borderRadius:14,padding:16,border:"1px solid "+colors.g2,cursor:"pointer",boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"start",marginBottom:6}}>
-          <div style={{flex:1,minWidth:0}}>
-            <div style={{fontSize:14,fontWeight:700,color:colors.nv,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>{p.name||"Sin nombre"}</div>
-            {fd.responsable&&<div style={{fontSize:11,color:colors.g5,marginTop:2}}>👤 {fd.responsable}</div>}
+    {/* Kanban Board */}
+    {projects.length>0&&(mob?
+      /* Mobile: stacked columns */
+      <div style={{display:"flex",flexDirection:"column" as const,gap:16}}>
+        {KANBAN_COLS.map(([status,cfg])=>{const items=projectsByStatus(status);if(!items.length)return null;return(<div key={status}>
+          <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
+            <span style={{fontSize:14}}>{cfg.icon}</span>
+            <span style={{fontSize:13,fontWeight:800,color:cfg.c}}>{cfg.l}</span>
+            <span style={{fontSize:10,fontWeight:700,background:cfg.bg,color:cfg.c,padding:"1px 7px",borderRadius:10}}>{items.length}</span>
           </div>
-          <div style={{display:"flex",flexDirection:"column" as const,alignItems:"flex-end",gap:4,flexShrink:0,marginLeft:8}}>
-            <span style={{fontSize:9,fontWeight:700,padding:"2px 8px",borderRadius:10,background:st.bg,color:st.c}}>{st.l}</span>
-            {prog.pct===100&&prog.total>0&&<span style={{fontSize:8,fontWeight:700,padding:"2px 6px",borderRadius:8,background:"#D1FAE5",color:"#059669"}}>COMPLETE</span>}
+          <div style={{display:"flex",flexDirection:"column" as const,gap:8}}>
+            {items.map((p:any)=>{const fd=parseFormData(p.description);const prog=taskProgress(p.id);return(<div key={p.id} onClick={()=>{sSelProj(p);sViewTab("propuesta");sMode("view");}} style={{background:cardBg,borderRadius:12,padding:12,border:"2px solid "+cfg.border,cursor:"pointer",boxShadow:"0 1px 4px rgba(0,0,0,.06)"}}>
+              <div style={{fontSize:13,fontWeight:700,color:colors.nv,marginBottom:4}}>{p.name||"Sin nombre"}</div>
+              {fd.responsable&&<div style={{fontSize:10,color:colors.g5,marginBottom:4}}>👤 {fd.responsable}</div>}
+              {fd.eje&&<span style={{fontSize:9,padding:"2px 7px",borderRadius:8,background:colors.g2,color:colors.nv,fontWeight:600}}>{fd.eje}</span>}
+              {fd.descripcion&&<div style={{fontSize:10,color:colors.g5,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical" as const,marginTop:4}}>{renderMentions(fd.descripcion)}</div>}
+              {prog.total>0&&<div style={{marginTop:6}}><div style={{display:"flex",justifyContent:"space-between",fontSize:8,color:colors.g4,marginBottom:2}}><span>{prog.done}/{prog.total} tareas</span><span>{prog.pct}%</span></div><div style={{height:3,borderRadius:2,background:colors.g2,overflow:"hidden"}}><div style={{height:"100%",width:prog.pct+"%",borderRadius:2,background:prog.pct===100?"#10B981":"#3B82F6",transition:"width .3s"}}/></div></div>}
+              <div style={{fontSize:8,color:colors.g4,marginTop:4}}>Por {p.created_by_name||"\u2014"} · {p.created_at?.slice(0,10)}</div>
+            </div>);})}
           </div>
-        </div>
-        <div style={{display:"flex",gap:4,flexWrap:"wrap" as const,marginBottom:6}}>
-          {fd.eje&&<span style={{fontSize:9,padding:"2px 7px",borderRadius:8,background:colors.g2,color:colors.nv,fontWeight:600}}>{fd.eje}</span>}
-        </div>
-        {fd.descripcion&&<div style={{fontSize:11,color:colors.g5,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical" as const,marginBottom:6}}>{renderMentions(fd.descripcion)}</div>}
-        {/* Progress bar */}
-        {prog.total>0&&<div style={{marginBottom:4}}>
-          <div style={{display:"flex",justifyContent:"space-between",fontSize:9,color:colors.g4,marginBottom:2}}>
-            <span>{prog.done}/{prog.total} tareas</span><span>{prog.pct}%</span>
+        </div>);})}
+      </div>
+      :
+      /* Desktop: horizontal Kanban */
+      <div style={{display:"grid",gridTemplateColumns:"repeat("+KANBAN_COLS.length+",1fr)",gap:12,alignItems:"start"}}>
+        {KANBAN_COLS.map(([status,cfg])=>{const items=projectsByStatus(status);return(<div key={status} style={{background:isDark?"rgba(255,255,255,.03)":cfg.bg+"40",borderRadius:14,padding:10,minHeight:200,border:"1px solid "+(isDark?colors.g2:cfg.border+"60")}}>
+          {/* Column header */}
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10,padding:"4px 6px"}}>
+            <div style={{display:"flex",alignItems:"center",gap:5}}>
+              <span style={{fontSize:14}}>{cfg.icon}</span>
+              <span style={{fontSize:12,fontWeight:800,color:cfg.c}}>{cfg.l}</span>
+            </div>
+            <span style={{fontSize:10,fontWeight:700,background:cfg.bg,color:cfg.c,padding:"2px 8px",borderRadius:10,minWidth:20,textAlign:"center" as const}}>{items.length}</span>
           </div>
-          <div style={{height:4,borderRadius:2,background:colors.g2,overflow:"hidden"}}>
-            <div style={{height:"100%",width:prog.pct+"%",borderRadius:2,background:prog.pct===100?"#10B981":"#3B82F6",transition:"width .3s"}}/>
+          {/* Cards */}
+          <div style={{display:"flex",flexDirection:"column" as const,gap:8}}>
+            {items.map((p:any)=>{const fd=parseFormData(p.description);const prog=taskProgress(p.id);const projVotosK:any[]=Array.isArray(p.votos)?p.votos:(()=>{try{return JSON.parse(p.votos)||[];}catch{return[];}})();const votosAproK=projVotosK.filter((v:any)=>v.vote==="aprobar").length;const votosRechK=projVotosK.filter((v:any)=>v.vote==="rechazar").length;return(<div key={p.id} onClick={()=>{sSelProj(p);sViewTab("propuesta");sMode("view");}} style={{background:cardBg,borderRadius:10,padding:12,cursor:"pointer",boxShadow:"0 1px 3px rgba(0,0,0,.06)",border:"1px solid "+colors.g2,transition:"transform .15s,box-shadow .15s"}} onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.transform="translateY(-1px)";(e.currentTarget as HTMLElement).style.boxShadow="0 3px 8px rgba(0,0,0,.1)";}} onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.transform="none";(e.currentTarget as HTMLElement).style.boxShadow="0 1px 3px rgba(0,0,0,.06)";}}>
+              <div style={{fontSize:12,fontWeight:700,color:colors.nv,marginBottom:3,lineHeight:1.3}}>{p.name||"Sin nombre"}</div>
+              {fd.responsable&&<div style={{fontSize:10,color:colors.g5,marginBottom:3}}>👤 {fd.responsable}</div>}
+              <div style={{display:"flex",gap:3,flexWrap:"wrap" as const,marginBottom:4}}>
+                {fd.eje&&<span style={{fontSize:8,padding:"1px 6px",borderRadius:6,background:colors.g2,color:colors.nv,fontWeight:600}}>{fd.eje}</span>}
+              </div>
+              {fd.descripcion&&<div style={{fontSize:10,color:colors.g5,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical" as const,marginBottom:4,lineHeight:1.3}}>{renderMentions(fd.descripcion)}</div>}
+              {/* Voting info for enviado */}
+              {status==="enviado"&&projVotosK.length>0&&<div style={{display:"flex",gap:4,alignItems:"center",marginBottom:4}}>
+                <span style={{fontSize:9,fontWeight:600,color:"#059669"}}>✅ {votosAproK}</span>
+                <span style={{fontSize:9,fontWeight:600,color:"#DC2626"}}>❌ {votosRechK}</span>
+                <span style={{fontSize:8,color:colors.g4}}>/ 5 necesarios</span>
+              </div>}
+              {prog.total>0&&<div style={{marginBottom:2}}><div style={{display:"flex",justifyContent:"space-between",fontSize:8,color:colors.g4,marginBottom:2}}><span>{prog.done}/{prog.total}</span><span>{prog.pct}%</span></div><div style={{height:3,borderRadius:2,background:colors.g2,overflow:"hidden"}}><div style={{height:"100%",width:prog.pct+"%",borderRadius:2,background:prog.pct===100?"#10B981":"#3B82F6",transition:"width .3s"}}/></div></div>}
+              <div style={{fontSize:8,color:colors.g4,marginTop:3}}>Por {p.created_by_name||"\u2014"} · {p.created_at?.slice(0,10)}</div>
+            </div>);})}
+            {items.length===0&&<div style={{textAlign:"center" as const,padding:"20px 8px",color:colors.g4,fontSize:11}}>Sin proyectos</div>}
           </div>
-        </div>}
-        {/* Status summary pills */}
-        {prog.total>0&&<div style={{display:"flex",gap:3,flexWrap:"wrap" as const,marginTop:4}}>
-          {COLS.map(col=>{const cnt=projTasksFor(p.id).filter((t:any)=>t.status===col).length;return cnt>0?<span key={col} style={{fontSize:8,padding:"1px 5px",borderRadius:6,background:PJ_ST[col].bg,color:PJ_ST[col].c,fontWeight:600}}>{PJ_ST[col].i} {cnt}</span>:null;})}
-        </div>}
-        <div style={{fontSize:9,color:colors.g4,marginTop:6}}>Por {p.created_by_name||"\u2014"} · {p.created_at?.slice(0,10)}</div>
-      </div>);})}
-    </div>
+        </div>);})}
+      </div>
+    )}
   </div>);
 
   // ── Form (create / edit) ──
@@ -258,13 +293,8 @@ export function ProyectosView({user,mob,onAddProject,onUpdProject,onDelProject,o
 
     {/* Tabs */}
     <div style={{display:"flex",gap:2,marginBottom:12,overflowX:"auto" as const}}>
-      {(["chat","tareas","presupuestos","propuesta"] as const).map(tab=><button key={tab} onClick={()=>sViewTab(tab)} style={{padding:"7px 16px",borderRadius:"8px 8px 0 0",border:"1px solid "+colors.g2,borderBottom:viewTab===tab?"2px solid "+colors.nv:"1px solid "+colors.g2,background:viewTab===tab?cardBg:"transparent",fontSize:12,fontWeight:viewTab===tab?700:500,color:viewTab===tab?colors.nv:colors.g4,cursor:"pointer",whiteSpace:"nowrap" as const}}>{tab==="chat"?"💬 Chat"+((p.log||[]).filter((l:any)=>l.t==="msg").length>0?" ("+(p.log||[]).filter((l:any)=>l.t==="msg").length+")":""):tab==="tareas"?"📊 Tablero de Tareas"+(prog.total>0?" ("+prog.total+")":""):tab==="presupuestos"?"💰 Presupuestos"+(budgets.length>0?" ("+budgets.length+")":""):"📝 Propuesta"}</button>)}
+      {(["tareas","presupuestos","propuesta","discusion"] as const).map(tab=><button key={tab} onClick={()=>sViewTab(tab)} style={{padding:"7px 16px",borderRadius:"8px 8px 0 0",border:"1px solid "+colors.g2,borderBottom:viewTab===tab?"2px solid "+colors.nv:"1px solid "+colors.g2,background:viewTab===tab?cardBg:"transparent",fontSize:12,fontWeight:viewTab===tab?700:500,color:viewTab===tab?colors.nv:colors.g4,cursor:"pointer",whiteSpace:"nowrap" as const}}>{tab==="tareas"?"📊 Tablero de Tareas"+(prog.total>0?" ("+prog.total+")":""):tab==="presupuestos"?"💰 Presupuestos"+(budgets.length>0?" ("+budgets.length+")":""):tab==="propuesta"?"📝 Propuesta":"💬 Discusión"}</button>)}
     </div>
-
-    {/* ── CHAT TAB ── */}
-    {viewTab==="chat"&&<div style={{height:400,display:"flex",flexDirection:"column" as const}}>
-      <Thread log={(p.log||[]).filter((l:any)=>l.t==="msg")} userId={user.id} onSend={(txt:string)=>{ if(onProjectMsg){onProjectMsg(p.id,txt);sSelProj({...p,log:[...(p.log||[]),{uid:user.id,by:((user.n||"")+" "+(user.a||"")).trim(),dt:new Date().toISOString(),act:txt,t:"msg"}]});} }} users={users}/>
-    </div>}
 
     {/* ── TAREAS TAB ── */}
     {viewTab==="tareas"&&<div>
@@ -522,6 +552,18 @@ export function ProyectosView({user,mob,onAddProject,onUpdProject,onDelProject,o
       <div style={{background:colors.g2,borderRadius:8,padding:"10px 12px",marginTop:16}}>
         <div style={{fontSize:11,color:colors.g5}}>🎤 <strong>Formato:</strong> Pitch oral de 7 minutos en SE o CD.</div>
       </div>
+    </div>}
+
+    {/* ── DISCUSIÓN TAB ── */}
+    {viewTab==="discusion"&&<div style={{display:"flex",flexDirection:"column" as const,height:mob?"calc(100vh - 280px)":480}}>
+      <div style={{fontSize:14,fontWeight:700,color:colors.nv,marginBottom:8}}>💬 Preguntas y Discusión</div>
+      <div style={{fontSize:11,color:colors.g4,marginBottom:10}}>Espacio para hacer preguntas, comentarios o discutir sobre la propuesta del proyecto.</div>
+      <Thread
+        log={(projMsgs||[]).filter((m:any)=>m.project_id===p.id).map((m:any)=>({uid:m.user_id,by:m.user_name,act:m.content,t:m.type,dt:m.created_at}))}
+        userId={user.id}
+        users={users}
+        onSend={(txt:string)=>onProjectMsg&&onProjectMsg(p.id,txt)}
+      />
     </div>}
   </div>);
 }
