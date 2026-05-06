@@ -19,6 +19,8 @@ export function SB({aA,aD,onAC,onDC,col,onCol,isPersonal,mob,sbOpen,onClose,vw,o
   /* Permisos: CD/SE pueden ver Becas y Atencion al Socio */
   const userAreaIds=user?.dId?DEPTOS.filter((d:any)=>d.id===user.dId).map((d:any)=>d.aId):[];
   const isCdOrSe=userAreaIds.includes(100)||userAreaIds.includes(101);
+  const isCdMember = userAreaIds.includes(100);
+  const isMesaConvivencia = user?.dId === 86;
   const canSeeBecasAS=user&&!isPersonal&&(user.role==="admin"||user.role==="superadmin"||isCdOrSe||user.dId===40||user.dId===76);
 
   /* rental badge: count items needing MY action */
