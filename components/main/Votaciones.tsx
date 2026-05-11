@@ -32,8 +32,8 @@ export function Votaciones({ user, tabType, mob }: any) {
   const isCdMember = userAreaIds.includes(100);
   const isSeMember = userAreaIds.includes(101);
   const isSA = user?.role === "superadmin" || user?.role === "admin";
-  const canCreate = isMesaConvivencia;
-  const canVote = isMesaConvivencia;
+  const canCreate = isMesaConvivencia || isSA;
+  const canVote = isMesaConvivencia || isSA;
   const canSeeVotacion = (v: any) => {
     if (isSA || isMesaConvivencia) return true;
     if (isCdMember) return v.tipo === "cd" || v.tipo === "mc";
