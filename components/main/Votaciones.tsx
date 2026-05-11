@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { fn } from "@/lib/constants";
+import { fn, DEPTOS } from "@/lib/constants";
 import { useC } from "@/lib/theme-context";
 import { Btn } from "@/components/ui";
 import { useDataStore } from "@/lib/store";
@@ -12,6 +12,7 @@ const NOW = () => new Date().toISOString().slice(0, 16).replace("T", " ");
 const TIPOS = [
   { k: "cd", l: "🏛️ Comisión Directiva", desc: "Requiere aprobación de la CD" },
   { k: "se", l: "⚡ Secretaría Ejecutiva", desc: "Aprobación rápida por la SE" },
+  { k: "mc", l: "⚖️ Mesa de Convivencia", desc: "Votación interna de la Mesa" },
 ];
 
 function pct(n: number, total: number) {
@@ -26,7 +27,20 @@ export function Votaciones({ user, tabType, mob }: any) {
   const sVotos = useDataStore((s) => s.sVotos);
   const { colors, isDark, cardBg } = useC();
 
-  const isSA = user.role === "superadmin" || user.role === "admin";
+  const userAreaIds = user?.dId ? DEPTOS.filter((d: any) => d.id === user.dId).map((d: any) => d.aId) : [];
+  const isMesaConvivencia = user?.dId === 86;
+  const isCdMember = userAreaIds.includes(100);
+  const isSeMember = userAreaIds.includes(101);
+  const isSA = user?.role === "superadmin" || user?.role === "admin";
+  const canCreate = isMesaConvivencia;
+  const canVote = isMesaConvivencia;
+  const canSeeVotacion = (v: any) => {
+    if (isSA || isMesaConvivencia) return true;
+    if (isCdMember) return v.tipo === "cd" || v.tipo === "mc";
+    if (isSeMember) return v.tipo === "se" || v.tipo === "mc";
+    return false;
+  };
+  const canView = isSA || isMesaConvivencia || isCdMember || isSeMember;
   const [view, sView] = useState<"activas" | "historial">("activas");
   const [showForm, sShowForm] = useState(false);
   const [saving, sSaving] = useState(false);
@@ -38,14 +52,15 @@ export function Votaciones({ user, tabType, mob }: any) {
   const [fDesc, sFDesc] = useState("");
   const [fTipo, sFTipo] = useState("cd");
 
-  // Filter votaciones by tab type
-  const fVot = votaciones.filter((v: any) => !tabType || v.tipo === tabType);
+  // Filter votaciones by visibility and optional tab type
+  const fVot = votaciones.filter((v: any) => canSeeVotacion(v) && (!tabType || v.tipo === tabType));
   const activas = fVot.filter((v: any) => v.estado === "abierta");
   const historial = fVot.filter((v: any) => v.estado === "cerrada");
 
   const resetForm = () => { sFTit(""); sFDesc(""); sFTipo("cd"); sShowForm(false); };
 
   async function crearVotacion() {
+    if (!canCreate) return;
     if (!fTit.trim()) return;
     sSaving(true);
     const { data, error } = await sb.from("votaciones").insert({
@@ -65,6 +80,7 @@ export function Votaciones({ user, tabType, mob }: any) {
   }
 
   async function votar(votacionId: number, voto: "si" | "no" | "abstencion") {
+    if (!canVote) return;
     const miVoto = votos.find((v: any) => v.votacion_id === votacionId && v.user_id === user.id);
     const nombre = `${user.n} ${user.a}`;
     const now = NOW();
@@ -327,7 +343,7 @@ export function Votaciones({ user, tabType, mob }: any) {
           <div style={{ fontSize: 10, color: colors.g4, marginBottom: 10 }}>{total} {total === 1 ? "voto" : "votos"} · {v.created_at?.slice(0, 10)}</div>
 
           {/* Vote buttons */}
-          {abierta && (
+          {abierta && canVote && (
             <div style={{ marginBottom: 10 }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: colors.g4, marginBottom: 6 }}>
                 {miVoto ? `Tu voto: ${miVoto.voto === "si" ? "✅ Sí" : miVoto.voto === "no" ? "❌ No" : "🤷 Abstención"} — podés cambiarlo` : "Tu voto:"}
@@ -357,19 +373,19 @@ export function Votaciones({ user, tabType, mob }: any) {
               style={{ display: "flex", alignItems: "center", gap: 4, padding: "6px 10px", borderRadius: 8, border: `1px solid ${colors.g2}`, background: colors.g1, color: colors.g5, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
               📄 {exporting === v.id ? "..." : "PDF"}
             </button>
-            {isSA && abierta && (
+            {canCreate && abierta && (
               <button onClick={() => notificarMiembros(v)} disabled={notifSending === v.id}
                 style={{ display: "flex", alignItems: "center", gap: 4, padding: "6px 10px", borderRadius: 8, border: `1px solid ${colors.bl}`, background: isDark ? "#1E293B" : "#EFF6FF", color: colors.bl, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
                 📢 {notifSending === v.id ? "Enviando..." : "Notificar"}
               </button>
             )}
-            {isSA && abierta && (
+            {canCreate && abierta && (
               <Btn v="s" s="s" onClick={() => cerrarVotacion(v)}>🔒 Cerrar</Btn>
             )}
-            {isSA && !abierta && (
+            {canCreate && !abierta && (
               <Btn v="w" s="s" onClick={() => reabrirVotacion(v)}>🔓 Reabrir</Btn>
             )}
-            {isSA && (
+            {canCreate && (
               <Btn v="r" s="s" onClick={() => eliminarVotacion(v.id)}>🗑</Btn>
             )}
           </div>
@@ -394,6 +410,14 @@ export function Votaciones({ user, tabType, mob }: any) {
 
   return (
     <div>
+      {!canView && (
+        <div style={{ textAlign: "center", padding: "32px 0", color: colors.g4 }}>
+          <div style={{ fontSize: 32, marginBottom: 8 }}>🔒</div>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>No tenés acceso a votaciones</div>
+        </div>
+      )}
+      {canView && (
+        <>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
         <div style={{ display: "flex", gap: 4 }}>
@@ -404,7 +428,7 @@ export function Votaciones({ user, tabType, mob }: any) {
             </button>
           ))}
         </div>
-        {isSA && !showForm && (
+        {canCreate && !showForm && (
           <button onClick={() => sShowForm(true)}
             style={{ padding: "7px 14px", borderRadius: 8, border: "none", background: colors.nv, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
             + Nueva Votación
@@ -460,7 +484,7 @@ export function Votaciones({ user, tabType, mob }: any) {
           ? <div style={{ textAlign: "center", padding: "32px 0", color: colors.g4 }}>
               <div style={{ fontSize: 32, marginBottom: 8 }}>🗳️</div>
               <div style={{ fontSize: 13, fontWeight: 600 }}>No hay votaciones activas</div>
-              {isSA && <div style={{ fontSize: 11, marginTop: 4 }}>Creá una nueva votación arriba</div>}
+              {canCreate && <div style={{ fontSize: 11, marginTop: 4 }}>Creá una nueva votación arriba</div>}
             </div>
           : activas.map((v: any) => <VotCard key={v.id} v={v} />)
       )}
@@ -483,6 +507,8 @@ export function Votaciones({ user, tabType, mob }: any) {
                 {(vots as any[]).map((v: any) => <VotCard key={v.id} v={v} />)}
               </div>
             ))
+      )}
+        </>
       )}
     </div>
   );

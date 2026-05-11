@@ -83,7 +83,7 @@ export function SB({aA,aD,onAC,onDC,col,onCol,isPersonal,mob,sbOpen,onClose,vw,o
         {k:"profs",l:"Perfiles",icon:"👤",show:user&&user.role==="superadmin"},
         {k:"presu",l:"Presupuestos",icon:"💰",show:!isPersonal&&user&&(user.role==="admin"||user.role==="superadmin"||user.role==="coordinador"||user.role==="embudo")},
         {k:"proyectos",l:"Proyectos",icon:"📋",show:true},
-        {k:"reun",l:"Reuniones",icon:"🤝",show:!isPersonal&&user&&(user.role==="admin"||user.role==="superadmin"||user.role==="coordinador")},
+        {k:"reun",l:"Reuniones",icon:"🤝",show:!isPersonal&&user&&(user.role==="admin"||user.role==="superadmin"||user.role==="coordinador"||isCdOrSe||isMesaConvivencia)},
         {k:"sponsors",l:"Sponsors",icon:"🥇",show:!isPersonal&&user&&(user.role==="admin"||user.role==="superadmin"||user.role==="coordinador"||user.role==="embudo")},
         {k:"torneos",l:"Torneos",icon:"🏆",show:!isPersonal&&user&&(user.role==="admin"||user.role==="superadmin"||user.role==="coordinador")},
         {k:"manual",l:"Manual",icon:"📖",show:true},
