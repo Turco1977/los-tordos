@@ -27,14 +27,17 @@ export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,on
   const tmpl=AGT[tab];
   const selAreaObj=areaName?areas.find((a:any)=>a.name===areaName):null;
   const areaDepts=selAreaObj?DEPTOS.filter((d:any)=>d.aId===selAreaObj.id):[];
-  const members=tab==="cd"?om.filter((m:any)=>m.t==="cd"&&m.n):tab==="se"?om.filter((m:any)=>m.t==="se"&&m.n):areaName?(()=>{const ar=areas.find((a:any)=>a.name===areaName);if(!ar)return[];const dIds=DEPTOS.filter((d:any)=>d.aId===ar.id).map((d:any)=>d.id);return users.filter((u:any)=>dIds.includes(u.dId)).map((u:any)=>({id:u.id,n:u.n,a:u.a,cargo:ROLES[u.role]?.l||u.role}));})():[];
-  const APPROVAL_QUORUM:{[k:string]:number}={cd:8,se:3};
+  const APPROVAL_QUORUM:{[k:string]:number}={cd:8,se:3,mc:3};
   const isSA=user.role==="superadmin"||user.role==="admin";
   const userDeptIds=(users.find((u:any)=>u.id===user.id))?.dId;
   const userAreaIds=userDeptIds?DEPTOS.filter((d:any)=>d.id===userDeptIds).map((d:any)=>d.aId):[];
-  const canApproveCd=isSA||userAreaIds.includes(100);const canApproveSe=isSA||userAreaIds.includes(101);
-  const canApproveType=(type:string)=>type==="cd"?canApproveCd:type==="se"?canApproveSe:false;
-  const pendingApprovals=minutas.filter((m:any)=>(m.type==="cd"||m.type==="se")&&m.status==="final"&&canApproveType(m.type)&&!(m.approvals||[]).some((a:any)=>a.userId===user.id));
+  const isMesaConvivencia = userDeptIds === 86;
+  const isCdMember = userAreaIds.includes(100);
+  const mcMembers=users.filter((u:any)=>u.dId===86).map((u:any)=>({id:u.id,n:u.n,a:u.a,cargo:ROLES[u.role]?.l||u.role}));
+  const members=tab==="cd"?om.filter((m:any)=>m.t==="cd"&&m.n):tab==="se"?om.filter((m:any)=>m.t==="se"&&m.n):tab==="mc"?mcMembers:areaName?(()=>{const ar=areas.find((a:any)=>a.name===areaName);if(!ar)return[];const dIds=DEPTOS.filter((d:any)=>d.aId===ar.id).map((d:any)=>d.id);return users.filter((u:any)=>dIds.includes(u.dId)).map((u:any)=>({id:u.id,n:u.n,a:u.a,cargo:ROLES[u.role]?.l||u.role}));})():[];
+  const canApproveCd=isSA||userAreaIds.includes(100);const canApproveSe=isSA||userAreaIds.includes(101);const canApproveMc=isSA||isMesaConvivencia;
+  const canApproveType=(type:string)=>type==="cd"?canApproveCd:type==="se"?canApproveSe:type==="mc"?canApproveMc:false;
+  const pendingApprovals=minutas.filter((m:any)=>(m.type==="cd"||m.type==="se"||m.type==="mc")&&m.status==="final"&&canApproveType(m.type)&&!(m.approvals||[]).some((a:any)=>a.userId===user.id));
   const fAg=agendas.filter((a:any)=>a.type===tab&&(tab!=="area"||!areaName||a.areaName===areaName));const fMi=minutas.filter((m:any)=>m.type===tab&&(tab!=="area"||!areaName||m.areaName===areaName));
   const resetAg=()=>{sAgDate(TODAY);sAgSecs(tmpl.secs.map((s:any)=>({t:s.t,sub:[...s.sub],notes:"",atts:[]})));sAgPres([]);sAreaName("");sDeptName("");};
   const resetMin=()=>{sMiDate(TODAY);sMiHI("18:00");sMiHC("20:00");sMiLugar("Club Los Tordos");sMiPres([]);sMiSecs(MINSECS[tab].map(()=>""));sMiTareas([]);sMiAgId(null);sAreaName("");sDeptName("");};
@@ -52,6 +55,9 @@ export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,on
       if(mi) miSecTitlesRef.current=(mi.sections||[]).map((s:any)=>s.title||"");
     }
   },[mode,selId,minutas]);
+  useEffect(()=>{
+    if(!isMesaConvivencia && mainSection==="reuniones") sMainSection("votaciones");
+  },[isMesaConvivencia, mainSection]);
   useEffect(()=>{
     if(mode!=="editMin"||!selId){sAutoSaved(false);return;}
     sAutoSaved(false);
@@ -132,12 +138,12 @@ export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,on
     <p style={{color:colors.g4,fontSize:12,margin:"0 0 14px"}}>{"\u00D3"}rdenes del d{"\u00ED"}a, minutas y votaciones</p>
     {/* Main section switcher */}
     <div style={{display:"flex",gap:4,marginBottom:16,borderBottom:"1px solid "+colors.g2,paddingBottom:10}}>
-      <Btn v={mainSection==="reuniones"?"p":"g"} s="s" onClick={()=>sMainSection("reuniones")}>{"\u{1F4C5}"} Reuniones</Btn>
+      {isMesaConvivencia && <Btn v={mainSection==="reuniones"?"p":"g"} s="s" onClick={()=>sMainSection("reuniones")}>{"\u{1F4C5}"} Reuniones</Btn>}
       <Btn v={mainSection==="votaciones"?"p":"g"} s="s" onClick={()=>sMainSection("votaciones")}>{"\u{1F5F3}\uFE0F"} Votaciones</Btn>
     </div>
     {mainSection==="votaciones"&&<Votaciones user={user} mob={mob} />}
-    {mainSection==="reuniones"&&<>
-    <div style={{display:"flex",gap:4,marginBottom:16}}>{Object.keys(AGT).map(k=><Btn key={k} v={tab===k?"p":"g"} s="s" onClick={()=>sTab(k)}>{AGT[k].icon} {AGT[k].title}</Btn>)}</div>
+    {isMesaConvivencia && mainSection==="reuniones"&&<>
+    <div style={{display:"flex",gap:4,marginBottom:16,flexWrap:"wrap" as const}}>{Object.keys(AGT).filter(k=>k!=="mc"||(isMesaConvivencia||isCdMember||userAreaIds.includes(101)||isSA)).map(k=><Btn key={k} v={tab===k?"p":"g"} s="s" onClick={()=>sTab(k)}>{AGT[k].icon} {AGT[k].title}</Btn>)}</div>
     <Card style={{marginBottom:14,borderLeft:"4px solid "+tmpl.color,padding:"12px 16px"}}>
       <div style={{fontSize:14,fontWeight:700,color:colors.nv}}>{tmpl.icon} {tmpl.title}</div>
       <div style={{fontSize:11,color:colors.g4}}>Periodicidad: {tmpl.per} {"\u00B7"} Duraci{"\u00F3"}n: {tmpl.dur}</div>

@@ -8,6 +8,7 @@ export const DEPTOS=[
   {id:50,name:"Presidente",aId:100},{id:51,name:"Vicepresidente",aId:100},{id:52,name:"Secretario",aId:100},{id:53,name:"Tesorero",aId:100},{id:54,name:"1er Vocal Titular",aId:100},{id:80,name:"2do Vocal Titular",aId:100},{id:81,name:"1er Vocal Suplente",aId:100},{id:82,name:"2do Vocal Suplente",aId:100},
   {id:55,name:"Presidente",aId:101},{id:56,name:"Vicepresidente",aId:101},{id:83,name:"Secretario",aId:101},{id:84,name:"Tesorero",aId:101},{id:85,name:"2do Vocal Titular",aId:101},
   {id:1,name:"Coordinación General",aId:1},{id:2,name:"Eventos",aId:1,pId:1},{id:3,name:"Comunicación",aId:1},{id:4,name:"Sponsoreo",aId:1},{id:66,name:"Comercial",aId:1,pId:4},{id:67,name:"Relacionamiento con Sponsors",aId:1,pId:4},{id:5,name:"Gastronomía y Recepción",aId:1,pId:2},{id:6,name:"Administración",aId:1,pId:1},
+  {id:86,name:"Mesa Convivencia",aId:1},
   {id:8,name:"Intendencia",aId:1,pId:1},{id:9,name:"Sistemas",aId:1,pId:1},{id:40,name:"Atención al Socio",aId:1,pId:1},{id:41,name:"Estandarización de Procesos",aId:1,pId:1},
   {id:43,name:"Diseño",aId:1,pId:3},{id:42,name:"Tordos TV",aId:1,pId:3},{id:44,name:"Redes",aId:1,pId:3},{id:45,name:"Fotografía",aId:1,pId:3},{id:46,name:"Filmación",aId:1,pId:3},{id:47,name:"Edición",aId:1,pId:3},{id:48,name:"Prensa",aId:1,pId:3},{id:49,name:"Creatividad",aId:1,pId:3},{id:60,name:"Asesoría Comunicación",aId:1,pId:3},
   {id:61,name:"Tesorería",aId:1},{id:7,name:"Compras",aId:1,pId:61},{id:62,name:"Financiación",aId:1,pId:61},{id:63,name:"Financiamiento",aId:1,pId:61},{id:65,name:"Tordos Shop",aId:1,pId:2},{id:76,name:"Becas",aId:1},
@@ -54,6 +55,12 @@ export const AGT:Record<string,{title:string;icon:string;color:string;per:string
     {t:"Resoluciones rápidas operativas",sub:[]},
     {t:"Agenda próxima quincena",sub:[]},
     {t:"Definición de temas a elevar a CD",sub:[]}]},
+  mc:{title:"Mesa de Convivencia",icon:"⚖️",color:"#7C3AED",per:"Mensual",dur:"1h30",secs:[
+    {t:"Apertura",sub:["Verificación de quórum"]},
+    {t:"Casos en tratamiento",sub:["Estado de situaciones activas"]},
+    {t:"Nuevos casos",sub:["Presentación y análisis"]},
+    {t:"Resoluciones",sub:["Decisiones tomadas","Medidas a aplicar"]},
+    {t:"Cierre",sub:["Próxima reunión","Temas pendientes"]}]},
   area:{title:"Área / Departamento",icon:"📂",color:T.bl,per:"Quincenal",dur:"1 hora",secs:[
     {t:"Qué hicimos",sub:[]},
     {t:"Qué estamos haciendo",sub:[]},
@@ -65,6 +72,7 @@ export const AGT:Record<string,{title:string;icon:string;color:string;per:string
 export const MINSECS:Record<string,string[]>={
   cd:["Temas tratados","Resoluciones tomadas","Temas pendientes próxima reunión"],
   se:["Avances","Decisiones operativas","Escalamientos a CD","Próximos pasos"],
+  mc:["Casos tratados","Resoluciones tomadas","Medidas aplicadas","Temas pendientes próxima reunión"],
   area:["Qué hice","Qué hago","Stoppers","Necesita aprobación de SE/CD"]
 };
 
@@ -200,6 +208,19 @@ export const ASC:Record<string,{l:string;c:string;bg:string;i:string}>={
 };
 
 export const RENTAL_PAYMENT = { alias: "LTRC.SUPER", phone: "2613028410" };
+
+export const ORG_CHART_PREVIEW_DEPTS: Record<number, { members: { id: string; first_name: string; last_name: string; label?: string }[] }> = {
+  86: {
+    members: [
+      { id: "preview-mesa-convivencia-ramiro-pontis", first_name: "Ramiro", last_name: "Pontis", label: "Integrante" },
+      { id: "preview-mesa-convivencia-guillermo-carbonell", first_name: "Guillermo", last_name: "Carbonell", label: "Integrante" },
+      { id: "preview-mesa-convivencia-daniela-casale", first_name: "Daniela", last_name: "Casale", label: "Integrante" },
+      { id: "preview-mesa-convivencia-martin-santiago", first_name: "Martin", last_name: "Santiago", label: "Integrante" },
+      { id: "preview-mesa-convivencia-valentina-miccoli", first_name: "Valentina", last_name: "Miccoli", label: "Integrante" },
+      { id: "preview-mesa-convivencia-julian-saa", first_name: "Julian", last_name: "Saa", label: "Integrante" },
+    ],
+  },
+};
 
 export const BOOK_ST:Record<string,{l:string;c:string;bg:string;i:string}>={
   pendiente:{l:"Pendiente",c:"#F59E0B",bg:"#FEF3C7",i:"⏳"},
@@ -550,4 +571,3 @@ export const DEPT_DESC:Record<number,{titulo:string;proposito:string;responsable
     ],
   },
 };
-
