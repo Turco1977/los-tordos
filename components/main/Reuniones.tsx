@@ -19,7 +19,9 @@ export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,on
   const areas = AREAS;
   const {colors,isDark,cardBg}=useC();
   const [mainSection,sMainSection]=useState<"reuniones"|"votaciones">("reuniones");
-  const [tab,sTab]=useState("cd");const [mode,sMode]=useState("home");const [selId,sSelId]=useState<number|null>(null);
+  const [tab,sTab]=useState(()=>{try{const t=localStorage.getItem("reuniones-tab");return t&&["cd","se","mc","area"].includes(t)?t:"cd";}catch{return"cd";}});
+  const setTab=(k:string)=>{sTab(k);try{localStorage.setItem("reuniones-tab",k);}catch{}};
+  const [mode,sMode]=useState("home");const [selId,sSelId]=useState<number|null>(null);
   const [agDate,sAgDate]=useState(TODAY);const [agSecs,sAgSecs]=useState<{t:string;sub:string[];notes:string;atts:{type:string;label:string;val:string}[]}[]>([]);const [agPres,sAgPres]=useState<string[]>([]);const [areaName,sAreaName]=useState("");const [deptName,sDeptName]=useState("");
   const [attOpenIdx,sAttOpenIdx]=useState<number|null>(null);const [attType2,sAttType2]=useState("");const [attVal2,sAttVal2]=useState("");
   const [miDate,sMiDate]=useState(TODAY);const [miHI,sMiHI]=useState("18:00");const [miHC,sMiHC]=useState("20:00");const [miLugar,sMiLugar]=useState("Club Los Tordos");
@@ -143,7 +145,7 @@ export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,on
     </div>
     {mainSection==="votaciones"&&<Votaciones user={user} mob={mob} />}
     {(isMesaConvivencia||isSA||isCdMember||userAreaIds.includes(101)) && mainSection==="reuniones"&&<>
-    <div style={{display:"flex",gap:4,marginBottom:16,flexWrap:"wrap" as const}}>{Object.keys(AGT).filter(k=>k!=="mc"||(isMesaConvivencia||isCdMember||userAreaIds.includes(101)||isSA)).map(k=><Btn key={k} v={tab===k?"p":"g"} s="s" onClick={()=>sTab(k)}>{AGT[k].icon} {AGT[k].title}</Btn>)}</div>
+    <div style={{display:"flex",gap:4,marginBottom:16,flexWrap:"wrap" as const}}>{Object.keys(AGT).filter(k=>k!=="mc"||(isMesaConvivencia||isCdMember||userAreaIds.includes(101)||isSA)).map(k=><Btn key={k} v={tab===k?"p":"g"} s="s" onClick={()=>{setTab(k);sMode("home");}}>{AGT[k].icon} {AGT[k].title}</Btn>)}</div>
     <Card style={{marginBottom:14,borderLeft:"4px solid "+tmpl.color,padding:"12px 16px"}}>
       <div style={{fontSize:14,fontWeight:700,color:colors.nv}}>{tmpl.icon} {tmpl.title}</div>
       <div style={{fontSize:11,color:colors.g4}}>Periodicidad: {tmpl.per} {"\u00B7"} Duraci{"\u00F3"}n: {tmpl.dur}</div>
