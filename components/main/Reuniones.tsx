@@ -56,7 +56,7 @@ export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,on
     }
   },[mode,selId,minutas]);
   useEffect(()=>{
-    if(!isMesaConvivencia && !isSA && mainSection==="reuniones") sMainSection("votaciones");
+    if(!isMesaConvivencia && !isSA && !isCdMember && !userAreaIds.includes(101) && mainSection==="reuniones") sMainSection("votaciones");
   },[isMesaConvivencia, mainSection]);
   useEffect(()=>{
     if(mode!=="editMin"||!selId){sAutoSaved(false);return;}
@@ -138,11 +138,11 @@ export function Reuniones({onAddAg,onUpdAg,onDelAg,onAddMin,onUpdMin,onDelMin,on
     <p style={{color:colors.g4,fontSize:12,margin:"0 0 14px"}}>{"\u00D3"}rdenes del d{"\u00ED"}a, minutas y votaciones</p>
     {/* Main section switcher */}
     <div style={{display:"flex",gap:4,marginBottom:16,borderBottom:"1px solid "+colors.g2,paddingBottom:10}}>
-      {(isMesaConvivencia||isSA) && <Btn v={mainSection==="reuniones"?"p":"g"} s="s" onClick={()=>sMainSection("reuniones")}>{"\u{1F4C5}"} Reuniones</Btn>}
+      {(isMesaConvivencia||isSA||isCdMember||userAreaIds.includes(101)) && <Btn v={mainSection==="reuniones"?"p":"g"} s="s" onClick={()=>sMainSection("reuniones")}>{"\u{1F4C5}"} Reuniones</Btn>}
       <Btn v={mainSection==="votaciones"?"p":"g"} s="s" onClick={()=>sMainSection("votaciones")}>{"\u{1F5F3}\uFE0F"} Votaciones</Btn>
     </div>
     {mainSection==="votaciones"&&<Votaciones user={user} mob={mob} />}
-    {(isMesaConvivencia||isSA) && mainSection==="reuniones"&&<>
+    {(isMesaConvivencia||isSA||isCdMember||userAreaIds.includes(101)) && mainSection==="reuniones"&&<>
     <div style={{display:"flex",gap:4,marginBottom:16,flexWrap:"wrap" as const}}>{Object.keys(AGT).filter(k=>k!=="mc"||(isMesaConvivencia||isCdMember||userAreaIds.includes(101)||isSA)).map(k=><Btn key={k} v={tab===k?"p":"g"} s="s" onClick={()=>sTab(k)}>{AGT[k].icon} {AGT[k].title}</Btn>)}</div>
     <Card style={{marginBottom:14,borderLeft:"4px solid "+tmpl.color,padding:"12px 16px"}}>
       <div style={{fontSize:14,fontWeight:700,color:colors.nv}}>{tmpl.icon} {tmpl.title}</div>
